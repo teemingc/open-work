@@ -1,4 +1,4 @@
-The OpenCollective invoice for https://opencollective.com/svelte requires an expense title and description:
+The OpenCollective invoice for https://opencollective.com/svelte requires an expense title and description (as listed by https://docs.oscollective.org/for-hosted-member-projects/spending-money-and-getting-paid/invoice-and-reimbursement-examples#invoices):
 
 ## Expense title
 
@@ -48,10 +48,12 @@ To speed up payment processing and improve transparency, consider including rele
 > @sveltejs/kit PRs: #9996, #9994, #9950, #9889, #9947, 10074, #9979, #9949, #9946, #9945, #9944, #9911, #9909, #9908, #9902, #9888, #9863 (+issue triage / management)
 
 ## Don't:
+
 Use vague or generic terms without specificity (e.g.: "work", "services", "payment")
 Use terms like "grant", "donation", "reward" — those words imply that work wasn't necessary done.
 
 ### Examples of Unacceptable Descriptions:
-"Work done on the project" 
- "Payment for involvement"
- "Donation for service"
+
+"Work done on the project"
+"Payment for involvement"
+"Donation for service"

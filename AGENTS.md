@@ -21,3 +21,42 @@ You MUST use this tool whenever writing Svelte code before sending it to the use
 
 Generates a Svelte Playground link with the provided code.
 After completing the code, ask the user if they want a playground link. Only call this tool after user confirmation and NEVER if code was written to files in their project.
+
+## Project rules
+
+- before writing Svelte code, check https://www.shadcn-svelte.com/docs/components and their installation instructions
+- use https://www.shadcn-svelte.com/docs/components/spinner instead of implementing your own spinner
+- select.root must set type attribute if it is a single select
+
+- instead of using emojis, raw SVG and special characters, use icons from the lucide-svelte package
+- avoid using deprecated icons
+
+- use pnpm instead of npm
+- run pnpm format, pnpm lint and pnpm check after making changes
+- append all terminal commands with the exit command such as `<user commands>; exit 0`
+
+## HTML rules
+
+- `<label>` elements must be associated with an input
+- when adding a toggle to hide/show elements, use `<details>` and `<summary>` instead of `<button>` and conditional logic
+
+## TypeScript rules
+
+- functions with 4 or more positional arguments should use a single destructured argument instead
+- types should be in their primary domain file rather than in a dedicated types.ts file
+- never create a barrel file such as `index.ts` that re-exports exported variables and functions from another file. Always import directly from the file with the original export
+
+## Svelte rules
+
+- do not use `$effect` to synchronise state
+- state whose value is an array should take advantage of mutative array methods instead of re-assigning the entire array for fine-grained updates
+- `window` always exists in `onMount` because it only runs on the client. There's no need to check if it is defined
+
+## SvelteKit rules
+
+- use `$lib` as an alias to `src/lib`
+- use `$app/state` instead of `$app/stores`
+- use the page object from `$app/state` to check the current URL instead of `window.location.href`
+- use `goto` from `$app/navigation` instead of assigning a value to `window.location.href`
+- href link must be wrapped with `resolve` from `$app/paths`
+- files referenced by only one other file should be located adjacent to it. Only move it to the `src/lib` directory if it's used by more than one file
