@@ -147,7 +147,7 @@
 					class="w-full rounded border px-3 py-2 font-mono text-sm"
 				></textarea>
 			{:else}
-				<div class="rounded border bg-gray-50 p-3 font-mono text-sm whitespace-pre-wrap">
+				<div class="rounded border bg-gray-50 p-3 font-mono text-sm wrap-break-word">
 					{displayDescription}
 				</div>
 			{/if}
@@ -155,7 +155,7 @@
 
 		<!-- Character count -->
 		<div class="text-xs text-gray-500">
-			{displayDescription.length} characters, {displayDescription.split('\n').length} lines
+			{displayDescription.length} characters
 		</div>
 
 		<!-- Actions -->

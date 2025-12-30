@@ -33,7 +33,6 @@ After completing the code, ask the user if they want a playground link. Only cal
 
 - use pnpm instead of npm
 - run pnpm format, pnpm lint and pnpm check after making changes
-- append all terminal commands with the exit command such as `<user commands>; exit 0`
 
 ## HTML rules
 

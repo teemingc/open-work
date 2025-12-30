@@ -58,7 +58,11 @@ export function generateExpenseTitle(invoice: MonthlyInvoice): string {
 	const { start, end } = getInvoiceDateRange(invoice);
 	if (invoice.customStartDate || invoice.customEndDate) {
 		const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-		const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+		const endStr = end.toLocaleDateString('en-US', {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		});
 		return `Maintenance and Development (${startStr} - ${endStr})`;
 	}
 	const monthName = new Date(invoice.year, invoice.month - 1).toLocaleString('en-US', {
@@ -77,11 +81,15 @@ export function generateExpenseDescription(
 ): string {
 	const totalHours = calculateTotalHours(invoice);
 	const { start, end } = getInvoiceDateRange(invoice);
-	
+
 	let dateDescription: string;
 	if (invoice.customStartDate || invoice.customEndDate) {
 		const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-		const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+		const endStr = end.toLocaleDateString('en-US', {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		});
 		dateDescription = `${startStr} - ${endStr}`;
 	} else {
 		const monthName = new Date(invoice.year, invoice.month - 1).toLocaleString('en-US', {
@@ -103,48 +111,58 @@ export function generateExpenseDescription(
 		}
 		description += ')';
 	}
-	description += ':\n\n';
+	description += ': ';
 
 	// Filter items by date range
-	const filteredContributions = filterContributionsByDateRange(invoice, invoice.githubContributions);
+	const filteredContributions = filterContributionsByDateRange(
+		invoice,
+		invoice.githubContributions
+	);
 	const filteredManualItems = filterManualWorkByDateRange(invoice, invoice.manualItems);
 
 	// Group GitHub contributions by repository
 	const byRepo = groupByRepository(filteredContributions);
 	const repoNames = Object.keys(byRepo).sort();
 
+	const parts: string[] = [];
+
 	if (repoNames.length > 0) {
 		for (const repo of repoNames) {
 			const contributions = byRepo[repo].filter((c) => (c.hours ?? 0) > 0);
 			if (contributions.length === 0) continue;
 
-			description += `**${repo}:**\n`;
-			for (const contrib of contributions) {
-				const hours = contrib.hours ? ` - ${contrib.hours}h` : '';
-				const typeLabel = formatContributionType(contrib.type);
-				description += `- ${typeLabel}${contrib.title} (${getShortId(contrib)})${hours}\n`;
-			}
-			description += '\n';
+			const contribList = contributions
+				.map((contrib) => {
+					const hours = contrib.hours ? ` (${contrib.hours}h)` : '';
+					const typeLabel = formatContributionType(contrib.type);
+					return `${typeLabel}${contrib.title} (${getShortId(contrib)})${hours}`;
+				})
+				.join(', ');
+
+			parts.push(`${repo}: ${contribList}`);
 		}
 	}
 
 	// Add manual work items
 	const manualWithHours = filteredManualItems.filter((i) => i.hours > 0);
 	if (manualWithHours.length > 0) {
-		description += '**Additional work:**\n';
-		for (const item of manualWithHours) {
-			description += `- ${formatWorkType(item.type)}: ${item.title} - ${item.hours}h\n`;
-		}
-		description += '\n';
+		const manualList = manualWithHours
+			.map((item) => {
+				return `${formatWorkType(item.type)}: ${item.title} (${item.hours}h)`;
+			})
+			.join(', ');
+
+		parts.push(`Additional work: ${manualList}`);
+	}
+
+	if (parts.length > 0) {
+		description += parts.join('. ');
 	}
 
 	// Add supporting links
 	const links = collectLinks(invoice);
 	if (links.length > 0) {
-		description += 'Supporting links:\n';
-		for (const link of links) {
-			description += `- ${link}\n`;
-		}
+		description += '. Supporting links: ' + links.join(', ');
 	}
 
 	return description.trim();
@@ -172,9 +190,12 @@ function groupByRepository(
  * Calculate total hours for an invoice (filtered by date range)
  */
 export function calculateTotalHours(invoice: MonthlyInvoice): number {
-	const filteredContributions = filterContributionsByDateRange(invoice, invoice.githubContributions);
+	const filteredContributions = filterContributionsByDateRange(
+		invoice,
+		invoice.githubContributions
+	);
 	const filteredManualItems = filterManualWorkByDateRange(invoice, invoice.manualItems);
-	
+
 	const githubHours = filteredContributions.reduce((sum, c) => sum + (c.hours || 0), 0);
 	const manualHours = filteredManualItems.reduce((sum, i) => sum + i.hours, 0);
 	return githubHours + manualHours;

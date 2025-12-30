@@ -32,6 +32,7 @@
 	}
 
 	function getTypeIcon(type: ManualWorkItem['type']) {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dunno what the icon component types are
 		const icons: Record<ManualWorkItem['type'], any> = {
 			experimentation: Microscope,
 			investigation: Search,

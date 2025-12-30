@@ -60,7 +60,11 @@
 			const d = new Date(dateStr);
 			return new CalendarDate(d.getFullYear(), d.getMonth() + 1, d.getDate());
 		}
-		return new CalendarDate(defaultDate.getFullYear(), defaultDate.getMonth() + 1, defaultDate.getDate());
+		return new CalendarDate(
+			defaultDate.getFullYear(),
+			defaultDate.getMonth() + 1,
+			defaultDate.getDate()
+		);
 	}
 
 	// Initialize date range when invoice loads
@@ -78,10 +82,10 @@
 	// Update invoice when date range changes
 	function handleDateRangeChange(range: BitsUIDateRange | undefined) {
 		if (!invoice || !range || !range.start || !range.end) return;
-		
+
 		const startStr = `${range.start.year}-${String(range.start.month).padStart(2, '0')}-${String(range.start.day).padStart(2, '0')}`;
 		const endStr = `${range.end.year}-${String(range.end.month).padStart(2, '0')}-${String(range.end.day).padStart(2, '0')}`;
-		
+
 		invoiceStore.updateDateRange(invoice.id, startStr, endStr);
 		showDateRangePicker = false;
 	}
@@ -246,19 +250,21 @@
 				<Popover.Trigger>
 					<Button variant="outline" size="sm" class="justify-start text-left font-normal">
 						{#if invoice.customStartDate || invoice.customEndDate}
-							{new Date(invoice.customStartDate || invoice.year + '-' + String(invoice.month).padStart(2, '0') + '-01').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+							{new Date(
+								invoice.customStartDate ||
+									invoice.year + '-' + String(invoice.month).padStart(2, '0') + '-01'
+							).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
 							-
-							{new Date(invoice.customEndDate || new Date(invoice.year, invoice.month, 0).toISOString()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+							{new Date(
+								invoice.customEndDate || new Date(invoice.year, invoice.month, 0).toISOString()
+							).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
 						{:else}
 							Full month
 						{/if}
 					</Button>
 				</Popover.Trigger>
 				<Popover.Content class="w-auto p-0">
-					<RangeCalendar
-						bind:value={dateRange}
-						onValueChange={handleDateRangeChange}
-					/>
+					<RangeCalendar bind:value={dateRange} onValueChange={handleDateRangeChange} />
 				</Popover.Content>
 			</Popover.Root>
 			{#if invoice.customStartDate || invoice.customEndDate}
@@ -305,28 +311,28 @@
 						<div class="flex items-center justify-between border-b bg-gray-50/50 px-5 py-3.5">
 							<h2 class="text-base font-semibold">GitHub Contributions</h2>
 							<div class="flex gap-2">
-							<Button
-								type="button"
-								onclick={() => (showManualWorkDialog = true)}
-								variant="outline"
-								size="sm"
-							>
-								<Plus size={14} class="mr-1.5" />
-								Add Manual Work
-							</Button>
-							<Button type="button" onclick={fetchFromGitHub} disabled={isFetching} size="sm">
-								{#if isFetching}
-									<Loader2 class="mr-2 h-3.5 w-3.5 animate-spin" />
-									Fetching...
-								{:else}
-									Fetch from GitHub
-								{/if}
-							</Button>
+								<Button
+									type="button"
+									onclick={() => (showManualWorkDialog = true)}
+									variant="outline"
+									size="sm"
+								>
+									<Plus size={14} class="mr-1.5" />
+									Add Manual Work
+								</Button>
+								<Button type="button" onclick={fetchFromGitHub} disabled={isFetching} size="sm">
+									{#if isFetching}
+										<Loader2 class="mr-2 h-3.5 w-3.5 animate-spin" />
+										Fetching...
+									{:else}
+										Fetch from GitHub
+									{/if}
+								</Button>
+							</div>
 						</div>
-					</div>
 
-					<div class="p-5">
-						{#if isFetching && fetchProgress}
+						<div class="p-5">
+							{#if isFetching && fetchProgress}
 								<div class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
 									<div class="mb-2 flex items-center justify-between text-sm">
 										<span class="font-medium text-blue-900">
@@ -426,30 +432,30 @@
 							{/if}
 
 							<ContributionsList
-							contributions={filteredContributions}
-							onUpdateHours={(id, hours) => {
-								invoiceStore.updateContributionHours(invoice.id, id, hours);
-							}}
-						/>
-					</div>
-				</div>
-			</section>
-
-			<!-- Manual Work -->
-			{#if filteredManualItems.length > 0}
-				<section>
-					<div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-						<div class="flex items-center justify-between border-b bg-gray-50/50 px-5 py-3.5">
-							<h2 class="text-base font-semibold">Manual Work</h2>
-							<Button size="sm" onclick={() => (showManualWorkDialog = true)}>
-								<Plus size={14} class="mr-1.5" />
-								Add Item
-							</Button>
+								contributions={filteredContributions}
+								onUpdateHours={(id, hours) => {
+									invoiceStore.updateContributionHours(invoice.id, id, hours);
+								}}
+							/>
 						</div>
+					</div>
+				</section>
 
-						<div class="p-5">
-							<ManualWorkList
-								items={filteredManualItems}
+				<!-- Manual Work -->
+				{#if filteredManualItems.length > 0}
+					<section>
+						<div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+							<div class="flex items-center justify-between border-b bg-gray-50/50 px-5 py-3.5">
+								<h2 class="text-base font-semibold">Manual Work</h2>
+								<Button size="sm" onclick={() => (showManualWorkDialog = true)}>
+									<Plus size={14} class="mr-1.5" />
+									Add Item
+								</Button>
+							</div>
+
+							<div class="p-5">
+								<ManualWorkList
+									items={filteredManualItems}
 									onDelete={(id) => {
 										invoiceStore.deleteManualItem(invoice.id, id);
 									}}
