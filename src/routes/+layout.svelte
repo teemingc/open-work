@@ -1,5 +1,6 @@
 <script lang="ts">
 	import './layout.css';
+	import { resolve } from '$app/paths';
 	import favicon from '#lib/assets/favicon.svg';
 	import RetryableError from '#lib/components/RetryableError.svelte';
 	import * as Alert from '#lib/components/ui/alert/index.js';
@@ -60,7 +61,10 @@
 	</svelte:boundary>
 </main>
 
-<footer class="mx-auto flex w-full max-w-6xl justify-center px-4 pb-8 sm:px-6">
+<footer class="mx-auto flex w-full max-w-6xl justify-center gap-6 px-4 pb-8 sm:px-6">
+	<a href={resolve('/privacy')} class="text-sm text-muted-foreground hover:text-foreground">
+		Privacy
+	</a>
 	<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
 	<a
 		href="https://github.com/teemingc/open-work"
