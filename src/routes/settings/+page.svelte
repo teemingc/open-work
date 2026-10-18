@@ -154,6 +154,18 @@
 
 <svelte:head><title>Settings · Open Work</title></svelte:head>
 
+<!--
+	Beside each field the warning above lists, until it is filled in. The same dot as on Settings in
+	the header, which shows while any of them is missing.
+-->
+{#snippet needed(requirement: SubmitRequirement)}
+	{#if missing.includes(requirement)}
+		<span class="size-1.5 shrink-0 rounded-full bg-attention" title="Needed to submit invoices">
+			<span class="sr-only">(needed to submit invoices)</span>
+		</span>
+	{/if}
+{/snippet}
+
 <div class="animate-in duration-300 fade-in">
 	<div class="mb-8 flex flex-wrap items-end justify-between gap-2">
 		<div>
@@ -184,10 +196,7 @@
 				<ul class="mt-1 list-disc space-y-0.5 pl-5">
 					{#each missing as requirement (requirement)}
 						<li>
-							<a
-								href="#{REQUIREMENT_FIELDS[requirement].id}"
-								class="font-medium text-foreground underline"
-							>
+							<a href="#{REQUIREMENT_FIELDS[requirement].id}" class="font-medium underline">
 								{REQUIREMENT_FIELDS[requirement].text}
 							</a>
 						</li>
@@ -236,9 +245,12 @@
 						</Button>
 					</div>
 				{:else}
-					<Button href={resolve('/auth/connect')} data-sveltekit-reload variant="outline">
-						Connect
-					</Button>
+					<div class="flex items-center gap-2">
+						<Button href={resolve('/auth/connect')} data-sveltekit-reload variant="outline">
+							Connect
+						</Button>
+						{@render needed('Open Collective connection')}
+					</div>
 				{/if}
 				{#if connectError}
 					<p class="flex items-start gap-1.5 text-sm text-destructive" role="alert">
@@ -248,7 +260,7 @@
 			</div>
 
 			<div class="space-y-1.5">
-				<Label for="payout-method">Payout method</Label>
+				<Label for="payout-method">Payout method{@render needed('payout method')}</Label>
 				<input {...fields.payoutMethodId.as('hidden', values.payoutMethodId ?? '')} />
 				<input {...fields.payoutMethodLabel.as('hidden', values.payoutMethodLabel ?? '')} />
 				<Select.Root
@@ -273,7 +285,7 @@
 
 			<div class="grid gap-5 sm:grid-cols-2">
 				<div class="space-y-1.5">
-					<Label for="collective">Collective</Label>
+					<Label for="collective">Collective{@render needed('collective')}</Label>
 					<Input
 						id="collective"
 						{...fields.collectiveSlug.as('text')}
@@ -336,7 +348,7 @@
 		<SettingsSection title="Billing" description="Copied into each new invoice when you start it.">
 			<div class="grid gap-5 sm:grid-cols-2">
 				<div class="space-y-1.5">
-					<Label for="rate">Hourly rate</Label>
+					<Label for="rate">Hourly rate{@render needed('hourly rate')}</Label>
 					<Input id="rate" {...fields.hourlyRate.as('number')} min="0" step="0.01" />
 					{#each fields.hourlyRate.issues() ?? [] as issue (issue.message)}
 						<p class="text-xs text-destructive">{issue.message}</p>

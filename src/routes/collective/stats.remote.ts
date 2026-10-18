@@ -292,6 +292,12 @@ export const getIncomeSources = query(Slug, async (slug) => {
 			describe(months, false)
 		);
 		const others = ranked.at(-1)?.slug ? [] : ranked.splice(-1);
+		// Everything the backers in "others" ever gave, so it reads like the rows above it.
+		if (others[0]) {
+			others[0].lifetime = topAccounts({ rows: people, months, limit: Infinity })
+				.slice(TOP_BACKERS)
+				.reduce((sum, backer) => sum + (lifetime.get(backer.slug) ?? backer.amount), 0);
+		}
 		const via = topAccounts({ rows: channels, months, limit: Infinity })
 			.filter((channel) => channel.amount > 0)
 			.map(describe(months, true));

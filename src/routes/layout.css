@@ -44,6 +44,8 @@
 	--warning: #7a5600;
 	--warning-surface: #fff8db;
 	--warning-border: #f2dc8a;
+	/* A dot that flags something unfinished. Bright, since it carries no text to keep readable. */
+	--attention: #f5a623;
 
 	--chart-income: #1869f5;
 	--chart-expenses: #e0577d;
@@ -86,6 +88,7 @@
 	--warning: #f3d27a;
 	--warning-surface: #2a2614;
 	--warning-border: #4d4422;
+	--attention: #f7b955;
 
 	--chart-income: #5b95ff;
 	--chart-expenses: #f28ba6;
@@ -133,6 +136,7 @@
 	--color-warning: var(--warning);
 	--color-warning-surface: var(--warning-surface);
 	--color-warning-border: var(--warning-border);
+	--color-attention: var(--attention);
 	--color-chart-income: var(--chart-income);
 	--color-chart-expenses: var(--chart-expenses);
 	--color-chart-expenses-muted: var(--chart-expenses-muted);

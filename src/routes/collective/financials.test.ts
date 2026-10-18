@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	accountsByMonth,
 	change,
 	forecast,
 	previousAverages,
@@ -386,5 +387,51 @@ describe('backerStatus', () => {
 		);
 		expect(backerStatus({ frequency: 'YEARLY', last: '2026-01-01T00:00:00Z', now })).toBe('Yearly');
 		expect(backerStatus({ frequency: null, last: '2026-10-01T00:00:00Z', now })).toBe('One-off');
+	});
+});
+
+describe('accountsByMonth', () => {
+	const payout = (month: string, slug: string, amount: number) => ({
+		month,
+		slug,
+		name: slug,
+		amount
+	});
+
+	it('sums each top account per month and groups the rest into one row', () => {
+		expect(
+			accountsByMonth({
+				rows: [
+					payout('2026-08', 'a', 100),
+					payout('2026-09', 'a', 30),
+					payout('2026-09', 'a', 20),
+					payout('2026-09', 'b', 5),
+					payout('2026-09', 'c', 1),
+					payout('2026-07', 'a', 999)
+				],
+				months: ['2026-08', '2026-09'],
+				limit: 1
+			})
+		).toEqual({
+			accounts: [
+				{ slug: 'a', name: 'a' },
+				{ slug: '', name: '2 others' }
+			],
+			cells: [
+				{ month: '2026-08', slug: 'a', name: 'a', amount: 100 },
+				{ month: '2026-09', slug: 'a', name: 'a', amount: 50 },
+				{ month: '2026-09', slug: '', name: '2 others', amount: 6 }
+			]
+		});
+	});
+
+	it('leaves out months where an account was paid nothing overall', () => {
+		expect(
+			accountsByMonth({
+				rows: [payout('2026-09', 'a', 10), payout('2026-09', 'a', -10)],
+				months: ['2026-09'],
+				limit: 5
+			}).cells
+		).toEqual([]);
 	});
 });

@@ -48,8 +48,12 @@
 								class="size-8 shrink-0 rounded-md border bg-card object-contain"
 								loading="lazy"
 							/>
-							<span class="font-medium">{collective.name}</span>
-							<span class="ml-auto truncate text-sm text-muted-foreground">{collective.about}</span>
+							<span class="min-w-0 flex-1">
+								<span class="block font-medium">{collective.name}</span>
+								<span class="block truncate text-sm text-muted-foreground" title={collective.about}>
+									{collective.about}
+								</span>
+							</span>
 							<ChevronRight
 								class="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
 								aria-hidden="true"

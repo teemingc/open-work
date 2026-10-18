@@ -247,7 +247,13 @@
 									{backer.history.contributions}
 									{backer.history.contributions === 1 ? 'contribution' : 'contributions'}
 								</span>
-								{#if status === 'Stopped'}
+								<!--
+									A platform passes on many people's money in batches that Open Collective records as
+									one-off, whatever each person chose, so it gets no frequency.
+								-->
+								{#if backer.channel}
+									<!-- Nothing: see above. -->
+								{:else if status === 'Stopped'}
 									<Badge variant="outline">Stopped</Badge>
 									{#if per}
 										<span>was {money.format(backer.history.lastAmount)}/{per}</span>

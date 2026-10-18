@@ -382,6 +382,41 @@ export function topAccounts({
 }
 
 /**
+ * What each of the top `limit` accounts was paid in each month, one cell per account and month
+ * with money. Everyone else shares one row with an empty slug, as in `topAccounts`.
+ */
+export function accountsByMonth({
+	rows,
+	months,
+	limit
+}: {
+	rows: AccountMonth[];
+	months: string[];
+	limit: number;
+}): { accounts: { slug: string; name: string }[]; cells: AccountMonth[] } {
+	const accounts = topAccounts({ rows, months, limit }).map(({ slug, name }) => ({ slug, name }));
+	const top = new Set(accounts.map((account) => account.slug).filter(Boolean));
+	const others = accounts.find((account) => account.slug === '');
+	const keys = new Set(months);
+	const cells = new Map<string, AccountMonth>();
+	for (const row of rows) {
+		if (!keys.has(row.month)) continue;
+		const account = top.has(row.slug)
+			? { slug: row.slug, name: row.name }
+			: others && { slug: '', name: others.name };
+		if (!account) continue;
+		const id = `${row.month} ${account.slug}`;
+		const cell = cells.get(id) ?? { month: row.month, ...account, amount: 0 };
+		cell.amount += row.amount;
+		cells.set(id, cell);
+	}
+	return {
+		accounts,
+		cells: [...cells.values()].filter((cell) => cell.amount > 0)
+	};
+}
+
+/**
  * Split `cells` squares between the values in proportion, rounding so they still add up to
  * `cells`: the largest remainders get the leftover squares.
  */

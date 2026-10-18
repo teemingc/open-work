@@ -90,10 +90,11 @@
 			{:else if missing.length > 0}
 				<Alert.Root variant="warning">
 					<TriangleAlert />
-					<Alert.Title>Finish setup to submit invoices</Alert.Title>
-					<Alert.Description>
-						<a href={resolve('settings')} class="font-medium underline">Go to settings</a>
-					</Alert.Description>
+					<!-- One line: the notice is short, and the link is the only thing to do about it. -->
+					<Alert.Title class="flex flex-wrap gap-x-3">
+						Finish setup to submit invoices
+						<a href={resolve('settings')} class="underline">Go to settings</a>
+					</Alert.Title>
 				</Alert.Root>
 			{/if}
 
@@ -110,7 +111,9 @@
 						{#if expensesPending}
 							<Skeleton class="mt-1 h-10 w-96 max-w-full" />
 						{:else}
-							<p class="mt-1 animate-in font-display text-4xl duration-300 fade-in">
+							<p
+								class="mt-1 animate-in font-display text-2xl whitespace-nowrap duration-300 fade-in sm:text-3xl"
+							>
 								{formatDMY(suggested.startDate)} – {formatDMY(suggested.endDate)}
 							</p>
 						{/if}

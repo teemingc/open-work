@@ -64,7 +64,7 @@
 				<span class="max-sm:sr-only">Settings</span>
 				<!-- Always takes its space, so the nav does not move when it appears. -->
 				<span
-					class={['size-1.5 rounded-full bg-ring', !needsSetup && 'invisible']}
+					class={['size-1.5 rounded-full bg-attention', !needsSetup && 'invisible']}
 					title={needsSetup ? 'Setup unfinished' : undefined}
 				></span>
 			</a>

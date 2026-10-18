@@ -5,7 +5,7 @@
 	import * as Chart from '#lib/components/ui/chart/index.js';
 	import * as ToggleGroup from '#lib/components/ui/toggle-group/index.js';
 	import { scaleBand, scaleTime } from 'd3-scale';
-	import { Area, AreaChart, BarChart, LinearGradient } from 'layerchart';
+	import { Area, AreaChart, BarChart, Circle, LinearGradient, ScatterChart } from 'layerchart';
 	import { ExternalLink, TrendingDown, TrendingUp } from '@lucide/svelte';
 	import RetryableError from '#lib/components/RetryableError.svelte';
 	import StatStrip, { type Stat } from '#lib/components/StatStrip.svelte';
@@ -25,7 +25,7 @@
 		monthsBetween,
 		paidTo,
 		previousAverages,
-		topAccounts,
+		accountsByMonth,
 		transactionsUrl
 	} from './financials';
 	import CollectiveSearch from './CollectiveSearch.svelte';
@@ -113,6 +113,15 @@
 			dates: result.points.map((p) => p.date)
 		})
 	);
+	/** The axis is sized from the series, which leave out the band, so a rising band ran off the top. */
+	const balanceMax = $derived(
+		Math.max(
+			0,
+			...history.map((p) => p.balance),
+			...projection.map((p) => p.balance),
+			...band.map((p) => p.high)
+		)
+	);
 
 	const previous = $derived(previousAverages({ months: data.months, basis: result.basis }));
 	/** How each average moved against the same number of months before it. */
@@ -148,12 +157,16 @@
 		return { months: complete.length, income, expenses, mine, net: income - expenses };
 	});
 
-	const payees = $derived(
-		topAccounts({ rows: data.payouts, months: shownKeys, limit: 7 }).map((payee) => ({
-			slug: payee.slug,
-			name: payee.name,
-			you: payee.slug === me ? Math.round(payee.amount) : null,
-			others: payee.slug === me ? null : Math.round(payee.amount)
+	const payees = $derived(accountsByMonth({ rows: data.payouts, months: shownKeys, limit: 7 }));
+	const payeeName = $derived(
+		new Map(payees.accounts.map((account) => [account.slug, shortName(account.name)]))
+	);
+	const payeeSeries = $derived(
+		(['you', 'others'] as const).map((key) => ({
+			key,
+			label: payeeConfig[key].label,
+			color: payeeConfig[key].color,
+			data: payees.cells.filter((cell) => (cell.slug === me) === (key === 'you'))
 		}))
 	);
 
@@ -245,8 +258,18 @@
 	}
 
 	/** The "others" row has no slug, so it opens every expense. */
-	function openPayee(_event: MouseEvent, { data: row }: { data: { slug: string } }) {
-		open(transactionsUrl({ slug: data.slug, account: row.slug || undefined, kinds: ['EXPENSE'] }));
+	function openPayee(
+		_event: MouseEvent,
+		{ data: cell }: { data: { slug: string; month: string } }
+	) {
+		open(
+			transactionsUrl({
+				slug: data.slug,
+				month: cell.month,
+				account: cell.slug || undefined,
+				kinds: ['EXPENSE']
+			})
+		);
 	}
 
 	const tickFormat = $derived(bandTickFormat(shownKeys));
@@ -274,13 +297,13 @@
 				<img
 					src={data.imageUrl}
 					alt=""
-					class="size-14 shrink-0 rounded-xl border bg-card object-contain"
+					class="size-16 shrink-0 rounded-xl border bg-card object-contain"
 				/>
 			{/if}
 			<div>
-				<h1>{data.name}</h1>
+				<h1 class="leading-none">{data.name}</h1>
 				<!-- The collective's address reads like a handle under its name. -->
-				<p class="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
+				<p class="mt-2 flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
 					<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
 					<a
 						href={`https://opencollective.com/${data.slug}`}
@@ -387,7 +410,7 @@
 						x="date"
 						y="balance"
 						xScale={scaleTime()}
-						yDomain={[0, null]}
+						yDomain={[0, balanceMax]}
 						yNice
 						seriesLayout="overlap"
 						highlight={{
@@ -589,53 +612,76 @@
 					unpaid={data.unpaid}
 				/>
 			{/if}
-			{#if payees.length > 0}
+			{#if payees.cells.length > 0}
 				<Card.Root>
 					<Card.Header>
 						<Card.Title>Who was paid</Card.Title>
-						<Card.Description>Expenses paid out in the shown months, by payee.</Card.Description>
+						<Card.Description>
+							Expenses paid out each month, by payee. The bigger the dot, the more was paid.
+						</Card.Description>
 					</Card.Header>
 					<Card.Content>
-						<LazyChart class="h-64">
-							<Chart.Container config={payeeConfig} class="aspect-auto h-64 w-full cursor-pointer">
-								<BarChart
-									data={payees}
+						<LazyChart class="h-72">
+							<Chart.Container config={payeeConfig} class="aspect-auto h-72 w-full cursor-pointer">
+								<ScatterChart
+									series={payeeSeries}
 									onTooltipClick={openPayee}
-									y="name"
-									orientation="horizontal"
-									seriesLayout="stack"
-									series={[
-										{ key: 'you', label: payeeConfig.you.label, color: payeeConfig.you.color },
-										{
-											key: 'others',
-											label: payeeConfig.others.label,
-											color: payeeConfig.others.color
-										}
-									]}
+									x="month"
+									xScale={scaleBand()}
+									xDomain={shownKeys}
+									y="slug"
+									yScale={scaleBand()}
+									yDomain={payees.accounts.map((account) => account.slug)}
+									r="amount"
+									rRange={[2, 11]}
 									padding={chartPadding({ left: 120 })}
 									props={{
-										bars: { radius: 2, strokeWidth: 0 },
-										xAxis: {
-											tickLength: TICK_LENGTH,
-											format: (v: number) => compact.format(v),
-											ticks: 4
-										},
+										points: { strokeWidth: 0, fillOpacity: 0.85 },
+										grid: { x: false, y: true, bandAlign: 'between' },
+										xAxis: { tickLength: TICK_LENGTH, format: tickFormat },
 										yAxis: {
 											tickLength: TICK_LENGTH,
-											tickLabelProps: Y_TICK_LABEL,
-											format: shortName
-										}
+											// Rows, not values: each label sits beside its row of dots.
+											tickLabelProps: { verticalAnchor: 'middle' },
+											format: (slug: string) => payeeName.get(slug) ?? ''
+										},
+										tooltip: { context: { mode: 'band' } }
 									}}
 								>
-									<!-- The default label is the x value, which is the amount on a horizontal chart. -->
-									{#snippet tooltip({ context })}
-										<Chart.Tooltip
-											labelFormatter={() =>
-												(context.tooltip.data as { name: string } | null)?.name ?? ''}
-											formatter={moneyRow}
-										/>
+									<!--
+										Rings the hovered dot. Replaces the built-in highlight, which drew its point at the
+										start of the row, where it looked like another payment.
+									-->
+									{#snippet highlight({ context })}
+										{@const cell = context.tooltip.data}
+										{#if cell}
+											<Circle
+												cx={context.xGet(cell) + (context.xScale.bandwidth?.() ?? 0) / 2}
+												cy={context.yGet(cell) + (context.yScale.bandwidth?.() ?? 0) / 2}
+												r={context.rGet(cell) + 3}
+												class="pointer-events-none fill-none stroke-primary"
+												strokeWidth={1.5}
+											/>
+										{/if}
 									{/snippet}
-								</BarChart>
+									{#snippet tooltip({ context })}
+										{@const cell = context.tooltip.data as {
+											name: string;
+											month: string;
+											amount: number;
+										} | null}
+										<Chart.Tooltip
+											hideIndicator
+											labelFormatter={() => (cell ? labelMonth(cell.month) : '')}
+										>
+											{#snippet formatter()}
+												{#if cell}
+													<MoneyRow value={cell.amount} name={cell.name} {money} />
+												{/if}
+											{/snippet}
+										</Chart.Tooltip>
+									{/snippet}
+								</ScatterChart>
 							</Chart.Container>
 						</LazyChart>
 					</Card.Content>

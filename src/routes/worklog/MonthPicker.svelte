@@ -52,7 +52,8 @@
 					aria-label="Choose a month, showing {label}"
 				>
 					{label}
-					<ChevronDown class="size-5 text-muted-foreground" aria-hidden="true" />
+					<!-- Down to the lowercase letters, where the eye reads the middle of the line. -->
+					<ChevronDown class="size-5 translate-y-0.75 text-muted-foreground" aria-hidden="true" />
 				</button>
 			{/snippet}
 		</Popover.Trigger>
