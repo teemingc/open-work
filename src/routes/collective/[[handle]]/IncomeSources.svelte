@@ -6,7 +6,13 @@
 	import { scaleBand } from 'd3-scale';
 	import { BarChart } from 'layerchart';
 	import { ExternalLink } from '@lucide/svelte';
-	import { bandTickFormat, compactFormat, monthLabel, moneyFormat } from './chart-format';
+	import {
+		bandTickFormat,
+		compactFormat,
+		monthLabel,
+		moneyFormat,
+		periodPhrase
+	} from './chart-format';
 	import { backerStatus, transactionsUrl } from './financials';
 	import BackerWaffle from './BackerWaffle.svelte';
 	import MoneyRow from './MoneyRow.svelte';
@@ -91,7 +97,7 @@
 		<Card.Header>
 			<Card.Title>Recurring and one-off contributions</Card.Title>
 			<Card.Description>
-				{money.format(total)} contributed in the shown months, {percent.format(
+				{money.format(total)} contributed {periodPhrase(months)}, {percent.format(
 					total ? recurring / total : 0
 				)} of it from recurring contributions.
 			</Card.Description>
@@ -139,9 +145,11 @@
 			<Card.Title>Top backers</Card.Title>
 			<Card.Description>
 				{#if topShare}
-					The biggest backer gave {percent.format(topShare)} of contributions in the shown months.
+					The biggest backer gave {percent.format(topShare)} of contributions {periodPhrase(
+						months
+					)}.
 				{:else}
-					Contributions in the shown months, by backer.
+					Contributions {periodPhrase(months)}, by backer.
 				{/if}
 			</Card.Description>
 		</Card.Header>
@@ -159,11 +167,6 @@
 									class="flex min-w-0 items-center gap-1.5 font-medium hover:underline"
 								>
 									<span class="truncate">{backer.name}</span>
-									{#if backer.channel}
-										<Badge variant="secondary" title="Passes on money from many people"
-											>Platform</Badge
-										>
-									{/if}
 									<ExternalLink size={12} class="shrink-0 text-muted-foreground" />
 								</a>
 								<!-- eslint-enable svelte/no-navigation-without-resolve -->
@@ -249,10 +252,17 @@
 								</span>
 								<!--
 									A platform passes on many people's money in batches that Open Collective records as
-									one-off, whatever each person chose, so it gets no frequency.
+									one-off, whatever each person chose, so it gets an average per month instead of a
+									frequency, counted from its first contribution in these months.
 								-->
 								{#if backer.channel}
-									<!-- Nothing: see above. -->
+									{@const first = backer.history.first.slice(0, 7)}
+									{@const active = months.filter((month) => month >= first).length}
+									{#if active}
+										<Badge variant="secondary"
+											>{money.format(backer.amount / active)}/month avg</Badge
+										>
+									{/if}
 								{:else if status === 'Stopped'}
 									<Badge variant="outline">Stopped</Badge>
 									{#if per}
@@ -272,5 +282,5 @@
 	</Card.Root>
 
 	<!-- What share each backer, platform and everyone else gives. -->
-	<BackerWaffle {backers} {money} />
+	<BackerWaffle {backers} {money} period={periodPhrase(months)} />
 </div>

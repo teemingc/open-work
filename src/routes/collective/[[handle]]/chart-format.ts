@@ -30,6 +30,16 @@ export function monthLabel({ key, partialKey }: { key: string; partialKey?: stri
 	return monthYear.format(monthEnd(key)) + (key === partialKey ? ' (so far)' : '');
 }
 
+/**
+ * The months on screen as a phrase that finishes "contributed …": "in the last 12 months",
+ * "in the last 2 years", or "since Mar 2019" for any other span, like all time.
+ */
+export function periodPhrase(keys: string[]): string {
+	if (keys.length === 12) return 'in the last 12 months';
+	if (keys.length === 24) return 'in the last 2 years';
+	return keys.length ? `since ${monthYear.format(monthEnd(keys[0]))}` : '';
+}
+
 /** Labels every few months of a band axis, counting back from the latest, so they don't overlap. */
 export function bandTickFormat(keys: string[]): (key: string) => string {
 	const every = Math.max(1, Math.ceil(keys.length / 6));

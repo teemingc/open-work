@@ -284,7 +284,7 @@ export const getIncomeSources = query(Slug, async (slug) => {
 			history: (backer.slug && history.get(backer.slug)) || null,
 			// Only the "others" row: a few totals, not every backer.
 			tiers: backer.slug ? null : othersBySize({ rows: people, months, limit: TOP_BACKERS }),
-			// Everything they ever gave, to show beside the total for the shown months.
+			// Everything they ever gave, to show beside the total for the months on screen.
 			lifetime: backer.slug ? (lifetime.get(backer.slug) ?? backer.amount) : null
 		});
 	const top = (months?: string[]) => {

@@ -8,6 +8,7 @@
 	import { restoreSettings } from '#lib/settings.remote.js';
 	import { LEGACY_STORAGE_KEY, parseBackup } from '#lib/settings.js';
 	import { onMount } from 'svelte';
+	import GitHubMark from './GitHubMark.svelte';
 	import Header from './Header.svelte';
 	import NavigationLoader from './NavigationLoader.svelte';
 
@@ -58,3 +59,17 @@
 		{/snippet}
 	</svelte:boundary>
 </main>
+
+<footer class="mx-auto flex w-full max-w-6xl justify-center px-4 pb-8 sm:px-6">
+	<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
+	<a
+		href="https://github.com/teemingc/open-work"
+		target="_blank"
+		rel="noreferrer"
+		class="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+	>
+		<GitHubMark class="size-4" />
+		Source code
+	</a>
+	<!-- eslint-enable svelte/no-navigation-without-resolve -->
+</footer>

@@ -4,7 +4,13 @@
 	import * as Chart from '#lib/components/ui/chart/index.js';
 	import { scaleBand } from 'd3-scale';
 	import { BarChart } from 'layerchart';
-	import { bandTickFormat, compactFormat, monthLabel, moneyFormat } from './chart-format';
+	import {
+		bandTickFormat,
+		compactFormat,
+		monthLabel,
+		moneyFormat,
+		periodPhrase
+	} from './chart-format';
 	import { lastMonthKeys, transactionsUrl, type Payout, type Unpaid } from './financials';
 	import MoneyRow from './MoneyRow.svelte';
 
@@ -87,7 +93,10 @@
 	<Card.Header>
 		<Card.Title>Paid to you</Card.Title>
 		<Card.Description>
-			{money.format(shownTotal)} in the shown months, {money.format(lastYear)} in the last 12 months and
+			{#if months.length !== 12}
+				{money.format(shownTotal)} {periodPhrase(months)},
+			{/if}
+			{money.format(lastYear)} in the last 12 months and
 			{money.format(thisYear)} so far in {now.getUTCFullYear()}.
 			{#if approved || pending}
 				Not paid yet: {money.format(approved)} approved, {money.format(pending)} awaiting approval.

@@ -297,7 +297,7 @@
 {/snippet}
 
 <div class="flex animate-in flex-col gap-8 duration-300 fade-in">
-	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+	<div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 		<div class="flex items-center gap-4">
 			{#if data.imageUrl}
 				<img
@@ -491,12 +491,16 @@
 						}}
 					>
 						{#snippet marks()}
+							<!-- Spans the whole chart rather than each area's own box, so the same height has the same
+							shade. Per area, a rising forecast stretched the fade over its tall box and left a pale
+							wedge below the band. -->
 							<LinearGradient
 								stops={[
 									[0, 'color-mix(in oklab, var(--color-chart-balance) 40%, transparent)'],
 									[1, 'color-mix(in oklab, var(--color-chart-balance) 2%, transparent)']
 								]}
 								vertical
+								units="userSpaceOnUse"
 							>
 								{#snippet children({ gradient })}
 									<Area

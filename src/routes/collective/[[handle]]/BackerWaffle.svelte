@@ -4,11 +4,14 @@
 
 	let {
 		backers,
-		money
+		money,
+		period
 	}: {
 		/** Top backers, biggest first, and an "others" row without a slug. */
 		backers: { slug: string; name: string; amount: number; channel: boolean }[];
 		money: Intl.NumberFormat;
+		/** When the contributions were made, like "in the last 12 months". */
+		period: string;
 	} = $props();
 
 	// Categorical hues in a fixed order for named backers, then neutrals for the groups. More than four named
@@ -71,12 +74,12 @@
 	const percent = new Intl.NumberFormat('en-US', { style: 'percent' });
 </script>
 
-<Card.Root>
+<Card.Root class="@container">
 	<Card.Header>
 		<Card.Title>Who funds the collective</Card.Title>
-		<Card.Description>Each square is 1% of contributions in the shown months.</Card.Description>
+		<Card.Description>Each square is 1% of contributions {period}.</Card.Description>
 	</Card.Header>
-	<Card.Content class="flex flex-col gap-6 sm:flex-row sm:items-start">
+	<Card.Content class="flex flex-col gap-6 @xl:flex-row @xl:items-start">
 		<div
 			class="grid aspect-square w-full max-w-56 shrink-0 grid-cols-10 gap-0.5"
 			role="img"
@@ -91,7 +94,7 @@
 				></div>
 			{/each}
 		</div>
-		<ul class="flex flex-1 flex-col gap-1 text-sm">
+		<ul class="flex min-w-0 flex-1 flex-col gap-1 text-sm">
 			{#each groups as group, index (group.key)}
 				<li
 					class="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-muted"
