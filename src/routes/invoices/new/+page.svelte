@@ -69,7 +69,7 @@
 	function onSubmitted(submittedUrl: string | undefined) {
 		submitted = true;
 		// Replace this entry so Back cannot bring the sent draft back for a second submit.
-		goto(resolve('/'), { replace: true, state: { submittedUrl } });
+		goto(resolve('/invoices'), { replace: true, state: { submittedUrl } });
 	}
 </script>
 
@@ -77,7 +77,7 @@
 
 <div class="animate-in duration-300 fade-in">
 	<a
-		href={resolve('/')}
+		href={resolve('/invoices')}
 		class="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
 	>
 		<ArrowLeft size={15} /> Invoices

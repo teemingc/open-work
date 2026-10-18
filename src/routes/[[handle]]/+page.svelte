@@ -37,7 +37,7 @@
 				{#each SUGGESTED_COLLECTIVES as collective (collective.slug)}
 					<li>
 						<a
-							href={resolve('/collective/[[handle]]', { handle: collective.slug })}
+							href={resolve('/[[handle]]', { handle: collective.slug })}
 							class="group flex items-center gap-3 px-3.5 py-2.5 hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
 						>
 							<img
