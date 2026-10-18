@@ -4,6 +4,7 @@
 	import { getMe } from '#lib/opencollective.remote.js';
 	import { getSettings } from '#lib/settings.remote.js';
 	import { missingForSubmit } from '#lib/settings.js';
+	import logo from '#lib/assets/favicon.svg';
 	import { ChartLine, Clock, FileText, Settings } from '@lucide/svelte';
 
 	// Read without `await` so the header never waits on Open Collective.
@@ -27,8 +28,9 @@
 	<div class="mx-auto flex h-16 max-w-6xl items-stretch justify-between gap-4 px-4 sm:px-6">
 		<a
 			href={resolve('/')}
-			class="flex items-center font-display text-xl font-semibold text-primary"
+			class="flex items-center gap-2.5 font-display text-xl font-semibold text-primary"
 		>
+			<img src={logo} alt="" class="size-7" />
 			Open Work
 		</a>
 
