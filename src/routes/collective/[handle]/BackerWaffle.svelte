@@ -80,9 +80,9 @@
 		<Card.Description>Each square is 1% of contributions {period}.</Card.Description>
 	</Card.Header>
 	<Card.Content class="flex flex-col gap-6">
-		<!-- A square on narrow cards; a band across wide ones, so each group reads as a run like a stacked bar. -->
+		<!-- A band across the full card width, so each group reads as a run like a stacked bar. -->
 		<div
-			class="grid aspect-square w-full max-w-56 grid-cols-10 gap-0.5 @xl:aspect-[25/4] @xl:max-w-none @xl:grid-cols-25"
+			class="grid aspect-[4/1] w-full grid-cols-20 gap-0.5 @xl:aspect-[25/4] @xl:grid-cols-25"
 			role="img"
 			aria-label={groups.map((group, index) => `${group.label}: ${counts[index]}%`).join(', ')}
 		>
