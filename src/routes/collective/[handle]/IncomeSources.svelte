@@ -68,7 +68,8 @@
 	const total = $derived(rows.reduce((sum, row) => sum + row.recurring + row.oneOff, 0));
 
 	const backers = $derived(income.backers[range]);
-	const biggest = $derived(Math.max(...backers.map((backer) => backer.amount), 1));
+	/** Each bar is that backer's share of everything contributed in the range. */
+	const share = (amount: number) => (total ? (amount / total) * 100 : 0);
 	const topShare = $derived(total && backers[0]?.slug ? backers[0].amount / total : 0);
 
 	function openMonth(_event: MouseEvent, { data: row }: { data: { month: string } }) {
@@ -203,7 +204,7 @@
 								{#each backer.tiers as tier, index (tier.min)}
 									<div
 										class="h-full {TIER_SHADES[index]}"
-										style:width="{(tier.amount / biggest) * 100}%"
+										style:width="{share(tier.amount)}%"
 									></div>
 								{/each}
 							</div>
@@ -226,7 +227,7 @@
 							<div class="h-1.5 rounded-full bg-muted">
 								<div
 									class="h-full rounded-full bg-chart-income"
-									style:width="{(backer.amount / biggest) * 100}%"
+									style:width="{share(backer.amount)}%"
 								></div>
 							</div>
 						{/if}
@@ -241,8 +242,10 @@
 							<div
 								class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"
 							>
+								<!-- Shortens to "Oct 2026" or "Mar – May 2026" when the ends share a month or year. -->
 								<span>
-									{monthYear.format(new Date(backer.history.first))} – {monthYear.format(
+									{monthYear.formatRange(
+										new Date(backer.history.first),
 										new Date(backer.history.last)
 									)},
 								</span>
