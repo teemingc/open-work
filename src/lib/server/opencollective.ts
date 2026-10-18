@@ -94,7 +94,10 @@ export async function graphql<T>({
 		);
 	}
 	if (body?.errors?.length) {
-		throw new OpenCollectiveError(body.errors.map((e) => e.message).join('\n'), 400);
+		const message = body.errors.map((e) => e.message).join('\n');
+		// A token without the scope a query needs is refused, like any other rejected token.
+		const unscoped = /not allowed for operations in scope/i.test(message);
+		throw new OpenCollectiveError(message, unscoped ? 403 : 400);
 	}
 	if (!response.ok || !body?.data) {
 		throw new OpenCollectiveError(`Open Collective returned an error (${response.status}).`);
@@ -103,9 +106,10 @@ export async function graphql<T>({
 }
 
 /**
- * Public data, asked for with your token when you are connected, else the server's personal
- * token: signed-in requests get a more generous rate limit. A token Open Collective no longer accepts falls back to asking
- * anonymously, so a stale connection never hides public stats.
+ * Public data, asked for with your token when you are connected, then the server's personal
+ * token, then anonymously: signed-in requests get a more generous rate limit. A token that is
+ * rejected, lacks a scope or is rate-limited moves straight on to the next way of asking, so a stale connection or a
+ * busy personal token never hides public stats. Only the last way waits out a rate limit.
  */
 export async function publicGraphql<T>({
 	token,
@@ -116,17 +120,23 @@ export async function publicGraphql<T>({
 	query: string;
 	variables?: Record<string, unknown>;
 }): Promise<T> {
-	// Without your connection, the app's own personal token, if the server has one.
 	const personalToken = OC_PERSONAL_TOKEN || undefined;
-	if (!token) return graphql<T>({ personalToken, query, variables });
-	try {
-		return await graphql<T>({ token, query, variables });
-	} catch (err) {
-		if (err instanceof OpenCollectiveError && err.status === 401) {
-			return graphql<T>({ personalToken, query, variables });
+	const attempts: { token?: string; personalToken?: string }[] = [
+		...(token ? [{ token }] : []),
+		...(personalToken ? [{ personalToken }] : []),
+		{}
+	];
+	for (const [index, attempt] of attempts.entries()) {
+		const last = index === attempts.length - 1;
+		try {
+			// `retried` skips the wait on a rate limit, since there is another way to ask.
+			return await graphql<T>({ ...attempt, query, variables, retried: !last });
+		} catch (err) {
+			const moveOn = err instanceof OpenCollectiveError && [401, 403, 429].includes(err.status);
+			if (last || !moveOn) throw err;
 		}
-		throw err;
 	}
+	throw new Error('unreachable');
 }
 
 /** Rethrow Open Collective failures as HTTP errors the client can show. */

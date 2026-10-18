@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { graphql, OpenCollectiveError, publicGraphql, retryAfterMs } from './opencollective';
 
+// The server's personal token, set per test.
+const env = vi.hoisted(() => ({ OC_PERSONAL_TOKEN: '' }));
+vi.mock('$app/env/private', () => env);
+
 const ok = () => new Response(JSON.stringify({ data: { ok: true } }), { status: 200 });
 const limited = (retryAfter?: string) =>
 	new Response('Rate limit exceeded', {
@@ -9,6 +13,7 @@ const limited = (retryAfter?: string) =>
 	});
 
 afterEach(() => {
+	env.OC_PERSONAL_TOKEN = '';
 	vi.unstubAllGlobals();
 	vi.useRealTimers();
 });
@@ -66,5 +71,59 @@ describe('publicGraphql', () => {
 		await expect(publicGraphql({ token: 'stale', query: '{ ok }' })).resolves.toEqual({ ok: true });
 		expect(fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer stale');
 		expect(fetch.mock.calls[1][1].headers.Authorization).toBeUndefined();
+	});
+
+	it('asks anonymously straight away when the token is rate-limited', async () => {
+		const fetch = vi.fn().mockResolvedValueOnce(limited('5')).mockResolvedValueOnce(ok());
+		vi.stubGlobal('fetch', fetch);
+
+		await expect(publicGraphql({ token: 'busy', query: '{ ok }' })).resolves.toEqual({ ok: true });
+		expect(fetch).toHaveBeenCalledTimes(2);
+		expect(fetch.mock.calls[1][1].headers.Authorization).toBeUndefined();
+	});
+
+	it('tries your token, then the personal token, then anonymously', async () => {
+		env.OC_PERSONAL_TOKEN = 'personal';
+		const fetch = vi
+			.fn()
+			.mockResolvedValueOnce(limited())
+			.mockResolvedValueOnce(limited())
+			.mockResolvedValueOnce(ok());
+		vi.stubGlobal('fetch', fetch);
+
+		await expect(publicGraphql({ token: 'yours', query: '{ ok }' })).resolves.toEqual({ ok: true });
+		const headers = fetch.mock.calls.map((call) => call[1].headers);
+		expect(headers[0].Authorization).toBe('Bearer yours');
+		expect(headers[1]['Personal-Token']).toBe('personal');
+		expect(headers[2].Authorization).toBeUndefined();
+		expect(headers[2]['Personal-Token']).toBeUndefined();
+	});
+
+	it('asks anonymously when the personal token lacks a scope', async () => {
+		env.OC_PERSONAL_TOKEN = 'personal';
+		const unscoped = new Response(
+			JSON.stringify({
+				errors: [
+					{ message: 'The Personal Token is not allowed for operations in scope "transactions".' }
+				]
+			}),
+			{ status: 200 }
+		);
+		const fetch = vi.fn().mockResolvedValueOnce(unscoped).mockResolvedValueOnce(ok());
+		vi.stubGlobal('fetch', fetch);
+
+		await expect(publicGraphql({ query: '{ ok }' })).resolves.toEqual({ ok: true });
+		expect(fetch.mock.calls[1][1].headers['Personal-Token']).toBeUndefined();
+	});
+
+	it('waits out a rate limit only when there is no other way to ask', async () => {
+		vi.useFakeTimers();
+		const fetch = vi.fn().mockResolvedValueOnce(limited('1')).mockResolvedValueOnce(ok());
+		vi.stubGlobal('fetch', fetch);
+
+		const result = publicGraphql({ query: '{ ok }' });
+		await vi.advanceTimersByTimeAsync(1000);
+		await expect(result).resolves.toEqual({ ok: true });
+		expect(fetch).toHaveBeenCalledTimes(2);
 	});
 });
