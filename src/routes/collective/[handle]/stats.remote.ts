@@ -269,9 +269,6 @@ export const getIncomeSources = query(Slug, async (slug) => {
 	const now = new Date();
 	const { months, backers } = toContributions(nodes);
 	const history = backerHistory(nodes);
-	const lifetime = new Map(
-		topAccounts({ rows: backers, limit: Infinity }).map((backer) => [backer.slug, backer.amount])
-	);
 	// Payment platforms pass on money from many people, so they are shown apart from the
 	// people and companies that back the collective directly.
 	const people = backers.filter((row) => !CHANNELS.has(row.slug));
@@ -283,21 +280,13 @@ export const getIncomeSources = query(Slug, async (slug) => {
 			channel,
 			history: (backer.slug && history.get(backer.slug)) || null,
 			// Only the "others" row: a few totals, not every backer.
-			tiers: backer.slug ? null : othersBySize({ rows: people, months, limit: TOP_BACKERS }),
-			// Everything they ever gave, to show beside the total for the months on screen.
-			lifetime: backer.slug ? (lifetime.get(backer.slug) ?? backer.amount) : null
+			tiers: backer.slug ? null : othersBySize({ rows: people, months, limit: TOP_BACKERS })
 		});
 	const top = (months?: string[]) => {
 		const ranked = topAccounts({ rows: people, months, limit: TOP_BACKERS }).map(
 			describe(months, false)
 		);
 		const others = ranked.at(-1)?.slug ? [] : ranked.splice(-1);
-		// Everything the backers in "others" ever gave, so it reads like the rows above it.
-		if (others[0]) {
-			others[0].lifetime = topAccounts({ rows: people, months, limit: Infinity })
-				.slice(TOP_BACKERS)
-				.reduce((sum, backer) => sum + (lifetime.get(backer.slug) ?? backer.amount), 0);
-		}
 		const via = topAccounts({ rows: channels, months, limit: Infinity })
 			.filter((channel) => channel.amount > 0)
 			.map(describe(months, true));

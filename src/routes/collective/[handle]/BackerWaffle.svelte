@@ -74,14 +74,15 @@
 	const percent = new Intl.NumberFormat('en-US', { style: 'percent' });
 </script>
 
-<Card.Root class="@container">
+<Card.Root class="@container lg:col-span-2">
 	<Card.Header>
 		<Card.Title>Who funds the collective</Card.Title>
 		<Card.Description>Each square is 1% of contributions {period}.</Card.Description>
 	</Card.Header>
-	<Card.Content class="flex flex-col gap-6 @xl:flex-row @xl:items-start">
+	<Card.Content class="flex flex-col gap-6">
+		<!-- A square on narrow cards; a band across wide ones, so each group reads as a run like a stacked bar. -->
 		<div
-			class="grid aspect-square w-full max-w-56 shrink-0 grid-cols-10 gap-0.5"
+			class="grid aspect-square w-full max-w-56 grid-cols-10 gap-0.5 @xl:aspect-[25/4] @xl:max-w-none @xl:grid-cols-25"
 			role="img"
 			aria-label={groups.map((group, index) => `${group.label}: ${counts[index]}%`).join(', ')}
 		>
@@ -94,10 +95,11 @@
 				></div>
 			{/each}
 		</div>
-		<ul class="flex min-w-0 flex-1 flex-col gap-1 text-sm">
+		<!-- Two columns on wide cards, still ranked top to bottom. -->
+		<ul class="flex flex-col gap-1 text-sm @xl:block @xl:columns-2 @xl:gap-x-12">
 			{#each groups as group, index (group.key)}
 				<li
-					class="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-muted"
+					class="flex break-inside-avoid items-center gap-2 rounded-md px-2 py-1 hover:bg-muted"
 					onpointerenter={() => (hovered = index)}
 					onpointerleave={() => (hovered = undefined)}
 				>

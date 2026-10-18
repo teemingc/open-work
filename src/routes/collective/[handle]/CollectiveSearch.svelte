@@ -7,7 +7,7 @@
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import { collectiveLogo, SUGGESTED_COLLECTIVES } from '#lib/collective-suggestions.js';
 	import RetryableError from '#lib/components/RetryableError.svelte';
-	import { ChevronsUpDown, Search } from '@lucide/svelte';
+	import { Search } from '@lucide/svelte';
 	import { readRecentCollectives } from './recent-collectives';
 	import { searchCollectives, type CollectiveMatch } from './stats.remote';
 
@@ -16,7 +16,7 @@
 		slug,
 		field = false
 	}: {
-		/** The collective on screen, or a prompt when there is none. */
+		/** The prompt on the button, like "Find another collective". */
 		name: string;
 		/** The slug of the collective on screen, left out of the recent list. */
 		slug?: string;
@@ -105,11 +105,10 @@
 					variant="outline"
 					role="combobox"
 					aria-expanded={open}
-					aria-label="Show another collective"
-					class="w-full justify-between sm:w-64"
+					class="w-full justify-start gap-2 font-normal text-muted-foreground sm:w-64"
 				>
+					<Search />
 					<span class="truncate">{name}</span>
-					<ChevronsUpDown class="opacity-50" />
 				</Button>
 			{/if}
 		{/snippet}

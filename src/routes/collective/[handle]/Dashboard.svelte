@@ -206,12 +206,25 @@
 		lost: { label: 'Lost', color: 'var(--color-chart-expenses)' }
 	} satisfies Chart.ChartConfig;
 
-	/** A relative change as a trend badge, or nothing without an earlier window to compare. */
-	function trendBadge(change: number | undefined): Stat['badge'] {
+	/** Changes smaller than this are noise, so their badges stay uncoloured. */
+	const STEADY = 0.05;
+
+	/**
+	 * A relative change as a trend badge, or nothing without an earlier window to compare. Coloured
+	 * by whether the change is good for the collective, so rising expenses read as bad news.
+	 */
+	function trendBadge(change: number | undefined, goodWhen: 'up' | 'down'): Stat['badge'] {
 		if (change === undefined) return undefined;
+		const good = goodWhen === 'up' ? change > 0 : change < 0;
 		return {
 			text: `${change > 0 ? '+' : ''}${percent.format(change)}`,
 			icon: change >= 0 ? 'up' : 'down',
+			tone:
+				Math.abs(change) < STEADY
+					? undefined
+					: good
+						? 'border-status-paid/30 text-status-paid'
+						: 'border-destructive/30 text-destructive',
 			title: `Change on the ${result.basis} complete months before`
 		};
 	}
@@ -231,13 +244,13 @@
 			value: signed(result.avgNet),
 			tone: result.avgNet < 0 ? 'text-destructive' : 'text-status-paid',
 			note: `Income covers ${percent.format(result.avgExpenses ? result.avgIncome / result.avgExpenses : 1)} of expenses`,
-			badge: trendBadge(trends.net)
+			badge: trendBadge(trends.net, 'up')
 		},
 		{
 			label: 'Average income',
 			value: money.format(result.avgIncome),
 			note: `Over the last ${result.basis} complete months`,
-			badge: trendBadge(trends.income)
+			badge: trendBadge(trends.income, 'up')
 		},
 		{
 			label: 'Average expenses',
@@ -245,7 +258,7 @@
 			note: awaitingApproval
 				? `${money.format(awaitingApproval)} more awaits approval`
 				: `Over the last ${result.basis} complete months`,
-			badge: trendBadge(trends.expenses)
+			badge: trendBadge(trends.expenses, 'down')
 		}
 	]);
 
@@ -297,8 +310,15 @@
 {/snippet}
 
 <div class="flex animate-in flex-col gap-8 duration-300 fade-in">
-	<div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-		<div class="flex items-center gap-4">
+	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+		<!-- The logo and name open the collective on Open Collective; the icon says it leaves the app. -->
+		<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
+		<a
+			href={`https://opencollective.com/${data.slug}`}
+			target="_blank"
+			rel="noreferrer"
+			class="group flex min-w-0 items-center gap-4 rounded-xl"
+		>
 			{#if data.imageUrl}
 				<img
 					src={data.imageUrl}
@@ -306,25 +326,20 @@
 					class="size-16 shrink-0 rounded-xl border bg-card object-contain"
 				/>
 			{/if}
-			<div>
-				<h1 class="leading-none">{data.name}</h1>
-				<!-- The collective's address reads like a handle under its name. -->
-				<p class="mt-2 flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
-					<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
-					<a
-						href={`https://opencollective.com/${data.slug}`}
-						target="_blank"
-						rel="noreferrer"
-						class="inline-flex items-center gap-1 hover:text-foreground hover:underline"
-					>
-						opencollective.com/{data.slug}
-						<ExternalLink size={13} aria-hidden="true" />
-					</a>
-					<!-- eslint-enable svelte/no-navigation-without-resolve -->
-				</p>
-			</div>
-		</div>
-		<CollectiveSearch name={data.name} slug={data.slug} />
+			<h1
+				class="flex min-w-0 items-center gap-2 leading-none decoration-1 underline-offset-6 group-hover:underline"
+			>
+				<span class="truncate">{data.name}</span>
+				<!-- Nudged down to sit on the baseline and fill the x-height, like a lowercase letter. -->
+				<ExternalLink
+					class="size-5 shrink-0 translate-y-[0.18em] text-muted-foreground group-hover:text-foreground"
+					aria-hidden="true"
+				/>
+			</h1>
+			<span class="sr-only">on Open Collective</span>
+		</a>
+		<!-- eslint-enable svelte/no-navigation-without-resolve -->
+		<CollectiveSearch name="Find another collective" slug={data.slug} />
 	</div>
 
 	{#if data.months.length === 0}
