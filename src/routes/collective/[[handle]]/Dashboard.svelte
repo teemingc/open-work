@@ -31,6 +31,7 @@
 	import CollectiveSearch from './CollectiveSearch.svelte';
 	import IncomeSources from './IncomeSources.svelte';
 	import MoneyRow from './MoneyRow.svelte';
+	import { rememberCollective } from './recent-collectives';
 	import { getIncomeSources, type CollectiveStats } from './stats.remote';
 	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
 	import YourEarnings from './YourEarnings.svelte';
@@ -48,6 +49,11 @@
 	// derived in components that mount in the meantime are recomputed on every read, so charts
 	// mounted then (as you scroll) lock up the page.
 	const incomeQuery = $derived(getIncomeSources(data.slug));
+
+	// Any visit counts as recent, not only a pick from the search.
+	$effect(() => {
+		rememberCollective({ slug: data.slug, name: data.name, imageUrl: data.imageUrl });
+	});
 
 	const RANGES = { '1y': 12, '2y': 24, all: Infinity } as const;
 	type Range = keyof typeof RANGES;
@@ -318,7 +324,7 @@
 				</p>
 			</div>
 		</div>
-		<CollectiveSearch name={data.name} />
+		<CollectiveSearch name={data.name} slug={data.slug} />
 	</div>
 
 	{#if data.months.length === 0}

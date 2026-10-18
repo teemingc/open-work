@@ -8,22 +8,24 @@
 	import { collectiveLogo, SUGGESTED_COLLECTIVES } from '#lib/collective-suggestions.js';
 	import RetryableError from '#lib/components/RetryableError.svelte';
 	import { ChevronsUpDown, Search } from '@lucide/svelte';
-	import { onMount } from 'svelte';
+	import { readRecentCollectives } from './recent-collectives';
 	import { searchCollectives, type CollectiveMatch } from './stats.remote';
 
 	let {
 		name,
+		slug,
 		field = false
 	}: {
 		/** The collective on screen, or a prompt when there is none. */
 		name: string;
+		/** The slug of the collective on screen, left out of the recent list. */
+		slug?: string;
 		/** Look like a search box, for a page with no collective yet. */
 		field?: boolean;
 	} = $props();
 
 	/** Wait for a pause in typing, so each keystroke is not a request to Open Collective. */
 	const DEBOUNCE_MS = 350;
-	const RECENT_KEY = 'invoicer:recent-collectives';
 	const MAX_RECENT = 5;
 
 	let open = $state(false);
@@ -33,34 +35,13 @@
 
 	const results = $derived(searched.length >= 2 ? searchCollectives(searched) : undefined);
 
-	/** Collectives you opened from here, newest first. Kept in this browser only. */
-	const recent: CollectiveMatch[] = $state([]);
+	/** Collectives you visited, newest first. Read as the search opens, so it holds still while open. */
+	let recent: CollectiveMatch[] = $state.raw([]);
 
-	onMount(() => {
-		try {
-			const stored: unknown = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]');
-			if (Array.isArray(stored)) {
-				recent.push(
-					...stored
-						.filter((item): item is CollectiveMatch => typeof item?.slug === 'string')
-						.slice(0, MAX_RECENT)
-				);
-			}
-		} catch {
-			// Blocked or unreadable storage just means no recent searches.
-		}
-	});
-
-	function remember(match: CollectiveMatch) {
-		const index = recent.findIndex((item) => item.slug === match.slug);
-		if (index !== -1) recent.splice(index, 1);
-		recent.unshift(match);
-		recent.splice(MAX_RECENT);
-		try {
-			localStorage.setItem(RECENT_KEY, JSON.stringify($state.snapshot(recent)));
-		} catch {
-			// Still remembered for this visit.
-		}
+	function loadRecent() {
+		recent = readRecentCollectives()
+			.filter((item) => item.slug !== slug)
+			.slice(0, MAX_RECENT);
 	}
 
 	function type(value: string) {
@@ -76,12 +57,8 @@
 		searched = '';
 	}
 
-	/** Chosen but not yet added to the recent list, so the list holds still while it closes. */
-	let chosen: CollectiveMatch | undefined;
-
 	function choose(match: CollectiveMatch) {
 		open = false;
-		chosen = match;
 		void goto(resolve('/collective/[[handle]]', { handle: match.slug }));
 	}
 </script>
@@ -100,12 +77,12 @@
 
 <Popover.Root
 	bind:open
+	onOpenChange={(next) => {
+		if (next) loadRecent();
+	}}
 	onOpenChangeComplete={(next) => {
-		if (next) return;
 		// Only once it has finished closing, so nothing moves while you can still see it.
-		reset();
-		if (chosen) remember(chosen);
-		chosen = undefined;
+		if (!next) reset();
 	}}
 >
 	<Popover.Trigger>
