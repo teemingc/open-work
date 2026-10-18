@@ -11,9 +11,7 @@
 
 	/** The collective in the address, else the one you invoice from settings. */
 	const slug = $derived(
-		page.url.searchParams.get('slug')?.trim().toLowerCase() ||
-			(await getSettings()).collectiveSlug ||
-			''
+		page.params.handle?.toLowerCase() || (await getSettings()).collectiveSlug || ''
 	);
 </script>
 
@@ -39,7 +37,7 @@
 				{#each SUGGESTED_COLLECTIVES as collective (collective.slug)}
 					<li>
 						<a
-							href="{resolve('/collective')}?slug={collective.slug}"
+							href={resolve('/collective/[[handle]]', { handle: collective.slug })}
 							class="group flex items-center gap-3 px-3.5 py-2.5 hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
 						>
 							<img

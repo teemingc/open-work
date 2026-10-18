@@ -82,8 +82,7 @@
 	function choose(match: CollectiveMatch) {
 		open = false;
 		chosen = match;
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved path plus a query string
-		void goto(`${resolve('/collective')}?slug=${encodeURIComponent(match.slug)}`);
+		void goto(resolve('/collective/[[handle]]', { handle: match.slug }));
 	}
 </script>
 
