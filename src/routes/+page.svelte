@@ -1,140 +1,198 @@
 <script lang="ts">
-	import { invoiceStore } from '../lib/invoice.svelte';
-	import { calculateTotalHours } from './invoices/[invoiceId]/formatter';
 	import { resolve } from '$app/paths';
-	import { Button } from '$lib/components/ui/button';
-	import { AlertTriangle, Clock, DollarSign, FileText } from 'lucide-svelte';
+	import { page } from '$app/state';
+	import * as Alert from '#lib/components/ui/alert/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Label } from '#lib/components/ui/label/index.js';
+	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
+	import { Spinner } from '#lib/components/ui/spinner/index.js';
+	import { formatDMY, nextPeriod } from '#lib/format.js';
+	import { getSettings } from '#lib/settings.remote.js';
+	import { missingForSubmit } from '#lib/settings.js';
+	import { CircleAlert, RefreshCw, TriangleAlert } from '@lucide/svelte';
+	import { getExpenses, getMe } from '#lib/opencollective.remote.js';
+	import { isHttpError } from '@sveltejs/kit';
+	import { lastInvoicedEnd } from './expenses';
+	import ExpensesTable from './ExpensesTable.svelte';
 
-	const invoices = $derived(invoiceStore.invoiceList);
-	const settings = $derived(invoiceStore.state.settings);
+	// Read without `await`, so the page shows straight away with one set of skeletons while your
+	// account, settings and expenses load, rather than a page spinner followed by more spinners.
+	const meQuery = getMe();
+	const settingsQuery = getSettings();
+	/** `undefined` while loading, `null` when not connected. */
+	const me = $derived(meQuery.current);
+	const settings = $derived(settingsQuery.current);
+	const ready = $derived(me !== undefined && settings !== undefined);
+	const accountError = $derived(meQuery.error ?? settingsQuery.error);
 
-	// Stats
-	const draftInvoices = $derived(invoices.filter((inv) => inv.status === 'draft'));
-	const unpaidInvoices = $derived(
-		invoices.filter((inv) => inv.status === 'submitted' || inv.status === 'approved')
+	const missing = $derived(
+		me !== undefined && settings ? missingForSubmit({ settings, connected: me !== null }) : []
 	);
-	const unpaidHours = $derived(
-		unpaidInvoices.reduce((sum, inv) => sum + calculateTotalHours(inv), 0)
+
+	// Not awaited, so a slow or failing list never blocks starting an invoice.
+	const expensesQuery = $derived(
+		me && settings?.collectiveSlug ? getExpenses(settings.collectiveSlug) : undefined
 	);
-	const unpaidAmount = $derived(
-		settings.hourlyRate ? unpaidHours * settings.hourlyRate : undefined
+	const expenses = $derived(expensesQuery?.current);
+	const loading = $derived(expensesQuery?.loading ?? false);
+	const loadError = $derived.by(() => {
+		const error = expensesQuery?.error;
+		if (!error) return '';
+		return isHttpError(error) ? error.body.message : 'Could not load your expenses.';
+	});
+	/** The suggested dates come from the latest expense, so they wait for the list. */
+	const expensesPending = $derived(
+		!ready || (expensesQuery !== undefined && expenses === undefined && !loadError)
 	);
+
+	const suggested = $derived(nextPeriod({ lastEnd: expenses && lastInvoicedEnd(expenses) }));
+
+	let customStart = $state('');
+	let customEnd = $state('');
+	const customValid = $derived(customStart !== '' && customEnd !== '' && customStart <= customEnd);
 </script>
 
-<div class="mx-auto max-w-7xl px-6 py-8">
-	<!-- Recent Drafts -->
-	{#if draftInvoices.length > 0}
-		<div class="mb-12">
-			<h2 class="mb-6 text-2xl">Recent Drafts</h2>
-			<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-				{#each draftInvoices.slice(0, 3) as invoice (invoice.id)}
-					<a
-						href={resolve(`/invoices/${invoice.id}`)}
-						class="group block overflow-hidden rounded-xl border bg-card p-5 shadow-sm transition-all hover:border-primary hover:shadow-md"
-					>
-						<div class="mb-3 flex items-start justify-between">
-							<h3 class="text-lg font-medium group-hover:text-primary">
-								{new Date(invoice.year, invoice.month - 1).toLocaleDateString('en-US', {
-									month: 'long',
-									year: 'numeric'
-								})}
-							</h3>
-							<span
-								class="rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800"
-							>
-								Draft
-							</span>
-						</div>
-						<div class="flex items-center gap-4 text-sm text-muted-foreground">
-							<span class="flex items-center gap-1">
-								<Clock size={14} />
-								{calculateTotalHours(invoice)}h
-							</span>
-							{#if invoice.totalAmount}
-								<span class="flex items-center gap-1">
-									<DollarSign size={14} />
-									{invoice.totalAmount.toFixed(2)}
-								</span>
-							{/if}
-						</div>
-						<div class="mt-3 text-xs text-muted-foreground">
-							Updated {new Date(invoice.updatedAt).toLocaleDateString()}
-						</div>
-					</a>
-				{/each}
-			</div>
-		</div>
-	{/if}
+<svelte:head><title>Invoices · Open Work</title></svelte:head>
 
-	<!-- Quick Stats Grid -->
-	<div class="mb-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-		<div
-			class="group relative overflow-hidden rounded-2xl border bg-card p-6 shadow-sm transition-all hover:shadow-lg"
-		>
-			<div class="absolute top-4 right-4 opacity-10">
-				<FileText size={64} />
+{#snippet tableSkeleton()}
+	<div class="space-y-px overflow-hidden rounded-xl border bg-card" aria-busy="true">
+		{#each [0, 1, 2, 3] as row (row)}
+			<div class="flex items-center gap-4 px-4 py-3">
+				<Skeleton class="h-4 flex-1" />
+				<Skeleton class="h-4 w-20" />
+				<Skeleton class="h-4 w-16" />
+				<Skeleton class="h-5 w-20 rounded-full" />
 			</div>
-			<div class="relative">
-				<div class="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-					<FileText size={16} />
-					Total Invoices
-				</div>
-				<div class="text-4xl font-semibold">{invoices.length}</div>
-			</div>
-		</div>
-
-		<div
-			class="group relative overflow-hidden rounded-2xl border bg-card p-6 shadow-sm transition-all hover:shadow-lg"
-		>
-			<div class="absolute top-4 right-4 opacity-10">
-				<Clock size={64} />
-			</div>
-			<div class="relative">
-				<div class="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-					<Clock size={16} />
-					Unpaid Hours
-				</div>
-				<div class="text-4xl font-semibold">{unpaidHours}h</div>
-				<div class="mt-1 text-xs text-muted-foreground">{unpaidInvoices.length} invoices</div>
-			</div>
-		</div>
-
-		{#if unpaidAmount !== undefined}
-			<div
-				class="group relative overflow-hidden rounded-2xl border bg-card p-6 shadow-sm transition-all hover:shadow-lg"
-			>
-				<div class="absolute top-4 right-4 opacity-10">
-					<DollarSign size={64} />
-				</div>
-				<div class="relative">
-					<div class="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-						<DollarSign size={16} />
-						Unpaid Amount
-					</div>
-					<div class="text-4xl font-semibold">${unpaidAmount.toFixed(2)}</div>
-				</div>
-			</div>
-		{/if}
+		{/each}
 	</div>
+{/snippet}
 
-	<!-- Setup Prompt -->
-	{#if !settings.githubUsername || settings.repositories.length === 0}
-		<div
-			class="overflow-hidden rounded-2xl border border-yellow-200 bg-linear-to-br from-yellow-50 to-background p-8 shadow-lg"
-		>
-			<div class="flex items-start gap-4">
-				<div class="rounded-full bg-yellow-100 p-3">
-					<AlertTriangle size={24} class="text-yellow-700" />
+<div class="space-y-8">
+	<h1 class="text-3xl">Invoices</h1>
+
+	<!--
+		Everything below waits until your account and settings are known, then fades in at once,
+		so a notice never appears later and pushes the page down.
+	-->
+	{#if ready || accountError}
+		<div class="animate-in space-y-8 duration-300 fade-in">
+			{#if accountError}
+				<Alert.Root variant="destructive">
+					<CircleAlert />
+					<Alert.Title>Could not load your account</Alert.Title>
+					<Alert.Description>
+						<p>
+							{isHttpError(accountError) ? accountError.body.message : 'Try again in a moment.'}
+						</p>
+					</Alert.Description>
+				</Alert.Root>
+			{:else if missing.length > 0}
+				<Alert.Root variant="warning">
+					<TriangleAlert />
+					<Alert.Title>Finish setup to submit invoices</Alert.Title>
+					<Alert.Description>
+						<a href={resolve('settings')} class="font-medium underline">Go to settings</a>
+					</Alert.Description>
+				</Alert.Root>
+			{/if}
+
+			<section class="rounded-xl border bg-card p-5 sm:p-6">
+				<form
+					method="GET"
+					action={resolve('invoices/new')}
+					class="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"
+				>
+					<input type="hidden" name="start" value={suggested.startDate} />
+					<input type="hidden" name="end" value={suggested.endDate} />
+					<div>
+						<h2 class="text-sm font-medium text-muted-foreground">Next invoice</h2>
+						{#if expensesPending}
+							<Skeleton class="mt-1 h-10 w-96 max-w-full" />
+						{:else}
+							<p class="mt-1 animate-in font-document text-4xl tracking-tight duration-300 fade-in">
+								{formatDMY(suggested.startDate)} – {formatDMY(suggested.endDate)}
+							</p>
+						{/if}
+					</div>
+					<Button type="submit" size="lg" disabled={expensesPending}>Start invoice</Button>
+				</form>
+
+				<details class="group mt-5 border-t pt-4 text-sm">
+					<summary class="cursor-pointer text-muted-foreground hover:text-foreground">
+						Use different dates
+					</summary>
+					<form
+						method="GET"
+						action={resolve('invoices/new')}
+						class="mt-3 flex flex-wrap items-end gap-3"
+					>
+						<div class="space-y-1.5">
+							<Label for="custom-start">From</Label>
+							<Input
+								id="custom-start"
+								name="start"
+								type="date"
+								bind:value={customStart}
+								class="block w-44"
+							/>
+						</div>
+						<div class="space-y-1.5">
+							<Label for="custom-end">To</Label>
+							<Input
+								id="custom-end"
+								name="end"
+								type="date"
+								bind:value={customEnd}
+								class="block w-44"
+							/>
+						</div>
+						<Button type="submit" variant="outline" disabled={!customValid}>Start invoice</Button>
+					</form>
+				</details>
+			</section>
+
+			<section aria-labelledby="history-heading">
+				<div class="mb-3 flex items-center justify-between gap-3">
+					<h2 id="history-heading" class="text-lg">
+						Sent to {settings?.collectiveSlug || 'Open Collective'}
+					</h2>
+					<!-- Always rendered so its space is kept, but only shown once you are known to be connected. -->
+					<Button
+						variant="ghost"
+						size="sm"
+						class={me ? '' : 'invisible'}
+						onclick={() => expensesQuery?.refresh()}
+						disabled={!expensesQuery || loading}
+					>
+						<!-- Only spins for a refresh: the first load shows skeletons below instead. -->
+						{#if loading && expenses}<Spinner />{:else}<RefreshCw />{/if}
+						Refresh
+					</Button>
 				</div>
-				<div class="flex-1">
-					<h3 class="mb-2 text-xl font-medium">Complete Setup</h3>
-					<p class="mb-4 text-sm text-muted-foreground">
-						Configure your GitHub username and repositories to start fetching contributions
-						automatically.
+
+				{#if expensesPending}
+					{@render tableSkeleton()}
+				{:else if !me}
+					<p class="rounded-xl border border-dashed bg-card/50 p-6 text-sm text-muted-foreground">
+						<a href={resolve('settings')} class="font-medium text-foreground underline"
+							>Connect Open Collective</a
+						>
+
+						to see the expenses you have already sent.
 					</p>
-					<Button href={resolve('/settings')} class="gap-2">Go to Settings →</Button>
-				</div>
-			</div>
+				{:else if loadError}
+					<p class="flex items-start gap-1.5 text-sm text-destructive" role="alert">
+						<CircleAlert size={15} class="mt-0.5 shrink-0" />{loadError}
+					</p>
+				{:else if !expenses || expenses.length === 0}
+					<p class="rounded-xl border border-dashed bg-card/50 p-6 text-sm text-muted-foreground">
+						No expenses yet. Start the first one above and it will show up here once submitted.
+					</p>
+				{:else}
+					<ExpensesTable {expenses} highlightUrl={page.state.submittedUrl} />
+				{/if}
+			</section>
 		</div>
 	{/if}
 </div>

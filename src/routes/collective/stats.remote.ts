@@ -1,0 +1,380 @@
+import { query } from '$app/server';
+import { error } from '@sveltejs/kit';
+import * as v from 'valibot';
+import { cached } from '#lib/server/cache.js';
+import { publicGraphql, toHttpError } from '#lib/server/opencollective.js';
+import { getToken } from '#lib/server/session.js';
+import {
+	backerHistory,
+	lastMonthKeys,
+	toContributions,
+	toMonths,
+	othersBySize,
+	topAccounts,
+	toPayouts,
+	type ContributionNode,
+	type PayoutNode,
+	type TimeSeriesNode,
+	type Unpaid
+} from './financials';
+
+/** An Open Collective account slug, like "svelte". */
+const Slug = v.pipe(
+	v.string(),
+	v.trim(),
+	v.toLowerCase(),
+	v.regex(/^[a-z0-9][a-z0-9-]*$/, 'Not an Open Collective slug'),
+	v.maxLength(100)
+);
+
+const MAX_CACHED = 50;
+
+/**
+ * One cached loader per key, like a collective's slug or a search term. Capped, oldest dropped
+ * first, so looking up many collectives cannot grow the server's memory without end.
+ */
+function perKey<T>(make: (key: string) => () => Promise<T>): (key: string) => Promise<T> {
+	const loaders = new Map<string, () => Promise<T>>();
+	return (key) => {
+		let load = loaders.get(key);
+		if (!load) {
+			if (loaders.size >= MAX_CACHED) loaders.delete(loaders.keys().next().value!);
+			load = make(key);
+			loaders.set(key, load);
+		}
+		return load();
+	};
+}
+
+/** Open Collective rate-limits public requests, so each result is reused for an hour. */
+const CACHE_MS = 60 * 60 * 1000;
+
+// `net: true` takes fees out of what was received and adds payment processor fees to what was
+// spent, so each month's balance change is exactly income minus expenses.
+const STATS_QUERY = /* GraphQL */ `
+	query CollectiveStats($slug: String!, $from: DateTime!) {
+		account(slug: $slug) {
+			name
+			imageUrl(height: 128)
+			currency
+			stats {
+				balance: balanceTimeSeries(timeUnit: MONTH, dateFrom: $from) {
+					nodes {
+						date
+						amount {
+							value
+						}
+					}
+				}
+				received: totalAmountReceivedTimeSeries(timeUnit: MONTH, dateFrom: $from, net: true) {
+					nodes {
+						date
+						amount {
+							value
+						}
+					}
+				}
+				spent: totalAmountSpentTimeSeries(timeUnit: MONTH, dateFrom: $from, net: true) {
+					nodes {
+						date
+						amount {
+							value
+						}
+					}
+				}
+			}
+		}
+		payouts: transactions(
+			account: [{ slug: $slug }]
+			type: DEBIT
+			kind: [EXPENSE]
+			dateFrom: $from
+			limit: 1000
+		) {
+			nodes {
+				createdAt
+				netAmount {
+					value
+				}
+				oppositeAccount {
+					slug
+					name
+				}
+				expense {
+					type
+					accountingCategory {
+						name
+					}
+				}
+			}
+		}
+		unpaid: expenses(
+			account: { slug: $slug }
+			status: [PENDING, APPROVED, SCHEDULED_FOR_PAYMENT, PROCESSING]
+			limit: 1000
+		) {
+			nodes {
+				status
+				amount: amountV2(currencySource: ACCOUNT) {
+					value
+				}
+				payee {
+					slug
+				}
+			}
+		}
+	}
+`;
+
+interface StatsResult {
+	account: {
+		name: string;
+		imageUrl: string | null;
+		currency: string;
+		stats: {
+			balance: { nodes: TimeSeriesNode[] };
+			received: { nodes: TimeSeriesNode[] };
+			spent: { nodes: TimeSeriesNode[] };
+		};
+	} | null;
+	payouts: { nodes: PayoutNode[] };
+	unpaid: { nodes: { status: string; amount: { value: number }; payee: { slug: string } }[] };
+}
+
+/** Monthly balance, income and spending for the collective, from Open Collective's public stats. */
+const loadStats = perKey((slug) =>
+	cached({
+		key: `stats:v2:${slug}`,
+		maxAgeMs: CACHE_MS,
+		load: async () => {
+			let result: StatsResult;
+			try {
+				result = await publicGraphql<StatsResult>({
+					token: getToken(),
+					query: STATS_QUERY,
+					variables: { slug, from: '2016-01-01T00:00:00Z' }
+				});
+			} catch (err) {
+				toHttpError(err);
+			}
+			const account = result.account;
+			if (!account) error(404, `There is no collective called "${slug}" on Open Collective.`);
+
+			const now = new Date();
+			return {
+				slug,
+				name: account.name,
+				imageUrl: account.imageUrl,
+				currency: account.currency,
+				fetchedAt: now.toISOString(),
+				months: toMonths({
+					balance: account.stats.balance.nodes,
+					received: account.stats.received.nodes,
+					spent: account.stats.spent.nodes,
+					now
+				}),
+				payouts: toPayouts(result.payouts.nodes),
+				unpaid: result.unpaid.nodes.map((expense): Unpaid => ({
+					slug: expense.payee.slug,
+					amount: expense.amount.value,
+					approved: expense.status !== 'PENDING'
+				}))
+			};
+		}
+	})
+);
+
+export const getCollectiveStats = query(Slug, (slug) => loadStats(slug));
+
+const PAGE_SIZE = 1000;
+
+const CONTRIBUTIONS_QUERY = /* GraphQL */ `
+	query Contributions($slug: String!, $limit: Int!, $offset: Int!) {
+		transactions(
+			account: [{ slug: $slug }]
+			type: CREDIT
+			kind: [CONTRIBUTION, ADDED_FUNDS]
+			limit: $limit
+			offset: $offset
+		) {
+			totalCount
+			nodes {
+				createdAt
+				netAmount {
+					value
+				}
+				fromAccount {
+					slug
+					name
+				}
+				order {
+					frequency
+				}
+			}
+		}
+	}
+`;
+
+interface ContributionsResult {
+	transactions: { totalCount: number; nodes: ContributionNode[] };
+}
+
+const TOP_BACKERS = 7;
+
+/** Accounts that collect from many people and pay it on as one, like GitHub Sponsors. */
+const CHANNELS = new Set(['github-sponsors']);
+
+/**
+ * Every contribution the collective has received. Cached as fetched, under a key that only
+ * changes if the query does, so changing how backers are ranked never costs a refetch.
+ */
+const loadContributions = perKey((slug) =>
+	cached({
+		key: `contributions:${slug}`,
+		maxAgeMs: CACHE_MS,
+		load: async (): Promise<ContributionNode[]> => {
+			const token = getToken();
+			const page = (offset: number) =>
+				publicGraphql<ContributionsResult>({
+					token,
+					query: CONTRIBUTIONS_QUERY,
+					variables: { slug, limit: PAGE_SIZE, offset }
+				});
+
+			try {
+				const first = await page(0);
+				const offsets: number[] = [];
+				for (let offset = PAGE_SIZE; offset < first.transactions.totalCount; offset += PAGE_SIZE) {
+					offsets.push(offset);
+				}
+				const results = [first];
+				// A few at a time, to stay under Open Collective's rate limit.
+				for (let i = 0; i < offsets.length; i += 3) {
+					results.push(...(await Promise.all(offsets.slice(i, i + 3).map(page))));
+				}
+				return results.flatMap((result) => result.transactions.nodes);
+			} catch (err) {
+				toHttpError(err);
+			}
+		}
+	})
+);
+
+/**
+ * Where the collective's money comes from: recurring and one-off contributions per month,
+ * and the biggest backers over the last 12 months, 2 years and all time.
+ */
+export const getIncomeSources = query(Slug, async (slug) => {
+	const nodes = await loadContributions(slug);
+	const now = new Date();
+	const { months, backers } = toContributions(nodes);
+	const history = backerHistory(nodes);
+	const lifetime = new Map(
+		topAccounts({ rows: backers, limit: Infinity }).map((backer) => [backer.slug, backer.amount])
+	);
+	// Payment platforms pass on money from many people, so they are shown apart from the
+	// people and companies that back the collective directly.
+	const people = backers.filter((row) => !CHANNELS.has(row.slug));
+	const channels = backers.filter((row) => CHANNELS.has(row.slug));
+	const describe =
+		(months: string[] | undefined, channel: boolean) =>
+		(backer: { slug: string; name: string; amount: number }) => ({
+			...backer,
+			channel,
+			history: (backer.slug && history.get(backer.slug)) || null,
+			// Only the "others" row: a few totals, not every backer.
+			tiers: backer.slug ? null : othersBySize({ rows: people, months, limit: TOP_BACKERS }),
+			// Everything they ever gave, to show beside the total for the shown months.
+			lifetime: backer.slug ? (lifetime.get(backer.slug) ?? backer.amount) : null
+		});
+	const top = (months?: string[]) => {
+		const ranked = topAccounts({ rows: people, months, limit: TOP_BACKERS }).map(
+			describe(months, false)
+		);
+		const others = ranked.at(-1)?.slug ? [] : ranked.splice(-1);
+		const via = topAccounts({ rows: channels, months, limit: Infinity })
+			.filter((channel) => channel.amount > 0)
+			.map(describe(months, true));
+		// The groups after the ranked backers go biggest first too, so a platform that passes on
+		// less than everyone else together sits below them.
+		return [...ranked, ...[...via, ...others].sort((a, b) => b.amount - a.amount)];
+	};
+	return {
+		months,
+		backers: {
+			'1y': top(lastMonthKeys(now, 12)),
+			'2y': top(lastMonthKeys(now, 24)),
+			all: top()
+		}
+	};
+});
+
+export type CollectiveStats = Awaited<ReturnType<typeof getCollectiveStats>>;
+
+export type IncomeSources = Awaited<ReturnType<typeof getIncomeSources>>;
+
+const SEARCH_QUERY = /* GraphQL */ `
+	query SearchCollectives($term: String!, $slug: String) {
+		exact: account(slug: $slug, throwIfMissing: false) {
+			slug
+			name
+			type
+			imageUrl(height: 64)
+		}
+		accounts(searchTerm: $term, type: [COLLECTIVE, PROJECT, FUND], limit: 8) {
+			nodes {
+				slug
+				name
+				type
+				imageUrl(height: 64)
+			}
+		}
+	}
+`;
+
+export interface CollectiveMatch {
+	slug: string;
+	name: string;
+	imageUrl: string | null;
+}
+
+interface SearchResult {
+	exact: (CollectiveMatch & { type: string }) | null;
+	accounts: { nodes: (CollectiveMatch & { type: string })[] };
+}
+
+const FUNDED_TYPES = new Set(['COLLECTIVE', 'PROJECT', 'FUND']);
+const SEARCH_CACHE_MS = 24 * 60 * 60 * 1000;
+const searches = perKey((term) =>
+	cached({
+		key: `search:${term}`,
+		maxAgeMs: SEARCH_CACHE_MS,
+		load: async (): Promise<CollectiveMatch[]> => {
+			let result: SearchResult;
+			try {
+				result = await publicGraphql<SearchResult>({
+					token: getToken(),
+					query: SEARCH_QUERY,
+					// The search is fuzzy; looking the term up as a slug too puts an exact match first.
+					variables: { term, slug: /^[a-z0-9-]+$/.test(term) ? term : null }
+				});
+			} catch (err) {
+				toHttpError(err);
+			}
+			const matches = [
+				...(result.exact && FUNDED_TYPES.has(result.exact.type) ? [result.exact] : []),
+				...result.accounts.nodes
+			];
+			const seen = new Set<string>();
+			return matches
+				.filter((match) => !seen.has(match.slug) && seen.add(match.slug))
+				.map(({ slug, name, imageUrl }) => ({ slug, name, imageUrl }));
+		}
+	})
+);
+
+/** Collectives whose name or slug matches what you typed. */
+export const searchCollectives = query(
+	v.pipe(v.string(), v.trim(), v.toLowerCase(), v.minLength(2), v.maxLength(60)),
+	(term) => searches(term)
+);

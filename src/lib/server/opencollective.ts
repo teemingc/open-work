@@ -1,0 +1,250 @@
+import { OC_PERSONAL_TOKEN } from '$app/env/private';
+import { error } from '@sveltejs/kit';
+
+const ENDPOINT = 'https://api.opencollective.com/graphql/v2';
+
+export class OpenCollectiveError extends Error {
+	status: number;
+	/** Seconds Open Collective asked us to wait, after a rate limit. */
+	retryAfter?: number;
+
+	constructor(message: string, status = 502, retryAfter?: number) {
+		super(message);
+		this.status = status;
+		this.retryAfter = retryAfter;
+	}
+}
+
+interface GraphQLResponse<T> {
+	data?: T;
+	errors?: { message: string }[];
+}
+
+/** The longest `Retry-After` worth waiting for inside a request. Longer ones fail with a message. */
+const MAX_RETRY_WAIT_MS = 20_000;
+
+/** How long Open Collective asks us to wait, from a seconds count or an HTTP date. */
+export function retryAfterMs(header: string | null, now = Date.now()): number | undefined {
+	if (!header) return undefined;
+	const seconds = Number(header);
+	if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+	const date = Date.parse(header);
+	return Number.isNaN(date) ? undefined : Math.max(0, date - now);
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export async function graphql<T>({
+	token,
+	personalToken,
+	query,
+	variables,
+	retried = false
+}: {
+	/** OAuth access token. Omit for public data, such as a collective's stats. */
+	token?: string;
+	/** A personal token, sent in its own header. Used when there is no OAuth token. */
+	personalToken?: string;
+	query: string;
+	variables?: Record<string, unknown>;
+	/** Set on the one retry after a rate limit. */
+	retried?: boolean;
+}): Promise<T> {
+	const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+	if (token) headers.Authorization = `Bearer ${token}`;
+	else if (personalToken) headers['Personal-Token'] = personalToken;
+
+	let response: Response;
+	try {
+		response = await fetch(ENDPOINT, {
+			method: 'POST',
+			headers,
+			body: JSON.stringify({ query, variables })
+		});
+	} catch {
+		throw new OpenCollectiveError('Could not reach Open Collective. Try again in a moment.');
+	}
+
+	if (response.status === 429) {
+		// Back off as asked, once. Without a Retry-After, wait a couple of seconds.
+		const wait = retryAfterMs(response.headers.get('retry-after')) ?? 2000;
+		if (!retried && wait <= MAX_RETRY_WAIT_MS) {
+			await sleep(wait);
+			return graphql<T>({ token, personalToken, query, variables, retried: true });
+		}
+		throw new OpenCollectiveError(
+			'Open Collective is limiting how often we can ask.',
+			429,
+			Math.ceil(wait / 1000)
+		);
+	}
+
+	let body: GraphQLResponse<T> | undefined;
+	try {
+		body = (await response.json()) as GraphQLResponse<T>;
+	} catch {
+		// Not JSON; handled below.
+	}
+
+	if (response.status === 401 || response.status === 403) {
+		throw new OpenCollectiveError(
+			body?.errors?.[0]?.message ??
+				'Open Collective no longer accepts this connection. Connect again in settings.',
+			401
+		);
+	}
+	if (body?.errors?.length) {
+		throw new OpenCollectiveError(body.errors.map((e) => e.message).join('\n'), 400);
+	}
+	if (!response.ok || !body?.data) {
+		throw new OpenCollectiveError(`Open Collective returned an error (${response.status}).`);
+	}
+	return body.data;
+}
+
+/**
+ * Public data, asked for with your token when you are connected, else the server's personal
+ * token: signed-in requests get a more generous rate limit. A token Open Collective no longer accepts falls back to asking
+ * anonymously, so a stale connection never hides public stats.
+ */
+export async function publicGraphql<T>({
+	token,
+	query,
+	variables
+}: {
+	token?: string;
+	query: string;
+	variables?: Record<string, unknown>;
+}): Promise<T> {
+	// Without your connection, the app's own personal token, if the server has one.
+	const personalToken = OC_PERSONAL_TOKEN || undefined;
+	if (!token) return graphql<T>({ personalToken, query, variables });
+	try {
+		return await graphql<T>({ token, query, variables });
+	} catch (err) {
+		if (err instanceof OpenCollectiveError && err.status === 401) {
+			return graphql<T>({ personalToken, query, variables });
+		}
+		throw err;
+	}
+}
+
+/** Rethrow Open Collective failures as HTTP errors the client can show. */
+export function toHttpError(err: unknown): never {
+	if (err instanceof OpenCollectiveError) {
+		error(err.status, { message: err.message, retryAfter: err.retryAfter });
+	}
+	throw err;
+}
+
+export const ME_QUERY = /* GraphQL */ `
+	query Me {
+		me {
+			slug
+			name
+			location {
+				address
+				country
+			}
+			payoutMethods {
+				publicId
+				type
+				name
+				currency
+			}
+		}
+	}
+`;
+
+export const CREATE_EXPENSE_MUTATION = /* GraphQL */ `
+	mutation CreateExpense($expense: ExpenseCreateInput!, $account: AccountReferenceInput!) {
+		createExpense(expense: $expense, account: $account) {
+			id
+			legacyId
+			status
+			account {
+				slug
+			}
+		}
+	}
+`;
+
+export interface MeResult {
+	me: {
+		slug: string;
+		name: string | null;
+		location: { address: string | null; country: string | null } | null;
+		payoutMethods: {
+			publicId: string;
+			type: string | null;
+			name: string | null;
+			currency: string | null;
+		}[];
+	} | null;
+}
+
+export interface CreateExpenseResult {
+	createExpense: {
+		id: string;
+		legacyId: number;
+		status: string;
+		account: { slug: string };
+	};
+}
+
+export const EXPENSES_QUERY = /* GraphQL */ `
+	query Expenses(
+		$fromAccount: AccountReferenceInput!
+		$account: AccountReferenceInput!
+		$limit: Int!
+		$offset: Int!
+	) {
+		expenses(fromAccount: $fromAccount, account: $account, limit: $limit, offset: $offset) {
+			totalCount
+			nodes {
+				id
+				legacyId
+				description
+				status
+				createdAt
+				amountV2 {
+					valueInCents
+					currency
+				}
+				inCollectiveCurrency: amountV2(currencySource: ACCOUNT) {
+					valueInCents
+				}
+				account {
+					slug
+				}
+			}
+		}
+	}
+`;
+
+export interface ExpensesResult {
+	expenses: {
+		totalCount: number;
+		nodes: {
+			id: string;
+			legacyId: number;
+			description: string;
+			status: string;
+			createdAt: string;
+			amountV2: { valueInCents: number; currency: string };
+			/** The same amount in the collective's currency, so amounts can be compared. */
+			inCollectiveCurrency: { valueInCents: number } | null;
+			account: { slug: string };
+		}[];
+	};
+}
+
+export function expenseUrl({
+	collectiveSlug,
+	legacyId
+}: {
+	collectiveSlug: string;
+	legacyId: number;
+}) {
+	return `https://opencollective.com/${collectiveSlug}/expenses/${legacyId}`;
+}

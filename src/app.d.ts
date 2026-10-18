@@ -9,10 +9,17 @@ declare global {
 			cf?: IncomingRequestCfProperties;
 		}
 
-		// interface Error {}
+		interface Error {
+			message: string;
+			/** Seconds to wait before trying again, when a service is rate-limiting us. */
+			retryAfter?: number;
+		}
 		// interface Locals {}
 		// interface PageData {}
-		// interface PageState {}
+		interface PageState {
+			/** The expense just submitted, so the list can point it out. */
+			submittedUrl?: string;
+		}
 		// interface Platform {}
 	}
 }

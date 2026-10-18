@@ -7,7 +7,9 @@
 			variant: {
 				default: 'bg-card text-card-foreground',
 				destructive:
-					'text-destructive bg-card *:data-[slot=alert-description]:text-destructive/90 [&>svg]:text-current'
+					'text-destructive bg-card *:data-[slot=alert-description]:text-destructive/90 [&>svg]:text-current',
+				warning:
+					'border-warning-border bg-warning-surface text-warning *:data-[slot=alert-description]:text-warning [&>svg]:text-current'
 			}
 		},
 		defaultVariants: {
@@ -20,7 +22,7 @@
 
 <script lang="ts">
 	import type { HTMLAttributes } from 'svelte/elements';
-	import { cn, type WithElementRef } from '$lib/utils.js';
+	import { cn, type WithElementRef } from '#lib/utils.js';
 
 	let {
 		ref = $bindable(null),

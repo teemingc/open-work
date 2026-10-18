@@ -17,18 +17,13 @@ After calling the list-sections tool, you MUST analyze the returned documentatio
 Analyzes Svelte code and returns issues and suggestions.
 You MUST use this tool whenever writing Svelte code before sending it to the user. Keep calling it until no issues or suggestions are returned.
 
-### 4. playground-link
-
-Generates a Svelte Playground link with the provided code.
-After completing the code, ask the user if they want a playground link. Only call this tool after user confirmation and NEVER if code was written to files in their project.
-
 ## Project rules
 
 - before writing Svelte code, check https://www.shadcn-svelte.com/docs/components and their installation instructions
 - use https://www.shadcn-svelte.com/docs/components/spinner instead of implementing your own spinner
 - select.root must set type attribute if it is a single select
 
-- instead of using emojis, raw SVG and special characters, use icons from the lucide-svelte package
+- instead of using emojis, raw SVG and special characters, use icons from the @lucide/svelte package
 - avoid using deprecated icons
 
 - use pnpm instead of npm
@@ -53,7 +48,7 @@ After completing the code, ask the user if they want a playground link. Only cal
 
 ## SvelteKit rules
 
-- use `$lib` as an alias to `src/lib`
+- use `#lib` as an alias to `src/lib`
 - use `$app/state` instead of `$app/stores`
 - use the page object from `$app/state` to check the current URL instead of `window.location.href`
 - use `goto` from `$app/navigation` instead of assigning a value to `window.location.href`

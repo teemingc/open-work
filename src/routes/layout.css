@@ -1,85 +1,104 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&display=swap');
-
 @import 'tailwindcss';
 
 @import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Palette
+ *   paper   cool grey desk the invoice sits on
+ *   ink     deep blue-black text
+ *   sheet   the invoice itself, near white
+ *   ember   Svelte orange, used only for the main action and focus
+ */
 :root {
-	--radius: 0.65rem;
-	--background: oklch(1 0 0);
-	--foreground: oklch(0.141 0.005 285.823);
-	--card: oklch(1 0 0);
-	--card-foreground: oklch(0.141 0.005 285.823);
-	--popover: oklch(1 0 0);
-	--popover-foreground: oklch(0.141 0.005 285.823);
-	--primary: oklch(0.705 0.213 47.604);
-	--primary-foreground: oklch(0.98 0.016 73.684);
-	--secondary: oklch(0.967 0.001 286.375);
-	--secondary-foreground: oklch(0.21 0.006 285.885);
-	--muted: oklch(0.967 0.001 286.375);
-	--muted-foreground: oklch(0.552 0.016 285.938);
-	--accent: oklch(0.967 0.001 286.375);
-	--accent-foreground: oklch(0.21 0.006 285.885);
-	--destructive: oklch(0.577 0.245 27.325);
-	--border: oklch(0.92 0.004 286.32);
-	--input: oklch(0.92 0.004 286.32);
-	--ring: oklch(0.705 0.213 47.604);
-	--chart-1: oklch(0.646 0.222 41.116);
-	--chart-2: oklch(0.6 0.118 184.704);
-	--chart-3: oklch(0.398 0.07 227.392);
-	--chart-4: oklch(0.828 0.189 84.429);
-	--chart-5: oklch(0.769 0.188 70.08);
-	--sidebar: oklch(0.985 0 0);
-	--sidebar-foreground: oklch(0.141 0.005 285.823);
-	--sidebar-primary: oklch(0.705 0.213 47.604);
-	--sidebar-primary-foreground: oklch(0.98 0.016 73.684);
-	--sidebar-accent: oklch(0.967 0.001 286.375);
-	--sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-	--sidebar-border: oklch(0.92 0.004 286.32);
-	--sidebar-ring: oklch(0.705 0.213 47.604);
+	--radius: 0.5rem;
+	--background: oklch(0.955 0.01 250);
+	--foreground: oklch(0.22 0.035 255);
+	--card: oklch(0.995 0.002 250);
+	--card-foreground: oklch(0.22 0.035 255);
+	--popover: oklch(0.995 0.002 250);
+	--popover-foreground: oklch(0.22 0.035 255);
+	--primary: oklch(0.63 0.235 34);
+	--primary-foreground: oklch(0.99 0.01 60);
+	--secondary: oklch(0.92 0.014 250);
+	--secondary-foreground: oklch(0.25 0.035 255);
+	--muted: oklch(0.935 0.012 250);
+	--muted-foreground: oklch(0.47 0.03 255);
+	--accent: oklch(0.925 0.016 250);
+	--accent-foreground: oklch(0.25 0.035 255);
+	--destructive: oklch(0.55 0.22 27);
+	--border: oklch(0.88 0.014 250);
+	--input: oklch(0.86 0.016 250);
+	--ring: oklch(0.63 0.235 34);
+
+	--status-draft: oklch(0.5 0.03 255);
+	--status-submitted: oklch(0.5 0.15 255);
+	--status-paid: oklch(0.48 0.12 155);
+	/* Amber for things that need attention but have not gone wrong. Solid colours, not a tint,
+	   so the blue-grey page does not show through and muddy them. */
+	--warning: oklch(0.48 0.11 65);
+	--warning-surface: oklch(0.975 0.045 95);
+	--warning-border: oklch(0.88 0.1 90);
+
+	--chart-income: oklch(0.58 0.13 160);
+	--chart-expenses: oklch(0.6 0.19 30);
+	--chart-expenses-muted: oklch(0.83 0.07 30);
+	--chart-income-muted: oklch(0.84 0.06 160);
+	--chart-1: #2a78d6;
+	--chart-2: #eb6834;
+	--chart-3: #1baf7a;
+	--chart-4: #eda100;
+	--chart-other: oklch(0.75 0.01 255);
+	--chart-balance: oklch(0.5 0.15 265);
 }
 
 .dark {
-	--background: oklch(0.141 0.005 285.823);
-	--foreground: oklch(0.985 0 0);
-	--card: oklch(0.21 0.006 285.885);
-	--card-foreground: oklch(0.985 0 0);
-	--popover: oklch(0.21 0.006 285.885);
-	--popover-foreground: oklch(0.985 0 0);
-	--primary: oklch(0.646 0.222 41.116);
-	--primary-foreground: oklch(0.98 0.016 73.684);
-	--secondary: oklch(0.274 0.006 286.033);
-	--secondary-foreground: oklch(0.985 0 0);
-	--muted: oklch(0.274 0.006 286.033);
-	--muted-foreground: oklch(0.705 0.015 286.067);
-	--accent: oklch(0.274 0.006 286.033);
-	--accent-foreground: oklch(0.985 0 0);
-	--destructive: oklch(0.704 0.191 22.216);
-	--border: oklch(1 0 0 / 10%);
-	--input: oklch(1 0 0 / 15%);
-	--ring: oklch(0.646 0.222 41.116);
-	--chart-1: oklch(0.488 0.243 264.376);
-	--chart-2: oklch(0.696 0.17 162.48);
-	--chart-3: oklch(0.769 0.188 70.08);
-	--chart-4: oklch(0.627 0.265 303.9);
-	--chart-5: oklch(0.645 0.246 16.439);
-	--sidebar: oklch(0.21 0.006 285.885);
-	--sidebar-foreground: oklch(0.985 0 0);
-	--sidebar-primary: oklch(0.646 0.222 41.116);
-	--sidebar-primary-foreground: oklch(0.98 0.016 73.684);
-	--sidebar-accent: oklch(0.274 0.006 286.033);
-	--sidebar-accent-foreground: oklch(0.985 0 0);
-	--sidebar-border: oklch(1 0 0 / 10%);
-	--sidebar-ring: oklch(0.646 0.222 41.116);
+	--background: oklch(0.2 0.03 255);
+	--foreground: oklch(0.96 0.005 250);
+	--card: oklch(0.25 0.03 255);
+	--card-foreground: oklch(0.96 0.005 250);
+	--popover: oklch(0.25 0.03 255);
+	--popover-foreground: oklch(0.96 0.005 250);
+	--primary: oklch(0.68 0.21 36);
+	--primary-foreground: oklch(0.2 0.03 255);
+	--secondary: oklch(0.3 0.03 255);
+	--secondary-foreground: oklch(0.96 0.005 250);
+	--muted: oklch(0.3 0.03 255);
+	--muted-foreground: oklch(0.72 0.02 255);
+	--accent: oklch(0.32 0.03 255);
+	--accent-foreground: oklch(0.96 0.005 250);
+	--destructive: oklch(0.7 0.19 22);
+	--border: oklch(1 0 0 / 12%);
+	--input: oklch(1 0 0 / 16%);
+	--ring: oklch(0.68 0.21 36);
+
+	--status-draft: oklch(0.75 0.02 255);
+	--status-submitted: oklch(0.75 0.12 255);
+	--status-paid: oklch(0.75 0.13 155);
+	--warning: oklch(0.86 0.12 88);
+	--warning-surface: oklch(0.29 0.05 85);
+	--warning-border: oklch(0.42 0.08 85);
+
+	--chart-income: oklch(0.74 0.14 160);
+	--chart-expenses: oklch(0.7 0.17 32);
+	--chart-expenses-muted: oklch(0.45 0.08 32);
+	--chart-income-muted: oklch(0.47 0.07 160);
+	--chart-1: #3987e5;
+	--chart-2: #d95926;
+	--chart-3: #199e70;
+	--chart-4: #c98500;
+	--chart-other: oklch(0.5 0.02 255);
+	--chart-balance: oklch(0.74 0.12 265);
 }
 
 @theme inline {
-	--radius-sm: calc(var(--radius) - 4px);
-	--radius-md: calc(var(--radius) - 2px);
-	--radius-lg: var(--radius);
-	--radius-xl: calc(var(--radius) + 4px);
+	--font-sans: 'Schibsted Grotesk', system-ui, -apple-system, sans-serif;
+	--font-document: 'Newsreader', Georgia, serif;
+	--radius-sm: calc(var(--radius) - 2px);
+	--radius-md: var(--radius);
+	--radius-lg: calc(var(--radius) + 2px);
+	--radius-xl: calc(var(--radius) + 6px);
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--color-card: var(--card);
@@ -98,19 +117,22 @@
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
+	--color-status-draft: var(--status-draft);
+	--color-status-submitted: var(--status-submitted);
+	--color-status-paid: var(--status-paid);
+	--color-warning: var(--warning);
+	--color-warning-surface: var(--warning-surface);
+	--color-warning-border: var(--warning-border);
+	--color-chart-income: var(--chart-income);
+	--color-chart-expenses: var(--chart-expenses);
+	--color-chart-expenses-muted: var(--chart-expenses-muted);
+	--color-chart-income-muted: var(--chart-income-muted);
 	--color-chart-1: var(--chart-1);
 	--color-chart-2: var(--chart-2);
 	--color-chart-3: var(--chart-3);
 	--color-chart-4: var(--chart-4);
-	--color-chart-5: var(--chart-5);
-	--color-sidebar: var(--sidebar);
-	--color-sidebar-foreground: var(--sidebar-foreground);
-	--color-sidebar-primary: var(--sidebar-primary);
-	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-	--color-sidebar-accent: var(--sidebar-accent);
-	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-	--color-sidebar-border: var(--sidebar-border);
-	--color-sidebar-ring: var(--sidebar-ring);
+	--color-chart-other: var(--chart-other);
+	--color-chart-balance: var(--chart-balance);
 }
 
 @layer base {
@@ -118,97 +140,50 @@
 		@apply border-border outline-ring/50;
 	}
 	body {
-		@apply bg-background text-foreground antialiased;
-		font-family:
-			'Bricolage Grotesque',
-			system-ui,
-			-apple-system,
-			sans-serif;
+		@apply bg-background font-sans text-foreground antialiased;
 	}
 	h1,
 	h2,
-	h3,
-	h4,
-	h5,
-	h6 {
-		font-family: 'Instrument Serif', Georgia, serif;
-		font-weight: 400;
-		letter-spacing: -0.02em;
+	h3 {
+		letter-spacing: -0.015em;
+		font-weight: 600;
+	}
+	:focus-visible {
+		outline: 2px solid var(--ring);
+		outline-offset: 2px;
 	}
 }
 
-/* Smooth transitions for interactive elements */
-@layer utilities {
-	.transition-smooth {
-		transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-	}
+/* The invoice sheet is the one place the page borrows from print. */
+@utility font-document {
+	font-family: var(--font-document);
+}
 
-	/* Hover lift effect */
-	.hover-lift {
-		transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-	}
-
-	.hover-lift:hover {
-		transform: translateY(-2px);
-		box-shadow:
-			0 10px 25px -5px rgb(0 0 0 / 0.1),
-			0 8px 10px -6px rgb(0 0 0 / 0.1);
-	}
-
-	/* Subtle scale on hover */
-	.scale-hover {
-		transition: transform 0.2s ease-in-out;
-	}
-
-	.scale-hover:hover {
-		transform: scale(1.02);
+@media (prefers-reduced-motion: reduce) {
+	* {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
 	}
 }
 
-/* Animate page transitions */
-@keyframes fadeIn {
-	from {
-		opacity: 0;
-		transform: translateY(10px);
-	}
+/*
+ * Skeletons stay hidden for a moment, so data that arrives quickly goes straight from nothing to
+ * content instead of flashing a skeleton first. Outside a layer so it wins over `animate-pulse`.
+ */
+[data-slot='skeleton'] {
+	animation:
+		skeleton-wait 300ms step-end,
+		pulse 2s cubic-bezier(0.4, 0, 0.6, 1) 300ms infinite;
+}
+
+@keyframes skeleton-wait {
+	from,
 	to {
-		opacity: 1;
-		transform: translateY(0);
+		visibility: hidden;
 	}
 }
 
-@keyframes slideIn {
-	from {
-		opacity: 0;
-		transform: translateX(-20px);
-	}
-	to {
-		opacity: 1;
-		transform: translateX(0);
-	}
-}
-
-.animate-fade-in {
-	animation: fadeIn 0.4s ease-out forwards;
-}
-
-.animate-slide-in {
-	animation: slideIn 0.5s ease-out forwards;
-}
-
-/* Stagger animation delays for lists */
-.stagger-1 {
-	animation-delay: 0.05s;
-}
-.stagger-2 {
-	animation-delay: 0.1s;
-}
-.stagger-3 {
-	animation-delay: 0.15s;
-}
-.stagger-4 {
-	animation-delay: 0.2s;
-}
-.stagger-5 {
-	animation-delay: 0.25s;
+/* Stays hidden for a moment, so a load that finishes quickly never flashes it. */
+@utility appear-delayed {
+	animation: skeleton-wait 300ms step-end;
 }

@@ -1,332 +1,497 @@
 <script lang="ts">
-	import { invoiceStore } from '../../lib/invoice.svelte';
-	import { testGitHubToken } from '../invoices/[invoiceId]/github';
-	import RepositoryAutocomplete from '../setup/RepositoryAutocomplete.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
-	import * as Select from '$lib/components/ui/select';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import * as Alert from '#lib/components/ui/alert/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Dialog from '#lib/components/ui/dialog/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Label } from '#lib/components/ui/label/index.js';
+	import * as Select from '#lib/components/ui/select/index.js';
+	import { Spinner } from '#lib/components/ui/spinner/index.js';
+	import { formatMoney } from '#lib/format.js';
+	import { GitHubError, verifyGitHubToken } from '#lib/github.js';
+	import { getMe } from '#lib/opencollective.remote.js';
 	import {
-		Check,
-		X,
-		Download,
-		FolderOpen,
-		Trash2,
-		CheckCircle2,
-		AlertTriangle
-	} from 'lucide-svelte';
+		clearAllData,
+		disconnect,
+		getSettings,
+		restoreSettings,
+		saveSettings
+	} from '#lib/settings.remote.js';
+	import {
+		DEFAULT_SETTINGS,
+		exportBackup,
+		missingForSubmit,
+		parseBackup,
+		type Settings,
+		type SubmitRequirement
+	} from '#lib/settings.js';
+	import { Check, CircleAlert, CircleCheck, Download, TriangleAlert, Upload } from '@lucide/svelte';
+	import { tick, untrack } from 'svelte';
+	import { fade } from 'svelte/transition';
+	import ChipInput from './ChipInput.svelte';
+	import SettingsSection from '#lib/components/SettingsSection.svelte';
 
-	// Initialize from settings only once
-	let githubUsername = $state(invoiceStore.state.settings.githubUsername || '');
-	let githubToken = $state(invoiceStore.state.settings.githubToken || '');
-	let organization = $state(invoiceStore.state.settings.organization || '');
-	let repositories = $state<string[]>(invoiceStore.state.settings.repositories || []);
-	let hourlyRate = $state(invoiceStore.state.settings.hourlyRate || 0);
-	let defaultCurrency = $state(invoiceStore.state.settings.defaultCurrency || 'USD');
-	let monthlyHourGoal = $state(invoiceStore.state.settings.monthlyHourGoal || 0);
+	const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD', 'MYR', 'SGD'];
 
-	let tokenStatus = $state<'unknown' | 'testing' | 'valid' | 'invalid'>('unknown');
-	let savedMessage = $state('');
+	/** Where each missing requirement is fixed on this page. */
+	const REQUIREMENT_FIELDS: Record<SubmitRequirement, { id: string; text: string }> = {
+		'Open Collective connection': { id: 'oc-connection', text: 'Connect Open Collective' },
+		'payout method': { id: 'payout-method', text: 'Choose a payout method' },
+		collective: { id: 'collective', text: 'Enter the collective you invoice' },
+		'hourly rate': { id: 'rate', text: 'Set your hourly rate' }
+	};
 
-	function toggleRepository(fullRepoName: string) {
-		const index = repositories.indexOf(fullRepoName);
-		if (index !== -1) {
-			repositories.splice(index, 1);
-		} else {
-			repositories.push(fullRepoName);
+	const [me, settings] = $derived(await Promise.all([getMe(), getSettings()]));
+	const missing = $derived(missingForSubmit({ settings, connected: me !== null }));
+
+	const fields = saveSettings.fields;
+	// The form starts from the saved settings and then owns its values.
+	const initial = untrack(() => settings);
+	fields.set(initial);
+	const repositories = $state([...initial.repositories]);
+	const values = $derived(fields.value());
+
+	let formElement = $state<HTMLFormElement>();
+
+	/** Save after a change made in code rather than by typing, once the inputs show it. */
+	async function save() {
+		await tick();
+		formElement?.requestSubmit();
+	}
+
+	function load(next: Settings) {
+		fields.set(next);
+		repositories.splice(0, repositories.length, ...next.repositories);
+	}
+
+	/** Shows "Saved" briefly after each save, so it reads as a reply to what you just changed. */
+	let justSaved = $state(false);
+	let savedTimer: ReturnType<typeof setTimeout> | undefined;
+
+	const enhanced = saveSettings.enhance(async ({ submit }) => {
+		// No reset: the inputs already show what was saved.
+		await submit();
+		if (!saveSettings.result?.saved) return;
+		justSaved = true;
+		clearTimeout(savedTimer);
+		savedTimer = setTimeout(() => (justSaved = false), 2000);
+	});
+
+	// Open Collective connection, kept in a server cookie by the OAuth flow
+	const payoutMethods = $derived(me?.payoutMethods ?? []);
+	const payoutLabel = $derived(
+		payoutMethods.find((method) => method.id === values.payoutMethodId)?.label ??
+			values.payoutMethodLabel
+	);
+	const connectError = $derived(page.url.searchParams.get('oc_error'));
+
+	function choosePayoutMethod(id: string) {
+		fields.payoutMethodId.set(id);
+		fields.payoutMethodLabel.set(payoutMethods.find((method) => method.id === id)?.label ?? '');
+		void save();
+	}
+
+	// GitHub
+	let verifying = $state(false);
+	let githubMessage = $state<{ ok: boolean; text: string } | undefined>();
+
+	async function verifyGitHub() {
+		const token = values.githubToken?.trim();
+		if (!token) return;
+		verifying = true;
+		githubMessage = undefined;
+		try {
+			const { login } = await verifyGitHubToken(token);
+			if (!values.githubUsername?.trim()) {
+				fields.githubUsername.set(login);
+				void save();
+			}
+			githubMessage = { ok: true, text: `Token works for ${login}.` };
+		} catch (error) {
+			const text = error instanceof GitHubError ? error.message : 'Could not reach GitHub.';
+			githubMessage = { ok: false, text };
+		} finally {
+			verifying = false;
 		}
 	}
 
-	async function testToken() {
-		if (!githubToken) return;
+	// Backup
+	let backupMessage = $state<{ ok: boolean; text: string } | undefined>();
+	let clearDialogOpen = $state(false);
 
-		tokenStatus = 'testing';
-		const isValid = await testGitHubToken(githubToken);
-		tokenStatus = isValid ? 'valid' : 'invalid';
-
-		setTimeout(() => {
-			if (tokenStatus !== 'testing') tokenStatus = 'unknown';
-		}, 3000);
-	}
-
-	function saveSettings() {
-		invoiceStore.updateSettings({
-			githubUsername: githubUsername || undefined,
-			githubToken: githubToken || undefined,
-			organization: organization || undefined,
-			repositories,
-			hourlyRate: hourlyRate > 0 ? hourlyRate : undefined,
-			defaultCurrency,
-			monthlyHourGoal: monthlyHourGoal > 0 ? monthlyHourGoal : undefined
-		});
-
-		savedMessage = 'Settings saved!';
-		setTimeout(() => (savedMessage = ''), 2000);
-	}
-
-	function handleExport() {
-		const data = invoiceStore.exportData();
-		const blob = new Blob([data], { type: 'application/json' });
+	function downloadBackup() {
+		const blob = new Blob([exportBackup(settings)], { type: 'application/json' });
 		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = `oc-invoice-backup-${new Date().toISOString().split('T')[0]}.json`;
-		a.click();
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = `invoice-settings-${new Date().toISOString().slice(0, 10)}.json`;
+		link.click();
 		URL.revokeObjectURL(url);
 	}
 
-	function handleImport() {
-		const input = document.createElement('input');
-		input.type = 'file';
-		input.accept = 'application/json';
-		input.onchange = async (e) => {
-			const file = (e.target as HTMLInputElement).files?.[0];
-			if (!file) return;
-
-			const text = await file.text();
-			const success = invoiceStore.importData(text);
-			if (success) {
-				alert('Data imported successfully!');
-				// Reload settings from imported data
-				githubUsername = invoiceStore.state.settings.githubUsername || '';
-				githubToken = invoiceStore.state.settings.githubToken || '';
-				organization = invoiceStore.state.settings.organization || '';
-				repositories = invoiceStore.state.settings.repositories || [];
-				hourlyRate = invoiceStore.state.settings.hourlyRate || 0;
-				defaultCurrency = invoiceStore.state.settings.defaultCurrency || 'USD';
-				monthlyHourGoal = invoiceStore.state.settings.monthlyHourGoal || 0;
-			}
-		};
-		input.click();
+	async function importBackup(event: Event & { currentTarget: HTMLInputElement }) {
+		const input = event.currentTarget;
+		const file = input.files?.[0];
+		if (!file) return;
+		try {
+			const restored = { ...parseBackup(await file.text()), githubToken: settings.githubToken };
+			await restoreSettings(restored);
+			load(restored);
+			backupMessage = { ok: true, text: 'Backup restored. Your GitHub token was kept.' };
+		} catch {
+			backupMessage = { ok: false, text: 'That file is not a valid backup.' };
+		}
+		input.value = '';
 	}
 
-	function handleClearData() {
-		invoiceStore.clearAllData();
-	}
+	const clearEnhanced = clearAllData.enhance(async ({ submit }) => {
+		await submit();
+		load({ ...DEFAULT_SETTINGS });
+		clearDialogOpen = false;
+	});
 </script>
 
-<div class="mx-auto max-w-450 px-6 py-8">
-	<div class="mb-8">
-		<h1 class="text-4xl font-normal">Settings</h1>
-		<p class="text-muted-foreground">Configure your GitHub integration and billing preferences</p>
+<svelte:head><title>Settings · Open Work</title></svelte:head>
+
+<div class="animate-in duration-300 fade-in">
+	<div class="mb-8 flex flex-wrap items-end justify-between gap-2">
+		<div>
+			<h1 class="text-3xl">Settings</h1>
+		</div>
+		<p class="flex items-center gap-1.5 text-sm text-muted-foreground" role="status">
+			{#if saveSettings.pending > 0}
+				<!-- A quick save goes straight to "Saved" without flashing this first. -->
+				<span class="flex appear-delayed items-center gap-1.5"><Spinner /> Saving…</span>
+			{:else if fields.allIssues()}
+				<CircleAlert size={15} class="text-destructive" /> Not saved. Fix the fields marked below.
+			{:else if justSaved}
+				<span
+					class="flex animate-in items-center gap-1.5 duration-150 fade-in"
+					out:fade={{ duration: 400 }}
+				>
+					<Check size={15} class="text-status-paid" /> Saved
+				</span>
+			{/if}
+		</p>
 	</div>
 
-	<!-- Two Column Layout -->
-	<div class="grid gap-6 lg:grid-cols-[1fr_400px]">
-		<!-- Left Column: Configuration -->
-		<div class="space-y-6">
-			<!-- GitHub Configuration -->
-			<section id="github-config" class="overflow-hidden rounded-xl border bg-card p-6 shadow-sm">
-				<h2 class="mb-4 text-xl">GitHub Configuration</h2>
-
-				<div class="space-y-4">
-					<div class="space-y-2">
-						<Label for="github-username">GitHub Username</Label>
-						<Input
-							id="github-username"
-							type="text"
-							bind:value={githubUsername}
-							placeholder="octocat"
-						/>
-					</div>
-
-					<div class="space-y-2">
-						<Label for="organization">Organization</Label>
-						<Input id="organization" type="text" bind:value={organization} placeholder="sveltejs" />
-						<p class="text-xs text-gray-500">
-							The GitHub organization that manages the OpenCollective account
-						</p>
-					</div>
-
-					<div id="github-token" class="space-y-2">
-						<Label for="github-token-input">Personal Access Token (Optional)</Label>
-						<div class="flex gap-2">
-							<Input
-								id="github-token-input"
-								type="password"
-								bind:value={githubToken}
-								placeholder="ghp_..."
-								class="flex-1"
-							/>
-							<Button
-								type="button"
-								onclick={testToken}
-								disabled={!githubToken || tokenStatus === 'testing'}
-								variant="outline"
+	{#if missing.length > 0}
+		<Alert.Root variant="warning" class="mb-8">
+			<TriangleAlert />
+			<Alert.Title>Still needed before you can submit invoices</Alert.Title>
+			<Alert.Description>
+				<ul class="mt-1 list-disc space-y-0.5 pl-5">
+					{#each missing as requirement (requirement)}
+						<li>
+							<a
+								href="#{REQUIREMENT_FIELDS[requirement].id}"
+								class="font-medium text-foreground underline"
 							>
-								{#if tokenStatus === 'testing'}
-									Testing...
-								{:else}
-									Test
-								{/if}
-							</Button>
-						</div>
-						{#if tokenStatus === 'valid'}
-							<p class="mt-1 flex items-center gap-1.5 text-sm text-green-600">
-								<Check size={16} />Token is valid
-							</p>
-						{:else if tokenStatus === 'invalid'}
-							<p class="mt-1 flex items-center gap-1.5 text-sm text-red-600">
-								<X size={16} />Token is invalid
-							</p>
-						{/if}
-						<div class="mt-2 space-y-2 rounded-md bg-blue-50 p-3 text-xs text-gray-700">
-							<p class="flex items-center gap-2 font-medium text-blue-900">
-								{#if githubToken}
-									<CheckCircle2 class="h-4 w-4" /> You have a token configured (5,000 requests/hour)
-								{:else}
-									<AlertTriangle class="h-4 w-4" /> Without a token, you're limited to 60 requests/hour
-								{/if}
-							</p>
-							<p class="font-medium">How to create a Personal Access Token:</p>
-							<ol class="ml-4 list-decimal space-y-1">
-								<li>
-									Go to
-									<a
-										href="https://github.com/settings/tokens/new"
-										target="_blank"
-										rel="noopener noreferrer"
-										class="font-medium text-blue-600 hover:underline"
-									>
-										GitHub Settings → Personal access tokens → Tokens (classic)
-									</a>
-								</li>
-								<li>Click "Generate new token" → "Generate new token (classic)"</li>
-								<li>Add a note like "OpenCollective Invoice Generator"</li>
-								<li>
-									Select scopes: <strong>repo</strong> (Full control of private repositories) and
-									<strong>read:org</strong> (Read org data)
-								</li>
-								<li>Click "Generate token" and copy the token (starts with "ghp_")</li>
-								<li>Paste it in the field above and click "Test" to verify</li>
-							</ol>
-						</div>
-						<div>
-							<RepositoryAutocomplete
-								{organization}
-								selectedRepositories={repositories}
-								onToggle={toggleRepository}
-								{githubToken}
-							/>
-						</div>
-					</div>
-				</div>
-			</section>
+								{REQUIREMENT_FIELDS[requirement].text}
+							</a>
+						</li>
+					{/each}
+				</ul>
+			</Alert.Description>
+		</Alert.Root>
+	{/if}
 
-			<!-- Billing Configuration -->
-			<section class="overflow-hidden rounded-xl border bg-card p-6 shadow-sm">
-				<h2 class="mb-4 text-xl">Billing Configuration</h2>
+	<!-- Lives outside the settings form, which its button below submits through `form`. -->
+	<form {...disconnect} id="disconnect-form"></form>
 
-				<div class="grid grid-cols-2 gap-4">
-					<div class="space-y-2">
-						<Label for="hourly-rate">Hourly Rate</Label>
-						<Input
-							id="hourly-rate"
-							type="number"
-							bind:value={hourlyRate}
-							min="0"
-							step="0.01"
-							placeholder="50.00"
-						/>
-					</div>
-
-					<div class="space-y-2">
-						<Label for="currency">Currency</Label>
-						<Select.Root
-							value={defaultCurrency}
-							type="single"
-							onValueChange={(v) => v && (defaultCurrency = v)}
+	<form
+		{...enhanced}
+		{@attach (node) => {
+			formElement = node;
+		}}
+		onchange={(event) => event.currentTarget.requestSubmit()}
+	>
+		<SettingsSection
+			title="Open Collective"
+			description="Lists the expenses you have sent and lets you submit new ones straight to the collective."
+		>
+			<div class="space-y-1.5" id="oc-connection">
+				{#if me}
+					<!-- The account, then a separate action to leave it. -->
+					<div
+						class="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2"
+					>
+						<div class="flex min-w-0 items-center gap-2.5">
+							<CircleCheck size={18} class="shrink-0 text-status-paid" />
+							<div class="min-w-0">
+								<p class="truncate text-sm font-medium">{me.name}</p>
+								<p class="truncate text-xs text-muted-foreground">Connected as @{me.slug}</p>
+							</div>
+						</div>
+						<Button
+							type="submit"
+							form="disconnect-form"
+							variant="outline"
+							size="sm"
+							disabled={disconnect.pending > 0}
 						>
-							<Select.Trigger class="w-full">
-								{defaultCurrency}
-							</Select.Trigger>
-							<Select.Content>
-								<Select.Item value="USD">USD ($)</Select.Item>
-								<Select.Item value="EUR">EUR (€)</Select.Item>
-								<Select.Item value="GBP">GBP (£)</Select.Item>
-								<Select.Item value="CAD">CAD (CA$)</Select.Item>
-								<Select.Item value="AUD">AUD (A$)</Select.Item>
-							</Select.Content>
-						</Select.Root>
+							{#if disconnect.pending > 0}<Spinner />{/if}
+							Disconnect
+						</Button>
 					</div>
-				</div>
-
-				{#if hourlyRate > 0}
-					<p class="mt-2 text-sm text-gray-600">
-						Example: 32 hours × {defaultCurrency === 'USD' ? '$' : ''}{hourlyRate}/{defaultCurrency} =
-						{defaultCurrency === 'USD' ? '$' : ''}{(32 * hourlyRate).toFixed(2)}
-						{defaultCurrency}
+				{:else}
+					<Button href={resolve('/auth/connect')} data-sveltekit-reload variant="outline">
+						Connect
+					</Button>
+				{/if}
+				{#if connectError}
+					<p class="flex items-start gap-1.5 text-sm text-destructive" role="alert">
+						<CircleAlert size={15} class="mt-0.5 shrink-0" />{connectError}
 					</p>
 				{/if}
-			</section>
+			</div>
 
-			<!-- Monthly Goals -->
-			<section class="overflow-hidden rounded-xl border bg-card p-6 shadow-sm">
-				<h2 class="mb-4 text-xl">Monthly Goals</h2>
+			<div class="space-y-1.5">
+				<Label for="payout-method">Payout method</Label>
+				<input {...fields.payoutMethodId.as('hidden', values.payoutMethodId ?? '')} />
+				<input {...fields.payoutMethodLabel.as('hidden', values.payoutMethodLabel ?? '')} />
+				<Select.Root
+					type="single"
+					value={values.payoutMethodId ?? ''}
+					onValueChange={choosePayoutMethod}
+					disabled={payoutMethods.length === 0}
+				>
+					<Select.Trigger id="payout-method" class="w-full">
+						{payoutLabel ??
+							(payoutMethods.length === 0 ? 'Connect to load your methods' : 'Choose one')}
+					</Select.Trigger>
+					<Select.Content>
+						{#each payoutMethods as method (method.id)}
+							<Select.Item value={method.id}>
+								{method.label}{method.currency ? ` (${method.currency})` : ''}
+							</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			</div>
 
-				<div class="space-y-4">
-					<div class="space-y-2">
-						<Label for="monthly-hour-goal">Target Hours per Month</Label>
-						<Input
-							id="monthly-hour-goal"
-							type="number"
-							bind:value={monthlyHourGoal}
-							min="0"
-							step="1"
-							placeholder="40"
-						/>
-						<p class="mt-1 text-xs text-gray-500">Set your monthly hour target to track progress</p>
-					</div>
+			<div class="grid gap-5 sm:grid-cols-2">
+				<div class="space-y-1.5">
+					<Label for="collective">Collective</Label>
+					<Input
+						id="collective"
+						{...fields.collectiveSlug.as('text')}
+						placeholder="your-project"
+						aria-describedby="collective-hint"
+					/>
+					<p id="collective-hint" class="text-xs text-muted-foreground">
+						{values.collectiveSlug
+							? `opencollective.com/${values.collectiveSlug}`
+							: 'The slug from its Open Collective address'}
+					</p>
+				</div>
+				<div class="space-y-1.5">
+					<Label for="invoice-note">Invoice note</Label>
+					<Input id="invoice-note" {...fields.invoiceNote.as('text')} autocomplete="off" />
+					<p class="text-xs text-muted-foreground">
+						Optional. Added to every invoice, for example a tax number.
+					</p>
+				</div>
+			</div>
 
-					{#if monthlyHourGoal > 0 && hourlyRate > 0}
-						<p class="text-sm text-gray-600">
-							At your current rate, {monthlyHourGoal} hours = {defaultCurrency === 'USD'
-								? '$'
-								: ''}{(monthlyHourGoal * hourlyRate).toFixed(2)}
-							{defaultCurrency}
+			<div class="grid gap-5 sm:grid-cols-[1fr_8rem]">
+				<div class="space-y-1.5">
+					<Label for="address">Your address</Label>
+					<Input id="address" {...fields.payeeAddress.as('text')} autocomplete="street-address" />
+					{#if me?.address}
+						<p class="text-xs text-muted-foreground">
+							Leave empty to use your Open Collective address: {me.address}
 						</p>
 					{/if}
 				</div>
-			</section>
-		</div>
+				<div class="space-y-1.5">
+					<Label for="country">Country code</Label>
+					<Input id="country" {...fields.payeeCountry.as('text')} maxlength={2} class="uppercase" />
+					{#each fields.payeeCountry.issues() ?? [] as issue (issue.message)}
+						<p class="text-xs text-destructive">{issue.message}</p>
+					{:else}
+						<p class="text-xs text-muted-foreground">
+							Two letters{#if me?.country}, or empty for {me.country}{/if}
+						</p>
+					{/each}
+				</div>
+			</div>
 
-		<!-- Right Column: Data Management & Actions -->
-		<div class="space-y-6 lg:sticky lg:top-4 lg:h-fit">
-			<!-- Data Management -->
-			<section class="overflow-hidden rounded-xl border bg-card p-6 shadow-sm">
-				<h2 class="mb-4 text-xl">Data Management</h2>
-
-				<div class="space-y-3">
-					<div class="flex gap-2">
-						<Button type="button" onclick={handleExport} variant="outline"
-							><Download size={16} />Export All Data</Button
-						>
-						<Button type="button" onclick={handleImport} variant="outline"
-							><FolderOpen size={16} />Import Data</Button
-						>
-					</div>
-
-					<Button type="button" onclick={handleClearData} variant="destructive">
-						<Trash2 size={16} />Clear All Data
-					</Button>
-					<p class="text-xs text-gray-500">
-						Warning: This will permanently delete all invoices and settings
+			<details class="text-sm">
+				<summary class="cursor-pointer text-muted-foreground hover:text-foreground">
+					Advanced
+				</summary>
+				<div class="mt-3 space-y-1.5">
+					<Label for="category">Accounting category ID</Label>
+					<Input id="category" {...fields.accountingCategoryId.as('text')} />
+					<p class="text-xs text-muted-foreground">
+						Starts with <code>acat_</code>. Only needed if the fiscal host rejects expenses without
+						a category.
 					</p>
 				</div>
-			</section>
+			</details>
+		</SettingsSection>
 
-			<!-- Save Actions -->
-			<div class="space-y-3 rounded-xl border bg-card p-6 shadow-sm">
-				<Button type="button" onclick={saveSettings} size="lg" class="w-full">Save Settings</Button>
-				{#if savedMessage}
-					<div
-						class="flex items-center justify-center gap-2 rounded-lg bg-green-50 p-3 text-sm font-medium text-green-700"
+		<SettingsSection title="Billing" description="Copied into each new invoice when you start it.">
+			<div class="grid gap-5 sm:grid-cols-2">
+				<div class="space-y-1.5">
+					<Label for="rate">Hourly rate</Label>
+					<Input id="rate" {...fields.hourlyRate.as('number')} min="0" step="0.01" />
+					{#each fields.hourlyRate.issues() ?? [] as issue (issue.message)}
+						<p class="text-xs text-destructive">{issue.message}</p>
+					{/each}
+				</div>
+				<div class="space-y-1.5">
+					<Label for="currency">Currency</Label>
+					<input {...fields.currency.as('hidden', values.currency ?? DEFAULT_SETTINGS.currency)} />
+					<Select.Root
+						type="single"
+						value={values.currency}
+						onValueChange={(code) => {
+							fields.currency.set(code);
+							void save();
+						}}
 					>
-						<Check size={16} />
-						{savedMessage}
-					</div>
+						<Select.Trigger id="currency" class="w-full">{values.currency}</Select.Trigger>
+						<Select.Content>
+							{#each CURRENCIES as code (code)}
+								<Select.Item value={code}>{code}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</div>
+			</div>
+			{#if Number(values.hourlyRate) > 0 && values.currency}
+				<p class="text-sm text-muted-foreground">
+					40 hours comes to {formatMoney(40 * Number(values.hourlyRate), values.currency)}.
+				</p>
+			{/if}
+		</SettingsSection>
+
+		<SettingsSection
+			title="GitHub"
+			description="Optional. Fills the work log with the PRs and issues you touched in each period."
+		>
+			<div class="space-y-1.5">
+				<Label for="github-token">Personal access token</Label>
+				<div class="flex gap-2">
+					<Input id="github-token" {...fields.githubToken.as('password')} autocomplete="off" />
+					<Button
+						type="button"
+						variant="outline"
+						onclick={verifyGitHub}
+						disabled={verifying || !values.githubToken?.trim()}
+					>
+						{#if verifying}<Spinner />{/if}
+						Check
+					</Button>
+				</div>
+				<p class="text-xs text-muted-foreground">
+					Without a token only your public activity is found. Any token that can read your account
+					works.
+				</p>
+				{#if githubMessage}
+					<p
+						class="flex items-center gap-1.5 text-sm {githubMessage.ok
+							? 'text-status-paid'
+							: 'text-destructive'}"
+						role="status"
+					>
+						{#if githubMessage.ok}<Check size={15} />{:else}<CircleAlert size={15} />{/if}
+						{githubMessage.text}
+					</p>
 				{/if}
 			</div>
-		</div>
-	</div>
+
+			<div class="grid gap-5 sm:grid-cols-2">
+				<div class="space-y-1.5">
+					<Label for="github-username">Username</Label>
+					<Input id="github-username" {...fields.githubUsername.as('text')} />
+				</div>
+				<div class="space-y-1.5">
+					<Label for="organization">Organization</Label>
+					<Input
+						id="organization"
+						{...fields.organization.as('text')}
+						placeholder="Optional, e.g. your-org"
+					/>
+				</div>
+			</div>
+
+			<div class="space-y-1.5">
+				<Label for="repositories">Repositories</Label>
+				{#each repositories as repository, index (repository)}
+					<input {...fields.repositories[index].as('hidden', repository)} />
+				{/each}
+				<ChipInput id="repositories" values={repositories} onchange={save} />
+				<p class="text-xs text-muted-foreground">
+					Leave empty to include every repository in the organization. Press Enter after each name,
+					for example kit.
+				</p>
+			</div>
+		</SettingsSection>
+
+		<SettingsSection
+			title="Backup"
+			description="Download your settings to move them to another browser."
+		>
+			<div class="flex flex-wrap gap-2">
+				<Button type="button" variant="outline" onclick={downloadBackup}>
+					<Download /> Download backup
+				</Button>
+				<Button type="button" variant="outline" class="relative">
+					<Upload /> Restore backup
+					<input
+						type="file"
+						accept="application/json"
+						class="absolute inset-0 cursor-pointer opacity-0"
+						aria-label="Restore backup file"
+						onchange={(event) => {
+							// Not a setting, so keep it out of the autosave.
+							event.stopPropagation();
+							void importBackup(event);
+						}}
+					/>
+				</Button>
+				<Button
+					type="button"
+					variant="ghost"
+					class="text-destructive"
+					onclick={() => (clearDialogOpen = true)}
+				>
+					Delete all data
+				</Button>
+			</div>
+			{#if backupMessage}
+				<Alert.Root variant={backupMessage.ok ? 'default' : 'destructive'}>
+					<Alert.Description>{backupMessage.text}</Alert.Description>
+				</Alert.Root>
+			{/if}
+			<p class="text-xs text-muted-foreground">Backups never include your tokens.</p>
+		</SettingsSection>
+	</form>
+
+	<Dialog.Root bind:open={clearDialogOpen}>
+		<Dialog.Content>
+			<Dialog.Header>
+				<Dialog.Title>Delete all data?</Dialog.Title>
+				<Dialog.Description>
+					This removes every setting and disconnects Open Collective. Expenses already on Open
+					Collective are not touched.
+				</Dialog.Description>
+			</Dialog.Header>
+			<form {...clearEnhanced}>
+				<Dialog.Footer>
+					<Button type="button" variant="outline" onclick={() => (clearDialogOpen = false)}>
+						Keep my data
+					</Button>
+					<Button type="submit" variant="destructive" disabled={clearAllData.pending > 0}>
+						{#if clearAllData.pending > 0}<Spinner />{/if}
+						Delete everything
+					</Button>
+				</Dialog.Footer>
+			</form>
+		</Dialog.Content>
+	</Dialog.Root>
 </div>
