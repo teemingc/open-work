@@ -59,7 +59,7 @@
 
 	function choose(match: CollectiveMatch) {
 		open = false;
-		void goto(resolve('/[[handle]]', { handle: match.slug }));
+		void goto(resolve('/collective/[handle]', { handle: match.slug }));
 	}
 </script>
 

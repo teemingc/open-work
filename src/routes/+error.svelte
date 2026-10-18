@@ -1,22 +1,76 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import RetryableError from '#lib/components/RetryableError.svelte';
-	import * as Alert from '#lib/components/ui/alert/index.js';
-	import { CircleAlert } from '@lucide/svelte';
+	import { ChartLine, ChevronRight, Clock, FileText } from '@lucide/svelte';
+
+	const notFound = $derived(page.status === 404);
+
+	const destinations = [
+		{
+			href: resolve('/'),
+			icon: ChartLine,
+			name: 'Collective',
+			about: 'How your collective’s money is holding up'
+		},
+		{
+			href: resolve('/worklog'),
+			icon: Clock,
+			name: 'Work log',
+			about: 'The hours you have logged'
+		},
+		{
+			href: resolve('/invoices'),
+			icon: FileText,
+			name: 'Invoices',
+			about: 'Start an invoice or see the ones you sent'
+		}
+	];
 </script>
 
-<svelte:head
-	><title>{page.status === 404 ? 'Not found' : 'Something went wrong'} · Open Work</title
-	></svelte:head
->
+<svelte:head>
+	<title>{notFound ? 'Page not found' : 'Page did not load'} · Open Work</title>
+</svelte:head>
 
-<Alert.Root variant="destructive">
-	<CircleAlert />
-	<Alert.Title>
-		{page.status === 404 ? 'This page does not exist' : 'Could not load this page'}
-	</Alert.Title>
-	<Alert.Description>
-		<RetryableError error={page.error} onretry={() => invalidateAll()} />
-	</Alert.Description>
-</Alert.Root>
+<div class="max-w-xl pt-6 sm:pt-12">
+	<!-- The double rule closes the heading, like the masthead and a ledger's totals. -->
+	<h1 class="border-b-[3px] border-double border-rule pb-4 text-3xl sm:text-4xl">
+		{notFound ? 'No page at this address' : 'This page did not load'}
+	</h1>
+
+	{#if notFound}
+		<p class="mt-5 text-muted-foreground">
+			Nothing in Open Work lives at
+			<span class="font-medium break-all text-foreground">{page.url.pathname}</span>. Check the
+			address for a typo, or carry on from one of these.
+		</p>
+
+		<nav aria-label="Pages" class="mt-6 overflow-hidden rounded-xl border bg-card">
+			<ul class="divide-y">
+				{#each destinations as { href, icon: Icon, name, about } (href)}
+					<li>
+						<a
+							{href}
+							class="group flex items-center gap-3 px-4 py-3 hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+						>
+							<Icon class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+							<span class="min-w-0 flex-1">
+								<span class="block font-medium">{name}</span>
+								<span class="block text-sm text-muted-foreground">{about}</span>
+							</span>
+							<ChevronRight
+								class="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+								aria-hidden="true"
+							/>
+						</a>
+					</li>
+				{/each}
+			</ul>
+		</nav>
+	{:else}
+		<div class="mt-5 text-muted-foreground">
+			<RetryableError error={page.error} onretry={() => invalidateAll()} />
+		</div>
+	{/if}
+</div>
