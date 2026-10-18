@@ -69,7 +69,7 @@
 {#snippet hoursRow({ value, name }: { value: unknown; name: string })}
 	<div class="flex w-full justify-between gap-4">
 		<span class="text-muted-foreground">{name}</span>
-		<span class="font-mono font-medium tabular-nums">{formatHours(Number(value))} h</span>
+		<span class="font-medium tabular-nums">{formatHours(Number(value))} h</span>
 	</div>
 {/snippet}
 
@@ -124,10 +124,10 @@
 				</BarChart>
 			</Chart.Container>
 
-			<div class="overflow-x-auto rounded-lg border">
-				<table class="w-full text-sm">
+			<div class="overflow-x-auto rounded-lg border bg-card">
+				<table class="ledger text-sm">
 					<caption class="sr-only">Hours and earnings by month</caption>
-					<thead class="bg-muted/50 text-left text-xs text-muted-foreground">
+					<thead class="text-xs">
 						<tr>
 							<th class="px-3 py-2 font-medium">Month</th>
 							<th class="px-3 py-2 text-right font-medium">Working days</th>
@@ -137,7 +137,7 @@
 							<th class="px-3 py-2 text-right font-medium">Earned</th>
 						</tr>
 					</thead>
-					<tbody class="divide-y tabular-nums">
+					<tbody>
 						{#each months as { month, summary, inExchange } (month)}
 							{@const difference = summary.logged - summary.expected}
 							<tr>

@@ -278,7 +278,7 @@
 				/>
 			{/if}
 			<div>
-				<h1 class="text-3xl">{data.name}</h1>
+				<h1>{data.name}</h1>
 				<!-- The collective's address reads like a handle under its name. -->
 				<p class="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
 					<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->

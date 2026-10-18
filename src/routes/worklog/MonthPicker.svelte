@@ -48,7 +48,7 @@
 			{#snippet child({ props })}
 				<button
 					{...props}
-					class="-mx-2 flex items-center gap-1.5 rounded-md px-2 font-document text-2xl tracking-tight hover:bg-accent sm:text-3xl"
+					class="-mx-2 flex items-center gap-1.5 rounded-md px-2 hover:bg-accent"
 					aria-label="Choose a month, showing {label}"
 				>
 					{label}

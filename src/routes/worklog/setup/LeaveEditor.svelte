@@ -74,7 +74,7 @@
 	{#if ranges.length === 0}
 		<p class="text-sm text-muted-foreground">No leave in {year} yet.</p>
 	{:else}
-		<ul class="divide-y rounded-lg border bg-card" aria-label="Leave in {year}">
+		<ul class="ledger-rows overflow-hidden rounded-lg border bg-card" aria-label="Leave in {year}">
 			{#each ranges as range (range.from)}
 				<li class="flex flex-wrap items-center gap-2 p-2">
 					<Popover.Root>

@@ -79,10 +79,10 @@
 <StatStrip {stats} />
 
 {#if summary.clients.length > 0}
-	<div class="mt-4 overflow-x-auto rounded-lg border">
-		<table class="w-full text-sm">
+	<div class="mt-4 overflow-x-auto rounded-lg border bg-card">
+		<table class="ledger text-sm">
 			<caption class="sr-only">Hours and earnings by client</caption>
-			<thead class="bg-muted/50 text-left text-xs text-muted-foreground">
+			<thead class="text-xs">
 				<tr>
 					<th class="px-3 py-2 font-medium">Client</th>
 					<th class="px-3 py-2 text-right font-medium">Hours</th>
@@ -93,7 +93,7 @@
 					{/if}
 				</tr>
 			</thead>
-			<tbody class="divide-y tabular-nums">
+			<tbody>
 				{#each summary.clients as { client, hours, amount, rate, mixedRates } (client.id)}
 					{@const local = converted({ data, amounts: { [client.currency]: amount } })}
 					<tr>

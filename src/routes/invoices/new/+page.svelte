@@ -83,7 +83,7 @@
 		<ArrowLeft size={15} /> Invoices
 	</a>
 
-	<h1 class="mb-6 font-document text-2xl tracking-tight whitespace-nowrap sm:text-3xl">
+	<h1 class="mb-6">
 		{formatDMY(draft.startDate)} – {formatDMY(draft.endDate)}
 	</h1>
 

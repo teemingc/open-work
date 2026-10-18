@@ -15,7 +15,7 @@
 	data-slot="input-group"
 	role="group"
 	class={cn(
-		'group/input-group relative flex w-full items-center rounded-md border border-input shadow-xs transition-[color,box-shadow] outline-none dark:bg-input/30',
+		'group/input-group relative flex w-full items-center rounded-md border border-input transition-[color,box-shadow] outline-none dark:bg-input/30',
 		'h-9 has-[>textarea]:h-auto',
 
 		// Variants based on alignment.

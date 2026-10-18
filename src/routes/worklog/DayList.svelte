@@ -41,7 +41,7 @@
 		Nothing logged this month yet.
 	</p>
 {:else}
-	<ol class="divide-y rounded-lg border bg-card">
+	<ol class="ledger-rows overflow-hidden rounded-lg border bg-card">
 		{#each days as day (day.date)}
 			<li class="p-3 sm:p-4">
 				<div class="mb-2 flex items-baseline justify-between gap-3 text-sm">
@@ -54,8 +54,7 @@
 						{/if}
 					</h3>
 					<span class="text-muted-foreground tabular-nums">
-						{formatHours(day.logged)}{#if day.expected}
-							/ {formatHours(day.expected)}{/if} h
+						{formatHours(day.logged)}{#if day.expected}{` / ${formatHours(day.expected)}`}{/if} h
 					</span>
 				</div>
 
@@ -86,9 +85,8 @@
 									></span>
 									<div class="min-w-0 flex-1">
 										<p class="text-xs text-muted-foreground tabular-nums">
-											{client?.name ?? 'Unknown client'}{#if entry.start && entry.end}
-												· {entry.start}–{entry.end}{/if}{#if entry.rate !== undefined && client}
-												· {formatMoney(entry.rate, client.currency)}/h{/if}
+											{client?.name ??
+												'Unknown client'}{#if entry.start && entry.end}{`, ${entry.start}–${entry.end}`}{/if}{#if entry.rate !== undefined && client}{`, ${formatMoney(entry.rate, client.currency)}/h`}{/if}
 										</p>
 										{#if entry.items.length > 0}
 											<ul class="mt-0.5 flex flex-col gap-0.5">

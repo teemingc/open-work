@@ -118,7 +118,7 @@
 					role="combobox"
 					aria-expanded={open}
 					aria-label="Search Open Collective"
-					class="h-11 w-full justify-start gap-2.5 bg-card px-3.5 text-base font-normal text-muted-foreground shadow-xs"
+					class="h-11 w-full justify-start gap-2.5 bg-card px-3.5 text-base font-normal text-muted-foreground"
 				>
 					<Search class="size-4.5" />
 					{name}

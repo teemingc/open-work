@@ -101,10 +101,7 @@
 		<!-- The month controls sit at the right edge, so they stay put as the month name changes length. -->
 		<div class="flex items-center justify-between gap-3">
 			<MonthPicker {month} current={monthOf(today)} label={monthName} />
-			<nav
-				aria-label="Month"
-				class="flex shrink-0 items-center rounded-md border bg-card shadow-xs"
-			>
+			<nav aria-label="Month" class="flex shrink-0 items-center rounded-md border bg-card">
 				<Button
 					variant="ghost"
 					size="icon"

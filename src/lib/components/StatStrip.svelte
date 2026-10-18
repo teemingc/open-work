@@ -42,7 +42,7 @@
 						</Badge>
 					{/if}
 				</dt>
-				<dd class="font-document text-2xl font-medium tabular-nums {stat.tone ?? ''}">
+				<dd class="font-display text-2xl font-medium tabular-nums {stat.tone ?? ''}">
 					{stat.value}
 				</dd>
 				<dd class="truncate text-xs text-muted-foreground" title={stat.note}>{stat.note}</dd>

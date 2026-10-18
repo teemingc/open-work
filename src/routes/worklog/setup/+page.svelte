@@ -110,7 +110,7 @@
 >
 	<ArrowLeft size={15} /> Work log
 </a>
-<h1 class="mb-8 font-document text-2xl tracking-tight sm:text-3xl">Clients and days off</h1>
+<h1 class="mb-8">Clients and days off</h1>
 
 <SettingsSection
 	title="Clients"

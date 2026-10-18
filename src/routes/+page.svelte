@@ -69,7 +69,7 @@
 {/snippet}
 
 <div class="space-y-8">
-	<h1 class="text-3xl">Invoices</h1>
+	<h1>Invoices</h1>
 
 	<!--
 		Everything below waits until your account and settings are known, then fades in at once,
@@ -110,7 +110,7 @@
 						{#if expensesPending}
 							<Skeleton class="mt-1 h-10 w-96 max-w-full" />
 						{:else}
-							<p class="mt-1 animate-in font-document text-4xl tracking-tight duration-300 fade-in">
+							<p class="mt-1 animate-in font-display text-4xl duration-300 fade-in">
 								{formatDMY(suggested.startDate)} – {formatDMY(suggested.endDate)}
 							</p>
 						{/if}

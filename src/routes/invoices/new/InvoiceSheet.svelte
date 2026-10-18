@@ -39,7 +39,7 @@
 <!-- Only the sides: a vertical margin here would cancel the spacing the sidebar gives each item. -->
 <figure class="mx-0 mt-0">
 	<div
-		class="rounded-sm border border-neutral-300 bg-white p-6 font-document text-[15px] leading-snug text-neutral-900 shadow-[0_1px_0_rgb(0_0_0/0.04),0_12px_32px_-12px_rgb(30_41_59/0.25)]"
+		class="rounded-sm border border-neutral-300 bg-white p-6 text-[15px] leading-snug text-neutral-900 shadow-[0_1px_0_rgb(0_0_0/0.04),0_12px_32px_-12px_rgb(30_41_59/0.25)]"
 	>
 		<div class="grid grid-cols-2 gap-4 text-[13px]">
 			<div>

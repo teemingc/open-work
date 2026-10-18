@@ -58,7 +58,7 @@
 {#snippet hoursRow({ value, name }: { value: unknown; name: string })}
 	<div class="flex w-full justify-between gap-4">
 		<span class="text-muted-foreground">{name}</span>
-		<span class="font-mono font-medium tabular-nums">{formatHours(Number(value))} h</span>
+		<span class="font-medium tabular-nums">{formatHours(Number(value))} h</span>
 	</div>
 {/snippet}
 

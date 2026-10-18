@@ -188,10 +188,10 @@
 							<span class="flex shrink-0 items-baseline gap-2">
 								{#if range !== 'all' && backer.lifetime && backer.lifetime - backer.amount >= 1}
 									<span class="text-xs text-muted-foreground">
-										<span class="font-mono tabular-nums">{money.format(backer.lifetime)}</span> all time
+										<span class="tabular-nums">{money.format(backer.lifetime)}</span> all time
 									</span>
 								{/if}
-								<span class="font-mono tabular-nums">{money.format(backer.amount)}</span>
+								<span class="tabular-nums">{money.format(backer.amount)}</span>
 							</span>
 						</div>
 						{#if backer.tiers?.length}
@@ -215,7 +215,7 @@
 											: tier.min === 0
 												? `gave under ${money.format(tier.max)}`
 												: `gave ${money.format(tier.min)}–${money.format(tier.max - 1)}`}:
-										<span class="font-mono tabular-nums">{money.format(tier.amount)}</span>
+										<span class="tabular-nums">{money.format(tier.amount)}</span>
 									</li>
 								{/each}
 							</ul>
@@ -241,9 +241,8 @@
 								<span>
 									{monthYear.format(new Date(backer.history.first))} – {monthYear.format(
 										new Date(backer.history.last)
-									)}
+									)},
 								</span>
-								<span aria-hidden="true">·</span>
 								<span>
 									{backer.history.contributions}
 									{backer.history.contributions === 1 ? 'contribution' : 'contributions'}

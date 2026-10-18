@@ -30,16 +30,11 @@
 	<!-- One narrow column: the search, then a short list that reads as its first results. -->
 	<div class="mx-auto flex max-w-md flex-col gap-6 pt-10 sm:pt-16">
 		<div class="space-y-2 text-center">
-			<h1 class="font-document text-3xl tracking-tight text-balance sm:text-4xl">
-				See how a collective is doing
-			</h1>
+			<h1>See how a collective is doing</h1>
 			<p class="text-muted-foreground">Its balance, runway and who funds it.</p>
 		</div>
 		<CollectiveSearch name="Search Open Collective" field />
-		<nav
-			aria-label="Suggested collectives"
-			class="overflow-hidden rounded-xl border bg-card shadow-xs"
-		>
+		<nav aria-label="Suggested collectives" class="overflow-hidden rounded-xl border bg-card">
 			<ul class="divide-y">
 				{#each SUGGESTED_COLLECTIVES as collective (collective.slug)}
 					<li>

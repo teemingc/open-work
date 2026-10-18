@@ -5,100 +5,108 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Palette
- *   paper   cool grey desk the invoice sits on
- *   ink     deep blue-black text
- *   sheet   the invoice itself, near white
- *   ember   Svelte orange, used only for the main action and focus
+ * Colours follow Open Collective, so the app sits comfortably next to the site it submits to.
+ *   paper   slate-50 page behind white sheets
+ *   ink     slate-900 text
+ *   navy    Open Collective navy: the main action, page titles and the current place
+ *   blue    Open Collective blue: focus and links that want a second look
+ *   band    a pale blue stripe on every other row, like ruled ledger paper
  */
 :root {
-	--radius: 0.5rem;
-	--background: oklch(0.955 0.01 250);
-	--foreground: oklch(0.22 0.035 255);
-	--card: oklch(0.995 0.002 250);
-	--card-foreground: oklch(0.22 0.035 255);
-	--popover: oklch(0.995 0.002 250);
-	--popover-foreground: oklch(0.22 0.035 255);
-	--primary: oklch(0.63 0.235 34);
-	--primary-foreground: oklch(0.99 0.01 60);
-	--secondary: oklch(0.92 0.014 250);
-	--secondary-foreground: oklch(0.25 0.035 255);
-	--muted: oklch(0.935 0.012 250);
-	--muted-foreground: oklch(0.47 0.03 255);
-	--accent: oklch(0.925 0.016 250);
-	--accent-foreground: oklch(0.25 0.035 255);
-	--destructive: oklch(0.55 0.22 27);
-	--border: oklch(0.88 0.014 250);
-	--input: oklch(0.86 0.016 250);
-	--ring: oklch(0.63 0.235 34);
+	--radius: 0.375rem;
+	--background: #f8fafc;
+	--foreground: #0f172a;
+	--card: #ffffff;
+	--card-foreground: #0f172a;
+	--popover: #ffffff;
+	--popover-foreground: #0f172a;
+	--primary: #0c2764;
+	--primary-foreground: #ffffff;
+	--secondary: #f1f5f9;
+	--secondary-foreground: #0f172a;
+	--muted: #f1f5f9;
+	--muted-foreground: #64748b;
+	--accent: #eef3fc;
+	--accent-foreground: #0c2764;
+	--destructive: #c42a4f;
+	--border: #e2e8f0;
+	--input: #cbd5e1;
+	--ring: #1869f5;
+	--band: #f3f7fe;
+	--rule: #0c2764;
+	--heading: #0c2764;
 
-	--status-draft: oklch(0.5 0.03 255);
-	--status-submitted: oklch(0.5 0.15 255);
-	--status-paid: oklch(0.48 0.12 155);
-	/* Amber for things that need attention but have not gone wrong. Solid colours, not a tint,
-	   so the blue-grey page does not show through and muddy them. */
-	--warning: oklch(0.48 0.11 65);
-	--warning-surface: oklch(0.975 0.045 95);
-	--warning-border: oklch(0.88 0.1 90);
+	--status-draft: #64748b;
+	--status-submitted: #1153d6;
+	--status-paid: #0a7b4d;
+	/* Amber for things that need attention but have not gone wrong, like a pending expense. Solid
+	   colours, not a tint, so the page does not show through and muddy them. */
+	--warning: #7a5600;
+	--warning-surface: #fff8db;
+	--warning-border: #f2dc8a;
 
-	--chart-income: oklch(0.58 0.13 160);
-	--chart-expenses: oklch(0.6 0.19 30);
-	--chart-expenses-muted: oklch(0.83 0.07 30);
-	--chart-income-muted: oklch(0.84 0.06 160);
-	--chart-1: #2a78d6;
-	--chart-2: #eb6834;
-	--chart-3: #1baf7a;
-	--chart-4: #eda100;
-	--chart-other: oklch(0.75 0.01 255);
-	--chart-balance: oklch(0.5 0.15 265);
+	--chart-income: #1869f5;
+	--chart-expenses: #e0577d;
+	--chart-expenses-muted: #f6c3d1;
+	--chart-income-muted: #bcd3fb;
+	--chart-1: #1869f5;
+	--chart-2: #e0577d;
+	--chart-3: #14a38b;
+	--chart-4: #e69a0b;
+	--chart-other: #cbd5e1;
+	--chart-balance: #0c2764;
 }
 
 .dark {
-	--background: oklch(0.2 0.03 255);
-	--foreground: oklch(0.96 0.005 250);
-	--card: oklch(0.25 0.03 255);
-	--card-foreground: oklch(0.96 0.005 250);
-	--popover: oklch(0.25 0.03 255);
-	--popover-foreground: oklch(0.96 0.005 250);
-	--primary: oklch(0.68 0.21 36);
-	--primary-foreground: oklch(0.2 0.03 255);
-	--secondary: oklch(0.3 0.03 255);
-	--secondary-foreground: oklch(0.96 0.005 250);
-	--muted: oklch(0.3 0.03 255);
-	--muted-foreground: oklch(0.72 0.02 255);
-	--accent: oklch(0.32 0.03 255);
-	--accent-foreground: oklch(0.96 0.005 250);
-	--destructive: oklch(0.7 0.19 22);
-	--border: oklch(1 0 0 / 12%);
-	--input: oklch(1 0 0 / 16%);
-	--ring: oklch(0.68 0.21 36);
+	--background: #0b1430;
+	--foreground: #e2e8f0;
+	--card: #111c3d;
+	--card-foreground: #e2e8f0;
+	--popover: #111c3d;
+	--popover-foreground: #e2e8f0;
+	--primary: #8fb4ff;
+	--primary-foreground: #0b1430;
+	--secondary: #1a2650;
+	--secondary-foreground: #e2e8f0;
+	--muted: #1a2650;
+	--muted-foreground: #94a3b8;
+	--accent: #1c2a58;
+	--accent-foreground: #e2e8f0;
+	--destructive: #f28ba6;
+	--border: #233163;
+	--input: #2c3b72;
+	--ring: #5b95ff;
+	--band: #142043;
+	--rule: #8fb4ff;
+	--heading: #dbe6ff;
 
-	--status-draft: oklch(0.75 0.02 255);
-	--status-submitted: oklch(0.75 0.12 255);
-	--status-paid: oklch(0.75 0.13 155);
-	--warning: oklch(0.86 0.12 88);
-	--warning-surface: oklch(0.29 0.05 85);
-	--warning-border: oklch(0.42 0.08 85);
+	--status-draft: #a3b0c4;
+	--status-submitted: #8fb4ff;
+	--status-paid: #6fd3a5;
+	--warning: #f3d27a;
+	--warning-surface: #2a2614;
+	--warning-border: #4d4422;
 
-	--chart-income: oklch(0.74 0.14 160);
-	--chart-expenses: oklch(0.7 0.17 32);
-	--chart-expenses-muted: oklch(0.45 0.08 32);
-	--chart-income-muted: oklch(0.47 0.07 160);
-	--chart-1: #3987e5;
-	--chart-2: #d95926;
-	--chart-3: #199e70;
-	--chart-4: #c98500;
-	--chart-other: oklch(0.5 0.02 255);
-	--chart-balance: oklch(0.74 0.12 265);
+	--chart-income: #5b95ff;
+	--chart-expenses: #f28ba6;
+	--chart-expenses-muted: #5a2a3a;
+	--chart-income-muted: #23386e;
+	--chart-1: #5b95ff;
+	--chart-2: #f28ba6;
+	--chart-3: #4fd1b5;
+	--chart-4: #f3b544;
+	--chart-other: #3a4772;
+	--chart-balance: #8fb4ff;
 }
 
 @theme inline {
-	--font-sans: 'Schibsted Grotesk', system-ui, -apple-system, sans-serif;
-	--font-document: 'Newsreader', Georgia, serif;
-	--radius-sm: calc(var(--radius) - 2px);
-	--radius-md: var(--radius);
-	--radius-lg: calc(var(--radius) + 2px);
-	--radius-xl: calc(var(--radius) + 6px);
+	--font-serif: 'Source Serif 4', Georgia, serif;
+	/* Clarendon, the face of ledgers and banknotes. Titles, the wordmark and headline figures only. */
+	--font-display: 'Besley', 'Source Serif 4', Georgia, serif;
+	--radius-sm: calc(var(--radius) - 3px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 2px);
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--color-card: var(--card);
@@ -117,6 +125,8 @@
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
+	--color-band: var(--band);
+	--color-rule: var(--rule);
 	--color-status-draft: var(--status-draft);
 	--color-status-submitted: var(--status-submitted);
 	--color-status-paid: var(--status-paid);
@@ -140,13 +150,25 @@
 		@apply border-border outline-ring/50;
 	}
 	body {
-		@apply bg-background font-sans text-foreground antialiased;
+		@apply bg-background font-serif text-foreground antialiased;
+		font-optical-sizing: auto;
+		font-variant-numeric: lining-nums;
+		line-height: 1.6;
 	}
 	h1,
 	h2,
 	h3 {
-		letter-spacing: -0.015em;
 		font-weight: 600;
+		line-height: 1.2;
+		text-wrap: balance;
+	}
+	/* Page titles share one size and face everywhere. */
+	h1 {
+		font-family: var(--font-display);
+		color: var(--heading);
+		font-size: clamp(1.875rem, 1.5rem + 1.4vw, 2.5rem);
+		font-weight: 500;
+		letter-spacing: -0.01em;
 	}
 	:focus-visible {
 		outline: 2px solid var(--ring);
@@ -154,9 +176,27 @@
 	}
 }
 
-/* The invoice sheet is the one place the page borrows from print. */
-@utility font-document {
-	font-family: var(--font-document);
+@layer components {
+	/*
+	 * Tables read like green-bar accounting paper: a double rule under the column heads and a
+	 * faint band on every other row, so the eye can follow a line across wide figures.
+	 */
+	.ledger {
+		width: 100%;
+		font-variant-numeric: tabular-nums lining-nums;
+	}
+	.ledger thead {
+		border-bottom: 3px double var(--rule);
+		text-align: left;
+		color: var(--muted-foreground);
+	}
+	.ledger th {
+		font-weight: 500;
+	}
+	.ledger tbody > tr:nth-child(even),
+	.ledger-rows > li:nth-child(even) {
+		background-color: var(--band);
+	}
 }
 
 @media (prefers-reduced-motion: reduce) {

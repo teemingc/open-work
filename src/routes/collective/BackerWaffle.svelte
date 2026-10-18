@@ -103,7 +103,7 @@
 					<span class="text-muted-foreground tabular-nums">
 						{percent.format(total ? group.amount / total : 0)}
 					</span>
-					<span class="w-20 text-right font-mono tabular-nums">{money.format(group.amount)}</span>
+					<span class="w-20 text-right tabular-nums">{money.format(group.amount)}</span>
 				</li>
 			{/each}
 		</ul>

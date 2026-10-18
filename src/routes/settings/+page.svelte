@@ -157,7 +157,7 @@
 <div class="animate-in duration-300 fade-in">
 	<div class="mb-8 flex flex-wrap items-end justify-between gap-2">
 		<div>
-			<h1 class="text-3xl">Settings</h1>
+			<h1>Settings</h1>
 		</div>
 		<p class="flex items-center gap-1.5 text-sm text-muted-foreground" role="status">
 			{#if saveSettings.pending > 0}

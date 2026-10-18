@@ -44,8 +44,8 @@
 </script>
 
 <div class="animate-in overflow-x-auto rounded-xl border bg-card duration-300 fade-in">
-	<table class="w-full text-sm">
-		<thead class="border-b text-left text-muted-foreground">
+	<table class="ledger text-sm">
+		<thead>
 			<tr>
 				{#each COLUMNS as column (column.key)}
 					<th
@@ -74,7 +74,7 @@
 				{/each}
 			</tr>
 		</thead>
-		<tbody class="divide-y">
+		<tbody>
 			{#each shown as expense (expense.id)}
 				<tr class={['hover:bg-accent/50', expense.url === highlightUrl && 'just-submitted']}>
 					<td class="px-4 py-3">
