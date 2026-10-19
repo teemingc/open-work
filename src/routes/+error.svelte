@@ -12,19 +12,19 @@
 			href: resolve('/'),
 			icon: ChartLine,
 			name: 'Collective',
-			about: 'How your collective’s money is holding up'
+			about: 'Balance, runway and backers'
 		},
 		{
 			href: resolve('/worklog'),
 			icon: Clock,
 			name: 'Work log',
-			about: 'The hours you have logged'
+			about: 'Hours and what you worked on'
 		},
 		{
 			href: resolve('/invoices'),
 			icon: FileText,
 			name: 'Invoices',
-			about: 'Start an invoice or see the ones you sent'
+			about: 'Start one or check the ones you sent'
 		}
 	];
 </script>
@@ -41,7 +41,7 @@
 			<p class="text-muted-foreground">
 				Nothing in Open Work lives at
 				<span class="font-medium break-all text-foreground">{page.url.pathname}</span>. Check the
-				address for a typo, or carry on from one of these.
+				address for a typo, or go to one of these.
 			</p>
 		{:else}
 			<div class="flex justify-center text-muted-foreground">

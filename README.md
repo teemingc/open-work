@@ -1,6 +1,6 @@
 # Open Work
 
-Keeps open source freelancing sustainable. Log the hours and the PRs and issues you work on, see whether you are on pace for the month, follow how your collective's money is holding up, and turn each fortnight of work into an Open Collective expense.
+Time tracking and invoicing for open source contractors paid through Open Collective. Log your hours and the PRs and issues you worked on, check whether you are on pace for the month, see your collective's balance and runway, and turn each period of work into an Open Collective expense.
 
 Your settings are kept in a cookie and your work log in this browser's local storage. The server only forwards requests to Open Collective.
 
