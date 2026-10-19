@@ -1,16 +1,21 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
-	import { RotateCcw } from '@lucide/svelte';
+	import { LogIn, RotateCcw } from '@lucide/svelte';
 	import { isHttpError } from '@sveltejs/kit';
 
 	let { error, onretry }: { error: unknown; onretry: () => unknown } = $props();
 
-	const details = $derived.by((): { message: string; retryAfter?: number } => {
+	const details = $derived.by((): { message: string; retryAfter?: number; connect?: boolean } => {
 		if (isHttpError(error)) return error.body;
 		if (error && typeof error === 'object' && 'message' in error) {
-			const { message, retryAfter } = error as { message: unknown; retryAfter?: number };
-			return { message: String(message), retryAfter };
+			const { message, retryAfter, connect } = error as {
+				message: unknown;
+				retryAfter?: number;
+				connect?: boolean;
+			};
+			return { message: String(message), retryAfter, connect };
 		}
 		return { message: 'Something went wrong.' };
 	});
@@ -51,8 +56,18 @@
 				{left === 1 ? 'second' : 'seconds'}.
 			{/if}
 		</p>
-		<Button variant="outline" size="sm" disabled={left > 0 || retrying} onclick={retry}>
-			{#if retrying}<Spinner /> Trying again{:else}<RotateCcw /> Try again{/if}
-		</Button>
+		{#if details.connect}
+			<p>Connect your Open Collective account in settings to get a higher limit.</p>
+		{/if}
+		<div class="flex flex-wrap gap-2">
+			{#if details.connect}
+				<Button href="{resolve('/settings')}#oc-connection" size="sm">
+					<LogIn /> Connect Open Collective
+				</Button>
+			{/if}
+			<Button variant="outline" size="sm" disabled={left > 0 || retrying} onclick={retry}>
+				{#if retrying}<Spinner /> Trying again{:else}<RotateCcw /> Try again{/if}
+			</Button>
+		</div>
 	</div>
 {/key}
