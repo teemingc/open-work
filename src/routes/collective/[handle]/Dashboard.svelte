@@ -336,7 +336,7 @@
 					aria-hidden="true"
 				/>
 			</h1>
-			<span class="sr-only">on Open Collective</span>
+			<span class="sr-only">on Open Collective (opens in a new tab)</span>
 		</a>
 		<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		<CollectiveSearch name="Find another collective" slug={data.slug} />
@@ -651,6 +651,7 @@
 										class="hover:underline"
 									>
 										{labelMonth(month.key)}
+										<span class="sr-only">(opens in a new tab)</span>
 									</a>
 									<!-- eslint-enable svelte/no-navigation-without-resolve -->
 								</th>

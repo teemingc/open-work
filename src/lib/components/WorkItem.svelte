@@ -22,7 +22,9 @@
 		<span class="truncate">
 			<span class="text-muted-foreground">{repository}</span>
 			<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
-			<a href={url} target="_blank" rel="noreferrer" class="hover:underline">{item}</a>
+			<a href={url} target="_blank" rel="noreferrer" class="hover:underline"
+				>{item}<span class="sr-only"> (opens in a new tab)</span></a
+			>
 			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		</span>
 	{:else}

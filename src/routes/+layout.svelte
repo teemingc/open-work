@@ -80,6 +80,7 @@
 	>
 		<GitHubMark class="size-4" />
 		Source code
+		<span class="sr-only">(opens in a new tab)</span>
 	</a>
 	<!-- eslint-enable svelte/no-navigation-without-resolve -->
 </footer>

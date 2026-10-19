@@ -87,6 +87,7 @@
 						>
 							{expense.title}
 							<ExternalLink size={13} class="shrink-0 text-muted-foreground" />
+							<span class="sr-only">(opens in a new tab)</span>
 						</a>
 						<!-- eslint-enable svelte/no-navigation-without-resolve -->
 					</td>
