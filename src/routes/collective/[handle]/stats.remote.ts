@@ -3,7 +3,6 @@ import { error } from '@sveltejs/kit';
 import * as v from 'valibot';
 import { cached } from '#lib/server/cache.js';
 import { publicGraphql, toHttpError } from '#lib/server/opencollective.js';
-import { getToken } from '#lib/server/session.js';
 import {
 	backerHistory,
 	lastMonthKeys,
@@ -46,13 +45,70 @@ function perKey<T>(make: (key: string) => () => Promise<T>): (key: string) => Pr
 	};
 }
 
-/** Open Collective rate-limits public requests, so each result is reused for an hour. */
+/**
+ * Open Collective rate-limits public requests, so each result is reused for an hour. Results are
+ * shared by every visitor, so they are never fetched with a visitor's own token, which could see
+ * what only that visitor is allowed to.
+ */
 const CACHE_MS = 60 * 60 * 1000;
+
+const PAGE_SIZE = 1000;
+
+/** Every page after the first, a few at a time to stay under Open Collective's rate limit. */
+async function remainingPages<T>({
+	total,
+	fetchPage
+}: {
+	total: number;
+	fetchPage: (offset: number) => Promise<T[]>;
+}): Promise<T[]> {
+	const offsets: number[] = [];
+	for (let offset = PAGE_SIZE; offset < total; offset += PAGE_SIZE) offsets.push(offset);
+	const pages: T[][] = [];
+	for (let i = 0; i < offsets.length; i += 3) {
+		pages.push(...(await Promise.all(offsets.slice(i, i + 3).map(fetchPage))));
+	}
+	return pages.flat();
+}
+
+const PAYOUT_NODES = /* GraphQL */ `
+	nodes {
+		createdAt
+		netAmount {
+			value
+		}
+		oppositeAccount {
+			slug
+			name
+		}
+		expense {
+			type
+			accountingCategory {
+				name
+			}
+		}
+	}
+`;
+
+const PAYOUTS_QUERY = /* GraphQL */ `
+	query Payouts($slug: String!, $from: DateTime!, $limit: Int!, $offset: Int!) {
+		transactions(
+			account: [{ slug: $slug }]
+			type: DEBIT
+			kind: [EXPENSE]
+			dateFrom: $from
+			limit: $limit
+			offset: $offset
+		) {
+			${PAYOUT_NODES}
+		}
+	}
+`;
 
 // `net: true` takes fees out of what was received and adds payment processor fees to what was
 // spent, so each month's balance change is exactly income minus expenses.
 const STATS_QUERY = /* GraphQL */ `
-	query CollectiveStats($slug: String!, $from: DateTime!) {
+	query CollectiveStats($slug: String!, $from: DateTime!, $limit: Int!) {
 		account(slug: $slug) {
 			name
 			imageUrl(height: 128)
@@ -89,24 +145,10 @@ const STATS_QUERY = /* GraphQL */ `
 			type: DEBIT
 			kind: [EXPENSE]
 			dateFrom: $from
-			limit: 1000
+			limit: $limit
 		) {
-			nodes {
-				createdAt
-				netAmount {
-					value
-				}
-				oppositeAccount {
-					slug
-					name
-				}
-				expense {
-					type
-					accountingCategory {
-						name
-					}
-				}
-			}
+			totalCount
+			${PAYOUT_NODES}
 		}
 		unpaid: expenses(
 			account: { slug: $slug }
@@ -137,23 +179,37 @@ interface StatsResult {
 			spent: { nodes: TimeSeriesNode[] };
 		};
 	} | null;
-	payouts: { nodes: PayoutNode[] };
+	payouts: { totalCount: number; nodes: PayoutNode[] };
 	unpaid: { nodes: { status: string; amount: { value: number }; payee: { slug: string } }[] };
 }
 
 /** Monthly balance, income and spending for the collective, from Open Collective's public stats. */
 const loadStats = perKey((slug) =>
 	cached({
-		key: `stats:v2:${slug}`,
+		key: `stats:v3:${slug}`,
 		maxAgeMs: CACHE_MS,
 		load: async () => {
+			const from = '2016-01-01T00:00:00Z';
 			let result: StatsResult;
+			let payouts: PayoutNode[];
 			try {
 				result = await publicGraphql<StatsResult>({
-					token: getToken(),
 					query: STATS_QUERY,
-					variables: { slug, from: '2016-01-01T00:00:00Z' }
+					variables: { slug, from, limit: PAGE_SIZE }
 				});
+				payouts = [
+					...result.payouts.nodes,
+					...(await remainingPages({
+						total: result.payouts.totalCount,
+						fetchPage: async (offset) => {
+							const page = await publicGraphql<{ transactions: { nodes: PayoutNode[] } }>({
+								query: PAYOUTS_QUERY,
+								variables: { slug, from, limit: PAGE_SIZE, offset }
+							});
+							return page.transactions.nodes;
+						}
+					}))
+				];
 			} catch (err) {
 				toHttpError(err);
 			}
@@ -173,7 +229,7 @@ const loadStats = perKey((slug) =>
 					spent: account.stats.spent.nodes,
 					now
 				}),
-				payouts: toPayouts(result.payouts.nodes),
+				payouts: toPayouts(payouts),
 				unpaid: result.unpaid.nodes.map((expense): Unpaid => ({
 					slug: expense.payee.slug,
 					amount: expense.amount.value,
@@ -185,8 +241,6 @@ const loadStats = perKey((slug) =>
 );
 
 export const getCollectiveStats = query(Slug, (slug) => loadStats(slug));
-
-const PAGE_SIZE = 1000;
 
 const CONTRIBUTIONS_QUERY = /* GraphQL */ `
 	query Contributions($slug: String!, $limit: Int!, $offset: Int!) {
@@ -230,29 +284,24 @@ const CHANNELS = new Set(['github-sponsors']);
  */
 const loadContributions = perKey((slug) =>
 	cached({
-		key: `contributions:${slug}`,
+		key: `contributions:v2:${slug}`,
 		maxAgeMs: CACHE_MS,
 		load: async (): Promise<ContributionNode[]> => {
-			const token = getToken();
 			const page = (offset: number) =>
 				publicGraphql<ContributionsResult>({
-					token,
 					query: CONTRIBUTIONS_QUERY,
 					variables: { slug, limit: PAGE_SIZE, offset }
 				});
 
 			try {
 				const first = await page(0);
-				const offsets: number[] = [];
-				for (let offset = PAGE_SIZE; offset < first.transactions.totalCount; offset += PAGE_SIZE) {
-					offsets.push(offset);
-				}
-				const results = [first];
-				// A few at a time, to stay under Open Collective's rate limit.
-				for (let i = 0; i < offsets.length; i += 3) {
-					results.push(...(await Promise.all(offsets.slice(i, i + 3).map(page))));
-				}
-				return results.flatMap((result) => result.transactions.nodes);
+				return [
+					...first.transactions.nodes,
+					...(await remainingPages({
+						total: first.transactions.totalCount,
+						fetchPage: async (offset) => (await page(offset)).transactions.nodes
+					}))
+				];
 			} catch (err) {
 				toHttpError(err);
 			}
@@ -342,13 +391,12 @@ const FUNDED_TYPES = new Set(['COLLECTIVE', 'PROJECT', 'FUND']);
 const SEARCH_CACHE_MS = 24 * 60 * 60 * 1000;
 const searches = perKey((term) =>
 	cached({
-		key: `search:${term}`,
+		key: `search:v2:${term}`,
 		maxAgeMs: SEARCH_CACHE_MS,
 		load: async (): Promise<CollectiveMatch[]> => {
 			let result: SearchResult;
 			try {
 				result = await publicGraphql<SearchResult>({
-					token: getToken(),
 					query: SEARCH_QUERY,
 					// The search is fuzzy; looking the term up as a slug too puts an exact match first.
 					variables: { term, slug: /^[a-z0-9-]+$/.test(term) ? term : null }
