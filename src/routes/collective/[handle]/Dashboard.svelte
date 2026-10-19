@@ -31,7 +31,7 @@
 	import CollectiveSearch from './CollectiveSearch.svelte';
 	import IncomeSources from './IncomeSources.svelte';
 	import MoneyRow from './MoneyRow.svelte';
-	import { rememberCollective } from './recent-collectives';
+	import { rememberCollective } from '#lib/recent-collectives.js';
 	import { getIncomeSources, type CollectiveStats } from './stats.remote';
 	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
 	import YourEarnings from './YourEarnings.svelte';

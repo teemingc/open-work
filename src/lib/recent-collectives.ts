@@ -1,4 +1,4 @@
-import type { CollectiveMatch } from './stats.remote';
+import type { CollectiveMatch } from '../routes/collective/[handle]/stats.remote';
 
 const RECENT_KEY = 'invoicer:recent-collectives';
 const MAX_RECENT = 6;
@@ -24,5 +24,13 @@ export function rememberCollective({ slug, name, imageUrl }: CollectiveMatch) {
 		localStorage.setItem(RECENT_KEY, JSON.stringify(recent.slice(0, MAX_RECENT)));
 	} catch {
 		// Nothing to remember it in.
+	}
+}
+
+export function forgetRecentCollectives() {
+	try {
+		localStorage.removeItem(RECENT_KEY);
+	} catch {
+		// Nothing was remembered.
 	}
 }

@@ -114,9 +114,13 @@
 		<h2>Removing your data</h2>
 		<ul>
 			<li>
-				<strong>Clear all data</strong> in Settings removes your settings and Open Collective connection.
+				<strong>Clear all data</strong> in Settings removes your settings, the work log kept in this browser
+				and the places you looked up, and signs you out of Open Collective and Google.
 			</li>
-			<li>Clearing this site's data in your browser removes your local work log as well.</li>
+			<li>
+				Signing out only deletes the access token from your browser. To revoke Open Work's access
+				itself, remove it from the authorized apps in your Open Collective settings.
+			</li>
 			<li>
 				To remove the Drive copy and revoke access, open
 				<a href="https://myaccount.google.com/connections">your Google account's connections</a>,

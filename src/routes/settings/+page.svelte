@@ -10,7 +10,10 @@
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import { formatMoney } from '#lib/format.js';
 	import { GitHubError, verifyGitHubToken } from '#lib/github.js';
+	import { forgetDriveSync } from '#lib/drive-sync.svelte.js';
+	import { oauthErrorMessage } from '#lib/oauth-error.js';
 	import { getMe } from '#lib/opencollective.remote.js';
+	import { forgetRecentCollectives } from '#lib/recent-collectives.js';
 	import {
 		clearAllData,
 		disconnect,
@@ -30,6 +33,7 @@
 	import { tick, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import ChipInput from './ChipInput.svelte';
+	import { forgetWorkLog } from '#lib/worklog-store.svelte.js';
 	import SettingsSection from '#lib/components/SettingsSection.svelte';
 
 	const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD', 'MYR', 'SGD'];
@@ -84,7 +88,7 @@
 		payoutMethods.find((method) => method.id === values.payoutMethodId)?.label ??
 			values.payoutMethodLabel
 	);
-	const connectError = $derived(page.url.searchParams.get('oc_error'));
+	const connectError = $derived(oauthErrorMessage(page.url.searchParams.get('oc_error')));
 
 	function choosePayoutMethod(id: string) {
 		fields.payoutMethodId.set(id);
@@ -145,8 +149,19 @@
 		input.value = '';
 	}
 
+	let clearError = $state<string>();
+
 	const clearEnhanced = clearAllData.enhance(async ({ submit }) => {
+		clearError = undefined;
 		await submit();
+		forgetDriveSync();
+		forgetRecentCollectives();
+		try {
+			await forgetWorkLog();
+		} catch {
+			clearError = 'Could not delete the work log in this browser. Clear this site’s data instead.';
+			return;
+		}
 		load({ ...DEFAULT_SETTINGS });
 		clearDialogOpen = false;
 	});
@@ -489,10 +504,16 @@
 			<Dialog.Header>
 				<Dialog.Title>Delete all data?</Dialog.Title>
 				<Dialog.Description>
-					This removes every setting and disconnects Open Collective. Expenses already on Open
-					Collective are not touched.
+					This removes every setting and the work log kept in this browser, and signs you out of
+					Open Collective and Google. Expenses on Open Collective and the work log copy in your
+					Google Drive are not touched.
 				</Dialog.Description>
 			</Dialog.Header>
+			{#if clearError}
+				<p class="flex items-start gap-1.5 text-sm text-destructive" role="alert">
+					<CircleAlert size={15} class="mt-0.5 shrink-0" />{clearError}
+				</p>
+			{/if}
 			<form {...clearEnhanced}>
 				<Dialog.Footer>
 					<Button type="button" variant="outline" onclick={() => (clearDialogOpen = false)}>

@@ -17,9 +17,14 @@ import { mergeWorkLogs, removedBy, sameWorkLog } from './worklog-merge';
 export interface WorkLogBackend {
 	load(): Promise<WorkLogData | undefined>;
 	save(data: WorkLogData): Promise<void>;
-	/** Calls back when another tab saves the log. Returns a cleanup function. */
-	watch?(onChange: () => void): () => void;
+	/** Delete the log from this browser. */
+	clear(): Promise<void>;
+	/** Calls back when another tab saves or clears the log. Returns a cleanup function. */
+	watch?(onChange: (change: TabChange) => void): () => void;
 }
+
+/** What another tab did to the log. */
+export type TabChange = 'saved' | 'cleared';
 
 /** Where earlier versions kept the log. Read once, to move it into IndexedDB. */
 const LEGACY_STORAGE_KEY = 'invoicer:worklog';
@@ -114,11 +119,27 @@ export const indexedDbBackend: WorkLogBackend = {
 			transaction.onerror = () => reject(transaction.error);
 			transaction.onabort = () => reject(transaction.error);
 		});
-		tabs().postMessage('saved');
+		tabs().postMessage('saved' satisfies TabChange);
+	},
+	async clear() {
+		const db = await openDatabase();
+		const transaction = db.transaction(DB_STORE, 'readwrite');
+		transaction.objectStore(DB_STORE).delete(DB_KEY);
+		await new Promise<void>((resolve, reject) => {
+			transaction.oncomplete = () => resolve();
+			transaction.onerror = () => reject(transaction.error);
+			transaction.onabort = () => reject(transaction.error);
+		});
+		try {
+			localStorage.removeItem(LEGACY_STORAGE_KEY);
+		} catch {
+			// Storage blocked: nothing was kept there.
+		}
+		tabs().postMessage('cleared' satisfies TabChange);
 	},
 	watch(onChange) {
 		const channel = tabs();
-		const listener = () => onChange();
+		const listener = (event: MessageEvent<TabChange>) => onChange(event.data);
 		channel.addEventListener('message', listener);
 		return () => channel.removeEventListener('message', listener);
 	}
@@ -170,7 +191,12 @@ export class WorkLogStore {
 		this.data = data;
 		// Another tab saved. Merge rather than replace, so an edit made here at the same moment
 		// survives, and save the result if it differs, so that tab picks this one's edit up too.
-		backend.watch?.(async () => {
+		backend.watch?.(async (change) => {
+			// Another tab deleted all data: start over without saving, or the log would come back.
+			if (change === 'cleared') {
+				this.data = emptyWorkLog();
+				return;
+			}
 			const latest = await backend.load().catch(() => undefined);
 			if (!latest) return;
 			const merged = mergeWorkLogs({ ours: $state.snapshot(this.data), theirs: latest });
@@ -353,6 +379,14 @@ export class WorkLogStore {
 		this.#write();
 	}
 
+	/** Delete the log from this browser, after any saves still on their way. */
+	async forget(): Promise<void> {
+		this.data = emptyWorkLog();
+		const cleared = this.#writes.then(() => this.#backend.clear());
+		this.#writes = cleared.catch(() => {});
+		await cleared;
+	}
+
 	/**
 	 * Replace everything with a backup. Throws `WorkLogParseError` for anything else. The backup
 	 * counts as the newest change, so it also replaces what other devices have when they sync.
@@ -399,4 +433,10 @@ export function openWorkLog(defaults: WorkLogDefaults): Promise<WorkLogStore> {
 		return store;
 	})();
 	return opening;
+}
+
+/** Delete the work log kept in this browser, whether or not this tab has opened it. */
+export async function forgetWorkLog(): Promise<void> {
+	if (opening) await (await opening).forget();
+	else await indexedDbBackend.clear();
 }

@@ -8,7 +8,7 @@
 	import { collectiveLogo, SUGGESTED_COLLECTIVES } from '#lib/collective-suggestions.js';
 	import RetryableError from '#lib/components/RetryableError.svelte';
 	import { Search } from '@lucide/svelte';
-	import { readRecentCollectives } from './recent-collectives';
+	import { readRecentCollectives } from '#lib/recent-collectives.js';
 	import { searchCollectives, type CollectiveMatch } from './stats.remote';
 
 	let {

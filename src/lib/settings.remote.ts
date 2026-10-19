@@ -1,6 +1,7 @@
 import { command, form, getRequestEvent, query } from '$app/server';
 import { dev } from '$app/env';
 import * as v from 'valibot';
+import { getAuth, googleConfigured } from '#lib/server/auth.js';
 import { clearToken } from '#lib/server/session.js';
 import { DEFAULT_SETTINGS, SettingsSchema, upgradeSettings, type Settings } from '#lib/settings.js';
 import { getMe } from '#lib/opencollective.remote.js';
@@ -52,11 +53,16 @@ export const disconnect = form(async () => {
 	void getMe().refresh();
 });
 
-/** Remove every setting and the Open Collective connection. */
+/**
+ * Remove every setting and sign out of Open Collective and Google. The browser deletes the work
+ * log it keeps itself.
+ */
 export const clearAllData = form(async () => {
-	const { cookies } = getRequestEvent();
+	const { cookies, request } = getRequestEvent();
 	cookies.delete(COOKIE, { path: '/' });
 	clearToken(cookies);
+	// Expires the encrypted session and Google token cookies.
+	if (googleConfigured()) await getAuth().api.signOut({ headers: request.headers });
 	getSettings().set({ ...DEFAULT_SETTINGS });
 	void getMe().refresh();
 });

@@ -13,6 +13,23 @@ export default defineConfig({
 			preprocess: vitePreprocess(),
 			compilerOptions: { experimental: { async: true } },
 			experimental: { remoteFunctions: true },
+			// The page holds your GitHub token and work log, so only this app's own scripts may run.
+			csp: {
+				directives: {
+					'default-src': ['self'],
+					'script-src': ['self'],
+					// Inline styles come from transitions and positioned popovers.
+					'style-src': ['self', 'unsafe-inline', 'https://fonts.googleapis.com'],
+					'font-src': ['self', 'https://fonts.gstatic.com'],
+					'img-src': ['self', 'data:', 'https://images.opencollective.com'],
+					// GitHub is asked from the browser, with your token.
+					'connect-src': ['self', 'https://api.github.com'],
+					'form-action': ['self'],
+					'base-uri': ['self'],
+					'object-src': ['none'],
+					'frame-ancestors': ['none']
+				}
+			},
 			adapter: adapter({ fallback: 'spa' })
 		})
 	],

@@ -164,3 +164,13 @@ export function driveSync(store: WorkLogStore): DriveSync {
 	}
 	return sync;
 }
+
+/** Stop syncing and forget which Google account this browser's work log belonged to. */
+export function forgetDriveSync() {
+	sync?.stop();
+	try {
+		localStorage.removeItem(ACCOUNT_KEY);
+	} catch {
+		// Storage blocked: nothing was remembered.
+	}
+}
