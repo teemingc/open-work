@@ -2,10 +2,6 @@
 	import './layout.css';
 	import { resolve } from '$app/paths';
 	import favicon from '#lib/assets/favicon.svg';
-	import RetryableError from '#lib/components/RetryableError.svelte';
-	import * as Alert from '#lib/components/ui/alert/index.js';
-	import { Spinner } from '#lib/components/ui/spinner/index.js';
-	import { CircleAlert } from '@lucide/svelte';
 	import { restoreSettings } from '#lib/settings.remote.js';
 	import { LEGACY_STORAGE_KEY, parseBackup } from '#lib/settings.js';
 	import { onMount } from 'svelte';
@@ -57,24 +53,12 @@
 <NavigationLoader />
 <Header />
 
-<main id="main" tabindex="-1" class="mx-auto w-full max-w-6xl px-4 pt-6 pb-16 outline-none sm:px-6">
-	<svelte:boundary>
-		{@render children()}
-
-		{#snippet pending()}
-			<div class="flex appear-delayed justify-center py-16"><Spinner class="size-6" /></div>
-		{/snippet}
-
-		{#snippet failed(error, reset)}
-			<Alert.Root variant="destructive">
-				<CircleAlert />
-				<Alert.Title>Could not load this page</Alert.Title>
-				<Alert.Description>
-					<RetryableError {error} onretry={reset} />
-				</Alert.Description>
-			</Alert.Root>
-		{/snippet}
-	</svelte:boundary>
+<main
+	id="main"
+	tabindex="-1"
+	class="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-16 outline-none sm:px-6"
+>
+	{@render children()}
 </main>
 
 <footer class="mx-auto flex w-full max-w-6xl justify-center gap-6 px-4 pb-8 sm:px-6">

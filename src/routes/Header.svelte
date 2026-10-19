@@ -7,9 +7,13 @@
 	import logo from '#lib/assets/favicon.svg';
 	import { ChartLine, Clock, FileText, Settings } from '@lucide/svelte';
 
-	// Read without `await` so the header never waits on Open Collective.
-	const me = $derived(getMe().current);
-	const settings = $derived(getSettings().current);
+	// Read without `await` so the header never waits on Open Collective. The queries are kept for
+	// the header's whole life: a query nothing holds on to is dropped from the cache, and the
+	// header would stop seeing its updates.
+	const meQuery = getMe();
+	const settingsQuery = getSettings();
+	const me = $derived(meQuery.current);
+	const settings = $derived(settingsQuery.current);
 	const needsSetup = $derived(
 		me !== undefined &&
 			settings !== undefined &&

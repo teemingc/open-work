@@ -155,8 +155,12 @@
 	* {
 		@apply border-border outline-ring/50;
 	}
+	/*
+		A column at least as tall as the window, so the footer sits at its bottom on short pages
+		rather than following the content up and down as skeletons give way to it.
+	*/
 	body {
-		@apply bg-background font-serif text-foreground antialiased;
+		@apply flex min-h-dvh flex-col bg-background font-serif text-foreground antialiased;
 		font-optical-sizing: auto;
 		font-variant-numeric: lining-nums;
 		line-height: 1.6;
