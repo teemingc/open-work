@@ -35,7 +35,7 @@
 
 <!-- The same narrow column as the home page: a heading, one line, then a list of places to go. -->
 <div class="mx-auto flex max-w-md flex-col gap-6 pt-10 sm:pt-16">
-	<div class="space-y-2 text-center">
+	<div class="space-y-3 text-center">
 		<h1>{notFound ? 'No page at this address' : 'This page did not load'}</h1>
 		{#if notFound}
 			<p class="text-muted-foreground">

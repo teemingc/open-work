@@ -147,7 +147,7 @@ export async function publicGraphql<T>({
 /** Rethrow Open Collective failures as HTTP errors the client can show. */
 export function toHttpError(err: unknown): never {
 	if (err instanceof OpenCollectiveError) {
-		error(err.status, { message: err.message, retryAfter: err.retryAfter, connect: err.connect });
+		error(err.status, err.message, { retryAfter: err.retryAfter, connect: err.connect });
 	}
 	throw err;
 }

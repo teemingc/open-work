@@ -48,24 +48,34 @@
 </script>
 
 {#key error}
-	<div class="flex flex-col items-start gap-2" {@attach countdown}>
-		<p>
-			{details.message}
-			{#if left > 0}
-				Try again in <span class="tabular-nums">{left}</span>
-				{left === 1 ? 'second' : 'seconds'}.
-			{/if}
-		</p>
-		{#if details.connect}
-			<p>Connect your Open Collective account in settings to get a higher limit.</p>
-		{/if}
-		<div class="flex flex-wrap gap-2">
+	<!-- Block layout, so the text and buttons line up with whatever surrounds them: centred on the error page, left in an alert. -->
+	<div {@attach countdown}>
+		<div class="space-y-2">
+			<p>
+				{details.message}
+				{#if left > 0}
+					Try again in <span class="tabular-nums">{left}</span>
+					{left === 1 ? 'second' : 'seconds'}.
+				{/if}
+			</p>
 			{#if details.connect}
-				<Button href="{resolve('/settings')}#oc-connection" size="sm">
+				<p>Connect your Open Collective account in settings to get a higher limit.</p>
+			{/if}
+		</div>
+		<!-- The buttons grow only once they wrap, so stacked they make two even rows rather than a ragged pair. -->
+		<div class="mt-4 inline-flex flex-wrap gap-2">
+			{#if details.connect}
+				<Button href="{resolve('/settings')}#oc-connection" size="sm" class="grow">
 					<LogIn /> Connect Open Collective
 				</Button>
 			{/if}
-			<Button variant="outline" size="sm" disabled={left > 0 || retrying} onclick={retry}>
+			<Button
+				variant="outline"
+				size="sm"
+				class="grow"
+				disabled={left > 0 || retrying}
+				onclick={retry}
+			>
 				{#if retrying}<Spinner /> Trying again{:else}<RotateCcw /> Try again{/if}
 			</Button>
 		</div>
