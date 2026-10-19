@@ -7,6 +7,8 @@
  * served instead, however old.
  */
 
+import { waitUntil } from 'cloudflare:workers';
+
 const STORED_FOR_SECONDS = 60 * 60 * 24 * 7;
 
 interface Entry<T> {
@@ -38,7 +40,6 @@ export function cached<T>({
 }): Cached<T> {
 	const request = new Request(`https://cache.invoicer.internal/${encodeURIComponent(key)}`);
 	let memory: Entry<T> | undefined;
-	let inFlight: Promise<T> | undefined;
 
 	const fresh = (entry: Entry<T> | undefined): entry is Entry<T> =>
 		!!entry && Date.now() - entry.at < maxAgeMs;
@@ -85,9 +86,13 @@ export function cached<T>({
 
 	const get = () => {
 		if (fresh(memory)) return Promise.resolve(memory.value);
-		// Concurrent requests share one fetch.
-		inFlight ??= refresh().finally(() => (inFlight = undefined));
-		return inFlight;
+		// Each request fetches for itself. On Cloudflare a request's fetches are cancelled when it
+		// ends, so a fetch shared with a request that was abandoned never settles and the others
+		// waiting on it hang.
+		const loading = refresh();
+		// Finish and cache the result even if the visitor leaves before it arrives.
+		waitUntil(loading.catch(() => {}));
+		return loading;
 	};
 
 	return Object.assign(get, {

@@ -11,5 +11,8 @@
 	"routes": [{ "pattern": "openwork.ing", "custom_domain": true }],
 	// Kept on only to send the old address to the custom domain, in src/hooks.server.ts.
 	"workers_dev": true,
-	"preview_urls": false
+	"preview_urls": false,
+	"observability": {
+		"enabled": true
+	}
 }
