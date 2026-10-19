@@ -40,16 +40,17 @@ export function periodPhrase(keys: string[]): string {
 	return keys.length ? `since ${monthYear.format(monthEnd(keys[0]))}` : '';
 }
 
-/** Labels every few months of a band axis, counting back from the latest, so they don't overlap. */
-export function bandTickFormat(keys: string[]): (key: string) => string {
+/**
+ * The months a band axis labels: every few, counting back from the latest, about six in all. Given
+ * as the axis's only ticks, so on a narrow chart its overlap check thins these rather than every
+ * month, which would leave mostly unlabelled ones.
+ */
+export function bandTicks(keys: string[]): string[] {
 	const every = Math.max(1, Math.ceil(keys.length / 6));
-	return (key) => {
-		const index = keys.indexOf(key);
-		return (keys.length - 1 - index) % every === 0 ? shortMonthYear.format(monthEnd(key)) : '';
-	};
+	return keys.filter((_, index) => (keys.length - 1 - index) % every === 0);
 }
 
-/** Shortens long account names so they fit beside a horizontal bar chart. */
-export function shortName(name: string): string {
-	return name.length > 18 ? `${name.slice(0, 17).trimEnd()}…` : name;
+/** A band axis label, like "Oct 26". */
+export function bandTickLabel(key: string): string {
+	return shortMonthYear.format(monthEnd(key));
 }

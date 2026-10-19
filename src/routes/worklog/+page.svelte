@@ -15,7 +15,13 @@
 	}
 </script>
 
-<svelte:head><title>Work log · Open Work</title></svelte:head>
+<svelte:head>
+	<title>Work log · Open Work</title>
+	<meta
+		name="description"
+		content="Log your hours and the pull requests and issues you worked on, and see whether you are on pace for the month."
+	/>
+</svelte:head>
 
 <!--
 	The log lives in this browser's IndexedDB, and the month shown depends on your time zone, so the

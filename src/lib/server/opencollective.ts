@@ -19,7 +19,7 @@ export class OpenCollectiveError extends Error {
 
 interface GraphQLResponse<T> {
 	data?: T;
-	errors?: { message: string }[];
+	errors?: { message: string; extensions?: { code?: string } }[];
 }
 
 /** The longest `Retry-After` worth waiting for inside a request. Longer ones fail with a message. */
@@ -96,7 +96,14 @@ export async function graphql<T>({
 		);
 	}
 	if (body?.errors?.length) {
-		const message = body.errors.map((e) => e.message).join('\n');
+		// Each distinct message once: a failing field fails on every row, and would repeat for each.
+		const message = [...new Set(body.errors.map((e) => e.message))].join('\n');
+		// A fault on Open Collective's side, not in what was asked, so it says whose it is.
+		if (body.errors.some((e) => e.extensions?.code === 'INTERNAL_SERVER_ERROR')) {
+			throw new OpenCollectiveError(
+				`Open Collective ran into a problem on its side (${message}). Try again later.`
+			);
+		}
 		// A token without the scope a query needs is refused, like any other rejected token.
 		const unscoped = /not allowed for operations in scope/i.test(message);
 		throw new OpenCollectiveError(message, unscoped ? 403 : 400);

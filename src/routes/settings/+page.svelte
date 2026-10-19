@@ -167,7 +167,13 @@
 	});
 </script>
 
-<svelte:head><title>Settings · Open Work</title></svelte:head>
+<svelte:head>
+	<title>Settings · Open Work</title>
+	<meta
+		name="description"
+		content="Connect Open Collective and GitHub, set your billing details and back up your work log."
+	/>
+</svelte:head>
 
 <!--
 	Beside each field the warning above lists, until it is filled in. The same dot as on Settings in

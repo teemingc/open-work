@@ -36,6 +36,21 @@ describe('cached', () => {
 		expect(await get()).toBe('good');
 	});
 
+	it('peeks at a fresh result without fetching one', async () => {
+		vi.useFakeTimers();
+		const load = vi.fn(async () => 'value');
+		const get = cached({ key: 'd', maxAgeMs: 1000, load });
+
+		expect(await get.peek()).toBeUndefined();
+		expect(load).not.toHaveBeenCalled();
+		await get();
+		expect(await get.peek()).toBe('value');
+
+		vi.advanceTimersByTime(2000);
+		expect(await get.peek()).toBeUndefined();
+		expect(load).toHaveBeenCalledTimes(1);
+	});
+
 	it('fails when there is nothing to fall back on', async () => {
 		const get = cached({
 			key: 'c',

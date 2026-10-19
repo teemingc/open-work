@@ -23,15 +23,21 @@
 	let { stats }: { stats: Stat[] } = $props();
 
 	const ICONS = { up: TrendingUp, down: TrendingDown, hourglass: Hourglass };
+
+	/** Columns for the number of figures, so a short strip leaves no empty cell showing the divider colour. */
+	const columns = $derived(
+		stats.length >= 4 ? 'sm:grid-cols-2 xl:grid-cols-4' : stats.length > 1 ? 'sm:grid-cols-2' : ''
+	);
 </script>
 
 <!-- One compact strip of figures. Gaps over a border-coloured background draw even dividers. -->
 <Card.Root class="gap-0 overflow-hidden py-0">
-	<dl class="grid grid-cols-1 gap-px bg-border sm:grid-cols-2 xl:grid-cols-4">
+	<dl class={['grid grid-cols-1 gap-px bg-border', columns]}>
 		{#each stats as stat (stat.label)}
 			<div class="flex min-w-0 flex-col gap-1 bg-card px-4 py-3">
+				<!-- As tall as a badge with or without one, so a badge coming or going moves nothing. -->
 				<dt
-					class="flex items-center justify-between gap-2 text-sm whitespace-nowrap text-muted-foreground"
+					class="flex min-h-5.5 items-center justify-between gap-2 text-sm whitespace-nowrap text-muted-foreground"
 				>
 					{stat.label}
 					{#if stat.badge}

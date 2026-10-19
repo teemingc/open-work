@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { chartPadding, TICK_LENGTH, Y_TICK_LABEL } from '#lib/chart-padding.js';
+	import { chartPadding, TICK_LENGTH, X_TICK_OCCLUSION, Y_TICK_LABEL } from '#lib/chart-padding.js';
 	import * as Card from '#lib/components/ui/card/index.js';
-	import * as Chart from '#lib/components/ui/chart/index.js';
+	import type { ChartConfig } from '#lib/components/ui/chart/chart-utils.js';
+	import LazyChart from '#lib/components/LazyChart.svelte';
 	import { formatHours, parseIsoDate } from '#lib/format.js';
 	import type { Client, MonthSummary } from '#lib/worklog.js';
 	import { scaleBand, scaleTime } from 'd3-scale';
-	import { BarChart, LineChart } from 'layerchart';
 	import { clientColor } from './colors';
 
 	let { summary, clients, today }: { summary: MonthSummary; clients: Client[]; today: string } =
@@ -21,7 +21,7 @@
 	const paceConfig = {
 		expected: { label: 'Expected', color: 'var(--color-chart-other)' },
 		logged: { label: 'Logged', color: 'var(--color-chart-balance)' }
-	} satisfies Chart.ChartConfig;
+	} satisfies ChartConfig;
 
 	const expectedLine = $derived(
 		summary.days.map((day) => ({ date: parseIsoDate(day.date), hours: day.cumulativeExpected }))
@@ -42,7 +42,7 @@
 	const dailyConfig = $derived(
 		Object.fromEntries(
 			shownClients.map(({ client, color }) => [client.id, { label: client.name, color }])
-		) satisfies Chart.ChartConfig
+		) satisfies ChartConfig
 	);
 	const daily = $derived(
 		summary.days.map((day) => ({
@@ -69,48 +69,57 @@
 			<Card.Description>Hours logged so far against what the working days expect.</Card.Description>
 		</Card.Header>
 		<Card.Content>
-			<Chart.Container config={paceConfig} class="aspect-auto h-64 w-full">
-				<LineChart
-					padding={chartPadding({ left: 44, legend: true })}
-					x="date"
-					y="hours"
-					xScale={scaleTime()}
-					yDomain={[0, null]}
-					yNice
-					legend
-					series={[
-						{
-							key: 'expected',
-							label: paceConfig.expected.label,
-							color: paceConfig.expected.color,
-							data: expectedLine,
-							props: { 'stroke-dasharray': '5 4' }
-						},
-						{
-							key: 'logged',
-							label: paceConfig.logged.label,
-							color: paceConfig.logged.color,
-							data: loggedLine,
-							props: { strokeWidth: 2 }
-						}
-					]}
-					props={{
-						xAxis: { tickLength: TICK_LENGTH, format: (d: Date) => dayMonth.format(d), ticks: 5 },
-						yAxis: {
-							tickLength: TICK_LENGTH,
-							tickLabelProps: Y_TICK_LABEL,
-							format: (v: number) => `${v} h`
-						}
-					}}
-				>
-					{#snippet tooltip()}
-						<Chart.Tooltip
-							labelFormatter={(d: Date) => weekdayDayMonth.format(d)}
-							formatter={hoursRow}
-						/>
-					{/snippet}
-				</LineChart>
-			</Chart.Container>
+			<LazyChart class="h-64">
+				{#snippet children({ LineChart, Chart })}
+					<Chart.Container config={paceConfig} class="aspect-auto h-64 w-full">
+						<LineChart
+							padding={chartPadding({ left: 44, legend: true })}
+							x="date"
+							y="hours"
+							xScale={scaleTime()}
+							yDomain={[0, null]}
+							yNice
+							legend
+							series={[
+								{
+									key: 'expected',
+									label: paceConfig.expected.label,
+									color: paceConfig.expected.color,
+									data: expectedLine,
+									props: { 'stroke-dasharray': '5 4' }
+								},
+								{
+									key: 'logged',
+									label: paceConfig.logged.label,
+									color: paceConfig.logged.color,
+									data: loggedLine,
+									props: { strokeWidth: 2 }
+								}
+							]}
+							props={{
+								xAxis: {
+									tickLength: TICK_LENGTH,
+									tickOcclusion: X_TICK_OCCLUSION,
+									format: (d: Date) => dayMonth.format(d),
+									ticks: 5
+								},
+								yAxis: {
+									tickLength: TICK_LENGTH,
+									tickLabelProps: Y_TICK_LABEL,
+									format: (v: number) => `${v} h`
+								}
+							}}
+						>
+							{#snippet tooltip()}
+								<Chart.Tooltip
+									labelFormatter={(d: Date) => weekdayDayMonth.format(d)}
+									formatter={hoursRow}
+								/>
+							{/snippet}
+						</LineChart>
+					</Chart.Container>
+				{/snippet}
+			</LazyChart>
 		</Card.Content>
 	</Card.Root>
 
@@ -124,43 +133,53 @@
 			>
 		</Card.Header>
 		<Card.Content>
-			<Chart.Container config={dailyConfig} class="aspect-auto h-64 w-full">
-				<BarChart
-					padding={chartPadding({ left: 44, legend: shownClients.length > 1 })}
-					data={daily}
-					x="date"
-					xScale={scaleBand().padding(0.2)}
-					seriesLayout="stack"
-					legend={shownClients.length > 1}
-					series={shownClients.map(({ client, color }) => ({
-						key: client.id,
-						label: client.name,
-						color
-					}))}
-					props={{
-						bars: { radius: 2, strokeWidth: 0 },
-						xAxis: {
-							tickLength: TICK_LENGTH,
-							format: (date: string) => {
-								const day = parseIsoDate(date).getDate();
-								return day === 1 || day % 5 === 0 ? dayLabel(date) : '';
-							}
-						},
-						yAxis: {
-							tickLength: TICK_LENGTH,
-							tickLabelProps: Y_TICK_LABEL,
-							format: (v: number) => `${v} h`
-						}
-					}}
-				>
-					{#snippet tooltip()}
-						<Chart.Tooltip
-							labelFormatter={(date: string) => weekdayDayMonth.format(parseIsoDate(date))}
-							formatter={hoursRow}
-						/>
-					{/snippet}
-				</BarChart>
-			</Chart.Container>
+			<LazyChart class="h-64">
+				{#snippet children({ BarChart, Chart })}
+					<Chart.Container config={dailyConfig} class="aspect-auto h-64 w-full">
+						<BarChart
+							padding={chartPadding({ left: 44, legend: shownClients.length > 1 })}
+							data={daily}
+							x="date"
+							xScale={scaleBand().padding(0.2)}
+							seriesLayout="stack"
+							legend={shownClients.length > 1}
+							series={shownClients.map(({ client, color }) => ({
+								key: client.id,
+								label: client.name,
+								color
+							}))}
+							props={{
+								bars: { radius: 2, strokeWidth: 0 },
+								xAxis: {
+									tickLength: TICK_LENGTH,
+									tickOcclusion: X_TICK_OCCLUSION,
+									// The 1st and every fifth day, as the axis's only ticks, so on a narrow chart its
+									// overlap check thins these rather than every day.
+									ticks: daily
+										.map((row) => row.date)
+										.filter((date) => {
+											const day = parseIsoDate(date).getDate();
+											return day === 1 || day % 5 === 0;
+										}),
+									format: dayLabel
+								},
+								yAxis: {
+									tickLength: TICK_LENGTH,
+									tickLabelProps: Y_TICK_LABEL,
+									format: (v: number) => `${v} h`
+								}
+							}}
+						>
+							{#snippet tooltip()}
+								<Chart.Tooltip
+									labelFormatter={(date: string) => weekdayDayMonth.format(parseIsoDate(date))}
+									formatter={hoursRow}
+								/>
+							{/snippet}
+						</BarChart>
+					</Chart.Container>
+				{/snippet}
+			</LazyChart>
 		</Card.Content>
 	</Card.Root>
 </div>

@@ -1,7 +1,7 @@
 import { query } from '$app/server';
 import { error } from '@sveltejs/kit';
 import * as v from 'valibot';
-import { cached } from '#lib/server/cache.js';
+import { cached, type Cached } from '#lib/server/cache.js';
 import { publicGraphql, toHttpError } from '#lib/server/opencollective.js';
 import {
 	backerHistory,
@@ -32,17 +32,20 @@ const MAX_CACHED = 50;
  * One cached loader per key, like a collective's slug or a search term. Capped, oldest dropped
  * first, so looking up many collectives cannot grow the server's memory without end.
  */
-function perKey<T>(make: (key: string) => () => Promise<T>): (key: string) => Promise<T> {
-	const loaders = new Map<string, () => Promise<T>>();
-	return (key) => {
+function perKey<T>(make: (key: string) => Cached<T>) {
+	const loaders = new Map<string, Cached<T>>();
+	const loader = (key: string) => {
 		let load = loaders.get(key);
 		if (!load) {
 			if (loaders.size >= MAX_CACHED) loaders.delete(loaders.keys().next().value!);
 			load = make(key);
 			loaders.set(key, load);
 		}
-		return load();
+		return load;
 	};
+	return Object.assign((key: string) => loader(key)(), {
+		peek: (key: string) => loader(key).peek()
+	});
 }
 
 /**
@@ -247,7 +250,7 @@ const CONTRIBUTIONS_QUERY = /* GraphQL */ `
 		transactions(
 			account: [{ slug: $slug }]
 			type: CREDIT
-			kind: [CONTRIBUTION, ADDED_FUNDS]
+			kind: [CONTRIBUTION, ADDED_FUNDS, BALANCE_TRANSFER]
 			limit: $limit
 			offset: $offset
 		) {
@@ -264,6 +267,7 @@ const CONTRIBUTIONS_QUERY = /* GraphQL */ `
 				order {
 					frequency
 				}
+				kind
 			}
 		}
 	}
@@ -284,7 +288,7 @@ const CHANNELS = new Set(['github-sponsors']);
  */
 const loadContributions = perKey((slug) =>
 	cached({
-		key: `contributions:v2:${slug}`,
+		key: `contributions:v3:${slug}`,
 		maxAgeMs: CACHE_MS,
 		load: async (): Promise<ContributionNode[]> => {
 			const page = (offset: number) =>
@@ -313,8 +317,7 @@ const loadContributions = perKey((slug) =>
  * Where the collective's money comes from: recurring and one-off contributions per month,
  * and the biggest backers over the last 12 months, 2 years and all time.
  */
-export const getIncomeSources = query(Slug, async (slug) => {
-	const nodes = await loadContributions(slug);
+function incomeSources(nodes: ContributionNode[]) {
 	const now = new Date();
 	const { months, backers } = toContributions(nodes);
 	const history = backerHistory(nodes);
@@ -351,11 +354,25 @@ export const getIncomeSources = query(Slug, async (slug) => {
 			all: top()
 		}
 	};
+}
+
+export const getIncomeSources = query(Slug, async (slug) =>
+	incomeSources(await loadContributions(slug))
+);
+
+/**
+ * The same, but only if the server already has the contributions, which takes no time. The page
+ * waits for this, so a reload arrives complete and the browser can put you back where you were.
+ * Fetching them can take many seconds, so when they are not ready the page asks afterwards.
+ */
+export const getCachedIncomeSources = query(Slug, async (slug) => {
+	const nodes = await loadContributions.peek(slug);
+	return nodes ? incomeSources(nodes) : null;
 });
 
 export type CollectiveStats = Awaited<ReturnType<typeof getCollectiveStats>>;
 
-export type IncomeSources = Awaited<ReturnType<typeof getIncomeSources>>;
+export type IncomeSources = ReturnType<typeof incomeSources>;
 
 const SEARCH_QUERY = /* GraphQL */ `
 	query SearchCollectives($term: String!, $slug: String) {

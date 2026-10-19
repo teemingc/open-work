@@ -1,10 +1,16 @@
 <script lang="ts">
-	import { chartPadding, TICK_LENGTH, Y_TICK_LABEL } from '#lib/chart-padding.js';
+	import { chartPadding, TICK_LENGTH, X_TICK_OCCLUSION, Y_TICK_LABEL } from '#lib/chart-padding.js';
 	import * as Card from '#lib/components/ui/card/index.js';
-	import * as Chart from '#lib/components/ui/chart/index.js';
+	import type { ChartConfig } from '#lib/components/ui/chart/chart-utils.js';
 	import { scaleBand } from 'd3-scale';
-	import { BarChart } from 'layerchart';
-	import { bandTickFormat, compactFormat, monthLabel, moneyFormat } from './chart-format';
+	import {
+		bandTickLabel,
+		bandTicks,
+		compactFormat,
+		monthLabel,
+		moneyFormat,
+		periodPhrase
+	} from './chart-format';
 	import { categoriesByMonth, transactionsUrl, type Payout } from './financials';
 	import MoneyRow from './MoneyRow.svelte';
 
@@ -13,7 +19,8 @@
 		currency,
 		months,
 		partialKey,
-		payouts
+		payouts,
+		spent
 	}: {
 		/** The collective. */
 		slug: string;
@@ -21,6 +28,8 @@
 		months: string[];
 		partialKey?: string;
 		payouts: Payout[];
+		/** All that went out in these months, expenses or not. */
+		spent: number;
 	} = $props();
 
 	const COLORS = [
@@ -43,7 +52,7 @@
 	const config = $derived(
 		Object.fromEntries(
 			series.map((s) => [s.key, { label: s.label, color: s.color }])
-		) satisfies Chart.ChartConfig
+		) satisfies ChartConfig
 	);
 
 	function openMonth(_event: MouseEvent, { data: row }: { data: { month: string } }) {
@@ -53,7 +62,7 @@
 			'noopener'
 		);
 	}
-	import LazyChart from './LazyChart.svelte';
+	import LazyChart from '#lib/components/LazyChart.svelte';
 </script>
 
 {#snippet row({ value, name, item }: { value: unknown; name: string; item: { color?: string } })}
@@ -65,46 +74,67 @@
 <Card.Root>
 	<Card.Header>
 		<Card.Title>Expenses by category</Card.Title>
-		<Card.Description>Paid expenses each month, by accounting category.</Card.Description>
+		<Card.Description>
+			{#if series.length}
+				Paid expenses each month, by accounting category.
+			{:else}
+				No expenses paid {periodPhrase(months) || 'yet'}.
+				{#if spent >= 1}
+					The {money.format(spent)} that went out was paid another way, such as contributions to other
+					collectives.
+				{/if}
+			{/if}
+		</Card.Description>
 	</Card.Header>
-	<Card.Content>
-		<LazyChart class="h-64">
-			<Chart.Container {config} class="aspect-auto h-64 w-full cursor-pointer">
-				<BarChart
-					padding={chartPadding()}
-					data={byCategory.rows}
-					x="month"
-					xScale={scaleBand().padding(0.2)}
-					seriesLayout="stack"
-					onTooltipClick={openMonth}
-					{series}
-					props={{
-						bars: { radius: 2, strokeWidth: 0 },
-						xAxis: { tickLength: TICK_LENGTH, format: bandTickFormat(months) },
-						yAxis: {
-							tickLength: TICK_LENGTH,
-							tickLabelProps: Y_TICK_LABEL,
-							format: (v: number) => compact.format(v)
-						}
-					}}
-				>
-					{#snippet tooltip()}
-						<Chart.Tooltip
-							labelFormatter={(key: string) => monthLabel({ key, partialKey })}
-							formatter={row}
-						/>
-					{/snippet}
-				</BarChart>
-			</Chart.Container>
-		</LazyChart>
-		<!-- Category names are long, so this legend wraps where the chart's own would overflow. -->
-		<ul class="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
-			{#each series as s (s.key)}
-				<li class="flex items-center gap-1.5">
-					<span class="size-2.5 shrink-0 rounded-[2px]" style:background={s.color}></span>
-					{s.label}
-				</li>
-			{/each}
-		</ul>
-	</Card.Content>
+	{#if series.length}
+		<Card.Content>
+			<LazyChart class="h-64">
+				{#snippet children({ BarChart, Chart })}
+					<Chart.Container {config} class="aspect-auto h-64 w-full cursor-pointer">
+						<BarChart
+							padding={chartPadding()}
+							data={byCategory.rows}
+							x="month"
+							xScale={scaleBand().padding(0.2)}
+							seriesLayout="stack"
+							onTooltipClick={openMonth}
+							{series}
+							props={{
+								bars: { radius: 2, strokeWidth: 0 },
+								xAxis: {
+									tickLength: TICK_LENGTH,
+									tickOcclusion: X_TICK_OCCLUSION,
+									ticks: bandTicks(months),
+									format: bandTickLabel
+								},
+								yAxis: {
+									tickLength: TICK_LENGTH,
+									tickLabelProps: Y_TICK_LABEL,
+									format: (v: number) => compact.format(v)
+								}
+							}}
+						>
+							{#snippet tooltip()}
+								<Chart.Tooltip
+									labelFormatter={(key: string) => monthLabel({ key, partialKey })}
+									formatter={row}
+								/>
+							{/snippet}
+						</BarChart>
+					</Chart.Container>
+				{/snippet}
+			</LazyChart>
+			<!-- Category names are long, so this legend wraps where the chart's own would overflow. -->
+			<ul
+				class="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground"
+			>
+				{#each series as s (s.key)}
+					<li class="flex items-center gap-1.5">
+						<span class="size-2.5 shrink-0 rounded-[2px]" style:background={s.color}></span>
+						{s.label}
+					</li>
+				{/each}
+			</ul>
+		</Card.Content>
+	{/if}
 </Card.Root>

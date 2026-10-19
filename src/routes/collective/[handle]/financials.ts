@@ -49,7 +49,15 @@ export interface ContributionNode {
 	netAmount: { value: number };
 	fromAccount: { slug: string; name: string } | null;
 	order: { frequency: string | null } | null;
+	/** CONTRIBUTION, ADDED_FUNDS or BALANCE_TRANSFER. */
+	kind: string;
 }
+
+/**
+ * Money moved from another account's balance on Open Collective, like a company passing on what it
+ * holds there. Counted as a one-off contribution, but noted, since it is not a new payment.
+ */
+const isTransfer = (node: ContributionNode) => node.kind === 'BALANCE_TRANSFER';
 
 /** An expense that is approved or awaiting approval but not paid yet. */
 export interface Unpaid {
@@ -177,6 +185,8 @@ export interface ContributionMonth {
 	month: string;
 	recurring: number;
 	oneOff: number;
+	/** The part of `oneOff` moved from other accounts' balances. */
+	transferred: number;
 }
 
 /** Sum contributions per month by frequency, and per month and backer. */
@@ -189,10 +199,11 @@ export function toContributions(nodes: ContributionNode[]): {
 	for (const node of nodes) {
 		const month = monthKey(node.createdAt);
 		const amount = node.netAmount.value;
-		const row = months.get(month) ?? { month, recurring: 0, oneOff: 0 };
+		const row = months.get(month) ?? { month, recurring: 0, oneOff: 0, transferred: 0 };
 		const frequency = node.order?.frequency;
 		if (frequency === 'MONTHLY' || frequency === 'YEARLY') row.recurring += amount;
 		else row.oneOff += amount;
+		if (isTransfer(node)) row.transferred += amount;
 		months.set(month, row);
 
 		const slug = node.fromAccount?.slug ?? '';
@@ -223,6 +234,8 @@ export interface BackerHistory {
 	frequency: 'MONTHLY' | 'YEARLY' | null;
 	/** What the latest contribution brought in, after fees. For a recurring backer, what each one gives. */
 	lastAmount: number;
+	/** Whether the latest contribution was moved from the backer's balance on Open Collective. */
+	lastTransfer: boolean;
 }
 
 export function backerHistory(nodes: ContributionNode[]): Map<string, BackerHistory> {
@@ -238,7 +251,8 @@ export function backerHistory(nodes: ContributionNode[]): Map<string, BackerHist
 				last: node.createdAt,
 				contributions: 1,
 				frequency: recurring,
-				lastAmount: node.netAmount.value
+				lastAmount: node.netAmount.value,
+				lastTransfer: isTransfer(node)
 			});
 			continue;
 		}
@@ -248,6 +262,7 @@ export function backerHistory(nodes: ContributionNode[]): Map<string, BackerHist
 			backer.last = node.createdAt;
 			backer.frequency = recurring;
 			backer.lastAmount = node.netAmount.value;
+			backer.lastTransfer = isTransfer(node);
 		}
 	}
 	return history;

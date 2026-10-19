@@ -23,7 +23,10 @@ export const SUGGESTED_COLLECTIVES = [
 	{ slug: 'eslint', name: 'ESLint', about: 'The pluggable linting utility for JavaScript and JSX' }
 ] as const;
 
-/** A collective's logo; the address redirects to the current image. */
+/**
+ * A collective's logo; the address redirects to the current image. 64px tall covers the 32px it is
+ * shown at on screens with twice the pixels.
+ */
 export function collectiveLogo(slug: string): string {
-	return `https://images.opencollective.com/${slug}/logo/128.png`;
+	return `https://images.opencollective.com/${slug}/logo/64.png`;
 }

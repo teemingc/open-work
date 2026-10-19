@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { chartPadding, TICK_LENGTH, Y_TICK_LABEL } from '#lib/chart-padding.js';
+	import { chartPadding, TICK_LENGTH, X_TICK_OCCLUSION, Y_TICK_LABEL } from '#lib/chart-padding.js';
 	import { resolve } from '$app/paths';
 	import * as Card from '#lib/components/ui/card/index.js';
-	import * as Chart from '#lib/components/ui/chart/index.js';
+	import type { ChartConfig } from '#lib/components/ui/chart/chart-utils.js';
+	import LazyChart from '#lib/components/LazyChart.svelte';
 	import { formatHours, formatMoney } from '#lib/format.js';
 	import { converted, summarizeMonth, type WorkLogData } from '#lib/worklog.js';
 	import { scaleBand } from 'd3-scale';
-	import { BarChart } from 'layerchart';
 
 	let { data, year, today }: { data: WorkLogData; year: number; today: string } = $props();
 
@@ -58,7 +58,7 @@
 	const config = {
 		expected: { label: 'Expected', color: 'var(--color-chart-other)' },
 		logged: { label: 'Logged', color: 'var(--color-chart-balance)' }
-	} satisfies Chart.ChartConfig;
+	} satisfies ChartConfig;
 
 	const money = (amounts: Record<string, number>) =>
 		Object.entries(amounts)
@@ -90,39 +90,44 @@
 	</Card.Header>
 	{#if totals.logged > 0}
 		<Card.Content class="space-y-4">
-			<Chart.Container {config} class="aspect-auto h-56 w-full">
-				<BarChart
-					padding={chartPadding({ left: 44, legend: true })}
-					data={chartData}
-					x="month"
-					xScale={scaleBand().padding(0.2)}
-					seriesLayout="group"
-					legend
-					series={[
-						{ key: 'expected', label: config.expected.label, color: config.expected.color },
-						{ key: 'logged', label: config.logged.label, color: config.logged.color }
-					]}
-					props={{
-						bars: { radius: 2, strokeWidth: 0 },
-						xAxis: {
-							tickLength: TICK_LENGTH,
-							format: (month: string) => shortMonth.format(monthDate(month))
-						},
-						yAxis: {
-							tickLength: TICK_LENGTH,
-							tickLabelProps: Y_TICK_LABEL,
-							format: (v: number) => `${v} h`
-						}
-					}}
-				>
-					{#snippet tooltip()}
-						<Chart.Tooltip
-							labelFormatter={(month: string) => longMonth.format(monthDate(month))}
-							formatter={hoursRow}
-						/>
-					{/snippet}
-				</BarChart>
-			</Chart.Container>
+			<LazyChart class="h-56">
+				{#snippet children({ BarChart, Chart })}
+					<Chart.Container {config} class="aspect-auto h-56 w-full">
+						<BarChart
+							padding={chartPadding({ left: 44, legend: true })}
+							data={chartData}
+							x="month"
+							xScale={scaleBand().padding(0.2)}
+							seriesLayout="group"
+							legend
+							series={[
+								{ key: 'expected', label: config.expected.label, color: config.expected.color },
+								{ key: 'logged', label: config.logged.label, color: config.logged.color }
+							]}
+							props={{
+								bars: { radius: 2, strokeWidth: 0 },
+								xAxis: {
+									tickLength: TICK_LENGTH,
+									tickOcclusion: X_TICK_OCCLUSION,
+									format: (month: string) => shortMonth.format(monthDate(month))
+								},
+								yAxis: {
+									tickLength: TICK_LENGTH,
+									tickLabelProps: Y_TICK_LABEL,
+									format: (v: number) => `${v} h`
+								}
+							}}
+						>
+							{#snippet tooltip()}
+								<Chart.Tooltip
+									labelFormatter={(month: string) => longMonth.format(monthDate(month))}
+									formatter={hoursRow}
+								/>
+							{/snippet}
+						</BarChart>
+					</Chart.Container>
+				{/snippet}
+			</LazyChart>
 
 			<div class="overflow-x-auto rounded-lg border bg-card">
 				<table class="ledger text-sm">

@@ -53,7 +53,13 @@
 	const customValid = $derived(customStart !== '' && customEnd !== '' && customStart <= customEnd);
 </script>
 
-<svelte:head><title>Invoices · Open Work</title></svelte:head>
+<svelte:head>
+	<title>Invoices · Open Work</title>
+	<meta
+		name="description"
+		content="The invoices you sent to Open Collective, and whether each one is paid."
+	/>
+</svelte:head>
 
 {#snippet tableSkeleton()}
 	<div class="space-y-px overflow-hidden rounded-xl border bg-card" aria-busy="true">

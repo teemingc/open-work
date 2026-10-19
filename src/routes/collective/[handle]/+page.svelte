@@ -7,7 +7,7 @@
 	import { getSettings } from '#lib/settings.remote.js';
 	import CollectiveSearch from './CollectiveSearch.svelte';
 	import Dashboard from './Dashboard.svelte';
-	import { getCollectiveStats } from './stats.remote';
+	import { getCachedIncomeSources, getCollectiveStats } from './stats.remote';
 
 	/** The collective in the address, else the one you invoice from settings. */
 	const slug = $derived(
@@ -15,15 +15,28 @@
 	);
 </script>
 
-<svelte:head><title>Collective · Open Work</title></svelte:head>
+<svelte:head>
+	<title>Collective · Open Work</title>
+	<!-- A collective's dashboard describes itself. -->
+	{#if !slug}
+		<meta
+			name="description"
+			content="Look up an open source collective on Open Collective and see its balance, runway and who funds it."
+		/>
+	{/if}
+</svelte:head>
 
 {#if slug}
 	<!--
-		Your account is awaited with the stats (Svelte runs the two in parallel), so the page appears
+		Your account is awaited with the stats (Svelte runs them in parallel), so the page appears
 		complete. Arriving later, it would add the "Paid to you" card and reshape the charts after the
-		page was already on screen.
+		page was already on screen. So are the contributions, when the server already has them.
 	-->
-	<Dashboard data={await getCollectiveStats(slug)} me={(await getMe())?.slug} />
+	<Dashboard
+		data={await getCollectiveStats(slug)}
+		me={(await getMe())?.slug}
+		income={await getCachedIncomeSources(slug)}
+	/>
 {:else}
 	<!-- One narrow column: the search, then a short list that reads as its first results. -->
 	<div class="mx-auto flex max-w-md flex-col gap-6 pt-10 sm:pt-16">

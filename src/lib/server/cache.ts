@@ -14,6 +14,12 @@ interface Entry<T> {
 	value: T;
 }
 
+export interface Cached<T> {
+	(): Promise<T>;
+	/** The stored result while it is fresh, without asking Open Collective for a new one. */
+	peek(): Promise<T | undefined>;
+}
+
 function sharedCache(): Cache | undefined {
 	return typeof caches === 'undefined'
 		? undefined
@@ -29,7 +35,7 @@ export function cached<T>({
 	key: string;
 	maxAgeMs: number;
 	load: () => Promise<T>;
-}): () => Promise<T> {
+}): Cached<T> {
 	const request = new Request(`https://cache.invoicer.internal/${encodeURIComponent(key)}`);
 	let memory: Entry<T> | undefined;
 	let inFlight: Promise<T> | undefined;
@@ -46,9 +52,14 @@ export function cached<T>({
 		}
 	}
 
-	async function refresh(): Promise<T> {
+	/** Takes the shared cache's entry when it is newer, as another instance may have stored it. */
+	async function syncShared() {
 		const shared = await readShared();
 		if (shared && (!memory || shared.at > memory.at)) memory = shared;
+	}
+
+	async function refresh(): Promise<T> {
+		await syncShared();
 		if (fresh(memory)) return memory.value;
 
 		try {
@@ -72,10 +83,17 @@ export function cached<T>({
 		}
 	}
 
-	return () => {
+	const get = () => {
 		if (fresh(memory)) return Promise.resolve(memory.value);
 		// Concurrent requests share one fetch.
 		inFlight ??= refresh().finally(() => (inFlight = undefined));
 		return inFlight;
 	};
+
+	return Object.assign(get, {
+		async peek() {
+			if (!fresh(memory)) await syncShared();
+			return fresh(memory) ? memory.value : undefined;
+		}
+	});
 }

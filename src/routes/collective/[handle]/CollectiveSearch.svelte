@@ -32,6 +32,8 @@
 	let searched = $state('');
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let input = $state<HTMLInputElement | null>(null);
+	/** The list's id, which the input points to while the list is open. */
+	const listId = $props.id();
 
 	const results = $derived(searched.length >= 2 ? searchCollectives(searched) : undefined);
 
@@ -99,7 +101,6 @@
 				value={term}
 				placeholder={name}
 				autocomplete="off"
-				aria-expanded={open}
 				oninput={(event) => type(event.currentTarget.value)}
 				onfocus={show}
 				onclick={show}
@@ -113,7 +114,15 @@
 					'h-full w-full min-w-0 bg-transparent text-base outline-hidden placeholder:text-muted-foreground',
 					!field && 'sm:text-sm'
 				]}
-			/>
+			>
+				<!--
+					Bits UI always marks the input expanded and points it at a viewport this search does not
+					use, so both are set here, after its props, to say whether the list is open and where.
+				-->
+				{#snippet child({ props })}
+					<input {...props} aria-expanded={open} aria-controls={open ? listId : undefined} />
+				{/snippet}
+			</CommandPrimitive.Input>
 		</label>
 
 		{#if open}
@@ -122,7 +131,7 @@
 				tabindex="-1"
 				class="absolute top-full left-0 z-50 mt-1 w-full rounded-md border bg-popover text-popover-foreground shadow-md outline-none"
 			>
-				<Command.List class="p-1">
+				<Command.List id={listId} class="p-1">
 					{#if searched.length < 2}
 						{#if recent.length > 0}
 							<Command.Group heading="Recent">

@@ -80,14 +80,24 @@
 		<Card.Description>Each square is 1% of contributions {period}.</Card.Description>
 	</Card.Header>
 	<Card.Content class="flex flex-col gap-6">
-		<!-- A band across the full card width, so each group reads as a run like a stacked bar. -->
+		<!--
+			A band across the full card width, so each group reads as a run like a stacked bar. Hovering
+			a square picks out its group, as hovering its row below does. One listener for the band, read
+			from the square under the pointer, rather than one on each of the hundred squares.
+		-->
 		<div
 			class="grid aspect-[4/1] w-full grid-cols-20 gap-0.5 @xl:aspect-[25/4] @xl:grid-cols-25"
 			role="img"
 			aria-label={groups.map((group, index) => `${group.label}: ${counts[index]}%`).join(', ')}
+			onpointerover={(event) => {
+				const group = (event.target as HTMLElement).dataset.group;
+				if (group !== undefined) hovered = Number(group);
+			}}
+			onpointerleave={() => (hovered = undefined)}
 		>
 			{#each cells as group, index (index)}
 				<div
+					data-group={group}
 					class="rounded-[2px] transition-opacity {groups[group].swatch} {hovered !== undefined &&
 					hovered !== group
 						? 'opacity-25'
@@ -99,7 +109,10 @@
 		<ul class="flex flex-col gap-1 text-sm @xl:block @xl:columns-2 @xl:gap-x-12">
 			{#each groups as group, index (group.key)}
 				<li
-					class="flex break-inside-avoid items-center gap-2 rounded-md px-2 py-1 hover:bg-muted"
+					class={[
+						'flex break-inside-avoid items-center gap-2 rounded-md px-2 py-1',
+						hovered === index && 'bg-muted'
+					]}
 					onpointerenter={() => (hovered = index)}
 					onpointerleave={() => (hovered = undefined)}
 				>

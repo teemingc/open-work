@@ -7,17 +7,21 @@
 /** Gap between an axis and its labels, so the labels at the bottom-left corner stay apart. */
 export const TICK_LENGTH = 10;
 
+/** Drops x-axis labels that would run into each other, measured as drawn, so a narrow chart stays readable. */
+export const X_TICK_OCCLUSION = { padding: 12 } as const;
+
 /** Y-axis labels sit just above their gridline, clear of the x-axis labels below the baseline. */
 export const Y_TICK_LABEL = { verticalAnchor: 'end', dy: -3 } as const;
 
 export function chartPadding({
 	left = 48,
+	right = 8,
 	legend = false
-}: { left?: number; legend?: boolean } = {}): {
+}: { left?: number; right?: number; legend?: boolean } = {}): {
 	top: number;
 	right: number;
 	bottom: number;
 	left: number;
 } {
-	return { top: 18, right: 8, bottom: legend ? 58 : 26, left: left + 6 };
+	return { top: 18, right, bottom: legend ? 58 : 26, left: left + 6 };
 }

@@ -20,9 +20,12 @@
 			missingForSubmit({ settings, connected: me !== null }).length > 0
 	);
 
-	/** Icons alone on phones, each at least 40px wide so it is easy to tap. */
+	/**
+	 * Icons alone on phones and small tablets, each at least 40px wide so it is easy to tap. Below
+	 * 768px the four labels do not fit beside the name, and would wrap and squeeze the icons.
+	 */
 	const LINK =
-		'relative -mb-[3px] flex min-w-10 items-center justify-center gap-1.5 border-b-2 border-transparent text-muted-foreground hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:font-medium aria-[current=page]:text-foreground sm:min-w-0 sm:px-3';
+		'relative -mb-[3px] flex min-w-10 items-center justify-center gap-1.5 border-b-2 border-transparent text-muted-foreground hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:font-medium aria-[current=page]:text-foreground md:min-w-0 md:px-3 md:whitespace-nowrap [&>svg]:shrink-0';
 
 	/** The home page is the collective page too. */
 	function isCurrent(path: '/collective' | '/invoices' | '/worklog' | '/settings'): boolean {
@@ -48,14 +51,14 @@
 			<span class="max-[359px]:sr-only">Open Work</span>
 		</a>
 
-		<nav aria-label="Main" class="flex items-stretch text-sm sm:gap-2">
+		<nav aria-label="Main" class="flex items-stretch text-sm md:gap-2">
 			<a
 				href={resolve('/')}
 				aria-current={isCurrent('/collective') ? 'page' : undefined}
 				class={LINK}
 			>
 				<ChartLine size={15} />
-				<span class="max-sm:sr-only">Collective</span>
+				<span class="max-md:sr-only">Collective</span>
 			</a>
 			<a
 				href={resolve('/worklog')}
@@ -63,7 +66,7 @@
 				class={LINK}
 			>
 				<Clock size={15} />
-				<span class="max-sm:sr-only">Work log</span>
+				<span class="max-md:sr-only">Work log</span>
 			</a>
 			<a
 				href={resolve('/invoices')}
@@ -71,7 +74,7 @@
 				class={LINK}
 			>
 				<FileText size={15} />
-				<span class="max-sm:sr-only">Invoices</span>
+				<span class="max-md:sr-only">Invoices</span>
 			</a>
 			<a
 				href={resolve('settings')}
@@ -79,14 +82,14 @@
 				class={LINK}
 			>
 				<Settings size={15} />
-				<span class="max-sm:sr-only">Settings</span>
+				<span class="max-md:sr-only">Settings</span>
 				<!--
-					Always takes its space, so the nav does not move when it appears. On phones it sits on
+					Always takes its space, so the nav does not move when it appears. Without labels it sits on
 					the icon's corner, so the icon stays centred in its tap target.
 				-->
 				<span
 					class={[
-						'size-1.5 rounded-full bg-attention max-sm:absolute max-sm:top-[calc(50%-11px)] max-sm:right-2',
+						'size-1.5 rounded-full bg-attention max-md:absolute max-md:top-[calc(50%-11px)] max-md:right-2',
 						!needsSetup && 'invisible'
 					]}
 					title={needsSetup ? 'Setup unfinished' : undefined}

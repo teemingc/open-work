@@ -305,19 +305,22 @@ describe('toContributions', () => {
 			createdAt,
 			netAmount: { value },
 			fromAccount: { slug, name: slug },
-			order: frequency ? { frequency } : null
+			order: frequency ? { frequency } : null,
+			kind: slug === 'company' ? 'BALANCE_TRANSFER' : 'CONTRIBUTION'
 		});
 		const result = toContributions([
 			node('2026-10-02T00:00:00Z', 5, 'a', 'MONTHLY'),
 			node('2026-09-02T00:00:00Z', 5, 'a', 'MONTHLY'),
 			node('2026-09-10T00:00:00Z', 100, 'b', 'ONETIME'),
-			node('2026-09-12T00:00:00Z', 50, 'host', null)
+			node('2026-09-12T00:00:00Z', 50, 'host', null),
+			node('2026-10-20T00:00:00Z', 300, 'company', null)
 		]);
 		expect(result.months).toEqual([
-			{ month: '2026-09', recurring: 5, oneOff: 150 },
-			{ month: '2026-10', recurring: 5, oneOff: 0 }
+			{ month: '2026-09', recurring: 5, oneOff: 150, transferred: 0 },
+			{ month: '2026-10', recurring: 5, oneOff: 300, transferred: 300 }
 		]);
 		expect(topAccounts({ rows: result.backers, limit: 5 })).toEqual([
+			{ slug: 'company', name: 'company', amount: 300 },
 			{ slug: 'b', name: 'b', amount: 100 },
 			{ slug: 'host', name: 'host', amount: 50 },
 			{ slug: 'a', name: 'a', amount: 10 }
@@ -359,7 +362,8 @@ describe('backerHistory', () => {
 			createdAt,
 			netAmount: { value },
 			fromAccount: { slug: 'a', name: 'A' },
-			order: frequency ? { frequency } : null
+			order: frequency ? { frequency } : null,
+			kind: frequency ? 'CONTRIBUTION' : 'BALANCE_TRANSFER'
 		});
 		const history = backerHistory([
 			node('2026-10-01T00:00:00Z', 'MONTHLY', 190),
@@ -371,8 +375,12 @@ describe('backerHistory', () => {
 			last: '2026-10-01T00:00:00Z',
 			contributions: 3,
 			frequency: 'MONTHLY',
-			lastAmount: 190
+			lastAmount: 190,
+			lastTransfer: false
 		});
+		expect(backerHistory([node('2026-10-01T00:00:00Z', null, 300)]).get('a')?.lastTransfer).toBe(
+			true
+		);
 	});
 });
 
