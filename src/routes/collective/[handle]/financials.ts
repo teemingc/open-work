@@ -614,28 +614,3 @@ export function transactionsUrl({
 	for (const kind of kinds) params.append('kind', kind);
 	return `https://opencollective.com/${slug}/transactions?${params}`;
 }
-
-/**
- * The lowest and highest projected balance at each of `dates`, across forecasts based on
- * each of `bases`. Balances stop at 0.
- */
-export function forecastRange({
-	months,
-	bases,
-	now,
-	start,
-	dates
-}: {
-	months: Month[];
-	bases: number[];
-	now: Date;
-	start: number;
-	dates: Date[];
-}): { date: Date; low: number; high: number }[] {
-	const perDay = bases.map((basis) => forecast({ months, basis, now }).avgNet / DAYS_PER_MONTH);
-	return dates.map((date) => {
-		const days = (date.getTime() - now.getTime()) / DAY_MS;
-		const values = perDay.map((rate) => Math.max(0, start + rate * days));
-		return { date, low: Math.min(...values), high: Math.max(...values) };
-	});
-}

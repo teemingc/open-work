@@ -39,6 +39,7 @@
 					BarChart,
 					Circle,
 					Legend,
+					ClipPath,
 					LinearGradient,
 					LineChart,
 					ScatterChart
@@ -49,6 +50,7 @@
 					BarChart,
 					Circle,
 					Legend,
+					ClipPath,
 					LinearGradient,
 					LineChart,
 					ScatterChart
