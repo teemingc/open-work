@@ -13,8 +13,6 @@ declare global {
 			message: string;
 			/** Seconds to wait before trying again, when a service is rate-limiting us. */
 			retryAfter?: number;
-			/** Connecting Open Collective in settings would raise the rate limit that caused this. */
-			connect?: boolean;
 		}
 		// interface Locals {}
 		// interface PageData {}

@@ -1,21 +1,19 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
-	import { LogIn, RotateCcw } from '@lucide/svelte';
+	import { RotateCcw } from '@lucide/svelte';
 	import { isHttpError } from '@sveltejs/kit';
 
 	let { error, onretry }: { error: unknown; onretry: () => unknown } = $props();
 
-	const details = $derived.by((): { message: string; retryAfter?: number; connect?: boolean } => {
+	const details = $derived.by((): { message: string; retryAfter?: number } => {
 		if (isHttpError(error)) return error.body;
 		if (error && typeof error === 'object' && 'message' in error) {
-			const { message, retryAfter, connect } = error as {
+			const { message, retryAfter } = error as {
 				message: unknown;
 				retryAfter?: number;
-				connect?: boolean;
 			};
-			return { message: String(message), retryAfter, connect };
+			return { message: String(message), retryAfter };
 		}
 		return { message: 'Something went wrong.' };
 	});
@@ -50,34 +48,21 @@
 {#key error}
 	<!-- Block layout, so the text and buttons line up with whatever surrounds them: centred on the error page, left in an alert. -->
 	<div {@attach countdown}>
-		<div class="space-y-2">
-			<p>
-				{details.message}
-				{#if left > 0}
-					Try again in <span class="tabular-nums">{left}</span>
-					{left === 1 ? 'second' : 'seconds'}.
-				{/if}
-			</p>
-			{#if details.connect}
-				<p>Connect your Open Collective account in settings to get a higher limit.</p>
+		<p>
+			{details.message}
+			{#if left > 0}
+				Try again in <span class="tabular-nums">{left}</span>
+				{left === 1 ? 'second' : 'seconds'}.
 			{/if}
-		</div>
-		<!-- The buttons grow only once they wrap, so stacked they make two even rows rather than a ragged pair. -->
-		<div class="mt-4 inline-flex flex-wrap gap-2">
-			{#if details.connect}
-				<Button href="{resolve('/settings')}#oc-connection" size="sm" class="grow">
-					<LogIn /> Connect Open Collective
-				</Button>
-			{/if}
-			<Button
-				variant="outline"
-				size="sm"
-				class="grow"
-				disabled={left > 0 || retrying}
-				onclick={retry}
-			>
-				{#if retrying}<Spinner /> Trying again{:else}<RotateCcw /> Try again{/if}
-			</Button>
-		</div>
+		</p>
+		<Button
+			variant="outline"
+			size="sm"
+			class="mt-4"
+			disabled={left > 0 || retrying}
+			onclick={retry}
+		>
+			{#if retrying}<Spinner /> Trying again{:else}<RotateCcw /> Try again{/if}
+		</Button>
 	</div>
 {/key}

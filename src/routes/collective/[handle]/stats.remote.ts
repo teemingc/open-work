@@ -2,8 +2,7 @@ import { query } from '$app/server';
 import { error } from '@sveltejs/kit';
 import * as v from 'valibot';
 import { cached, type Cached } from '#lib/server/cache.js';
-import { OpenCollectiveError, publicGraphql, toHttpError } from '#lib/server/opencollective.js';
-import { getToken } from '#lib/server/session.js';
+import { publicGraphql, toHttpError } from '#lib/server/opencollective.js';
 import {
 	backerHistory,
 	lastMonthKeys,
@@ -57,15 +56,6 @@ function perKey<T>(make: (key: string) => Cached<T>) {
 const CACHE_MS = 60 * 60 * 1000;
 
 const PAGE_SIZE = 1000;
-
-/**
- * Like `toHttpError`, but without the suggestion to connect when this browser already has: these
- * requests never use a visitor's token, so connecting again would not help.
- */
-function toPublicHttpError(err: unknown): never {
-	if (err instanceof OpenCollectiveError && getToken()) err.connect = undefined;
-	toHttpError(err);
-}
 
 /** Every page after the first, a few at a time to stay under Open Collective's rate limit. */
 async function remainingPages<T>({
@@ -224,7 +214,7 @@ const loadStats = perKey((slug) =>
 					}))
 				];
 			} catch (err) {
-				toPublicHttpError(err);
+				toHttpError(err);
 			}
 			const account = result.account;
 			if (!account) error(404, `There is no collective called "${slug}" on Open Collective.`);
@@ -317,7 +307,7 @@ const loadContributions = perKey((slug) =>
 					}))
 				];
 			} catch (err) {
-				toPublicHttpError(err);
+				toHttpError(err);
 			}
 		}
 	})
@@ -429,7 +419,7 @@ const searches = perKey((term) =>
 					variables: { term, slug: /^[a-z0-9-]+$/.test(term) ? term : null }
 				});
 			} catch (err) {
-				toPublicHttpError(err);
+				toHttpError(err);
 			}
 			const matches = [
 				...(result.exact && FUNDED_TYPES.has(result.exact.type) ? [result.exact] : []),
