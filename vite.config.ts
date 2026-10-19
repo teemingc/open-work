@@ -16,6 +16,8 @@ export default defineConfig({
 			adapter: adapter({ fallback: 'spa' })
 		})
 	],
+	// The OAuth app only allows the callback on this port, so fail rather than pick another one.
+	server: { port: 5173, strictPort: true },
 	test: {
 		expect: { requireAssertions: true },
 
