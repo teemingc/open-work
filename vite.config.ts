@@ -13,14 +13,16 @@ export default defineConfig({
 			preprocess: vitePreprocess(),
 			compilerOptions: { experimental: { async: true } },
 			experimental: { remoteFunctions: true },
+			// Styles arrive with the page instead of in a request the first paint would wait on.
+			inlineStyleThreshold: 128 * 1024,
 			// The page holds your GitHub token and work log, so only this app's own scripts may run.
 			csp: {
 				directives: {
 					'default-src': ['self'],
 					'script-src': ['self'],
-					// Inline styles come from transitions and positioned popovers.
-					'style-src': ['self', 'unsafe-inline', 'https://fonts.googleapis.com'],
-					'font-src': ['self', 'https://fonts.gstatic.com'],
+					// Inline styles come from the inlined stylesheet, transitions and positioned popovers.
+					'style-src': ['self', 'unsafe-inline'],
+					'font-src': ['self'],
 					'img-src': ['self', 'data:', 'https://images.opencollective.com'],
 					// GitHub is asked from the browser, with your token.
 					'connect-src': ['self', 'https://api.github.com'],
