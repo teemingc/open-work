@@ -110,6 +110,11 @@
 						<h2 class="text-sm font-medium text-muted-foreground">Next invoice</h2>
 						{#if expensesPending}
 							<Skeleton class="mt-1 h-10 w-96 max-w-full" />
+						{:else if loadError}
+							<!-- Without the list, a suggestion could repeat a period you already invoiced. -->
+							<p class="mt-1 text-sm text-muted-foreground">
+								Could not check what you last invoiced, so choose the dates below.
+							</p>
 						{:else}
 							<p
 								class="mt-1 animate-in font-display text-2xl whitespace-nowrap duration-300 fade-in sm:text-3xl"
@@ -118,10 +123,12 @@
 							</p>
 						{/if}
 					</div>
-					<Button type="submit" size="lg" disabled={expensesPending}>Start invoice</Button>
+					<Button type="submit" size="lg" disabled={expensesPending || !!loadError}
+						>Start invoice</Button
+					>
 				</form>
 
-				<details class="group mt-5 border-t pt-4 text-sm">
+				<details class="group mt-5 border-t pt-4 text-sm" open={!!loadError}>
 					<summary class="cursor-pointer text-muted-foreground hover:text-foreground">
 						Use different dates
 					</summary>
