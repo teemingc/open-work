@@ -1,4 +1,29 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+import type { WorkLogData } from '../src/lib/worklog';
+
+/**
+ * The work log as saved in IndexedDB. Saving finishes just after the change that caused it, so
+ * poll this before leaving a page, or the save can be cut short.
+ */
+function savedLog(page: Page): Promise<WorkLogData | undefined> {
+	return page.evaluate(async () => {
+		const db = await new Promise<IDBDatabase>((resolve, reject) => {
+			const request = indexedDB.open('open-work', 1);
+			request.onsuccess = () => resolve(request.result);
+			request.onerror = () => reject(request.error);
+		});
+		try {
+			if (!db.objectStoreNames.contains('worklog')) return undefined;
+			return await new Promise<WorkLogData | undefined>((resolve, reject) => {
+				const request = db.transaction('worklog').objectStore('worklog').get('log');
+				request.onsuccess = () => resolve(request.result);
+				request.onerror = () => reject(request.error);
+			});
+		} finally {
+			db.close();
+		}
+	});
+}
 
 test.beforeEach(async ({ page }) => {
 	await page.goto('/invoices');
@@ -26,21 +51,7 @@ test('time logged in the work log fills the invoice for that period', async ({ p
 	await page.getByLabel('Per hour').first().fill('40');
 	await page.getByLabel('Per hour').first().blur();
 	await page.getByLabel('Invoiced through Open Collective').first().check();
-	// Saving to IndexedDB finishes just after the click; wait for it before leaving the page.
-	await page.waitForFunction(async () => {
-		const db = await new Promise<IDBDatabase>((resolve) => {
-			const request = indexedDB.open('open-work', 1);
-			request.onsuccess = () => resolve(request.result);
-		});
-		const log = await new Promise<{ clients: { openCollective?: boolean }[] } | undefined>(
-			(resolve) => {
-				const request = db.transaction('worklog').objectStore('worklog').get('log');
-				request.onsuccess = () => resolve(request.result);
-			}
-		);
-		db.close();
-		return log?.clients[0]?.openCollective === true;
-	});
+	await expect.poll(async () => (await savedLog(page))?.clients[0]?.openCollective).toBe(true);
 	await page.reload();
 	await expect(page.getByLabel('Invoiced through Open Collective').first()).toBeChecked();
 	await expect(page.getByLabel('Per hour').first()).toHaveValue('40');
@@ -61,6 +72,7 @@ test('time logged in the work log fills the invoice for that period', async ({ p
 		'href',
 		'https://github.com/sveltejs/kit/pull/17363'
 	);
+	await expect.poll(async () => (await savedLog(page))?.entries.length).toBe(1);
 
 	await page.goto('/invoices/new?start=2026-10-01&end=2026-10-15');
 	await expect(page.getByLabel('Hours worked')).toHaveValue('3.5');
@@ -81,6 +93,7 @@ test('pasted holidays come off the working days', async ({ page }) => {
 		.fill('date,name\n07/07/2026,George Town World Heritage City Day');
 	await page.getByRole('button', { name: 'Add these rows' }).first().click();
 	await expect(page.getByText('Added 1.')).toBeVisible();
+	await expect.poll(async () => (await savedLog(page))?.holidays.length).toBe(1);
 
 	await page.goto('/worklog?month=2026-07');
 	// 23 weekdays in July 2026, less the holiday, at 8 h each.
