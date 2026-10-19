@@ -357,24 +357,29 @@ describe('rates', () => {
 		).toThrow();
 	});
 
-	it('sorts changes and keeps the rate in step with today', () => {
+	it('sorts changes', () => {
 		const updated = withRates({
 			client: svelte,
 			rates: [
 				{ from: '2026-11-01', rate: 45 },
 				{ from: '2026-01-01', rate: 23 }
-			],
-			today: '2026-10-16'
+			]
 		});
 		expect(updated.rates?.map((change) => change.from)).toEqual(['2026-01-01', '2026-11-01']);
-		expect(updated.rate).toBe(23);
-		expect(withRates({ client: history, rates: [], today: '2026-10-16' }).rates).toBeUndefined();
+		expect(withRates({ client: history, rates: [] }).rates).toBeUndefined();
+	});
+
+	it('keeps earlier work at the old rate when the first change is added', () => {
+		const updated = withRates({ client: svelte, rates: [{ from: '2026-10-16', rate: 60 }] });
+		expect(updated.rate).toBe(svelte.rate);
+		expect(rateOn(updated, '2026-10-15')).toBe(svelte.rate);
+		expect(rateOn(updated, '2026-10-16')).toBe(60);
 	});
 
 	it('changes the rate that applies today', () => {
-		const sorted = withRates({ client: history, rates: history.rates!, today: '2026-10-16' });
+		const sorted = withRates({ client: history, rates: history.rates! });
 		const updated = withCurrentRate({ client: sorted, rate: 42, today: '2026-10-16' });
-		expect(updated.rate).toBe(42);
+		expect(updated.rate).toBe(history.rate);
 		expect(updated.rates).toEqual([
 			{ from: '2026-01-01', rate: 23 },
 			{ from: '2026-02-01', rate: 42 }

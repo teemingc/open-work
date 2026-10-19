@@ -29,6 +29,8 @@
 	const missing = $derived(missingForSubmit({ settings, connected: me !== null }));
 	const problems = $derived([
 		...missing.map((item) => `Add your ${item} in settings`),
+		...(draft.needsClient ? ['Choose the client this invoice bills'] : []),
+		...(draft.startDate <= draft.endDate ? [] : ['Make the period end on or after it starts']),
 		...(draft.hours > 0 ? [] : ['Log your time or enter the hours you worked'])
 	]);
 	const fields = submitExpense.fields;

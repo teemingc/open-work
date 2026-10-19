@@ -1,13 +1,13 @@
 import { invoiceTitle, lineItemDescription, totalCents } from '#lib/format.js';
 import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-import { entriesFor, rateOn, totalHours } from '#lib/worklog.js';
+import { earnings, entriesFor, rateOn } from '#lib/worklog.js';
 
 export interface DraftData {
 	startDate: string;
 	endDate: string;
 	clientId?: string;
 	hoursOverride?: number;
-	rate: number;
+	rateOverride?: number;
 	currency: string;
 	titleOverride?: string;
 	descriptionOverride?: string;
@@ -24,25 +24,45 @@ export class Draft {
 	clientId = $state<string | undefined>();
 	/** Set when you type the hours instead of using the ones in the work log. */
 	hoursOverride = $state<number | undefined>();
-	rate = $state(0);
+	/** Set when you type the rate instead of using the ones in the work log. */
+	rateOverride = $state<number | undefined>();
 	currency = $state('USD');
 	/** Set when you edit the generated title or line item text. */
 	titleOverride = $state<string | undefined>();
 	descriptionOverride = $state<string | undefined>();
 
 	#store: WorkLogStore;
+	#fallbackRate: number;
+
+	client = $derived.by(() => (this.clientId ? this.#store.client(this.clientId) : undefined));
+	/** The client has to be chosen before its work can be billed. */
+	needsClient = $derived.by(() => this.client === undefined && this.#store.data.clients.length > 0);
 
 	/** The client's work log entries in this period. Sent as the expense notes. */
 	entries = $derived.by(() =>
-		entriesFor({
-			entries: this.#store.data.entries,
-			clientId: this.clientId,
-			startDate: this.startDate,
-			endDate: this.endDate
-		})
+		this.client
+			? entriesFor({
+					entries: this.#store.data.entries,
+					clientId: this.client.id,
+					startDate: this.startDate,
+					endDate: this.endDate
+				})
+			: []
 	);
-	loggedHours = $derived(totalHours(this.entries));
+	/** The logged entries, each billed at its own rate. */
+	logged = $derived.by(() => {
+		if (!this.client) {
+			return { hours: 0, amount: 0, rate: this.#fallbackRate, mixedRates: false };
+		}
+		const logged = earnings({ client: this.client, entries: this.entries });
+		// Before anything is logged, show the rate the period would be billed at.
+		return logged.hours > 0 ? logged : { ...logged, rate: rateOn(this.client, this.endDate) };
+	});
+	loggedHours = $derived(this.logged.hours);
 	hours = $derived(this.hoursOverride ?? this.loggedHours);
+	rate = $derived(this.rateOverride ?? this.logged.rate);
+	/** The logged hours were billed at more than one rate, and `rate` is their average. */
+	averagedRate = $derived(this.rateOverride === undefined && this.logged.mixedRates);
 
 	title = $derived(
 		this.titleOverride ?? invoiceTitle({ startDate: this.startDate, endDate: this.endDate })
@@ -54,10 +74,15 @@ export class Draft {
 				rate: this.rate,
 				currency: this.currency,
 				startDate: this.startDate,
-				endDate: this.endDate
+				endDate: this.endDate,
+				averaged: this.averagedRate
 			})
 	);
-	cents = $derived(totalCents({ hours: this.hours, rate: this.rate }));
+	cents = $derived(
+		this.hoursOverride === undefined && this.rateOverride === undefined && this.client
+			? Math.round(this.logged.amount * 100)
+			: totalCents({ hours: this.hours, rate: this.rate })
+	);
 
 	constructor({
 		store,
@@ -68,24 +93,28 @@ export class Draft {
 		store: WorkLogStore;
 		startDate: string;
 		endDate: string;
-		/** Rate and currency when no work log client is invoiced through Open Collective. */
+		/** Rate and currency when the work log has no clients. */
 		fallback: { rate: number; currency: string };
 	}) {
 		this.#store = store;
+		this.#fallbackRate = fallback.rate;
 		this.startDate = startDate;
 		this.endDate = endDate;
-		const client = store.data.clients.find((other) => other.openCollective);
+		const { clients } = store.data;
+		// The client invoiced through Open Collective, or the only one there is.
+		const client =
+			clients.find((other) => other.openCollective) ??
+			(clients.length === 1 ? clients[0] : undefined);
 		this.clientId = client?.id;
-		this.rate = client ? rateOn(client, endDate) : fallback.rate;
 		this.currency = client?.currency ?? fallback.currency;
 	}
 
-	/** Bill another client, at its rate at the end of the period. */
+	/** Bill another client, at its own rates. */
 	chooseClient(id: string) {
 		const client = this.#store.client(id);
 		if (!client) return;
 		this.clientId = id;
-		this.rate = rateOn(client, this.endDate);
+		this.rateOverride = undefined;
 		this.currency = client.currency;
 	}
 
@@ -93,6 +122,7 @@ export class Draft {
 	get hasWork(): boolean {
 		return (
 			this.hoursOverride !== undefined ||
+			this.rateOverride !== undefined ||
 			this.titleOverride !== undefined ||
 			this.descriptionOverride !== undefined
 		);
@@ -104,7 +134,7 @@ export class Draft {
 			endDate: this.endDate,
 			clientId: this.clientId,
 			hoursOverride: this.hoursOverride,
-			rate: this.rate,
+			rateOverride: this.rateOverride,
 			currency: this.currency,
 			titleOverride: this.titleOverride,
 			descriptionOverride: this.descriptionOverride
@@ -112,6 +142,13 @@ export class Draft {
 	}
 
 	restore(data: DraftData): void {
-		Object.assign(this, data);
+		this.startDate = data.startDate;
+		this.endDate = data.endDate;
+		this.clientId = data.clientId;
+		this.hoursOverride = data.hoursOverride;
+		this.rateOverride = data.rateOverride;
+		this.currency = data.currency;
+		this.titleOverride = data.titleOverride;
+		this.descriptionOverride = data.descriptionOverride;
 	}
 }

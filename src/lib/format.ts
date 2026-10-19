@@ -131,15 +131,18 @@ export function lineItemDescription({
 	rate,
 	currency,
 	startDate,
-	endDate
+	endDate,
+	averaged = false
 }: {
 	hours: number;
 	rate: number;
 	currency: string;
 	startDate: string;
 	endDate: string;
+	/** The hours were billed at more than one rate, and `rate` is their average. */
+	averaged?: boolean;
 }): string {
-	return `${formatHours(hours)} hours of work from ${formatLongDate(startDate)} to ${formatLongDate(endDate)} at a rate of ${rate} ${currency} per hour`;
+	return `${formatHours(hours)} hours of work from ${formatLongDate(startDate)} to ${formatLongDate(endDate)} at ${averaged ? 'an average rate' : 'a rate'} of ${rate} ${currency} per hour`;
 }
 
 /** The note for Open Collective's "Additional invoice information", if there is one. */

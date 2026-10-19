@@ -334,22 +334,40 @@ export function entryRate({
 	return entry.rate ?? rateOn(client, entry.date);
 }
 
-/** The client with new rate changes, sorted, and its rate set to the one that applies today. */
-export function withRates({
+/**
+ * What a client's entries earn, each at its own rate. `rate` is that rate when they share one,
+ * else the average, and `mixedRates` says which.
+ */
+export function earnings({
 	client,
-	rates,
-	today
+	entries
 }: {
-	client: Client;
-	rates: RateChange[];
-	today: string;
-}): Client {
-	const sorted = rates.toSorted((a, b) => a.from.localeCompare(b.from));
-	const updated = { ...client, rates: sorted.length > 0 ? sorted : undefined };
-	return { ...updated, rate: rateOn(updated, today) };
+	client: Pick<Client, 'rate' | 'rates'>;
+	entries: WorkLogEntry[];
+}): { hours: number; amount: number; rate: number; mixedRates: boolean } {
+	const paid = entries.filter((entry) => entryHours(entry) > 0);
+	const rates = new Set(paid.map((entry) => entryRate({ client, entry })));
+	const hours = totalHours(paid);
+	const amount = round2(
+		paid.reduce((sum, entry) => sum + entryHours(entry) * entryRate({ client, entry }), 0)
+	);
+	const rate = rates.size === 1 ? [...rates][0] : hours > 0 ? round2(amount / hours) : 0;
+	return { hours, amount, rate, mixedRates: rates.size > 1 };
 }
 
-/** The client with today's rate changed, including the rate change that applies today. */
+/**
+ * The client with new rate changes, sorted. Its own rate stays the one for dates before the
+ * first change, so adding a change never reprices earlier work.
+ */
+export function withRates({ client, rates }: { client: Client; rates: RateChange[] }): Client {
+	const sorted = rates.toSorted((a, b) => a.from.localeCompare(b.from));
+	return { ...client, rates: sorted.length > 0 ? sorted : undefined };
+}
+
+/**
+ * The client with today's rate changed: the rate change that applies today, else, before any
+ * change applies, the client's own rate.
+ */
 export function withCurrentRate({
 	client,
 	rate,
@@ -360,9 +378,9 @@ export function withCurrentRate({
 	today: string;
 }): Client {
 	const current = (client.rates ?? []).findLast((change) => change.from <= today);
+	if (!current) return { ...client, rate };
 	return {
 		...client,
-		rate,
 		rates: client.rates?.map((change) => (change === current ? { ...change, rate } : change))
 	};
 }
@@ -493,14 +511,8 @@ export function summarizeMonth({
 
 	const clients = data.clients
 		.map((client) => {
-			const own = entries.filter((entry) => entry.clientId === client.id && entryHours(entry) > 0);
-			const rates = new Set(own.map((entry) => entryRate({ client, entry })));
-			const hours = totalHours(own);
-			const amount = round2(
-				own.reduce((sum, entry) => sum + entryHours(entry) * entryRate({ client, entry }), 0)
-			);
-			const rate = rates.size === 1 ? [...rates][0] : hours > 0 ? round2(amount / hours) : 0;
-			return { client, hours, amount, rate, mixedRates: rates.size > 1 };
+			const own = entries.filter((entry) => entry.clientId === client.id);
+			return { client, ...earnings({ client, entries: own }) };
 		})
 		.filter((total) => total.hours > 0);
 	const amounts: Record<string, number> = {};

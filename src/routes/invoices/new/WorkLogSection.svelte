@@ -13,7 +13,7 @@
 	let { draft, store, organization }: { draft: Draft; store: WorkLogStore; organization?: string } =
 		$props();
 
-	const client = $derived(draft.clientId ? store.client(draft.clientId) : undefined);
+	const client = $derived(draft.client);
 	const itemCount = $derived(draft.entries.reduce((sum, entry) => sum + entry.items.length, 0));
 	const days = $derived.by(() => {
 		const groups: { date: string; entries: WorkLogEntry[] }[] = [];
@@ -87,7 +87,7 @@
 						</span>
 					</div>
 					<ul class="space-y-0.5 text-sm">
-						{#each day.entries.flatMap((entry) => entry.items) as item, index (index)}
+						{#each day.entries.flatMap((entry) => entry.items) as item (item)}
 							<li class="flex min-w-0"><WorkItem ref={item} {organization} /></li>
 						{/each}
 					</ul>

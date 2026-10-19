@@ -10,8 +10,14 @@
 	import { signInWithGoogle, signOutOfGoogle } from '#lib/auth-client.js';
 	import { driveSync } from '#lib/drive-sync.svelte.js';
 	import { WorkLogParseError } from '#lib/worklog-store.svelte.js';
-	import { toIsoDate } from '#lib/format.js';
-	import { withCurrentRate, withRates, type Client, type RateChange } from '#lib/worklog.js';
+	import { formatDMY, toIsoDate } from '#lib/format.js';
+	import {
+		rateOn,
+		withCurrentRate,
+		withRates,
+		type Client,
+		type RateChange
+	} from '#lib/worklog.js';
 	import {
 		ArrowLeft,
 		ChevronRight,
@@ -68,7 +74,7 @@
 		const snapshot = latest(client);
 		const rates = snapshot.rates ?? [];
 		change(rates);
-		store.updateClient(withRates({ client: snapshot, rates, today: toIsoDate(new Date()) }));
+		store.updateClient(withRates({ client: snapshot, rates }));
 	}
 
 	function downloadBackup() {
@@ -157,7 +163,7 @@
 						min="0"
 						step="0.01"
 						class="tabular-nums"
-						value={client.rate}
+						value={rateOn(client, toIsoDate(new Date()))}
 						onchange={(event) => {
 							const rate = Number(event.currentTarget.value);
 							if (Number.isFinite(rate) && rate >= 0) {
@@ -208,8 +214,26 @@
 					<div class="mt-3 space-y-3">
 						<p class="text-xs text-muted-foreground">
 							Each rate applies from its date until the next change, so past work earns what you
-							billed at the time. Dates before the first change use the rate per hour.
+							billed at the time.
 						</p>
+						{#if client.rates?.length}
+							<div class="max-w-40 space-y-1.5">
+								<Label for="{client.id}-base-rate">Before {formatDMY(client.rates[0].from)}</Label>
+								<Input
+									id="{client.id}-base-rate"
+									type="number"
+									inputmode="decimal"
+									min="0"
+									step="0.01"
+									class="tabular-nums"
+									value={client.rate}
+									onchange={(event) => {
+										const rate = Number(event.currentTarget.value);
+										if (Number.isFinite(rate) && rate >= 0) changeClient(client, { rate });
+									}}
+								/>
+							</div>
+						{/if}
 						{#each client.rates ?? [] as change, index (index)}
 							<div class="grid grid-cols-[1fr_7rem_auto] items-end gap-3">
 								<div class="space-y-1.5">
@@ -257,7 +281,10 @@
 							size="sm"
 							onclick={() =>
 								changeRates(client, (rates) =>
-									rates.push({ from: toIsoDate(new Date()), rate: client.rate })
+									rates.push({
+										from: toIsoDate(new Date()),
+										rate: rateOn(client, toIsoDate(new Date()))
+									})
 								)}
 						>
 							<Plus /> Add a rate change

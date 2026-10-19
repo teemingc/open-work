@@ -46,6 +46,41 @@
 	);
 	const invoiceInfo = $derived(invoiceInfoText(settings.invoiceNote));
 
+	/**
+	 * Binds a number field to an override. While you type, the field keeps exactly what you
+	 * typed, so a half-typed "0." is not replaced; leaving it empty goes back to the logged value.
+	 */
+	function overrideInput({
+		shown,
+		override
+	}: {
+		shown: () => number;
+		override: (value: number | undefined) => void;
+	}) {
+		let typed = $state<number | null | undefined>();
+		return {
+			// Left empty rather than 0 until there is something to show.
+			get: () => (typed !== undefined ? typed : shown() || null),
+			set: (value: number | null) => {
+				typed = value;
+				if (value !== null) override(value);
+			},
+			blur: () => {
+				if (typed === null) override(undefined);
+				typed = undefined;
+			}
+		};
+	}
+
+	const hoursInput = overrideInput({
+		shown: () => draft.hours,
+		override: (value) => (draft.hoursOverride = value)
+	});
+	const rateInput = overrideInput({
+		shown: () => draft.rate,
+		override: (value) => (draft.rateOverride = value)
+	});
+
 	let submitted = false;
 
 	// Keeps the draft through a reload, or when you go back to it, within this tab.
@@ -132,13 +167,8 @@
 							step="0.5"
 							class="tabular-nums"
 							aria-describedby="hours-source"
-							bind:value={
-								// Left empty rather than 0 until there is something to show.
-								() => draft.hours || undefined,
-								(value) =>
-									(draft.hoursOverride =
-										value === undefined || value === null ? undefined : Number(value))
-							}
+							bind:value={hoursInput.get, hoursInput.set}
+							onblur={hoursInput.blur}
 						/>
 						<p id="hours-source" class="text-xs text-muted-foreground">
 							{draft.hoursOverride === undefined
@@ -147,7 +177,18 @@
 						</p>
 					</div>
 					<div class="space-y-1.5">
-						<Label for="rate">Rate per hour ({draft.currency})</Label>
+						<div class="flex items-center justify-between">
+							<Label for="rate">Rate per hour ({draft.currency})</Label>
+							{#if draft.rateOverride !== undefined && draft.client}
+								<Button
+									variant="ghost"
+									size="sm"
+									class="h-auto py-0"
+									onclick={() => (draft.rateOverride = undefined)}
+									><RotateCcw />Use logged rates</Button
+								>
+							{/if}
+						</div>
 						<Input
 							id="rate"
 							type="number"
@@ -155,8 +196,15 @@
 							min="0"
 							step="0.01"
 							class="tabular-nums"
-							bind:value={() => draft.rate, (value) => (draft.rate = Number(value) || 0)}
+							aria-describedby={draft.averagedRate ? 'rate-source' : undefined}
+							bind:value={rateInput.get, rateInput.set}
+							onblur={rateInput.blur}
 						/>
+						{#if draft.averagedRate}
+							<p id="rate-source" class="text-xs text-muted-foreground">
+								The average of the rates in your work log. Each entry is billed at its own.
+							</p>
+						{/if}
 					</div>
 				</div>
 
