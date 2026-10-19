@@ -30,7 +30,7 @@ export default defineConfig({
 					'frame-ancestors': ['none']
 				}
 			},
-			adapter: adapter({ fallback: 'spa' })
+			adapter: adapter()
 		})
 	],
 	// The OAuth app only allows the callback on this port, so fail rather than pick another one.

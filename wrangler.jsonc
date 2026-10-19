@@ -6,10 +6,10 @@
 	"main": ".svelte-kit/cloudflare/_worker.js",
 	"assets": {
 		"binding": "ASSETS",
-		"directory": ".svelte-kit/cloudflare",
-		"not_found_handling": "single-page-application"
+		"directory": ".svelte-kit/cloudflare"
 	},
 	"routes": [{ "pattern": "openwork.ing", "custom_domain": true }],
-	"workers_dev": false,
+	// Kept on only to send the old address to the custom domain, in src/hooks.server.ts.
+	"workers_dev": true,
 	"preview_urls": false
 }

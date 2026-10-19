@@ -109,8 +109,11 @@ test('settings save automatically and the setup warning lists what is missing', 
 		.getByRole('navigation', { name: 'Main' })
 		.getByRole('link', { name: /Settings/ })
 		.click();
+	// Leaving before the save answers would lose the cookie it sets.
+	const saved = page.waitForResponse((response) => response.url().includes('/saveSettings'));
 	await page.getByLabel('Invoice note').fill(' X123 ');
 	await page.getByLabel('Invoice note').blur();
+	await saved;
 	await page.reload();
 
 	await expect(page.getByLabel('Invoice note')).toHaveValue('X123');
