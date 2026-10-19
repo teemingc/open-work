@@ -1,8 +1,9 @@
 import { query } from '$app/server';
-import { error } from '@sveltejs/kit';
+import { error, isHttpError } from '@sveltejs/kit';
 import * as v from 'valibot';
-import { cached, type Cached } from '#lib/server/cache.js';
-import { publicGraphql, toHttpError } from '#lib/server/opencollective.js';
+import { cached, kvStore, type Cached } from '#lib/server/cache.js';
+import { graphql, publicGraphql, toHttpError } from '#lib/server/opencollective.js';
+import { getToken } from '#lib/server/session.js';
 import {
 	backerHistory,
 	lastMonthKeys,
@@ -28,31 +29,69 @@ const Slug = v.pipe(
 
 const MAX_CACHED = 50;
 
+/** Sends a query to Open Collective, either the shared way or with a visitor's own token. */
+type Ask = <R>(request: { query: string; variables?: Record<string, unknown> }) => Promise<R>;
+
+const askPublicly: Ask = <R>(request: Parameters<Ask>[0]) => publicGraphql<R>(request);
+
 /**
  * One cached loader per key, like a collective's slug or a search term. Capped, oldest dropped
  * first, so looking up many collectives cannot grow the server's memory without end.
+ *
+ * Results are shared by every visitor, so they are never fetched with a visitor's own token, which
+ * could see what only that visitor is allowed to. When the shared way is rate-limited, a connected
+ * visitor's token, which has its own limit, fetches the result for them alone, without caching it.
  */
-function perKey<T>(make: (key: string) => Cached<T>) {
+function perKey<T>({
+	cacheKey,
+	maxAgeMs,
+	store,
+	load
+}: {
+	cacheKey: (key: string) => string;
+	maxAgeMs: number;
+	store?: 'kv' | 'edge';
+	/** Given the stored result when refreshing it, to fetch only what changed. */
+	load: (key: string, ask: Ask, previous?: T) => Promise<T>;
+}) {
 	const loaders = new Map<string, Cached<T>>();
 	const loader = (key: string) => {
-		let load = loaders.get(key);
-		if (!load) {
+		let cachedLoad = loaders.get(key);
+		if (!cachedLoad) {
 			if (loaders.size >= MAX_CACHED) loaders.delete(loaders.keys().next().value!);
-			load = make(key);
-			loaders.set(key, load);
+			cachedLoad = cached({
+				key: cacheKey(key),
+				maxAgeMs,
+				store,
+				load: (previous) => load(key, askPublicly, previous)
+			});
+			loaders.set(key, cachedLoad);
 		}
-		return load;
+		return cachedLoad;
 	};
-	return Object.assign((key: string) => loader(key)(), {
-		peek: (key: string) => loader(key).peek()
-	});
+	return Object.assign(
+		async (key: string) => {
+			try {
+				return await loader(key)();
+			} catch (err) {
+				const token = getToken();
+				if (!token || !isHttpError(err, 429)) throw err;
+				try {
+					return await load(key, <R>(request: Parameters<Ask>[0]) =>
+						graphql<R>({ ...request, token })
+					);
+				} catch (own) {
+					// Your token lacks the scope for this, so there is no point suggesting you connect.
+					if (isHttpError(own, 403)) error(429, { ...err.body, connect: undefined });
+					throw own;
+				}
+			}
+		},
+		{ peek: (key: string) => loader(key).peek() }
+	);
 }
 
-/**
- * Open Collective rate-limits public requests, so each result is reused for an hour. Results are
- * shared by every visitor, so they are never fetched with a visitor's own token, which could see
- * what only that visitor is allowed to.
- */
+/** Open Collective rate-limits public requests, so each result is refreshed at most hourly. */
 const CACHE_MS = 60 * 60 * 1000;
 
 const PAGE_SIZE = 1000;
@@ -187,75 +226,76 @@ interface StatsResult {
 }
 
 /** Monthly balance, income and spending for the collective, from Open Collective's public stats. */
-const loadStats = perKey((slug) =>
-	cached({
-		key: `stats:v3:${slug}`,
-		maxAgeMs: CACHE_MS,
-		load: async () => {
-			const from = '2016-01-01T00:00:00Z';
-			let result: StatsResult;
-			let payouts: PayoutNode[];
-			try {
-				result = await publicGraphql<StatsResult>({
-					query: STATS_QUERY,
-					variables: { slug, from, limit: PAGE_SIZE }
-				});
-				payouts = [
-					...result.payouts.nodes,
-					...(await remainingPages({
-						total: result.payouts.totalCount,
-						fetchPage: async (offset) => {
-							const page = await publicGraphql<{ transactions: { nodes: PayoutNode[] } }>({
-								query: PAYOUTS_QUERY,
-								variables: { slug, from, limit: PAGE_SIZE, offset }
-							});
-							return page.transactions.nodes;
-						}
-					}))
-				];
-			} catch (err) {
-				toHttpError(err);
-			}
-			const account = result.account;
-			if (!account) error(404, `There is no collective called "${slug}" on Open Collective.`);
-
-			const now = new Date();
-			return {
-				slug,
-				name: account.name,
-				imageUrl: account.imageUrl,
-				currency: account.currency,
-				fetchedAt: now.toISOString(),
-				months: toMonths({
-					balance: account.stats.balance.nodes,
-					received: account.stats.received.nodes,
-					spent: account.stats.spent.nodes,
-					now
-				}),
-				payouts: toPayouts(payouts),
-				unpaid: result.unpaid.nodes.map((expense): Unpaid => ({
-					slug: expense.payee.slug,
-					amount: expense.amount.value,
-					approved: expense.status !== 'PENDING'
+const loadStats = perKey({
+	cacheKey: (slug) => `stats:v3:${slug}`,
+	maxAgeMs: CACHE_MS,
+	load: async (slug, ask) => {
+		const from = '2016-01-01T00:00:00Z';
+		let result: StatsResult;
+		let payouts: PayoutNode[];
+		try {
+			result = await ask<StatsResult>({
+				query: STATS_QUERY,
+				variables: { slug, from, limit: PAGE_SIZE }
+			});
+			payouts = [
+				...result.payouts.nodes,
+				...(await remainingPages({
+					total: result.payouts.totalCount,
+					fetchPage: async (offset) => {
+						const page = await ask<{ transactions: { nodes: PayoutNode[] } }>({
+							query: PAYOUTS_QUERY,
+							variables: { slug, from, limit: PAGE_SIZE, offset }
+						});
+						return page.transactions.nodes;
+					}
 				}))
-			};
+			];
+		} catch (err) {
+			toHttpError(err);
 		}
-	})
-);
+		const account = result.account;
+		if (!account) error(404, `There is no collective called "${slug}" on Open Collective.`);
+
+		const now = new Date();
+		return {
+			slug,
+			name: account.name,
+			imageUrl: account.imageUrl,
+			currency: account.currency,
+			fetchedAt: now.toISOString(),
+			months: toMonths({
+				balance: account.stats.balance.nodes,
+				received: account.stats.received.nodes,
+				spent: account.stats.spent.nodes,
+				now
+			}),
+			payouts: toPayouts(payouts),
+			unpaid: result.unpaid.nodes.map((expense): Unpaid => ({
+				slug: expense.payee.slug,
+				amount: expense.amount.value,
+				approved: expense.status !== 'PENDING'
+			}))
+		};
+	}
+});
 
 export const getCollectiveStats = query(Slug, (slug) => loadStats(slug));
 
 const CONTRIBUTIONS_QUERY = /* GraphQL */ `
-	query Contributions($slug: String!, $limit: Int!, $offset: Int!) {
+	query Contributions($slug: String!, $from: DateTime, $limit: Int!, $offset: Int!) {
 		transactions(
 			account: [{ slug: $slug }]
 			type: CREDIT
 			kind: [CONTRIBUTION, ADDED_FUNDS, BALANCE_TRANSFER]
+			dateFrom: $from
+			orderBy: { field: CREATED_AT, direction: DESC }
 			limit: $limit
 			offset: $offset
 		) {
 			totalCount
 			nodes {
+				id
 				createdAt
 				netAmount {
 					value
@@ -282,36 +322,96 @@ const TOP_BACKERS = 7;
 /** Accounts that collect from many people and pay it on as one, like GitHub Sponsors. */
 const CHANNELS = new Set(['github-sponsors']);
 
-/**
- * Every contribution the collective has received. Cached as fetched, under a key that only
- * changes if the query does, so changing how backers are ranked never costs a refetch.
- */
-const loadContributions = perKey((slug) =>
-	cached({
-		key: `contributions:v3:${slug}`,
-		maxAgeMs: CACHE_MS,
-		load: async (): Promise<ContributionNode[]> => {
-			const page = (offset: number) =>
-				publicGraphql<ContributionsResult>({
-					query: CONTRIBUTIONS_QUERY,
-					variables: { slug, limit: PAGE_SIZE, offset }
-				});
+/** Contributions recorded late, such as added funds, are caught by refetching the last week. */
+const OVERLAP_MS = 7 * 24 * 60 * 60 * 1000;
 
-			try {
-				const first = await page(0);
-				return [
-					...first.transactions.nodes,
-					...(await remainingPages({
-						total: first.transactions.totalCount,
-						fetchPage: async (offset) => (await page(offset)).transactions.nodes
-					}))
-				];
-			} catch (err) {
-				toHttpError(err);
-			}
+/** How far a first fetch got, so one cut short by a rate limit carries on where it stopped. */
+interface Progress {
+	nodes: ContributionNode[];
+	nextOffset: number;
+	total: number;
+}
+
+/** `nodes` with `more` added, one of each contribution, newest first. */
+function mergeContributions(nodes: ContributionNode[], more: ContributionNode[]) {
+	const byId = new Map(nodes.map((node) => [node.id, node]));
+	for (const node of more) byId.set(node.id, node);
+	return [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/**
+ * Every contribution since `from`, newest first, a few pages at a time. Each batch is passed to
+ * `saved` as it arrives. New contributions only push older ones to later pages, so a page fetched
+ * again repeats some, which are dropped, but never skips any.
+ */
+async function fetchContributions({
+	slug,
+	ask,
+	from,
+	start,
+	saved
+}: {
+	slug: string;
+	ask: Ask;
+	from?: string;
+	start?: Progress;
+	saved?: (progress: Progress) => Promise<void>;
+}): Promise<ContributionNode[]> {
+	let { nodes, nextOffset, total } = start ?? { nodes: [], nextOffset: 0, total: Infinity };
+	while (nextOffset < total) {
+		const offsets = [nextOffset];
+		// The first page says how many there are; until then, ask for no more than it.
+		while (offsets.length < 3 && total !== Infinity && offsets.at(-1)! + PAGE_SIZE < total) {
+			offsets.push(offsets.at(-1)! + PAGE_SIZE);
 		}
-	})
-);
+		const pages = await Promise.all(
+			offsets.map((offset) =>
+				ask<ContributionsResult>({
+					query: CONTRIBUTIONS_QUERY,
+					variables: { slug, from, limit: PAGE_SIZE, offset }
+				})
+			)
+		);
+		total = pages[0].transactions.totalCount;
+		nodes = mergeContributions(
+			nodes,
+			pages.flatMap((page) => page.transactions.nodes)
+		);
+		nextOffset = offsets.at(-1)! + PAGE_SIZE;
+		await saved?.({ nodes, nextOffset, total });
+	}
+	return nodes;
+}
+
+/**
+ * Every contribution the collective has received. Kept for good under a key that only changes if
+ * the query does, so changing how backers are ranked never costs a refetch. Once stored, a refresh
+ * asks only for the contributions since the newest one, which is a single request.
+ */
+const loadContributions = perKey({
+	cacheKey: (slug) => `contributions:v4:${slug}`,
+	maxAgeMs: CACHE_MS,
+	load: async (slug, ask, previous): Promise<ContributionNode[]> => {
+		try {
+			if (previous) {
+				const newest = previous[0]?.createdAt;
+				const from = newest && new Date(Date.parse(newest) - OVERLAP_MS).toISOString();
+				return mergeContributions(previous, await fetchContributions({ slug, ask, from }));
+			}
+			// Only what was fetched the shared way is saved, as a visitor's token may see more.
+			if (ask !== askPublicly) return await fetchContributions({ slug, ask });
+			const progress = kvStore<Progress>(`contributions-progress:v4:${slug}`);
+			return await fetchContributions({
+				slug,
+				ask,
+				start: (await progress.read())?.value,
+				saved: (value) => progress.write({ at: Date.now(), value })
+			});
+		} catch (err) {
+			toHttpError(err);
+		}
+	}
+});
 
 /**
  * Where the collective's money comes from: recurring and one-off contributions per month,
@@ -406,32 +506,32 @@ interface SearchResult {
 
 const FUNDED_TYPES = new Set(['COLLECTIVE', 'PROJECT', 'FUND']);
 const SEARCH_CACHE_MS = 24 * 60 * 60 * 1000;
-const searches = perKey((term) =>
-	cached({
-		key: `search:v2:${term}`,
-		maxAgeMs: SEARCH_CACHE_MS,
-		load: async (): Promise<CollectiveMatch[]> => {
-			let result: SearchResult;
-			try {
-				result = await publicGraphql<SearchResult>({
-					query: SEARCH_QUERY,
-					// The search is fuzzy; looking the term up as a slug too puts an exact match first.
-					variables: { term, slug: /^[a-z0-9-]+$/.test(term) ? term : null }
-				});
-			} catch (err) {
-				toHttpError(err);
-			}
-			const matches = [
-				...(result.exact && FUNDED_TYPES.has(result.exact.type) ? [result.exact] : []),
-				...result.accounts.nodes
-			];
-			const seen = new Set<string>();
-			return matches
-				.filter((match) => !seen.has(match.slug) && seen.add(match.slug))
-				.map(({ slug, name, imageUrl }) => ({ slug, name, imageUrl }));
+const searches = perKey({
+	cacheKey: (term) => `search:v2:${term}`,
+	maxAgeMs: SEARCH_CACHE_MS,
+	// One per term typed is too many writes for KV, and a search is one request to redo.
+	store: 'edge',
+	load: async (term, ask): Promise<CollectiveMatch[]> => {
+		let result: SearchResult;
+		try {
+			result = await ask<SearchResult>({
+				query: SEARCH_QUERY,
+				// The search is fuzzy; looking the term up as a slug too puts an exact match first.
+				variables: { term, slug: /^[a-z0-9-]+$/.test(term) ? term : null }
+			});
+		} catch (err) {
+			toHttpError(err);
 		}
-	})
-);
+		const matches = [
+			...(result.exact && FUNDED_TYPES.has(result.exact.type) ? [result.exact] : []),
+			...result.accounts.nodes
+		];
+		const seen = new Set<string>();
+		return matches
+			.filter((match) => !seen.has(match.slug) && seen.add(match.slug))
+			.map(({ slug, name, imageUrl }) => ({ slug, name, imageUrl }));
+	}
+});
 
 /** Collectives whose name or slug matches what you typed. */
 export const searchCollectives = query(

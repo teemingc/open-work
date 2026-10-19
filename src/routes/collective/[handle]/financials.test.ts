@@ -302,6 +302,7 @@ describe('categoriesByMonth', () => {
 describe('toContributions', () => {
 	it('splits recurring and one-off income and sums per backer', () => {
 		const node = (createdAt: string, value: number, slug: string, frequency: string | null) => ({
+			id: crypto.randomUUID(),
 			createdAt,
 			netAmount: { value },
 			fromAccount: { slug, name: slug },
@@ -359,6 +360,7 @@ describe('forecastRange', () => {
 describe('backerHistory', () => {
 	it('tracks first and latest contribution, and the latest frequency and amount', () => {
 		const node = (createdAt: string, frequency: string | null, value = 5) => ({
+			id: crypto.randomUUID(),
 			createdAt,
 			netAmount: { value },
 			fromAccount: { slug: 'a', name: 'A' },

@@ -2,23 +2,15 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { getMe } from '#lib/opencollective.remote.js';
-	import { getSettings } from '#lib/settings.remote.js';
-	import { missingForSubmit } from '#lib/settings.js';
 	import logo from '#lib/assets/favicon.svg';
 	import { ChartLine, Clock, FileText, Settings } from '@lucide/svelte';
 
-	// Read without `await` so the header never waits on Open Collective. The queries are kept for
-	// the header's whole life: a query nothing holds on to is dropped from the cache, and the
-	// header would stop seeing its updates.
+	// Read without `await` so the header never waits on Open Collective. The query is kept for the
+	// header's whole life: a query nothing holds on to is dropped from the cache, and the header
+	// would stop seeing its updates.
 	const meQuery = getMe();
-	const settingsQuery = getSettings();
-	const me = $derived(meQuery.current);
-	const settings = $derived(settingsQuery.current);
-	const needsSetup = $derived(
-		me !== undefined &&
-			settings !== undefined &&
-			missingForSubmit({ settings, connected: me !== null }).length > 0
-	);
+	/** Only an unconnected Open Collective account marks Settings; `undefined` is still loading. */
+	const needsSetup = $derived(meQuery.current === null);
 
 	/**
 	 * Icons alone on phones and small tablets, each at least 40px wide so it is easy to tap. Below

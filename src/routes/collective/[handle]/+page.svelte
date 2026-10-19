@@ -16,9 +16,9 @@
 </script>
 
 <svelte:head>
-	<title>Collective · Open Work</title>
-	<!-- A collective's dashboard describes itself. -->
+	<!-- A collective's dashboard names and describes itself. -->
 	{#if !slug}
+		<title>Collective · Open Work</title>
 		<meta
 			name="description"
 			content="Look up an open source collective on Open Collective and see its balance, runway and who funds it."
