@@ -36,8 +36,10 @@
 					{itemCount}
 					{itemCount === 1 ? 'item' : 'items'} and {formatHours(draft.loggedHours)} h logged for
 					{client.name} in this period. Sent as the expense notes.
-				{:else}
+				{:else if store.data.clients.length > 0}
 					Choose the client this invoice bills.
+				{:else}
+					Sent as the expense notes.
 				{/if}
 			</p>
 		</div>

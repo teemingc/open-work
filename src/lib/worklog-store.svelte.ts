@@ -11,7 +11,7 @@ import {
 	type WorkLogData,
 	type WorkLogEntry
 } from './worklog';
-import { removedBy } from './worklog-merge';
+import { mergeWorkLogs, removedBy, sameWorkLog } from './worklog-merge';
 
 /** Where this browser keeps the work log. */
 export interface WorkLogBackend {
@@ -168,9 +168,14 @@ export class WorkLogStore {
 	constructor({ backend, data }: { backend: WorkLogBackend; data: WorkLogData }) {
 		this.#backend = backend;
 		this.data = data;
+		// Another tab saved. Merge rather than replace, so an edit made here at the same moment
+		// survives, and save the result if it differs, so that tab picks this one's edit up too.
 		backend.watch?.(async () => {
 			const latest = await backend.load().catch(() => undefined);
-			if (latest) this.data = latest;
+			if (!latest) return;
+			const merged = mergeWorkLogs({ ours: $state.snapshot(this.data), theirs: latest });
+			this.data = merged;
+			if (!sameWorkLog(merged, latest)) this.#write();
 		});
 	}
 
