@@ -39,7 +39,8 @@ function createAuth(origin: string) {
 const instances = new Map<string, ReturnType<typeof createAuth>>();
 
 export function getAuth() {
-	const { origin } = getRequestEvent().url;
+	// From the request rather than `event.url`, which remote queries are not allowed to read.
+	const { origin } = new URL(getRequestEvent().request.url);
 	let auth = instances.get(origin);
 	if (!auth) {
 		auth = createAuth(origin);

@@ -2,9 +2,32 @@ import { isHttpError } from '@sveltejs/kit';
 import { getDriveStatus, pullWorkLog, pushWorkLog, type DriveStatus } from './drive.remote';
 import { parseWorkLog, type WorkLogStore } from './worklog-store.svelte';
 import { mergeWorkLogs, sameWorkLog } from './worklog-merge';
+import { emptyWorkLog } from './worklog';
 
 /** Wait this long after a change before syncing, so a burst of edits is one upload. */
 const PUSH_DELAY_MS = 1500;
+
+/** Give up after this many saves lost to another device saving at the same moment. */
+const MAX_CONFLICTS = 5;
+
+const ACCOUNT_KEY = 'open-work:drive-account';
+
+/** The Google account this browser's work log was last synced with. */
+function syncedAccount(): string | undefined {
+	try {
+		return localStorage.getItem(ACCOUNT_KEY) ?? undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+function rememberSyncedAccount(email: string) {
+	try {
+		localStorage.setItem(ACCOUNT_KEY, email);
+	} catch {
+		// Storage blocked: the next sign-in merges as if it were the first.
+	}
+}
 
 export type SyncState = 'checking' | 'unavailable' | 'signed-out' | 'syncing' | 'synced' | 'error';
 
@@ -63,16 +86,37 @@ export class DriveSync {
 			return this.#running;
 		}
 		this.#running = this.#attempt(async () => {
+			let conflicts = 0;
 			do {
 				this.#again = false;
+				const email = this.account?.email;
 				const remote = await pullWorkLog();
 				const theirs = remote ? parseWorkLog(remote.json) : null;
 				const ours = $state.snapshot(this.#store.data);
-				const merged = theirs ? mergeWorkLogs({ ours, theirs }) : ours;
+				// This browser's log belongs to whoever last synced it. Another account gets its own
+				// log instead, so nothing from the last person who signed in here reaches their Drive.
+				const previous = syncedAccount();
+				const merged =
+					previous && previous !== email
+						? (theirs ?? emptyWorkLog())
+						: theirs
+							? mergeWorkLogs({ ours, theirs })
+							: ours;
 				if (!sameWorkLog(merged, ours)) this.#store.adopt(merged);
 				if (!theirs || !sameWorkLog(merged, theirs)) {
-					await pushWorkLog(JSON.stringify(merged));
+					const { conflict } = await pushWorkLog({
+						json: JSON.stringify(merged),
+						expected: remote?.version ?? null
+					});
+					// Another device saved in between: pull its changes and merge again.
+					if (conflict) {
+						if (++conflicts > MAX_CONFLICTS)
+							throw new Error('Google Drive kept changing. Try again.');
+						this.#again = true;
+						continue;
+					}
 				}
+				if (email) rememberSyncedAccount(email);
 			} while (this.#again);
 		}).finally(() => (this.#running = undefined));
 		return this.#running;

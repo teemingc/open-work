@@ -34,14 +34,42 @@ Under **Clients and days off**, set each client's hourly rate and currency, whic
 
 Signed in with Google, the work log is also kept in your own Google Drive, in the hidden app data folder that only this app can open. This browser's copy stays the one you edit; Drive follows a moment after each change, and on load the newer copy wins. Nothing about you is stored on the server: the session and Google tokens live in encrypted cookies.
 
-To turn it on:
+Without the Google credentials below, sign-in is hidden and the work log stays in the browser.
 
-1. In Google Cloud Console, enable the **Google Drive API** and create an **OAuth client ID** of type _Web application_.
-2. Add the redirect URI `<origin>/api/auth/callback/google` for each origin, for example `http://localhost:5173/api/auth/callback/google` and your deployed URL.
-3. On the OAuth consent screen, add the `.../auth/drive.appdata` scope (non-sensitive) and, while the app is in testing, yourself as a test user.
-4. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `BETTER_AUTH_SECRET` (at least 32 random characters, for example from `openssl rand -base64 32`) in `.dev.vars`, and as Worker secrets when deployed.
+### For local development
 
-Without these, sign-in is hidden and the work log stays in the browser.
+1. In [Google Cloud Console](https://console.cloud.google.com/), create a project and enable the **Google Drive API** under APIs & Services.
+2. Open **Google Auth Platform**. On **Audience**, choose _External_ and add yourself as a test user.
+3. On **Data access**, add the `https://www.googleapis.com/auth/drive.appdata` scope. It is non-sensitive, so it needs no security review.
+4. On **Clients**, create an OAuth client of type _Web application_ with the authorized redirect URI `http://localhost:5173/api/auth/callback/google`.
+5. Put `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `BETTER_AUTH_SECRET` (at least 32 random characters, for example from `openssl rand -base64 32`) in `.dev.vars`.
+
+While the app is in testing, only test users can sign in and Google expires their sign-in after 7 days.
+
+### For production
+
+Anyone can sign in once the app is published, but Google first wants to know the app is yours. Do these in order; each depends on the one before.
+
+1. **Deploy first.** The privacy policy at `/privacy` and the home page must be live at the address you will register, for example `https://open-work.<account>.workers.dev`.
+2. **Verify the domain in [Google Search Console](https://search.google.com/search-console).** Sign in with the same Google account that owns the Cloud project. Add a _URL prefix_ property for the deployed origin and pick the **HTML file** method. Download the `google<code>.html` file into `static/` (it is served from the site root), commit, deploy, check it opens at `<origin>/google<code>.html`, then press **Verify**. Keep the file: Google checks it again from time to time and drops the verification if it is gone.
+3. **Fill in Branding** in Google Auth Platform:
+   - App name: Open Work
+   - User support email and developer contact email
+   - App logo: `logo-oauth-120.jpg` from the repository root (120×120, under 1 MB). `logo-oauth-512.jpg` is a larger copy for anywhere else that asks.
+   - Application home page: `<origin>/`
+   - Privacy policy: `<origin>/privacy`
+   - Authorized domains: the domain verified in step 2
+4. **Add the production redirect URI** to the OAuth client on **Clients**: `<origin>/api/auth/callback/google`, next to the localhost one.
+5. **Publish.** On **Audience**, press **Publish app** to move from _Testing_ to _In production_. Because the app shows a logo, Google reviews the branding before showing it (on **Verification centre**, usually a few business days). Sign-in works meanwhile, with a plain consent screen.
+6. **Set the Worker secrets** with the client's ID and secret:
+
+   ```sh
+   pnpm exec wrangler secret put GOOGLE_CLIENT_ID
+   pnpm exec wrangler secret put GOOGLE_CLIENT_SECRET
+   pnpm exec wrangler secret put BETTER_AUTH_SECRET
+   ```
+
+If the address changes, redo steps 2 to 4 for the new one. The privacy policy has to keep describing what the app does with Google data, so update `src/routes/privacy/+page.svelte` when that changes.
 
 ## Each invoice
 
@@ -105,7 +133,7 @@ The app runs on Cloudflare Workers: the server forwards requests to Open Collect
    pnpm exec wrangler secret put OC_PERSONAL_TOKEN
    ```
 
-   `OC_PERSONAL_TOKEN` is optional but recommended: a personal token from your Open Collective account (read-only is enough). Visitors who have not connected Open Collective share a Worker's outgoing IPs, and anonymous requests are limited to 10 a minute per IP; with the token, public stats get 100 a minute. Add `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `BETTER_AUTH_SECRET` the same way to turn on Google Drive sync.
+   `OC_PERSONAL_TOKEN` is optional but recommended: a personal token from your Open Collective account (read-only is enough). Visitors who have not connected Open Collective share a Worker's outgoing IPs, and anonymous requests are limited to 10 a minute per IP; with the token, public stats get 100 a minute. To turn on Google Drive sync, follow [Google Drive sync for production](#for-production).
 
 4. Run `pnpm deploy`.
 
