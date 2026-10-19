@@ -5,6 +5,8 @@
 	import type { ChartConfig } from '#lib/components/ui/chart/chart-utils.js';
 	import * as ToggleGroup from '#lib/components/ui/toggle-group/index.js';
 	import { scaleBand, scaleTime } from 'd3-scale';
+	import type { ChartState } from 'layerchart';
+	import { getStringWidth } from 'layerchart/utils/string';
 	import { CalendarClock, ExternalLink, TrendingDown, TrendingUp } from '@lucide/svelte';
 	import RetryableError from '#lib/components/RetryableError.svelte';
 	import StatStrip, { type Stat } from '#lib/components/StatStrip.svelte';
@@ -215,6 +217,28 @@
 	);
 
 	const runwayMonths = $derived(result.zeroDate ? monthsBetween(now, result.zeroDate) : null);
+
+	let balanceChart = $state<ChartState>();
+	/** The annotation labels' size and weight, for measuring them. */
+	const ANNOTATION_STYLE = { fontSize: '12px', fontWeight: '500' } as CSSStyleDeclaration;
+	const runsOutLabel = $derived(
+		result.zeroDate ? `Runs out ${monthYear.format(result.zeroDate)}` : ''
+	);
+	/**
+	 * Whether "Forecast", starting just right of today, would run into "Runs out", which ends just
+	 * left of the date the money runs out. They share a row when there is room, else it drops below.
+	 */
+	const runsOutCollides = $derived.by(() => {
+		if (!balanceChart || !result.zeroDate) return false;
+		const room = balanceChart.xScale(result.zeroDate) - balanceChart.xScale(now);
+		const needed =
+			8 +
+			(getStringWidth('Forecast', ANNOTATION_STYLE) ?? 0) +
+			16 +
+			(getStringWidth(runsOutLabel, ANNOTATION_STYLE) ?? 0) +
+			6;
+		return needed > room;
+	});
 
 	const balanceConfig = {
 		balance: { label: 'Balance', color: 'var(--color-chart-balance)' },
@@ -520,6 +544,7 @@
 								class="aspect-auto h-80 w-full cursor-pointer"
 							>
 								<AreaChart
+									bind:context={balanceChart}
 									padding={chartPadding()}
 									onTooltipClick={openBalanceMonth}
 									x="date"
@@ -556,9 +581,23 @@
 											labelPlacement: 'top-left',
 											labelXOffset: 8,
 											labelYOffset: 8,
+											pattern: {
+												size: 8,
+												lines: {
+													rotate: -45,
+													color: 'var(--color-muted-foreground)',
+													opacity: 0.15
+												}
+											},
 											props: {
-												rect: { class: 'fill-muted/50' },
 												label: { class: 'fill-muted-foreground text-xs font-medium' }
+											}
+										},
+										{
+											type: 'line',
+											x: now,
+											props: {
+												line: { class: 'stroke-muted-foreground/60!', dashArray: [2, 3] }
 											}
 										},
 										...(result.zeroDate
@@ -566,13 +605,12 @@
 													{
 														type: 'line' as const,
 														x: result.zeroDate,
-														label: `Runs out ${monthYear.format(result.zeroDate)}`,
+														label: runsOutLabel,
 														labelPlacement: 'top-left' as const,
 														labelXOffset: 6,
-														// Below the "Forecast" label, which it would overlap on narrow screens.
-														labelYOffset: 26,
+														labelYOffset: runsOutCollides ? 26 : 8,
 														props: {
-															line: { class: 'stroke-destructive', dashArray: [2, 3] },
+															line: { class: 'stroke-destructive!', dashArray: [2, 3] },
 															label: { class: 'fill-destructive text-xs font-medium' }
 														}
 													},
