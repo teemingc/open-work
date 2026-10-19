@@ -73,6 +73,21 @@ describe('publicGraphql', () => {
 		expect(fetch.mock.calls[1][1].headers.Authorization).toBeUndefined();
 	});
 
+	it('suggests connecting when an anonymous request is rate-limited', async () => {
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(limited('60')));
+		await expect(publicGraphql({ query: '{ ok }' })).rejects.toMatchObject({
+			status: 429,
+			connect: true
+		});
+	});
+
+	it('does not suggest connecting when you are already connected', async () => {
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(limited('60')));
+		const err = await publicGraphql({ token: 'busy', query: '{ ok }' }).catch((e: unknown) => e);
+		expect(err).toMatchObject({ status: 429 });
+		expect((err as OpenCollectiveError).connect).toBeUndefined();
+	});
+
 	it('asks anonymously straight away when the token is rate-limited', async () => {
 		const fetch = vi.fn().mockResolvedValueOnce(limited('5')).mockResolvedValueOnce(ok());
 		vi.stubGlobal('fetch', fetch);

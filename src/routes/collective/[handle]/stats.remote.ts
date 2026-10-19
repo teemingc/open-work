@@ -1,8 +1,9 @@
 import { query } from '$app/server';
-import { error } from '@sveltejs/kit';
+import { error, isHttpError } from '@sveltejs/kit';
 import * as v from 'valibot';
 import { cached, type Cached } from '#lib/server/cache.js';
-import { publicGraphql, toHttpError } from '#lib/server/opencollective.js';
+import { graphql, publicGraphql, toHttpError } from '#lib/server/opencollective.js';
+import { getToken } from '#lib/server/session.js';
 import {
 	backerHistory,
 	lastMonthKeys,
@@ -28,31 +29,61 @@ const Slug = v.pipe(
 
 const MAX_CACHED = 50;
 
+/** Sends a query to Open Collective, either the shared way or with a visitor's own token. */
+type Ask = <R>(request: { query: string; variables?: Record<string, unknown> }) => Promise<R>;
+
+const askPublicly: Ask = <R>(request: Parameters<Ask>[0]) => publicGraphql<R>(request);
+
 /**
  * One cached loader per key, like a collective's slug or a search term. Capped, oldest dropped
  * first, so looking up many collectives cannot grow the server's memory without end.
+ *
+ * Results are shared by every visitor, so they are never fetched with a visitor's own token, which
+ * could see what only that visitor is allowed to. When the shared way is rate-limited, a connected
+ * visitor's token, which has its own limit, fetches the result for them alone, without caching it.
  */
-function perKey<T>(make: (key: string) => Cached<T>) {
+function perKey<T>({
+	cacheKey,
+	maxAgeMs,
+	load
+}: {
+	cacheKey: (key: string) => string;
+	maxAgeMs: number;
+	load: (key: string, ask: Ask) => Promise<T>;
+}) {
 	const loaders = new Map<string, Cached<T>>();
 	const loader = (key: string) => {
-		let load = loaders.get(key);
-		if (!load) {
+		let cachedLoad = loaders.get(key);
+		if (!cachedLoad) {
 			if (loaders.size >= MAX_CACHED) loaders.delete(loaders.keys().next().value!);
-			load = make(key);
-			loaders.set(key, load);
+			cachedLoad = cached({ key: cacheKey(key), maxAgeMs, load: () => load(key, askPublicly) });
+			loaders.set(key, cachedLoad);
 		}
-		return load;
+		return cachedLoad;
 	};
-	return Object.assign((key: string) => loader(key)(), {
-		peek: (key: string) => loader(key).peek()
-	});
+	return Object.assign(
+		async (key: string) => {
+			try {
+				return await loader(key)();
+			} catch (err) {
+				const token = getToken();
+				if (!token || !isHttpError(err, 429)) throw err;
+				try {
+					return await load(key, <R>(request: Parameters<Ask>[0]) =>
+						graphql<R>({ ...request, token })
+					);
+				} catch (own) {
+					// Your token lacks the scope for this, so there is no point suggesting you connect.
+					if (isHttpError(own, 403)) error(429, { ...err.body, connect: undefined });
+					throw own;
+				}
+			}
+		},
+		{ peek: (key: string) => loader(key).peek() }
+	);
 }
 
-/**
- * Open Collective rate-limits public requests, so each result is reused for an hour. Results are
- * shared by every visitor, so they are never fetched with a visitor's own token, which could see
- * what only that visitor is allowed to.
- */
+/** Open Collective rate-limits public requests, so each result is reused for an hour. */
 const CACHE_MS = 60 * 60 * 1000;
 
 const PAGE_SIZE = 1000;
@@ -187,61 +218,59 @@ interface StatsResult {
 }
 
 /** Monthly balance, income and spending for the collective, from Open Collective's public stats. */
-const loadStats = perKey((slug) =>
-	cached({
-		key: `stats:v3:${slug}`,
-		maxAgeMs: CACHE_MS,
-		load: async () => {
-			const from = '2016-01-01T00:00:00Z';
-			let result: StatsResult;
-			let payouts: PayoutNode[];
-			try {
-				result = await publicGraphql<StatsResult>({
-					query: STATS_QUERY,
-					variables: { slug, from, limit: PAGE_SIZE }
-				});
-				payouts = [
-					...result.payouts.nodes,
-					...(await remainingPages({
-						total: result.payouts.totalCount,
-						fetchPage: async (offset) => {
-							const page = await publicGraphql<{ transactions: { nodes: PayoutNode[] } }>({
-								query: PAYOUTS_QUERY,
-								variables: { slug, from, limit: PAGE_SIZE, offset }
-							});
-							return page.transactions.nodes;
-						}
-					}))
-				];
-			} catch (err) {
-				toHttpError(err);
-			}
-			const account = result.account;
-			if (!account) error(404, `There is no collective called "${slug}" on Open Collective.`);
-
-			const now = new Date();
-			return {
-				slug,
-				name: account.name,
-				imageUrl: account.imageUrl,
-				currency: account.currency,
-				fetchedAt: now.toISOString(),
-				months: toMonths({
-					balance: account.stats.balance.nodes,
-					received: account.stats.received.nodes,
-					spent: account.stats.spent.nodes,
-					now
-				}),
-				payouts: toPayouts(payouts),
-				unpaid: result.unpaid.nodes.map((expense): Unpaid => ({
-					slug: expense.payee.slug,
-					amount: expense.amount.value,
-					approved: expense.status !== 'PENDING'
+const loadStats = perKey({
+	cacheKey: (slug) => `stats:v3:${slug}`,
+	maxAgeMs: CACHE_MS,
+	load: async (slug, ask) => {
+		const from = '2016-01-01T00:00:00Z';
+		let result: StatsResult;
+		let payouts: PayoutNode[];
+		try {
+			result = await ask<StatsResult>({
+				query: STATS_QUERY,
+				variables: { slug, from, limit: PAGE_SIZE }
+			});
+			payouts = [
+				...result.payouts.nodes,
+				...(await remainingPages({
+					total: result.payouts.totalCount,
+					fetchPage: async (offset) => {
+						const page = await ask<{ transactions: { nodes: PayoutNode[] } }>({
+							query: PAYOUTS_QUERY,
+							variables: { slug, from, limit: PAGE_SIZE, offset }
+						});
+						return page.transactions.nodes;
+					}
 				}))
-			};
+			];
+		} catch (err) {
+			toHttpError(err);
 		}
-	})
-);
+		const account = result.account;
+		if (!account) error(404, `There is no collective called "${slug}" on Open Collective.`);
+
+		const now = new Date();
+		return {
+			slug,
+			name: account.name,
+			imageUrl: account.imageUrl,
+			currency: account.currency,
+			fetchedAt: now.toISOString(),
+			months: toMonths({
+				balance: account.stats.balance.nodes,
+				received: account.stats.received.nodes,
+				spent: account.stats.spent.nodes,
+				now
+			}),
+			payouts: toPayouts(payouts),
+			unpaid: result.unpaid.nodes.map((expense): Unpaid => ({
+				slug: expense.payee.slug,
+				amount: expense.amount.value,
+				approved: expense.status !== 'PENDING'
+			}))
+		};
+	}
+});
 
 export const getCollectiveStats = query(Slug, (slug) => loadStats(slug));
 
@@ -286,32 +315,30 @@ const CHANNELS = new Set(['github-sponsors']);
  * Every contribution the collective has received. Cached as fetched, under a key that only
  * changes if the query does, so changing how backers are ranked never costs a refetch.
  */
-const loadContributions = perKey((slug) =>
-	cached({
-		key: `contributions:v3:${slug}`,
-		maxAgeMs: CACHE_MS,
-		load: async (): Promise<ContributionNode[]> => {
-			const page = (offset: number) =>
-				publicGraphql<ContributionsResult>({
-					query: CONTRIBUTIONS_QUERY,
-					variables: { slug, limit: PAGE_SIZE, offset }
-				});
+const loadContributions = perKey({
+	cacheKey: (slug) => `contributions:v3:${slug}`,
+	maxAgeMs: CACHE_MS,
+	load: async (slug, ask): Promise<ContributionNode[]> => {
+		const page = (offset: number) =>
+			ask<ContributionsResult>({
+				query: CONTRIBUTIONS_QUERY,
+				variables: { slug, limit: PAGE_SIZE, offset }
+			});
 
-			try {
-				const first = await page(0);
-				return [
-					...first.transactions.nodes,
-					...(await remainingPages({
-						total: first.transactions.totalCount,
-						fetchPage: async (offset) => (await page(offset)).transactions.nodes
-					}))
-				];
-			} catch (err) {
-				toHttpError(err);
-			}
+		try {
+			const first = await page(0);
+			return [
+				...first.transactions.nodes,
+				...(await remainingPages({
+					total: first.transactions.totalCount,
+					fetchPage: async (offset) => (await page(offset)).transactions.nodes
+				}))
+			];
+		} catch (err) {
+			toHttpError(err);
 		}
-	})
-);
+	}
+});
 
 /**
  * Where the collective's money comes from: recurring and one-off contributions per month,
@@ -406,32 +433,30 @@ interface SearchResult {
 
 const FUNDED_TYPES = new Set(['COLLECTIVE', 'PROJECT', 'FUND']);
 const SEARCH_CACHE_MS = 24 * 60 * 60 * 1000;
-const searches = perKey((term) =>
-	cached({
-		key: `search:v2:${term}`,
-		maxAgeMs: SEARCH_CACHE_MS,
-		load: async (): Promise<CollectiveMatch[]> => {
-			let result: SearchResult;
-			try {
-				result = await publicGraphql<SearchResult>({
-					query: SEARCH_QUERY,
-					// The search is fuzzy; looking the term up as a slug too puts an exact match first.
-					variables: { term, slug: /^[a-z0-9-]+$/.test(term) ? term : null }
-				});
-			} catch (err) {
-				toHttpError(err);
-			}
-			const matches = [
-				...(result.exact && FUNDED_TYPES.has(result.exact.type) ? [result.exact] : []),
-				...result.accounts.nodes
-			];
-			const seen = new Set<string>();
-			return matches
-				.filter((match) => !seen.has(match.slug) && seen.add(match.slug))
-				.map(({ slug, name, imageUrl }) => ({ slug, name, imageUrl }));
+const searches = perKey({
+	cacheKey: (term) => `search:v2:${term}`,
+	maxAgeMs: SEARCH_CACHE_MS,
+	load: async (term, ask): Promise<CollectiveMatch[]> => {
+		let result: SearchResult;
+		try {
+			result = await ask<SearchResult>({
+				query: SEARCH_QUERY,
+				// The search is fuzzy; looking the term up as a slug too puts an exact match first.
+				variables: { term, slug: /^[a-z0-9-]+$/.test(term) ? term : null }
+			});
+		} catch (err) {
+			toHttpError(err);
 		}
-	})
-);
+		const matches = [
+			...(result.exact && FUNDED_TYPES.has(result.exact.type) ? [result.exact] : []),
+			...result.accounts.nodes
+		];
+		const seen = new Set<string>();
+		return matches
+			.filter((match) => !seen.has(match.slug) && seen.add(match.slug))
+			.map(({ slug, name, imageUrl }) => ({ slug, name, imageUrl }));
+	}
+});
 
 /** Collectives whose name or slug matches what you typed. */
 export const searchCollectives = query(

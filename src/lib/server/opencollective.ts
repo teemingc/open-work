@@ -7,6 +7,8 @@ export class OpenCollectiveError extends Error {
 	status: number;
 	/** Seconds Open Collective asked us to wait, after a rate limit. */
 	retryAfter?: number;
+	/** Set on a rate limit hit without your connection, which would have had a higher limit. */
+	connect?: boolean;
 
 	constructor(message: string, status = 502, retryAfter?: number) {
 		super(message);
@@ -140,6 +142,9 @@ export async function publicGraphql<T>({
 			return await graphql<T>({ ...attempt, query, variables, retried: !last });
 		} catch (err) {
 			const moveOn = err instanceof OpenCollectiveError && [401, 403, 429].includes(err.status);
+			if (last && !token && err instanceof OpenCollectiveError && err.status === 429) {
+				err.connect = true;
+			}
 			if (last || !moveOn) throw err;
 		}
 	}
@@ -149,7 +154,7 @@ export async function publicGraphql<T>({
 /** Rethrow Open Collective failures as HTTP errors the client can show. */
 export function toHttpError(err: unknown): never {
 	if (err instanceof OpenCollectiveError) {
-		error(err.status, err.message, { retryAfter: err.retryAfter });
+		error(err.status, err.message, { retryAfter: err.retryAfter, connect: err.connect });
 	}
 	throw err;
 }
