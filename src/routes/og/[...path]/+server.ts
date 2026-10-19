@@ -4,6 +4,8 @@
  * title and what it is for.
  */
 import { read } from '$app/server';
+import { render } from 'svelte/server';
+import { Hourglass, TrendingDown, TrendingUp, type LucideIcon } from '@lucide/svelte';
 import { waitUntil } from 'cloudflare:workers';
 import { Resvg } from '@cf-wasm/resvg';
 import { satori, type Font, type VNode } from '@cf-wasm/satori';
@@ -29,6 +31,9 @@ const SLATE = '#475569';
 const MUTED = '#64748b';
 const BORDER = '#e2e8f0';
 const PAGE = '#f8fafc';
+/** The dashboard's colours for money running down and for growth. */
+const DESTRUCTIVE = '#c42a4f';
+const PAID = '#0a7b4d';
 
 /** The mark from the header. */
 const LOGO = `data:image/svg+xml;base64,${Buffer.from(logoSvg).toString('base64')}`;
@@ -276,6 +281,8 @@ interface Outlook {
 	label: string;
 	figure: string;
 	note: string;
+	/** The dashboard's icon for the trend, tinted red while the money runs down and green while it grows. */
+	trend?: { icon: LucideIcon; color: string };
 }
 
 /** How long the collective is funded for, as the dashboard forecasts it, or how it is doing if it is not running down. */
@@ -300,19 +307,30 @@ function outlook(stats: CollectiveStats): Outlook {
 					: months < 24
 						? `${months} month${months === 1 ? '' : 's'}`
 						: `${years} years`,
-			note: `until around ${MONTH_YEAR.format(result.zeroDate)}`
+			note: `until around ${MONTH_YEAR.format(result.zeroDate)}`,
+			trend: { icon: Hourglass, color: DESTRUCTIVE }
 		};
 	}
 	if (result.basis === 0 || result.avgNet === 0) {
-		return { label: 'Available', figure: money(available), note: 'on Open Collective' };
+		return {
+			label: 'Available',
+			figure: money(available),
+			note: 'on Open Collective'
+		};
 	}
 	if (result.avgNet < 0) {
-		return { label: 'Available', figure: money(available), note: 'and shrinking' };
+		return {
+			label: 'Available',
+			figure: money(available),
+			note: 'and shrinking',
+			trend: { icon: TrendingDown, color: DESTRUCTIVE }
+		};
 	}
 	return {
 		label: 'Growing by',
 		figure: money(result.avgNet),
-		note: `a month, over the last ${result.basis} months`
+		note: 'a month on average',
+		trend: { icon: TrendingUp, color: PAID }
 	};
 }
 
@@ -325,7 +343,7 @@ async function collectiveCard(slug: string): Promise<VNode | undefined> {
 		logo(slug)
 	]);
 	if (!stats) return undefined;
-	const { label, figure, note } = outlook(stats);
+	const { label, figure, note, trend } = outlook(stats);
 	// The collective's own words, as written.
 	const tagline = about?.account?.description;
 
@@ -341,10 +359,27 @@ async function collectiveCard(slug: string): Promise<VNode | undefined> {
 				}
 			},
 			[
-				row(logoImage(image), [line(label, SLATE)], { alignItems: 'flex-end', paddingBottom: 20 }),
-				row([figureLine(stats.name)], [figureLine(figure)]),
+				// The padding evens out the gaps between the ink, about 28px each. Besley's tall
+				// ascender leaves room above the figures, and the label sits higher than the logo's
+				// edge, so the right column needs less padding above the figure than the left.
+				row({
+					left: logoImage(image),
+					right: [
+						h('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } }, [
+							...(trend ? [iconImage(trend)] : []),
+							line(label, SLATE)
+						])
+					],
+					style: { alignItems: 'flex-end', paddingBottom: 16 },
+					rightStyle: { paddingBottom: 8 }
+				}),
+				row({ left: [figureLine(stats.name)], right: [figureLine(figure)] }),
 				// The tagline may take two lines; the note beside it keeps to the first.
-				row(tagline ? [line(tagline, SLATE, 2)] : [], [line(note, MUTED)], { paddingTop: 6 })
+				row({
+					left: tagline ? [line(tagline, SLATE, 2)] : [],
+					right: [line(note, MUTED)],
+					style: { paddingTop: 12 }
+				})
 			]
 		)
 	]);
@@ -358,7 +393,19 @@ const PANEL = 420;
  * thing on the left lines up with its partner: the logo with the label, the name with the figure,
  * the tagline with the note. Each pair is the same font and size, so their baselines match.
  */
-function row(left: VNode[], right: VNode[], style: Record<string, unknown> = {}): VNode {
+function row({
+	left,
+	right,
+	style = {},
+	rightStyle = {}
+}: {
+	left: VNode[];
+	right: VNode[];
+	/** For both cells. */
+	style?: Record<string, unknown>;
+	/** For the right cell only, over `style`. */
+	rightStyle?: Record<string, unknown>;
+}): VNode {
 	// Only the cells take the padding, so the rule between them runs unbroken from row to row.
 	return h('div', { style: { display: 'flex' } }, [
 		h('div', { style: { display: 'flex', flex: 1, paddingRight: 48, ...style } }, left),
@@ -370,13 +417,32 @@ function row(left: VNode[], right: VNode[], style: Record<string, unknown> = {})
 					width: PANEL,
 					paddingLeft: 48,
 					borderLeft: `1.5px solid ${BORDER}`,
-					...style
+					...style,
+					...rightStyle
 				}
 			},
 			right
 		)
 	]);
 }
+
+/**
+ * A Lucide icon as an image. Satori cannot draw Svelte components, so the icon is rendered to its
+ * SVG markup first, without the comments Svelte leaves for hydration.
+ */
+function iconImage({ icon, color }: { icon: LucideIcon; color: string }): VNode {
+	const svg = render(icon, { props: { size: ICON, color, strokeWidth: 2 } }).body.replace(
+		/<!--.*?-->/g,
+		''
+	);
+	return h('img', {
+		src: `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`,
+		width: ICON,
+		height: ICON
+	});
+}
+
+const ICON = 30;
 
 function logoImage(image: string | undefined): VNode[] {
 	return image
@@ -400,13 +466,13 @@ function clamped(text: string, style: Record<string, unknown>, lines = 1): VNode
 	);
 }
 
-function figureLine(text: string): VNode {
+function figureLine(text: string, color = NAVY): VNode {
 	return clamped(text, {
 		fontFamily: 'Besley',
 		fontSize: 56,
 		fontWeight: 700,
 		lineHeight: 1.15,
-		color: NAVY
+		color
 	});
 }
 
