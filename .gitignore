@@ -23,9 +23,6 @@ Thumbs.db
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# Cloudflare Types
-/worker-configuration.d.ts
-
 # Cloudflare local secrets
 .dev.vars*
 
