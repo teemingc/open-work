@@ -24,10 +24,20 @@
 			return;
 		}
 		if (!legacy) return;
+		let backup: ReturnType<typeof parseBackup> | undefined;
 		try {
-			await restoreSettings(parseBackup(legacy));
+			backup = parseBackup(legacy);
 		} catch (error) {
-			console.error('Could not move saved settings', error);
+			console.error('Saved settings could not be read', error);
+		}
+		if (backup) {
+			try {
+				await restoreSettings(backup);
+			} catch (error) {
+				// Kept, to try again on the next visit.
+				console.error('Could not move saved settings', error);
+				return;
+			}
 		}
 		localStorage.removeItem(LEGACY_STORAGE_KEY);
 	});
