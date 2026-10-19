@@ -7,14 +7,15 @@
 		class: className,
 		children,
 		...restProps
-	}: WithElementRef<HTMLAttributes<HTMLDivElement>> = $props();
+	}: WithElementRef<HTMLAttributes<HTMLHeadingElement>> = $props();
 </script>
 
-<div
+<!-- A heading, so screen readers can jump between cards. -->
+<h2
 	bind:this={ref}
 	data-slot="card-title"
 	class={cn('leading-none font-semibold', className)}
 	{...restProps}
 >
 	{@render children?.()}
-</div>
+</h2>

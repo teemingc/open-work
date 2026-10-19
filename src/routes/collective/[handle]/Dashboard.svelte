@@ -624,6 +624,47 @@
 			</Card.Root>
 		</div>
 
+		<!-- The charts above as figures, for screen readers and keyboards: each month opens its transactions. -->
+		<details class="rounded-xl border bg-card text-sm">
+			<summary class="cursor-pointer px-4 py-3 font-medium">Monthly figures</summary>
+			<div class="overflow-x-auto border-t">
+				<table class="ledger">
+					<caption class="sr-only">Income, expenses and balance by month</caption>
+					<thead class="text-xs">
+						<tr>
+							<th class="px-4 py-2">Month</th>
+							<th class="px-4 py-2 text-right">Income</th>
+							<th class="px-4 py-2 text-right">Expenses</th>
+							<th class="px-4 py-2 text-right">Gained or lost</th>
+							<th class="px-4 py-2 text-right">Balance</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each shown as month (month.key)}
+							<tr>
+								<th scope="row" class="px-4 py-2 font-normal">
+									<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
+									<a
+										href={transactionsUrl({ slug: data.slug, month: month.key })}
+										target="_blank"
+										rel="noreferrer"
+										class="hover:underline"
+									>
+										{labelMonth(month.key)}
+									</a>
+									<!-- eslint-enable svelte/no-navigation-without-resolve -->
+								</th>
+								<td class="px-4 py-2 text-right">{money.format(month.income)}</td>
+								<td class="px-4 py-2 text-right">{money.format(month.expenses)}</td>
+								<td class="px-4 py-2 text-right">{signed(Math.round(month.net))}</td>
+								<td class="px-4 py-2 text-right">{money.format(month.balance)}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</details>
+
 		<div class="grid gap-4 {me ? 'lg:grid-cols-2' : ''}">
 			{#if me}
 				<YourEarnings

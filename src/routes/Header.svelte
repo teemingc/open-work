@@ -71,6 +71,7 @@
 					class={['size-1.5 rounded-full bg-attention', !needsSetup && 'invisible']}
 					title={needsSetup ? 'Setup unfinished' : undefined}
 				></span>
+				{#if needsSetup}<span class="sr-only">(setup unfinished)</span>{/if}
 			</a>
 		</nav>
 	</div>

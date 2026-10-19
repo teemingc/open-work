@@ -25,7 +25,7 @@
 	--secondary: #f1f5f9;
 	--secondary-foreground: #0f172a;
 	--muted: #f1f5f9;
-	--muted-foreground: #64748b;
+	--muted-foreground: #5d6b80;
 	--accent: #eef3fc;
 	--accent-foreground: #0c2764;
 	--destructive: #c42a4f;
@@ -36,7 +36,7 @@
 	--rule: #0c2764;
 	--heading: #0c2764;
 
-	--status-draft: #64748b;
+	--status-draft: #5d6b80;
 	--status-submitted: #1153d6;
 	--status-paid: #0a7b4d;
 	/* Amber for things that need attention but have not gone wrong, like a pending expense. Solid
@@ -51,11 +51,13 @@
 	--chart-expenses: #e0577d;
 	--chart-expenses-muted: #f6c3d1;
 	--chart-income-muted: #bcd3fb;
+	/* Series colours differ in lightness as well as hue, so they stay apart with colour blindness,
+	   and each reaches 3:1 against a card. */
 	--chart-1: #1869f5;
 	--chart-2: #e0577d;
-	--chart-3: #14a38b;
-	--chart-4: #e69a0b;
-	--chart-other: #cbd5e1;
+	--chart-3: #00684f;
+	--chart-4: #c27c00;
+	--chart-other: #8794a8;
 	--chart-balance: #0c2764;
 }
 
@@ -95,10 +97,10 @@
 	--chart-expenses-muted: #5a2a3a;
 	--chart-income-muted: #23386e;
 	--chart-1: #5b95ff;
-	--chart-2: #f28ba6;
-	--chart-3: #4fd1b5;
+	--chart-2: #e8648a;
+	--chart-3: #7ee0c9;
 	--chart-4: #f3b544;
-	--chart-other: #3a4772;
+	--chart-other: #5f6e98;
 	--chart-balance: #8fb4ff;
 }
 
@@ -206,6 +208,7 @@
 @media (prefers-reduced-motion: reduce) {
 	* {
 		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;
 	}
 }

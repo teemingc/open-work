@@ -38,10 +38,16 @@
 	<title>Open Work</title>
 </svelte:head>
 
+<a
+	href="#main"
+	class="sr-only rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50"
+>
+	Skip to content
+</a>
 <NavigationLoader />
 <Header />
 
-<main class="mx-auto w-full max-w-6xl px-4 pt-6 pb-16 sm:px-6">
+<main id="main" tabindex="-1" class="mx-auto w-full max-w-6xl px-4 pt-6 pb-16 outline-none sm:px-6">
 	<svelte:boundary>
 		{@render children()}
 
