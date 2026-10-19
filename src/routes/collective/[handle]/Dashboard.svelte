@@ -334,6 +334,7 @@
 </script>
 
 <svelte:head>
+	<title>{data.name} · Open Work</title>
 	<meta
 		name="description"
 		content="{data.name} on Open Collective: its balance, runway, income, expenses and who funds it."
