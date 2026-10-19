@@ -22,6 +22,13 @@
 		new Intl.DateTimeFormat('en', { month: 'short' }).format(new Date(2026, i, 1))
 	);
 
+	/** The month abbreviated, like "Oct 2026", for phones where the full name would wrap. */
+	const short = $derived(
+		new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' }).format(
+			new Date(`${month}-01T00:00:00`)
+		)
+	);
+
 	let open = $state(false);
 	/** The year the grid shows. Starts at the month on screen each time the picker opens. */
 	let year = $state(0);
@@ -37,7 +44,7 @@
 	}
 </script>
 
-<h1>
+<h1 class="max-[359px]:text-2xl">
 	<Popover.Root
 		bind:open
 		onOpenChange={(next) => {
@@ -48,10 +55,11 @@
 			{#snippet child({ props })}
 				<button
 					{...props}
-					class="-mx-2 flex items-center gap-1.5 rounded-md px-2 hover:bg-accent"
+					class="-mx-2 flex items-center gap-1.5 rounded-md px-2 whitespace-nowrap hover:bg-accent"
 					aria-label="Choose a month, showing {label}"
 				>
-					{label}
+					<span class="sm:hidden">{short}</span>
+					<span class="max-sm:hidden">{label}</span>
 					<!-- Down to the lowercase letters, where the eye reads the middle of the line. -->
 					<ChevronDown class="size-5 translate-y-0.75 text-muted-foreground" aria-hidden="true" />
 				</button>

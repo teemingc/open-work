@@ -31,7 +31,10 @@
 		-->
 		<div class="space-y-6" aria-busy="true" aria-label="Loading your work log">
 			<div class="space-y-2">
-				<div class="flex h-12 items-center justify-between gap-3">
+				<!-- As tall as the month name or its buttons, whichever is taller. -->
+				<div
+					class="flex h-[1.2em] min-h-9.5 items-center justify-between gap-3 text-(length:--h1-size)"
+				>
 					<Skeleton class="h-9 w-48" />
 					<Skeleton class="h-9 w-36" />
 				</div>

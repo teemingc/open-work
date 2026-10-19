@@ -14,6 +14,8 @@
  */
 :root {
 	--radius: 0.375rem;
+	/* Page titles, and skeletons standing in for them. */
+	--h1-size: clamp(1.875rem, 1.5rem + 1.4vw, 2.5rem);
 	--background: #f8fafc;
 	--foreground: #0f172a;
 	--card: #ffffff;
@@ -155,6 +157,10 @@
 	* {
 		@apply border-border outline-ring/50;
 	}
+	/* Links to a part of a page land below the sticky header, not under it. */
+	html {
+		scroll-padding-top: 5rem;
+	}
 	/*
 		A column at least as tall as the window, so the footer sits at its bottom on short pages
 		rather than following the content up and down as skeletons give way to it.
@@ -176,7 +182,7 @@
 	h1 {
 		font-family: var(--font-display);
 		color: var(--heading);
-		font-size: clamp(1.875rem, 1.5rem + 1.4vw, 2.5rem);
+		font-size: var(--h1-size);
 		font-weight: 500;
 		letter-spacing: -0.01em;
 	}

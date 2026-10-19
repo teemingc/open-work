@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Command from '#lib/components/ui/command/index.js';
-	import * as Popover from '#lib/components/ui/popover/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import { collectiveLogo, SUGGESTED_COLLECTIVES } from '#lib/collective-suggestions.js';
 	import RetryableError from '#lib/components/RetryableError.svelte';
 	import { Search } from '@lucide/svelte';
+	import { Command as CommandPrimitive } from 'bits-ui';
 	import { readRecentCollectives } from '#lib/recent-collectives.js';
 	import { searchCollectives, type CollectiveMatch } from './stats.remote';
 
@@ -16,11 +15,11 @@
 		slug,
 		field = false
 	}: {
-		/** The prompt on the button, like "Find another collective". */
+		/** The placeholder, like "Find another collective". */
 		name: string;
 		/** The slug of the collective on screen, left out of the recent list. */
 		slug?: string;
-		/** Look like a search box, for a page with no collective yet. */
+		/** Full width and larger, for a page with no collective yet. */
 		field?: boolean;
 	} = $props();
 
@@ -32,34 +31,40 @@
 	let term = $state('');
 	let searched = $state('');
 	let timer: ReturnType<typeof setTimeout> | undefined;
+	let input = $state<HTMLInputElement | null>(null);
 
 	const results = $derived(searched.length >= 2 ? searchCollectives(searched) : undefined);
 
-	/** Collectives you visited, newest first. Read as the search opens, so it holds still while open. */
+	/** Collectives you visited, newest first. Read as the list opens, so it holds still while open. */
 	let recent: CollectiveMatch[] = $state.raw([]);
 
-	function loadRecent() {
+	function show() {
+		if (open) return;
 		recent = readRecentCollectives()
 			.filter((item) => item.slug !== slug)
 			.slice(0, MAX_RECENT);
+		open = true;
 	}
 
 	function type(value: string) {
 		term = value;
+		show();
 		clearTimeout(timer);
 		timer = setTimeout(() => (searched = value.trim().toLowerCase()), DEBOUNCE_MS);
 	}
 
-	/** Start afresh each time the search opens. */
-	function reset() {
+	function choose(match: CollectiveMatch) {
+		open = false;
 		clearTimeout(timer);
 		term = '';
 		searched = '';
+		input?.blur();
+		void goto(resolve('/collective/[handle]', { handle: match.slug }));
 	}
 
-	function choose(match: CollectiveMatch) {
-		open = false;
-		void goto(resolve('/collective/[handle]', { handle: match.slug }));
+	/** Close once focus leaves the search, but not when it moves into the list being clicked. */
+	function leave(event: FocusEvent & { currentTarget: HTMLElement }) {
+		if (!event.currentTarget.contains(event.relatedTarget as Node | null)) open = false;
 	}
 </script>
 
@@ -75,84 +80,79 @@
 	</Command.Item>
 {/snippet}
 
-<Popover.Root
-	bind:open
-	onOpenChange={(next) => {
-		if (next) loadRecent();
-	}}
-	onOpenChangeComplete={(next) => {
-		// Only once it has finished closing, so nothing moves while you can still see it.
-		if (!next) reset();
-	}}
->
-	<Popover.Trigger>
-		{#snippet child({ props })}
-			{#if field}
-				<Button
-					{...props}
-					variant="outline"
-					role="combobox"
-					aria-expanded={open}
-					aria-label="Search Open Collective"
-					class="h-11 w-full justify-start gap-2.5 bg-card px-3.5 text-base font-normal text-muted-foreground"
-				>
-					<Search class="size-4.5" />
-					{name}
-				</Button>
-			{:else}
-				<Button
-					{...props}
-					variant="outline"
-					role="combobox"
-					aria-expanded={open}
-					class="w-full justify-start gap-2 font-normal text-muted-foreground sm:w-64"
-				>
-					<Search />
-					<span class="truncate">{name}</span>
-				</Button>
-			{/if}
-		{/snippet}
-	</Popover.Trigger>
-	<Popover.Content class="w-(--bits-popover-anchor-width) p-0" align="start">
-		<Command.Root shouldFilter={false}>
-			<Command.Input
-				placeholder="Search Open Collective"
+<div class={['relative', field ? 'w-full' : 'w-full sm:w-64']} onfocusout={leave}>
+	<Command.Root shouldFilter={false} class="h-auto overflow-visible bg-transparent">
+		<label
+			class={[
+				'flex items-center rounded-md border bg-card shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50',
+				field ? 'h-11 gap-2.5 px-3.5' : 'h-9 gap-2 px-3'
+			]}
+		>
+			<Search class={['shrink-0 text-muted-foreground', field ? 'size-4.5' : 'size-4']} />
+			<span class="sr-only">Search Open Collective</span>
+			<!-- 16px text at least on phones: iOS Safari zooms in on focusing anything smaller. -->
+			<CommandPrimitive.Input
+				bind:ref={input}
 				value={term}
+				placeholder={name}
+				autocomplete="off"
+				aria-expanded={open}
 				oninput={(event) => type(event.currentTarget.value)}
+				onfocus={show}
+				onclick={show}
+				onkeydown={(event) => {
+					if (event.key === 'Escape' && open) {
+						event.preventDefault();
+						open = false;
+					}
+				}}
+				class={[
+					'h-full w-full min-w-0 bg-transparent text-base outline-hidden placeholder:text-muted-foreground',
+					!field && 'sm:text-sm'
+				]}
 			/>
-			<Command.List>
-				{#if searched.length < 2}
-					{#if recent.length > 0}
-						<Command.Group heading="Recent">
-							{#each recent as match (match.slug)}
+		</label>
+
+		{#if open}
+			<!-- Focusable, so clicking an item keeps focus inside the search instead of closing it first. -->
+			<div
+				tabindex="-1"
+				class="absolute top-full left-0 z-50 mt-1 w-full min-w-72 rounded-md border bg-popover text-popover-foreground shadow-md outline-none"
+			>
+				<Command.List class="p-1">
+					{#if searched.length < 2}
+						{#if recent.length > 0}
+							<Command.Group heading="Recent">
+								{#each recent as match (match.slug)}
+									{@render item(match)}
+								{/each}
+							</Command.Group>
+						{:else}
+							<Command.Group heading="Try one">
+								{#each SUGGESTED_COLLECTIVES as { slug, name } (slug)}
+									{@render item({ slug, name, imageUrl: collectiveLogo(slug) })}
+								{/each}
+							</Command.Group>
+						{/if}
+					{:else if results?.loading && !results.current}
+						<Command.Loading>
+							<div class="flex justify-center py-6"><Spinner /></div>
+						</Command.Loading>
+					{:else if results?.error}
+						<div class="px-3 py-4 text-sm" role="alert">
+							<RetryableError error={results.error} onretry={() => results?.refresh()} />
+						</div>
+					{:else if results?.current?.length === 0}
+						<Command.Empty>No collective matches "{searched}".</Command.Empty>
+					{:else if results?.current}
+						<Command.Group>
+							{#each results.current as match (match.slug)}
 								{@render item(match)}
 							{/each}
 						</Command.Group>
-					{:else}
-						<Command.Group heading="Try one">
-							{#each SUGGESTED_COLLECTIVES as { slug, name } (slug)}
-								{@render item({ slug, name, imageUrl: collectiveLogo(slug) })}
-							{/each}
-						</Command.Group>
 					{/if}
-				{:else if results?.loading && !results.current}
-					<Command.Loading>
-						<div class="flex justify-center py-6"><Spinner /></div>
-					</Command.Loading>
-				{:else if results?.error}
-					<div class="px-3 py-4 text-sm" role="alert">
-						<RetryableError error={results.error} onretry={() => results?.refresh()} />
-					</div>
-				{:else if results?.current?.length === 0}
-					<Command.Empty>No collective matches "{searched}".</Command.Empty>
-				{:else if results?.current}
-					<Command.Group>
-						{#each results.current as match (match.slug)}
-							{@render item(match)}
-						{/each}
-					</Command.Group>
-				{/if}
-			</Command.List>
-		</Command.Root>
-	</Popover.Content>
-</Popover.Root>
+				</Command.List>
+			</div>
+		{/if}
+	</Command.Root>
+</div>

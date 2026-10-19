@@ -20,6 +20,10 @@
 			missingForSubmit({ settings, connected: me !== null }).length > 0
 	);
 
+	/** Icons alone on phones, each at least 40px wide so it is easy to tap. */
+	const LINK =
+		'relative -mb-[3px] flex min-w-10 items-center justify-center gap-1.5 border-b-2 border-transparent text-muted-foreground hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:font-medium aria-[current=page]:text-foreground sm:min-w-0 sm:px-3';
+
 	/** The home page is the collective page too. */
 	function isCurrent(path: '/collective' | '/invoices' | '/worklog' | '/settings'): boolean {
 		const { pathname } = page.url;
@@ -27,25 +31,28 @@
 	}
 </script>
 
-<!-- A double rule closes the masthead, like the head of a ledger page. -->
-<header class="border-b-[3px] border-double border-rule bg-card">
+<!--
+	A double rule closes the masthead, like the head of a ledger page. It stays at the top while you
+	scroll, which also has iOS Safari colour its bar to match instead of the page behind.
+-->
+<header class="sticky top-0 z-40 border-b-[3px] border-double border-rule bg-card">
 	<div
 		class="mx-auto flex h-16 max-w-6xl items-stretch justify-between gap-2 px-4 sm:gap-4 sm:px-6"
 	>
-		<!-- The name stays on one line; on the narrowest phones the nav gives up space instead. -->
+		<!-- Below 360px the nav needs the room, so the name is left to the mark and screen readers. -->
 		<a
 			href={resolve('/')}
-			class="flex shrink-0 items-center gap-2.5 font-display text-xl font-semibold whitespace-nowrap text-primary max-[359px]:text-lg"
+			class="flex shrink-0 items-center gap-2.5 font-display text-xl font-semibold whitespace-nowrap text-primary"
 		>
 			<img src={logo} alt="" class="size-7" />
-			Open Work
+			<span class="max-[359px]:sr-only">Open Work</span>
 		</a>
 
-		<nav aria-label="Main" class="flex items-stretch gap-1 text-sm sm:gap-2">
+		<nav aria-label="Main" class="flex items-stretch text-sm sm:gap-2">
 			<a
 				href={resolve('/')}
 				aria-current={isCurrent('/collective') ? 'page' : undefined}
-				class="-mb-[3px] flex items-center gap-1.5 border-b-2 border-transparent px-1.5 text-muted-foreground hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:font-medium aria-[current=page]:text-foreground sm:px-3"
+				class={LINK}
 			>
 				<ChartLine size={15} />
 				<span class="max-sm:sr-only">Collective</span>
@@ -53,7 +60,7 @@
 			<a
 				href={resolve('/worklog')}
 				aria-current={isCurrent('/worklog') ? 'page' : undefined}
-				class="-mb-[3px] flex items-center gap-1.5 border-b-2 border-transparent px-1.5 text-muted-foreground hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:font-medium aria-[current=page]:text-foreground sm:px-3"
+				class={LINK}
 			>
 				<Clock size={15} />
 				<span class="max-sm:sr-only">Work log</span>
@@ -61,7 +68,7 @@
 			<a
 				href={resolve('/invoices')}
 				aria-current={isCurrent('/invoices') ? 'page' : undefined}
-				class="-mb-[3px] flex items-center gap-1.5 border-b-2 border-transparent px-1.5 text-muted-foreground hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:font-medium aria-[current=page]:text-foreground sm:px-3"
+				class={LINK}
 			>
 				<FileText size={15} />
 				<span class="max-sm:sr-only">Invoices</span>
@@ -69,13 +76,19 @@
 			<a
 				href={resolve('settings')}
 				aria-current={isCurrent('/settings') ? 'page' : undefined}
-				class="-mb-[3px] flex items-center gap-1.5 border-b-2 border-transparent px-1.5 text-muted-foreground hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:font-medium aria-[current=page]:text-foreground sm:px-3"
+				class={LINK}
 			>
 				<Settings size={15} />
 				<span class="max-sm:sr-only">Settings</span>
-				<!-- Always takes its space, so the nav does not move when it appears. -->
+				<!--
+					Always takes its space, so the nav does not move when it appears. On phones it sits on
+					the icon's corner, so the icon stays centred in its tap target.
+				-->
 				<span
-					class={['size-1.5 rounded-full bg-attention', !needsSetup && 'invisible']}
+					class={[
+						'size-1.5 rounded-full bg-attention max-sm:absolute max-sm:top-[calc(50%-11px)] max-sm:right-2',
+						!needsSetup && 'invisible'
+					]}
 					title={needsSetup ? 'Setup unfinished' : undefined}
 				></span>
 				{#if needsSetup}<span class="sr-only">(setup unfinished)</span>{/if}
