@@ -1,6 +1,7 @@
 <script lang="ts">
 	import './layout.css';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import favicon from '#lib/assets/favicon.svg';
 	import { restoreSettings } from '#lib/settings.remote.js';
 	import { LEGACY_STORAGE_KEY, parseBackup } from '#lib/settings.js';
@@ -10,6 +11,12 @@
 	import NavigationLoader from './NavigationLoader.svelte';
 
 	let { children } = $props();
+
+	/** The picture shown when this page is shared, drawn by og/[...path]. */
+	// Absolute, as sharing sites need, though `resolve` gives a relative path while rendering on the server.
+	const ogImage = $derived(
+		new URL(resolve('/og/[...path]', { path: page.url.pathname.slice(1) }), page.url.href).href
+	);
 
 	// Older versions kept settings in localStorage. Move them into the settings cookie once.
 	onMount(async () => {
@@ -42,6 +49,14 @@
 <svelte:head>
 	<link rel="icon" href={favicon} />
 	<title>Open Work</title>
+	<!-- Sites showing a shared link take its title and description from the page's own tags. -->
+	<meta property="og:site_name" content="Open Work" />
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content={page.url.origin + page.url.pathname} />
+	<meta property="og:image" content={ogImage} />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta name="twitter:card" content="summary_large_image" />
 </svelte:head>
 
 <a

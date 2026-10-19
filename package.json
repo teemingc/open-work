@@ -20,6 +20,8 @@
 		"types": "wrangler types"
 	},
 	"devDependencies": {
+		"@cf-wasm/resvg": "^0.4.0",
+		"@cf-wasm/satori": "0.4.2",
 		"@eslint/compat": "^2.1.1",
 		"@eslint/js": "^10.0.1",
 		"@internationalized/date": "^3.12.4",

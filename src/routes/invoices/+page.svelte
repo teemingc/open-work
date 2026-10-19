@@ -57,7 +57,7 @@
 	<title>Invoices · Open Work</title>
 	<meta
 		name="description"
-		content="The invoices you sent to Open Collective, and whether each one is paid."
+		content="Send invoices to Open Collective in a few clicks, and see whether each one is paid."
 	/>
 </svelte:head>
 
