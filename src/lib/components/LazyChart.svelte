@@ -32,12 +32,23 @@
 	function load() {
 		return Promise.all([
 			import('layerchart/svg').then(
-				({ Area, AreaChart, Axis, BarChart, Circle, LinearGradient, LineChart, ScatterChart }) => ({
+				({
 					Area,
 					AreaChart,
 					Axis,
 					BarChart,
 					Circle,
+					Legend,
+					LinearGradient,
+					LineChart,
+					ScatterChart
+				}) => ({
+					Area,
+					AreaChart,
+					Axis,
+					BarChart,
+					Circle,
+					Legend,
 					LinearGradient,
 					LineChart,
 					ScatterChart

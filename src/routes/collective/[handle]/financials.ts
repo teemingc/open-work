@@ -312,7 +312,11 @@ export function categoriesByMonth({
 		totals.set(payout.category, (totals.get(payout.category) ?? 0) + payout.amount);
 	}
 	const sorted = [...totals].sort(([, a], [, b]) => b - a).map(([category]) => category);
-	const categories = sorted.length > limit ? [...sorted.slice(0, limit), 'Other'] : sorted;
+	// A category that is itself called "Other" joins the rest, so the legend never lists two.
+	const categories =
+		sorted.length > limit
+			? [...sorted.filter((category) => category !== 'Other').slice(0, limit), 'Other']
+			: sorted;
 	const index = (category: string) => {
 		const i = categories.indexOf(category);
 		return i === -1 ? categories.length - 1 : i;

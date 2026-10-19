@@ -55,6 +55,9 @@
 		) satisfies ChartConfig
 	);
 
+	/** Measured, since the legend wraps onto more rows the narrower the card. */
+	let legendHeight = $state(20);
+
 	function openMonth(_event: MouseEvent, { data: row }: { data: { month: string } }) {
 		window.open(
 			transactionsUrl({ slug, month: row.month, kinds: ['EXPENSE'] }),
@@ -88,11 +91,11 @@
 	</Card.Header>
 	{#if series.length}
 		<Card.Content>
-			<LazyChart class="h-64">
-				{#snippet children({ BarChart, Chart })}
-					<Chart.Container {config} class="aspect-auto h-64 w-full cursor-pointer">
+			<LazyChart class="h-72">
+				{#snippet children({ BarChart, Chart, Legend })}
+					<Chart.Container {config} class="aspect-auto h-72 w-full cursor-pointer">
 						<BarChart
-							padding={chartPadding()}
+							padding={{ ...chartPadding({ legend: true }), bottom: 38 + legendHeight }}
 							data={byCategory.rows}
 							x="month"
 							xScale={scaleBand().padding(0.2)}
@@ -114,6 +117,12 @@
 								}
 							}}
 						>
+							{#snippet legend()}
+								<!-- Category names are long, so the legend wraps and the plot makes room for every row. -->
+								<div class="absolute inset-x-0 bottom-0 z-1" bind:clientHeight={legendHeight}>
+									<Legend classes={{ root: 'w-full', items: 'flex-wrap justify-center' }} />
+								</div>
+							{/snippet}
 							{#snippet tooltip()}
 								<Chart.Tooltip
 									labelFormatter={(key: string) => monthLabel({ key, partialKey })}
@@ -124,17 +133,6 @@
 					</Chart.Container>
 				{/snippet}
 			</LazyChart>
-			<!-- Category names are long, so this legend wraps where the chart's own would overflow. -->
-			<ul
-				class="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground"
-			>
-				{#each series as s (s.key)}
-					<li class="flex items-center gap-1.5">
-						<span class="size-2.5 shrink-0 rounded-[2px]" style:background={s.color}></span>
-						{s.label}
-					</li>
-				{/each}
-			</ul>
 		</Card.Content>
 	{/if}
 </Card.Root>
