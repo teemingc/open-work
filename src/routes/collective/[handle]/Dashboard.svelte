@@ -66,6 +66,8 @@
 
 	let range = $state<Range>('2y');
 	let basis = $state('6');
+	/** How many years ahead to forecast. Averages drift, so far-off years say little. */
+	let horizon = $state('2');
 
 	const now = $derived(new Date(data.fetchedAt));
 	/** The name split before its last word, which keeps the link icon beside it. */
@@ -87,7 +89,13 @@
 	const available = $derived(balance - committed);
 
 	const result = $derived(
-		forecast({ months: data.months, basis: Number(basis) || 6, now, start: available })
+		forecast({
+			months: data.months,
+			basis: Number(basis) || 6,
+			now,
+			start: available,
+			horizon: (Number(horizon) || 2) * 12
+		})
 	);
 	const shown = $derived(data.months.slice(-Math.min(RANGES[range] ?? 24, data.months.length)));
 	const shownKeys = $derived(shown.map((m) => m.key));
@@ -221,16 +229,20 @@
 	let balanceChart = $state<ChartState>();
 	/** The annotation labels' size and weight, for measuring them. */
 	const ANNOTATION_STYLE = { fontSize: '12px', fontWeight: '500' } as CSSStyleDeclaration;
-	const runsOutLabel = $derived(
-		result.zeroDate ? `Runs out ${monthYear.format(result.zeroDate)}` : ''
+	/** When the money runs out within the years forecast, as the projection then ends there. */
+	const runsOutDate = $derived(
+		result.zeroDate && result.points.at(-1)?.date.getTime() === result.zeroDate.getTime()
+			? result.zeroDate
+			: null
 	);
+	const runsOutLabel = $derived(runsOutDate ? `Runs out ${monthYear.format(runsOutDate)}` : '');
 	/**
 	 * Whether "Forecast", starting just right of today, would run into "Runs out", which ends just
 	 * left of the date the money runs out. They share a row when there is room, else it drops below.
 	 */
 	const runsOutCollides = $derived.by(() => {
-		if (!balanceChart || !result.zeroDate) return false;
-		const room = balanceChart.xScale(result.zeroDate) - balanceChart.xScale(now);
+		if (!balanceChart || !runsOutDate) return false;
+		const room = balanceChart.xScale(runsOutDate) - balanceChart.xScale(now);
 		const needed =
 			8 +
 			(getStringWidth('Forecast', ANNOTATION_STYLE) ?? 0) +
@@ -526,6 +538,20 @@
 						<ToggleGroup.Item value="12">12 months</ToggleGroup.Item>
 					</ToggleGroup.Root>
 				</div>
+				<div class="contents md:flex md:items-center md:gap-3">
+					<span id="horizon-label" class="text-muted-foreground">Forecast</span>
+					<ToggleGroup.Root
+						type="single"
+						variant="outline"
+						size="sm"
+						aria-labelledby="horizon-label"
+						bind:value={() => horizon, (value) => value && (horizon = value)}
+					>
+						<ToggleGroup.Item value="1">1 year</ToggleGroup.Item>
+						<ToggleGroup.Item value="2">2 years</ToggleGroup.Item>
+						<ToggleGroup.Item value="5">5 years</ToggleGroup.Item>
+					</ToggleGroup.Root>
+				</div>
 			</div>
 
 			<Card.Root>
@@ -600,11 +626,11 @@
 												line: { class: 'stroke-muted-foreground/60!', dashArray: [2, 3] }
 											}
 										},
-										...(result.zeroDate
+										...(runsOutDate
 											? [
 													{
 														type: 'line' as const,
-														x: result.zeroDate,
+														x: runsOutDate,
 														label: runsOutLabel,
 														labelPlacement: 'top-left' as const,
 														labelXOffset: 6,
@@ -616,7 +642,7 @@
 													},
 													{
 														type: 'point' as const,
-														x: result.zeroDate,
+														x: runsOutDate,
 														y: 0,
 														r: 4,
 														props: { circle: { class: 'fill-destructive stroke-card' } }
