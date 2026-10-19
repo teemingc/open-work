@@ -1,4 +1,9 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { onMount } from 'svelte';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { chartPadding, TICK_LENGTH, X_TICK_OCCLUSION, Y_TICK_LABEL } from '#lib/chart-padding.js';
 	import * as Alert from '#lib/components/ui/alert/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
@@ -15,6 +20,7 @@
 	import {
 		change,
 		forecast,
+		forecastDates,
 		forecastRange,
 		monthEnd,
 		monthsBetween,
@@ -27,6 +33,7 @@
 	import IncomeSources from './IncomeSources.svelte';
 	import MoneyRow from './MoneyRow.svelte';
 	import { rememberCollective } from '#lib/recent-collectives.js';
+	import { rememberDashboardSearch, type Search } from '#lib/dashboard-search.svelte.js';
 	import {
 		getIncomeSources,
 		type CollectiveStats,
@@ -64,10 +71,39 @@
 	const RANGES = { '1y': 12, '2y': 24, all: Infinity } as const;
 	type Range = keyof typeof RANGES;
 
-	let range = $state<Range>('2y');
-	let basis = $state('6');
-	/** How many years ahead to forecast. Averages drift, so far-off years say little. */
-	let horizon = $state('2');
+	const BASES = ['3', '6', '12'];
+	/** Years ahead to forecast. Averages drift, so far-off years say little. */
+	const HORIZONS = ['1', '2', '5'];
+
+	/** A chart setting from the address, or `fallback` when it is missing or unknown. */
+	const param = (name: string, allowed: string[], fallback: string) => {
+		const value = page.url.searchParams.get(name);
+		return value && allowed.includes(value) ? value : fallback;
+	};
+
+	/** Keeps a chart setting in the address, so it survives a reload and can be shared. */
+	function setParam({ name, value, fallback }: { name: string; value: string; fallback: string }) {
+		const params = new SvelteURLSearchParams(page.url.search);
+		if (value === fallback) params.delete(name);
+		else params.set(name, value);
+		const search: Search = params.size ? `?${params}` : '';
+		rememberDashboardSearch(search);
+		// Not shallow, which leaves `page.url` behind. The stats are not fetched again, and the page
+		// keeps its scroll and focus. The dashboard is also the home page, which has no handle.
+		goto(
+			page.params.handle
+				? resolve(`/collective/[handle]${search}`, { handle: page.params.handle })
+				: resolve(`/${search}`),
+			{ replace: true, reset: false }
+		);
+	}
+
+	// Settings that arrived in the address, from a reload or a shared link, are the latest too.
+	onMount(() => rememberDashboardSearch(page.url.search));
+
+	const range = $derived(param('show', Object.keys(RANGES), '2y') as Range);
+	const basis = $derived(param('average', BASES, '6'));
+	const horizon = $derived(param('forecast', HORIZONS, '2'));
 
 	const now = $derived(new Date(data.fetchedAt));
 	/** The name split before its last word, which keeps the link icon beside it. */
@@ -88,13 +124,16 @@
 	);
 	const available = $derived(balance - committed);
 
+	const horizonMonths = $derived(Number(horizon) * 12);
+	/** Every month forecast, even after the money runs out, so the other averages still show. */
+	const forecastSpan = $derived(forecastDates({ now, horizon: horizonMonths }));
 	const result = $derived(
 		forecast({
 			months: data.months,
 			basis: Number(basis) || 6,
 			now,
 			start: available,
-			horizon: (Number(horizon) || 2) * 12
+			horizon: horizonMonths
 		})
 	);
 	const shown = $derived(data.months.slice(-Math.min(RANGES[range] ?? 24, data.months.length)));
@@ -140,7 +179,7 @@
 			bases: [3, 6, 12],
 			now,
 			start: available,
-			dates: result.points.map((p) => p.date)
+			dates: forecastSpan
 		})
 	);
 	/** The axis is sized from the series, which leave out the band, so a rising band ran off the top. */
@@ -429,16 +468,15 @@
 		>
 			{#if data.imageUrl}
 				<!--
-					Centred on the middle of the name's letters, from the top of a "d" to the bottom of a "y",
-					where the link icon sits too. Centring on the line instead puts it 0.13em higher, level
-					with the middle of the capitals, which looks high beside a lowercase name. A new image for
-					each collective, so the last one's logo does not show while this one's loads.
+					Centred on the line, level with the middle of the capitals. Centred on the lowercase letters
+					instead, it sat below a name that starts with a capital. A new image for each collective,
+					so the last one's logo does not show while this one's loads.
 				-->
 				{#key data.imageUrl}
 					<img
 						src={data.imageUrl}
 						alt=""
-						class="size-16 shrink-0 translate-y-[calc(var(--h1-size)*0.13)] rounded-xl border bg-card object-contain"
+						class="size-16 shrink-0 rounded-xl border bg-card object-contain"
 					/>
 				{/key}
 			{/if}
@@ -543,7 +581,9 @@
 						variant="outline"
 						size="sm"
 						aria-labelledby="range-label"
-						bind:value={() => range, (value) => value && (range = value as Range)}
+						bind:value={
+							() => range, (value) => value && setParam({ name: 'show', value, fallback: '2y' })
+						}
 					>
 						<ToggleGroup.Item value="1y">12 months</ToggleGroup.Item>
 						<ToggleGroup.Item value="2y">2 years</ToggleGroup.Item>
@@ -557,7 +597,9 @@
 						variant="outline"
 						size="sm"
 						aria-labelledby="basis-label"
-						bind:value={() => basis, (value) => value && (basis = value)}
+						bind:value={
+							() => basis, (value) => value && setParam({ name: 'average', value, fallback: '6' })
+						}
 					>
 						<ToggleGroup.Item value="3">3 months</ToggleGroup.Item>
 						<ToggleGroup.Item value="6">6 months</ToggleGroup.Item>
@@ -571,7 +613,10 @@
 						variant="outline"
 						size="sm"
 						aria-labelledby="horizon-label"
-						bind:value={() => horizon, (value) => value && (horizon = value)}
+						bind:value={
+							() => horizon,
+							(value) => value && setParam({ name: 'forecast', value, fallback: '2' })
+						}
 					>
 						<ToggleGroup.Item value="1">1 year</ToggleGroup.Item>
 						<ToggleGroup.Item value="2">2 years</ToggleGroup.Item>
@@ -602,6 +647,7 @@
 									x="date"
 									y="balance"
 									xScale={scaleTime()}
+									xDomain={[history[0]?.date ?? now, forecastSpan.at(-1) ?? now]}
 									yDomain={[0, balanceMax]}
 									yNice
 									seriesLayout="overlap"
@@ -628,7 +674,7 @@
 									annotations={[
 										{
 											type: 'range',
-											x: [now, projection.at(-1)?.date ?? now],
+											x: [now, forecastSpan.at(-1) ?? now],
 											label: 'Forecast',
 											labelPlacement: 'top-left',
 											labelXOffset: 8,

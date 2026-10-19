@@ -7,6 +7,7 @@
 	import RetryableError from '#lib/components/RetryableError.svelte';
 	import { Search } from '@lucide/svelte';
 	import { Command as CommandPrimitive } from 'bits-ui';
+	import { dashboardSearch } from '#lib/dashboard-search.svelte.js';
 	import { readRecentCollectives } from '#lib/recent-collectives.js';
 	import { searchCollectives, type CollectiveMatch } from './stats.remote';
 
@@ -61,7 +62,8 @@
 		term = '';
 		searched = '';
 		input?.blur();
-		void goto(resolve('/collective/[handle]', { handle: match.slug }));
+		// The chart settings carry over, so the next collective is shown the same way.
+		void goto(resolve(`/collective/[handle]${dashboardSearch()}`, { handle: match.slug }));
 	}
 
 	/** Close once focus leaves the search, but not when it moves into the list being clicked. */

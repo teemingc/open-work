@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { dashboardSearch } from '#lib/dashboard-search.svelte.js';
 	import { getMe } from '#lib/opencollective.remote.js';
 	import logo from '#lib/assets/favicon.svg';
 	import { ChartLine, Clock, FileText, Settings } from '@lucide/svelte';
@@ -45,7 +46,7 @@
 
 		<nav aria-label="Main" class="flex items-stretch text-sm md:gap-2">
 			<a
-				href={resolve('/')}
+				href={resolve(`/${dashboardSearch()}`)}
 				aria-current={isCurrent('/collective') ? 'page' : undefined}
 				class={LINK}
 			>

@@ -10,6 +10,7 @@ import {
 	backerStatus,
 	categoriesByMonth,
 	categoryName,
+	forecastDates,
 	forecastRange,
 	lastMonthKeys,
 	toContributions,
@@ -335,6 +336,17 @@ describe('lastMonthKeys', () => {
 			'2025-12',
 			'2026-01',
 			'2026-02'
+		]);
+	});
+});
+
+describe('forecastDates', () => {
+	it('starts now and ends each month after', () => {
+		const now = new Date('2026-07-15T00:00:00Z');
+		expect(forecastDates({ now, horizon: 2 })).toEqual([
+			now,
+			new Date('2026-07-31T23:59:59.999Z'),
+			new Date('2026-08-31T23:59:59.999Z')
 		]);
 	});
 });

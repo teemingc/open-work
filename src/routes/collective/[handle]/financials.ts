@@ -495,6 +495,17 @@ export function othersBySize({
 	return tiers.filter((tier) => tier.count > 0);
 }
 
+/** `now`, then the end of each of the next `horizon` months, starting with this one. */
+export function forecastDates({ now, horizon }: { now: Date; horizon: number }): Date[] {
+	const dates = [now];
+	let key = now.toISOString().slice(0, 7);
+	for (let i = 0; i < horizon; i++) {
+		dates.push(monthEnd(key));
+		key = nextMonthKey(key);
+	}
+	return dates;
+}
+
 /**
  * Project the balance forward using the average of the last `basis` complete months.
  * The projection starts at `now` from `start`, or from the latest balance.
@@ -530,17 +541,13 @@ export function forecast({
 
 	const points: Forecast['points'] = [];
 	if (latest) {
-		points.push({ date: now, balance });
-		let key = now.toISOString().slice(0, 7);
-		for (let i = 0; i < horizon; i++) {
-			const end = monthEnd(key);
-			if (zeroDate && end >= zeroDate) {
+		for (const date of forecastDates({ now, horizon })) {
+			if (zeroDate && date >= zeroDate) {
 				points.push({ date: zeroDate, balance: 0 });
 				break;
 			}
-			const days = (end.getTime() - now.getTime()) / DAY_MS;
-			points.push({ date: end, balance: balance + perDay * days });
-			key = nextMonthKey(key);
+			const days = (date.getTime() - now.getTime()) / DAY_MS;
+			points.push({ date, balance: balance + perDay * days });
 		}
 	}
 

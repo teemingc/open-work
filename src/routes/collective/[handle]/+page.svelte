@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { collectiveLogo, SUGGESTED_COLLECTIVES } from '#lib/collective-suggestions.js';
+	import { dashboardSearch } from '#lib/dashboard-search.svelte.js';
 	import { getMe } from '#lib/opencollective.remote.js';
 	import { ChevronRight } from '@lucide/svelte';
 	import { getSettings } from '#lib/settings.remote.js';
@@ -55,7 +56,9 @@
 				{#each SUGGESTED_COLLECTIVES as collective (collective.slug)}
 					<li>
 						<a
-							href={resolve('/collective/[handle]', { handle: collective.slug })}
+							href={resolve(`/collective/[handle]${dashboardSearch()}`, {
+								handle: collective.slug
+							})}
 							class="group flex items-center gap-3 px-3.5 py-2.5 hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
 						>
 							<img
