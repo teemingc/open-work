@@ -163,20 +163,15 @@
 
 	const paidToMe = $derived(paidTo({ payouts: data.payouts, slug: me, months: data.months }));
 
-	// Expenses are negative so they hang below income on the same axis.
 	const monthly = $derived(
-		shown.map((m) => {
-			const mine = paidToMe.get(m.key) ?? 0;
-			return {
-				month: m.key,
-				income: Math.round(m.income),
-				expenses: -Math.round(m.expenses),
-				you: -Math.round(mine),
-				others: -Math.round(m.expenses - mine),
-				gained: m.net >= 0 ? Math.round(m.net) : null,
-				lost: m.net < 0 ? Math.round(m.net) : null
-			};
-		})
+		shown.map((m) => ({
+			month: m.key,
+			income: Math.round(m.income),
+			expenses: Math.round(m.expenses),
+			you: Math.round(paidToMe.get(m.key) ?? 0),
+			gained: m.net >= 0 ? Math.round(m.net) : null,
+			lost: m.net < 0 ? Math.round(m.net) : null
+		}))
 	);
 
 	const totals = $derived.by(() => {
@@ -257,16 +252,43 @@
 		forecast: { label: 'Forecast', color: 'var(--color-chart-balance)' }
 	} satisfies ChartConfig;
 
-	const flowConfig = {
+	const flowConfig = $derived({
 		income: { label: 'Income', color: 'var(--color-chart-income)' },
-		expenses: { label: 'Expenses', color: 'var(--color-chart-expenses)' },
-		you: { label: 'Paid to you', color: 'var(--color-chart-expenses)' },
-		others: { label: 'Paid to others', color: 'var(--color-chart-expenses-muted)' }
-	} satisfies ChartConfig;
+		// When "Paid to you" sits on top of it, what shows of expenses is what went to others.
+		expenses: {
+			label: 'Expenses',
+			color: me ? 'var(--color-chart-expenses-muted)' : 'var(--color-chart-expenses)'
+		},
+		you: { label: 'Paid to you', color: 'var(--color-chart-expenses)' }
+	} satisfies ChartConfig);
 
+	const flowPadding = chartPadding({ legend: true });
+	/** The income chart's width, for sizing its bars. */
+	let flowWidth = $state(0);
+	/**
+	 * Expenses sit inside the income bar, a fifth of a month's width in from each side. Worked out
+	 * from the width rather than the chart's own scale, which depends on these series.
+	 */
+	const flowInset = $derived(
+		scaleBand()
+			.domain(shownKeys)
+			.range([0, Math.max(0, flowWidth - flowPadding.left - flowPadding.right)])
+			.padding(0.2)
+			.bandwidth() / 5
+	);
+
+	/**
+	 * Overlapped rather than stacked, so each month's income and expenses start from zero and compare
+	 * by height. Paid to you, a part of expenses, overlaps them in turn, so it reads as their base.
+	 */
 	const flowSeries = $derived(
-		(me ? (['income', 'you', 'others'] as const) : (['income', 'expenses'] as const)).map(
-			(key) => ({ key, label: flowConfig[key].label, color: flowConfig[key].color })
+		(me ? (['income', 'expenses', 'you'] as const) : (['income', 'expenses'] as const)).map(
+			(key) => ({
+				key,
+				label: flowConfig[key].label,
+				color: flowConfig[key].color,
+				props: key === 'income' ? undefined : { insets: { x: flowInset } }
+			})
 		)
 	);
 
@@ -726,36 +748,38 @@
 				<Card.Content>
 					<LazyChart class="mb-3 h-64">
 						{#snippet children({ BarChart, Chart })}
-							<Chart.Container config={flowConfig} class="aspect-auto h-64 w-full cursor-pointer">
-								<BarChart
-									padding={chartPadding({ legend: true })}
-									data={monthly}
-									x="month"
-									xScale={scaleBand().padding(0.2)}
-									seriesLayout="stackDiverging"
-									onTooltipClick={openMonth}
-									legend
-									series={flowSeries}
-									props={{
-										bars: { radius: 2, strokeWidth: 0 },
-										xAxis: {
-											tickLength: TICK_LENGTH,
-											tickOcclusion: X_TICK_OCCLUSION,
-											ticks,
-											format: bandTickLabel
-										},
-										yAxis: {
-											tickLength: TICK_LENGTH,
-											tickLabelProps: Y_TICK_LABEL,
-											format: (v: number) => compact.format(Math.abs(v))
-										}
-									}}
-								>
-									{#snippet tooltip()}
-										<Chart.Tooltip labelFormatter={labelMonth} formatter={moneyRow} />
-									{/snippet}
-								</BarChart>
-							</Chart.Container>
+							<div bind:clientWidth={flowWidth}>
+								<Chart.Container config={flowConfig} class="aspect-auto h-64 w-full cursor-pointer">
+									<BarChart
+										padding={flowPadding}
+										data={monthly}
+										x="month"
+										xScale={scaleBand().padding(0.2)}
+										seriesLayout="overlap"
+										onTooltipClick={openMonth}
+										legend
+										series={flowSeries}
+										props={{
+											bars: { radius: 2, strokeWidth: 0 },
+											xAxis: {
+												tickLength: TICK_LENGTH,
+												tickOcclusion: X_TICK_OCCLUSION,
+												ticks,
+												format: bandTickLabel
+											},
+											yAxis: {
+												tickLength: TICK_LENGTH,
+												tickLabelProps: Y_TICK_LABEL,
+												format: (v: number) => compact.format(v)
+											}
+										}}
+									>
+										{#snippet tooltip()}
+											<Chart.Tooltip labelFormatter={labelMonth} formatter={moneyRow} />
+										{/snippet}
+									</BarChart>
+								</Chart.Container>
+							</div>
 						{/snippet}
 					</LazyChart>
 				</Card.Content>
