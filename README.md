@@ -50,7 +50,7 @@ While the app is in testing, only test users can sign in and Google expires thei
 
 Anyone can sign in once the app is published, but Google first wants to know the app is yours. Do these in order; each depends on the one before.
 
-1. **Deploy first.** The privacy policy at `/privacy` and the home page must be live at the address you will register, for example `https://open-work.<account>.workers.dev`.
+1. **Deploy first.** The privacy policy at `/privacy` and the home page must be live at the address you will register, for example `https://openwork.ing`.
 2. **Verify the domain in [Google Search Console](https://search.google.com/search-console).** Sign in with the same Google account that owns the Cloud project. Add a _URL prefix_ property for the deployed origin and pick the **HTML file** method. Download the `google<code>.html` file into `static/` (it is served from the site root), commit, deploy, check it opens at `<origin>/google<code>.html`, then press **Verify**. Keep the file: Google checks it again from time to time and drops the verification if it is gone.
 3. **Fill in Branding** in Google Auth Platform:
    - App name: Open Work
@@ -124,8 +124,9 @@ pnpm test:e2e
 The app runs on Cloudflare Workers: the server forwards requests to Open Collective, caches public stats and handles sign-in, so it needs the Workers runtime rather than static hosting.
 
 1. Log in once with `pnpm exec wrangler login`.
-2. Create an Open Collective OAuth app at opencollective.com (your account, then For developers) with the callback URL `https://<your-worker>.workers.dev/auth/callback`.
-3. Set the secrets:
+2. Point `routes` in `wrangler.jsonc` at a domain on your Cloudflare account. It is `openwork.ing` here; Wrangler connects the domain to the Worker on deploy.
+3. Create an Open Collective OAuth app at opencollective.com (your account, then For developers) with the callback URL `https://<your-domain>/auth/callback`.
+4. Set the secrets:
 
    ```sh
    pnpm exec wrangler secret put OC_CLIENT_ID
@@ -135,6 +136,6 @@ The app runs on Cloudflare Workers: the server forwards requests to Open Collect
 
    `OC_PERSONAL_TOKEN` is optional but recommended: a personal token from your Open Collective account (read-only is enough). Visitors who have not connected Open Collective share a Worker's outgoing IPs, and anonymous requests are limited to 10 a minute per IP; with the token, public stats get 100 a minute. To turn on Google Drive sync, follow [Google Drive sync for production](#for-production).
 
-4. Run `pnpm deploy`.
+5. Run `pnpm deploy`.
 
 `specs/REQUIREMENTS.md` has the wording the fiscal host asks for in expense titles and descriptions.
