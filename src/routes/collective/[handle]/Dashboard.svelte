@@ -292,10 +292,14 @@
 		)
 	);
 
-	const payeeConfig = {
+	// Matches the bars: others are muted only when they sit beside what was paid to you.
+	const payeeConfig = $derived({
 		you: { label: 'You', color: 'var(--color-chart-expenses)' },
-		others: { label: 'Paid', color: 'var(--color-chart-expenses-muted)' }
-	} satisfies ChartConfig;
+		others: {
+			label: 'Paid',
+			color: me ? 'var(--color-chart-expenses-muted)' : 'var(--color-chart-expenses)'
+		}
+	} satisfies ChartConfig);
 
 	const netConfig = {
 		gained: { label: 'Gained', color: 'var(--color-chart-income)' },
