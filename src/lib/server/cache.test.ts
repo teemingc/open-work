@@ -1,21 +1,35 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cached } from './cache';
 
+vi.mock('cloudflare:workers', () => ({ waitUntil: () => {} }));
+
 afterEach(() => vi.useRealTimers());
 
 describe('cached', () => {
-	it('reuses a result until it is an hour old, sharing one fetch between callers', async () => {
+	it('reuses a result until it is an hour old', async () => {
 		vi.useFakeTimers();
 		const load = vi.fn(async () => load.mock.calls.length);
 		const get = cached({ key: 'a', maxAgeMs: 60 * 60 * 1000, load });
 
-		expect(await Promise.all([get(), get()])).toEqual([1, 1]);
+		expect(await get()).toBe(1);
 		expect(await get()).toBe(1);
 		expect(load).toHaveBeenCalledTimes(1);
 
 		vi.advanceTimersByTime(60 * 60 * 1000 + 1);
 		expect(await get()).toBe(2);
 		expect(load).toHaveBeenCalledTimes(2);
+	});
+
+	it('does not wait on a fetch another caller started, which may never finish', async () => {
+		let calls = 0;
+		const get = cached({
+			key: 'stuck',
+			maxAgeMs: 1000,
+			load: () => (++calls === 1 ? new Promise<string>(() => {}) : Promise.resolve('good'))
+		});
+
+		void get();
+		expect(await get()).toBe('good');
 	});
 
 	it('serves the last good result when a fresh fetch fails, such as when rate-limited', async () => {
