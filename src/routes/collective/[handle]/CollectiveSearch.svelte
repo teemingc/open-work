@@ -81,7 +81,11 @@
 {/snippet}
 
 <div class={['relative', field ? 'w-full' : 'w-full sm:w-64']} onfocusout={leave}>
-	<Command.Root shouldFilter={false} class="h-auto overflow-visible bg-transparent">
+	<Command.Root
+		shouldFilter={false}
+		label="Search Open Collective"
+		class="h-auto overflow-visible bg-transparent"
+	>
 		<label
 			class={[
 				'flex items-center rounded-md border bg-card shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50',
@@ -89,7 +93,6 @@
 			]}
 		>
 			<Search class={['shrink-0 text-muted-foreground', field ? 'size-4.5' : 'size-4']} />
-			<span class="sr-only">Search Open Collective</span>
 			<!-- 16px text at least on phones: iOS Safari zooms in on focusing anything smaller. -->
 			<CommandPrimitive.Input
 				bind:ref={input}
@@ -117,7 +120,7 @@
 			<!-- Focusable, so clicking an item keeps focus inside the search instead of closing it first. -->
 			<div
 				tabindex="-1"
-				class="absolute top-full left-0 z-50 mt-1 w-full min-w-72 rounded-md border bg-popover text-popover-foreground shadow-md outline-none"
+				class="absolute top-full left-0 z-50 mt-1 w-full rounded-md border bg-popover text-popover-foreground shadow-md outline-none"
 			>
 				<Command.List class="p-1">
 					{#if searched.length < 2}

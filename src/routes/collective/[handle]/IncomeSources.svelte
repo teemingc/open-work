@@ -168,10 +168,13 @@
 		<Card.Content>
 			<ol class="flex flex-col gap-4 text-sm">
 				{#each backers as backer, index (backer.slug)}
-					<li class="flex gap-3">
-						<!-- The share leads each row, so the column of figures reads as the breakdown. -->
+					<li class="flex items-start gap-3">
+						<!--
+							The share leads each row, so the column of figures reads as the breakdown. Nudged
+							down so the tops of its figures line up with the tops of the name's letters.
+						-->
 						<span
-							class="w-13 shrink-0 text-right font-display text-xl leading-none font-medium text-(--heading) tabular-nums"
+							class="mt-0.5 w-13 shrink-0 text-right font-display text-xl leading-none font-medium text-(--heading) tabular-nums"
 						>
 							{shareLabel(backer.amount)}
 						</span>
@@ -225,9 +228,12 @@
 									style:width="{offsets[index]}%"
 								></div>
 								{#if backer.tiers?.length}
-									<!-- The others, split by how much each gave, biggest givers first. -->
+									<!--
+										The others, split by how much each gave, biggest givers first. Rounded at its
+										ends like a single backer's bar, with straight joins between the tiers.
+									-->
 									<div
-										class="absolute inset-y-0 flex gap-px"
+										class="absolute inset-y-0 flex gap-px overflow-hidden rounded-full"
 										style:left="{offsets[index]}%"
 										style:width="{share(backer.amount)}%"
 									>
