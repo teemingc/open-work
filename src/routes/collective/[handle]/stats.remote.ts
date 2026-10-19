@@ -1,7 +1,7 @@
 import { query } from '$app/server';
 import { error, isHttpError } from '@sveltejs/kit';
 import * as v from 'valibot';
-import { cached, type Cached } from '#lib/server/cache.js';
+import { cached, kvStore, type Cached } from '#lib/server/cache.js';
 import { graphql, publicGraphql, toHttpError } from '#lib/server/opencollective.js';
 import { getToken } from '#lib/server/session.js';
 import {
@@ -45,18 +45,26 @@ const askPublicly: Ask = <R>(request: Parameters<Ask>[0]) => publicGraphql<R>(re
 function perKey<T>({
 	cacheKey,
 	maxAgeMs,
+	store,
 	load
 }: {
 	cacheKey: (key: string) => string;
 	maxAgeMs: number;
-	load: (key: string, ask: Ask) => Promise<T>;
+	store?: 'kv' | 'edge';
+	/** Given the stored result when refreshing it, to fetch only what changed. */
+	load: (key: string, ask: Ask, previous?: T) => Promise<T>;
 }) {
 	const loaders = new Map<string, Cached<T>>();
 	const loader = (key: string) => {
 		let cachedLoad = loaders.get(key);
 		if (!cachedLoad) {
 			if (loaders.size >= MAX_CACHED) loaders.delete(loaders.keys().next().value!);
-			cachedLoad = cached({ key: cacheKey(key), maxAgeMs, load: () => load(key, askPublicly) });
+			cachedLoad = cached({
+				key: cacheKey(key),
+				maxAgeMs,
+				store,
+				load: (previous) => load(key, askPublicly, previous)
+			});
 			loaders.set(key, cachedLoad);
 		}
 		return cachedLoad;
@@ -83,7 +91,7 @@ function perKey<T>({
 	);
 }
 
-/** Open Collective rate-limits public requests, so each result is reused for an hour. */
+/** Open Collective rate-limits public requests, so each result is refreshed at most hourly. */
 const CACHE_MS = 60 * 60 * 1000;
 
 const PAGE_SIZE = 1000;
@@ -275,16 +283,19 @@ const loadStats = perKey({
 export const getCollectiveStats = query(Slug, (slug) => loadStats(slug));
 
 const CONTRIBUTIONS_QUERY = /* GraphQL */ `
-	query Contributions($slug: String!, $limit: Int!, $offset: Int!) {
+	query Contributions($slug: String!, $from: DateTime, $limit: Int!, $offset: Int!) {
 		transactions(
 			account: [{ slug: $slug }]
 			type: CREDIT
 			kind: [CONTRIBUTION, ADDED_FUNDS, BALANCE_TRANSFER]
+			dateFrom: $from
+			orderBy: { field: CREATED_AT, direction: DESC }
 			limit: $limit
 			offset: $offset
 		) {
 			totalCount
 			nodes {
+				id
 				createdAt
 				netAmount {
 					value
@@ -311,29 +322,91 @@ const TOP_BACKERS = 7;
 /** Accounts that collect from many people and pay it on as one, like GitHub Sponsors. */
 const CHANNELS = new Set(['github-sponsors']);
 
+/** Contributions recorded late, such as added funds, are caught by refetching the last week. */
+const OVERLAP_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** How far a first fetch got, so one cut short by a rate limit carries on where it stopped. */
+interface Progress {
+	nodes: ContributionNode[];
+	nextOffset: number;
+	total: number;
+}
+
+/** `nodes` with `more` added, one of each contribution, newest first. */
+function mergeContributions(nodes: ContributionNode[], more: ContributionNode[]) {
+	const byId = new Map(nodes.map((node) => [node.id, node]));
+	for (const node of more) byId.set(node.id, node);
+	return [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
 /**
- * Every contribution the collective has received. Cached as fetched, under a key that only
- * changes if the query does, so changing how backers are ranked never costs a refetch.
+ * Every contribution since `from`, newest first, a few pages at a time. Each batch is passed to
+ * `saved` as it arrives. New contributions only push older ones to later pages, so a page fetched
+ * again repeats some, which are dropped, but never skips any.
+ */
+async function fetchContributions({
+	slug,
+	ask,
+	from,
+	start,
+	saved
+}: {
+	slug: string;
+	ask: Ask;
+	from?: string;
+	start?: Progress;
+	saved?: (progress: Progress) => Promise<void>;
+}): Promise<ContributionNode[]> {
+	let { nodes, nextOffset, total } = start ?? { nodes: [], nextOffset: 0, total: Infinity };
+	while (nextOffset < total) {
+		const offsets = [nextOffset];
+		// The first page says how many there are; until then, ask for no more than it.
+		while (offsets.length < 3 && total !== Infinity && offsets.at(-1)! + PAGE_SIZE < total) {
+			offsets.push(offsets.at(-1)! + PAGE_SIZE);
+		}
+		const pages = await Promise.all(
+			offsets.map((offset) =>
+				ask<ContributionsResult>({
+					query: CONTRIBUTIONS_QUERY,
+					variables: { slug, from, limit: PAGE_SIZE, offset }
+				})
+			)
+		);
+		total = pages[0].transactions.totalCount;
+		nodes = mergeContributions(
+			nodes,
+			pages.flatMap((page) => page.transactions.nodes)
+		);
+		nextOffset = offsets.at(-1)! + PAGE_SIZE;
+		await saved?.({ nodes, nextOffset, total });
+	}
+	return nodes;
+}
+
+/**
+ * Every contribution the collective has received. Kept for good under a key that only changes if
+ * the query does, so changing how backers are ranked never costs a refetch. Once stored, a refresh
+ * asks only for the contributions since the newest one, which is a single request.
  */
 const loadContributions = perKey({
-	cacheKey: (slug) => `contributions:v3:${slug}`,
+	cacheKey: (slug) => `contributions:v4:${slug}`,
 	maxAgeMs: CACHE_MS,
-	load: async (slug, ask): Promise<ContributionNode[]> => {
-		const page = (offset: number) =>
-			ask<ContributionsResult>({
-				query: CONTRIBUTIONS_QUERY,
-				variables: { slug, limit: PAGE_SIZE, offset }
-			});
-
+	load: async (slug, ask, previous): Promise<ContributionNode[]> => {
 		try {
-			const first = await page(0);
-			return [
-				...first.transactions.nodes,
-				...(await remainingPages({
-					total: first.transactions.totalCount,
-					fetchPage: async (offset) => (await page(offset)).transactions.nodes
-				}))
-			];
+			if (previous) {
+				const newest = previous[0]?.createdAt;
+				const from = newest && new Date(Date.parse(newest) - OVERLAP_MS).toISOString();
+				return mergeContributions(previous, await fetchContributions({ slug, ask, from }));
+			}
+			// Only what was fetched the shared way is saved, as a visitor's token may see more.
+			if (ask !== askPublicly) return await fetchContributions({ slug, ask });
+			const progress = kvStore<Progress>(`contributions-progress:v4:${slug}`);
+			return await fetchContributions({
+				slug,
+				ask,
+				start: (await progress.read())?.value,
+				saved: (value) => progress.write({ at: Date.now(), value })
+			});
 		} catch (err) {
 			toHttpError(err);
 		}
@@ -436,6 +509,8 @@ const SEARCH_CACHE_MS = 24 * 60 * 60 * 1000;
 const searches = perKey({
 	cacheKey: (term) => `search:v2:${term}`,
 	maxAgeMs: SEARCH_CACHE_MS,
+	// One per term typed is too many writes for KV, and a search is one request to redo.
+	store: 'edge',
 	load: async (term, ask): Promise<CollectiveMatch[]> => {
 		let result: SearchResult;
 		try {

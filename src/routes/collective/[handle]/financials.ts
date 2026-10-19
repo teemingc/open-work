@@ -44,6 +44,7 @@ export interface Payout extends AccountMonth {
 
 /** A contribution to the collective, as Open Collective's transactions report it. */
 export interface ContributionNode {
+	id: string;
 	createdAt: string;
 	/** After host and payment processor fees. */
 	netAmount: { value: number };
