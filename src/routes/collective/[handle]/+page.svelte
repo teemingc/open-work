@@ -31,12 +31,17 @@
 		Your account is awaited with the stats (Svelte runs them in parallel), so the page appears
 		complete. Arriving later, it would add the "Paid to you" card and reshape the charts after the
 		page was already on screen. So are the contributions, when the server already has them.
+
+		A new dashboard for each collective. Reused, the last collective's contributions stayed mounted
+		while this one's loaded, read as missing, and the error stopped every navigation after it.
 	-->
-	<Dashboard
-		data={await getCollectiveStats(slug)}
-		me={(await getMe())?.slug}
-		income={await getCachedIncomeSources(slug)}
-	/>
+	{#key slug}
+		<Dashboard
+			data={await getCollectiveStats(slug)}
+			me={(await getMe())?.slug}
+			income={await getCachedIncomeSources(slug)}
+		/>
+	{/key}
 {:else}
 	<!-- One narrow column: the search, then a short list that reads as its first results. -->
 	<div class="mx-auto flex max-w-md flex-col gap-6 pt-10 sm:pt-16">

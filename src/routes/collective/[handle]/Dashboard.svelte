@@ -66,6 +66,8 @@
 
 	let range = $state<Range>('2y');
 	let basis = $state('6');
+	/** How many years ahead to forecast. Averages drift, so far-off years say little. */
+	let horizon = $state('2');
 
 	const now = $derived(new Date(data.fetchedAt));
 	/** The name split before its last word, which keeps the link icon beside it. */
@@ -87,7 +89,13 @@
 	const available = $derived(balance - committed);
 
 	const result = $derived(
-		forecast({ months: data.months, basis: Number(basis) || 6, now, start: available })
+		forecast({
+			months: data.months,
+			basis: Number(basis) || 6,
+			now,
+			start: available,
+			horizon: (Number(horizon) || 2) * 12
+		})
 	);
 	const shown = $derived(data.months.slice(-Math.min(RANGES[range] ?? 24, data.months.length)));
 	const shownKeys = $derived(shown.map((m) => m.key));
@@ -155,20 +163,15 @@
 
 	const paidToMe = $derived(paidTo({ payouts: data.payouts, slug: me, months: data.months }));
 
-	// Expenses are negative so they hang below income on the same axis.
 	const monthly = $derived(
-		shown.map((m) => {
-			const mine = paidToMe.get(m.key) ?? 0;
-			return {
-				month: m.key,
-				income: Math.round(m.income),
-				expenses: -Math.round(m.expenses),
-				you: -Math.round(mine),
-				others: -Math.round(m.expenses - mine),
-				gained: m.net >= 0 ? Math.round(m.net) : null,
-				lost: m.net < 0 ? Math.round(m.net) : null
-			};
-		})
+		shown.map((m) => ({
+			month: m.key,
+			income: Math.round(m.income),
+			expenses: Math.round(m.expenses),
+			you: Math.round(paidToMe.get(m.key) ?? 0),
+			gained: m.net >= 0 ? Math.round(m.net) : null,
+			lost: m.net < 0 ? Math.round(m.net) : null
+		}))
 	);
 
 	const totals = $derived.by(() => {
@@ -221,16 +224,20 @@
 	let balanceChart = $state<ChartState>();
 	/** The annotation labels' size and weight, for measuring them. */
 	const ANNOTATION_STYLE = { fontSize: '12px', fontWeight: '500' } as CSSStyleDeclaration;
-	const runsOutLabel = $derived(
-		result.zeroDate ? `Runs out ${monthYear.format(result.zeroDate)}` : ''
+	/** When the money runs out within the years forecast, as the projection then ends there. */
+	const runsOutDate = $derived(
+		result.zeroDate && result.points.at(-1)?.date.getTime() === result.zeroDate.getTime()
+			? result.zeroDate
+			: null
 	);
+	const runsOutLabel = $derived(runsOutDate ? `Runs out ${monthYear.format(runsOutDate)}` : '');
 	/**
 	 * Whether "Forecast", starting just right of today, would run into "Runs out", which ends just
 	 * left of the date the money runs out. They share a row when there is room, else it drops below.
 	 */
 	const runsOutCollides = $derived.by(() => {
-		if (!balanceChart || !result.zeroDate) return false;
-		const room = balanceChart.xScale(result.zeroDate) - balanceChart.xScale(now);
+		if (!balanceChart || !runsOutDate) return false;
+		const room = balanceChart.xScale(runsOutDate) - balanceChart.xScale(now);
 		const needed =
 			8 +
 			(getStringWidth('Forecast', ANNOTATION_STYLE) ?? 0) +
@@ -245,16 +252,43 @@
 		forecast: { label: 'Forecast', color: 'var(--color-chart-balance)' }
 	} satisfies ChartConfig;
 
-	const flowConfig = {
+	const flowConfig = $derived({
 		income: { label: 'Income', color: 'var(--color-chart-income)' },
-		expenses: { label: 'Expenses', color: 'var(--color-chart-expenses)' },
-		you: { label: 'Paid to you', color: 'var(--color-chart-expenses)' },
-		others: { label: 'Paid to others', color: 'var(--color-chart-expenses-muted)' }
-	} satisfies ChartConfig;
+		// When "Paid to you" sits on top of it, what shows of expenses is what went to others.
+		expenses: {
+			label: 'Expenses',
+			color: me ? 'var(--color-chart-expenses-muted)' : 'var(--color-chart-expenses)'
+		},
+		you: { label: 'Paid to you', color: 'var(--color-chart-expenses)' }
+	} satisfies ChartConfig);
 
+	const flowPadding = chartPadding({ legend: true });
+	/** The income chart's width, for sizing its bars. */
+	let flowWidth = $state(0);
+	/**
+	 * Expenses sit inside the income bar, a fifth of a month's width in from each side. Worked out
+	 * from the width rather than the chart's own scale, which depends on these series.
+	 */
+	const flowInset = $derived(
+		scaleBand()
+			.domain(shownKeys)
+			.range([0, Math.max(0, flowWidth - flowPadding.left - flowPadding.right)])
+			.padding(0.2)
+			.bandwidth() / 5
+	);
+
+	/**
+	 * Overlapped rather than stacked, so each month's income and expenses start from zero and compare
+	 * by height. Paid to you, a part of expenses, overlaps them in turn, so it reads as their base.
+	 */
 	const flowSeries = $derived(
-		(me ? (['income', 'you', 'others'] as const) : (['income', 'expenses'] as const)).map(
-			(key) => ({ key, label: flowConfig[key].label, color: flowConfig[key].color })
+		(me ? (['income', 'expenses', 'you'] as const) : (['income', 'expenses'] as const)).map(
+			(key) => ({
+				key,
+				label: flowConfig[key].label,
+				color: flowConfig[key].color,
+				props: key === 'income' ? undefined : { insets: { x: flowInset } }
+			})
 		)
 	);
 
@@ -526,6 +560,20 @@
 						<ToggleGroup.Item value="12">12 months</ToggleGroup.Item>
 					</ToggleGroup.Root>
 				</div>
+				<div class="contents md:flex md:items-center md:gap-3">
+					<span id="horizon-label" class="text-muted-foreground">Forecast</span>
+					<ToggleGroup.Root
+						type="single"
+						variant="outline"
+						size="sm"
+						aria-labelledby="horizon-label"
+						bind:value={() => horizon, (value) => value && (horizon = value)}
+					>
+						<ToggleGroup.Item value="1">1 year</ToggleGroup.Item>
+						<ToggleGroup.Item value="2">2 years</ToggleGroup.Item>
+						<ToggleGroup.Item value="5">5 years</ToggleGroup.Item>
+					</ToggleGroup.Root>
+				</div>
 			</div>
 
 			<Card.Root>
@@ -600,11 +648,11 @@
 												line: { class: 'stroke-muted-foreground/60!', dashArray: [2, 3] }
 											}
 										},
-										...(result.zeroDate
+										...(runsOutDate
 											? [
 													{
 														type: 'line' as const,
-														x: result.zeroDate,
+														x: runsOutDate,
 														label: runsOutLabel,
 														labelPlacement: 'top-left' as const,
 														labelXOffset: 6,
@@ -616,7 +664,7 @@
 													},
 													{
 														type: 'point' as const,
-														x: result.zeroDate,
+														x: runsOutDate,
 														y: 0,
 														r: 4,
 														props: { circle: { class: 'fill-destructive stroke-card' } }
@@ -700,36 +748,38 @@
 				<Card.Content>
 					<LazyChart class="mb-3 h-64">
 						{#snippet children({ BarChart, Chart })}
-							<Chart.Container config={flowConfig} class="aspect-auto h-64 w-full cursor-pointer">
-								<BarChart
-									padding={chartPadding({ legend: true })}
-									data={monthly}
-									x="month"
-									xScale={scaleBand().padding(0.2)}
-									seriesLayout="stackDiverging"
-									onTooltipClick={openMonth}
-									legend
-									series={flowSeries}
-									props={{
-										bars: { radius: 2, strokeWidth: 0 },
-										xAxis: {
-											tickLength: TICK_LENGTH,
-											tickOcclusion: X_TICK_OCCLUSION,
-											ticks,
-											format: bandTickLabel
-										},
-										yAxis: {
-											tickLength: TICK_LENGTH,
-											tickLabelProps: Y_TICK_LABEL,
-											format: (v: number) => compact.format(Math.abs(v))
-										}
-									}}
-								>
-									{#snippet tooltip()}
-										<Chart.Tooltip labelFormatter={labelMonth} formatter={moneyRow} />
-									{/snippet}
-								</BarChart>
-							</Chart.Container>
+							<div bind:clientWidth={flowWidth}>
+								<Chart.Container config={flowConfig} class="aspect-auto h-64 w-full cursor-pointer">
+									<BarChart
+										padding={flowPadding}
+										data={monthly}
+										x="month"
+										xScale={scaleBand().padding(0.2)}
+										seriesLayout="overlap"
+										onTooltipClick={openMonth}
+										legend
+										series={flowSeries}
+										props={{
+											bars: { radius: 2, strokeWidth: 0 },
+											xAxis: {
+												tickLength: TICK_LENGTH,
+												tickOcclusion: X_TICK_OCCLUSION,
+												ticks,
+												format: bandTickLabel
+											},
+											yAxis: {
+												tickLength: TICK_LENGTH,
+												tickLabelProps: Y_TICK_LABEL,
+												format: (v: number) => compact.format(v)
+											}
+										}}
+									>
+										{#snippet tooltip()}
+											<Chart.Tooltip labelFormatter={labelMonth} formatter={moneyRow} />
+										{/snippet}
+									</BarChart>
+								</Chart.Container>
+							</div>
 						{/snippet}
 					</LazyChart>
 				</Card.Content>
