@@ -107,7 +107,7 @@
 
 	/**
 	 * The ranges that show something different. Any as long as the history shows the same months as
-	 * all time, so a new collective has fewer to pick from.
+	 * all time, so a new collective has the rest disabled.
 	 */
 	const ranges = $derived(
 		(Object.keys(RANGES) as Range[]).filter(
@@ -511,17 +511,25 @@
 				never left alone on a line. Sized and spaced in ems to keep its look as the heading scales,
 				and lowered a little, since its drawing leaves a margin inside its box.
 			-->
-			<h1
-				class="min-w-0 leading-tight text-balance decoration-1 underline-offset-6 group-hover:underline"
-			>
-				{nameStart}<span class="whitespace-nowrap"
-					>{nameEnd}<ExternalLink
-						class="ml-[0.3em] inline-block size-[0.6em] align-[-0.05em] text-muted-foreground group-hover:text-foreground"
-						aria-hidden="true"
-					/></span
+			<div class="flex min-w-0 flex-col gap-1">
+				<h1
+					class="leading-tight text-balance decoration-1 underline-offset-6 group-hover:underline"
 				>
-			</h1>
-			<span class="sr-only">on Open Collective (opens in a new tab)</span>
+					{nameStart}<span class="whitespace-nowrap"
+						>{nameEnd}<ExternalLink
+							class="ml-[0.3em] inline-block size-[0.6em] align-[-0.05em] text-muted-foreground group-hover:text-foreground"
+							aria-hidden="true"
+						/></span
+					>
+				</h1>
+				<span class="sr-only">on Open Collective (opens in a new tab)</span>
+				{#if data.months[0]}
+					<!-- The first month money came in or went out, which is where all time starts. -->
+					<span class="text-sm text-muted-foreground">
+						Since {monthLabel({ key: data.months[0].key })}
+					</span>
+				{/if}
+			</div>
 		</a>
 		<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		<!--
@@ -600,28 +608,26 @@
 			<div
 				class="grid w-fit grid-cols-[auto_auto] items-center gap-x-3 gap-y-3 text-sm md:flex md:gap-x-8"
 			>
-				{#if ranges.length > 1}
-					<div class="contents md:flex md:items-center md:gap-3">
-						<span id="range-label" class="text-muted-foreground">Range</span>
-						<ToggleGroup.Root
-							type="single"
-							variant="outline"
-							size="sm"
-							aria-labelledby="range-label"
-							bind:value={
-								() => range, (value) => value && setParam({ name: 'show', value, fallback: '2y' })
-							}
-						>
-							{#if ranges.includes('1y')}
-								<ToggleGroup.Item value="1y">12 months</ToggleGroup.Item>
-							{/if}
-							{#if ranges.includes('2y')}
-								<ToggleGroup.Item value="2y">2 years</ToggleGroup.Item>
-							{/if}
-							<ToggleGroup.Item value="all">All time</ToggleGroup.Item>
-						</ToggleGroup.Root>
-					</div>
-				{/if}
+				<div class="contents md:flex md:items-center md:gap-3">
+					<span id="range-label" class="text-muted-foreground">Range</span>
+					<ToggleGroup.Root
+						type="single"
+						variant="outline"
+						size="sm"
+						aria-labelledby="range-label"
+						bind:value={
+							() => range, (value) => value && setParam({ name: 'show', value, fallback: '2y' })
+						}
+					>
+						<ToggleGroup.Item value="1y" disabled={!ranges.includes('1y')}>
+							12 months
+						</ToggleGroup.Item>
+						<ToggleGroup.Item value="2y" disabled={!ranges.includes('2y')}>
+							2 years
+						</ToggleGroup.Item>
+						<ToggleGroup.Item value="all">All time</ToggleGroup.Item>
+					</ToggleGroup.Root>
+				</div>
 				<div class="contents md:flex md:items-center md:gap-3">
 					<span id="basis-label" class="text-muted-foreground">Average of last</span>
 					<ToggleGroup.Root
