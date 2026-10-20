@@ -22,7 +22,7 @@
 
 	let left = $state(0);
 
-	/** Count down the wait Open Collective asked for, a second at a time. */
+	/** Count down the wait Open Collective asked for, a second at a time. Restarts with each new error. */
 	function countdown() {
 		// Read the wait into a local: reading `left` here would make each tick re-run this and restart the count.
 		const wait = details.retryAfter ?? 0;
@@ -47,37 +47,35 @@
 	}
 </script>
 
-{#key error}
-	<!-- Block layout, so the text and buttons line up with whatever surrounds them: centred on the error page, left in an alert. -->
-	<div {@attach countdown}>
-		<div class="space-y-2">
-			<p>
-				{details.message}
-				{#if left > 0}
-					Try again in <span class="tabular-nums">{left}</span>
-					{left === 1 ? 'second' : 'seconds'}.
-				{/if}
-			</p>
-			{#if details.connect}
-				<p>Connect your Open Collective account in settings to get a higher limit.</p>
+<!-- Block layout, so the text and buttons line up with whatever surrounds them: centred on the error page, left in an alert. -->
+<div {@attach countdown}>
+	<div class="space-y-2">
+		<p>
+			{details.message}
+			{#if left > 0}
+				Try again in <span class="tabular-nums">{left}</span>
+				{left === 1 ? 'second' : 'seconds'}.
 			{/if}
-		</div>
-		<!-- The buttons grow only once they wrap, so stacked they make two even rows rather than a ragged pair. -->
-		<div class="mt-4 inline-flex flex-wrap gap-2">
-			{#if details.connect}
-				<Button href="{resolve('/settings')}#oc-connection" size="sm" class="grow">
-					<LogIn /> Connect Open Collective
-				</Button>
-			{/if}
-			<Button
-				variant="outline"
-				size="sm"
-				class="grow"
-				disabled={left > 0 || retrying}
-				onclick={retry}
-			>
-				{#if retrying}<Spinner /> Trying again{:else}<RotateCcw /> Try again{/if}
-			</Button>
-		</div>
+		</p>
+		{#if details.connect}
+			<p>Connect your Open Collective account in settings to get a higher limit.</p>
+		{/if}
 	</div>
-{/key}
+	<!-- The buttons grow only once they wrap, so stacked they make two even rows rather than a ragged pair. -->
+	<div class="mt-4 inline-flex flex-wrap gap-2">
+		{#if details.connect}
+			<Button href="{resolve('/settings')}#oc-connection" size="sm" class="grow">
+				<LogIn /> Connect Open Collective
+			</Button>
+		{/if}
+		<Button
+			variant="outline"
+			size="sm"
+			class="grow"
+			disabled={left > 0 || retrying}
+			onclick={retry}
+		>
+			{#if retrying}<Spinner /> Trying again{:else}<RotateCcw /> Try again{/if}
+		</Button>
+	</div>
+</div>
