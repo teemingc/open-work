@@ -1,17 +1,20 @@
 /**
  * The picture shown when a page is shared: `/og` followed by the page's path, like
- * `/og/collective/svelte`. A collective's shows when it runs out of money; every other page shows its
- * title and what it is for.
+ * `/og/collective/svelte`. A collective's says in a sentence how long it is funded for; every other
+ * page shows its title and what it is for.
  */
 import { read } from '$app/server';
-import { render } from 'svelte/server';
-import { Hourglass, TrendingDown, TrendingUp, type LucideIcon } from '@lucide/svelte';
 import { waitUntil } from 'cloudflare:workers';
 import { Resvg } from '@cf-wasm/resvg';
 import { satori, type Font, type VNode } from '@cf-wasm/satori';
 import { formatMoney } from '#lib/format.js';
-import { publicGraphql } from '#lib/server/opencollective.js';
-import { forecast, monthsBetween } from '../../collective/[handle]/financials';
+import {
+	forecast,
+	forecastDates,
+	monthEnd,
+	monthsBetween,
+	type Forecast
+} from '../../collective/[handle]/financials';
 import { getCollectiveStats, type CollectiveStats } from '../../collective/[handle]/stats.remote';
 import logoSvg from '#lib/assets/favicon.svg?raw';
 import type { RequestHandler } from './$types';
@@ -28,10 +31,9 @@ const HEIGHT = 630;
 /** Open Collective's colours, as in layout.css. */
 const NAVY = '#0c2764';
 const SLATE = '#475569';
-const MUTED = '#64748b';
 const BORDER = '#e2e8f0';
-const PAGE = '#f8fafc';
-/** The dashboard's colours for money running down and for growth. */
+const MUTED = '#5d6b80';
+/** The dashboard's colours for a balance lower and higher than a year before. */
 const DESTRUCTIVE = '#c42a4f';
 const PAID = '#0a7b4d';
 
@@ -79,20 +81,6 @@ const PAGES: Record<string, { title: string; description: string }> = {
 		description: 'What Open Work stores about you, where it lives and who sees it.'
 	}
 };
-
-const COLLECTIVE_QUERY = /* GraphQL */ `
-	query OgCollective($slug: String!) {
-		account(slug: $slug) {
-			description
-		}
-	}
-`;
-
-interface CollectiveResult {
-	account: {
-		description: string | null;
-	} | null;
-}
 
 /** A satori element. Every `div` with more than one child needs `display: flex`. */
 function h(
@@ -154,117 +142,54 @@ function wordmark(size: number): VNode {
 }
 
 /**
- * The white sheet on the page's background, with the address along the bottom, and the wordmark
- * beside it unless the body already shows it.
+ * The whole picture, edge to edge, so it fills the preview in a chat. Who it is about sits at the
+ * top and what it says at the bottom. Chats print the page's title and address under the picture,
+ * so neither is repeated here.
  */
-function card(body: VNode[], { signed = true } = {}): VNode {
+function canvas({ top, bottom }: { top: VNode; bottom: VNode[] }): VNode {
 	return h(
 		'div',
 		{
 			style: {
 				display: 'flex',
+				flexDirection: 'column',
+				justifyContent: 'space-between',
 				width: '100%',
 				height: '100%',
-				padding: 40,
-				backgroundColor: PAGE,
+				padding: '72px 80px',
+				backgroundColor: 'white',
 				fontFamily: 'Source Serif 4'
 			}
 		},
-		h(
-			'div',
-			{
-				style: {
-					display: 'flex',
-					flexDirection: 'column',
-					flex: 1,
-					overflow: 'hidden',
-					backgroundColor: 'white',
-					border: `1px solid ${BORDER}`,
-					borderRadius: 6
-				}
-			},
-			[
-				h('div', { style: { height: 12, backgroundColor: NAVY } }),
-				h(
-					'div',
-					{
-						style: {
-							display: 'flex',
-							flexDirection: 'column',
-							flex: 1,
-							padding: '44px 72px 40px'
-						}
-					},
-					[
-						h('div', { style: { display: 'flex', flexDirection: 'column', flex: 1 } }, body),
-						// A single rule, so the only double one is under a collective's balance.
-						h('div', { style: { borderTop: `1.5px solid ${BORDER}` } }),
-						h(
-							'div',
-							{
-								style: {
-									display: 'flex',
-									justifyContent: signed ? 'space-between' : 'flex-end',
-									alignItems: 'center',
-									paddingTop: 24
-								}
-							},
-							[
-								...(signed ? [wordmark(36)] : []),
-								h('div', { style: { fontSize: 28, color: MUTED } }, 'openwork.ing')
-							]
-						)
-					]
-				)
-			]
-		)
+		[top, h('div', { style: { display: 'flex', flexDirection: 'column' } }, bottom)]
 	);
 }
 
+/** Text is at least this size, so it can still be read when a chat shows the picture a quarter as wide. */
+const TEXT = 44;
+
 function title(text: string): VNode {
-	return h(
-		'div',
-		{
-			style: {
-				fontFamily: 'Besley',
-				fontSize: 76,
-				fontWeight: 700,
-				lineHeight: 1.1,
-				color: NAVY,
-				lineClamp: 2
-			}
-		},
-		text
+	return clamped(
+		text,
+		{ fontFamily: 'Besley', fontSize: 96, fontWeight: 700, lineHeight: 1.1, color: NAVY },
+		2
 	);
 }
 
 function description(text: string): VNode {
-	return h(
-		'div',
-		{
-			style: {
-				// Satori clamps only a block that hides its overflow.
-				display: 'block',
-				overflow: 'hidden',
-				flexShrink: 0,
-				marginTop: 24,
-				fontSize: 36,
-				lineHeight: 1.35,
-				color: SLATE,
-				lineClamp: 3
-			}
-		},
-		text
-	);
+	return clamped(text, { marginTop: 20, fontSize: TEXT, lineHeight: 1.3, color: SLATE }, 2);
 }
 
 function pageCard(page: { title: string; description: string }): VNode {
-	return card([title(page.title), description(page.description)]);
+	return canvas({ top: wordmark(44), bottom: [title(page.title), description(page.description)] });
 }
 
-/** The home page's title is the name, so the wordmark takes its place rather than repeating. */
+/** The home page's title is the name, so the wordmark takes its place. */
 function homeCard(): VNode {
-	return card([wordmark(76), description(PAGES[''].description)], { signed: false });
+	return canvas({
+		top: h('div', {}),
+		bottom: [wordmark(96), description(PAGES[''].description)]
+	});
 }
 
 /** How far the forecast looks back, as on the dashboard by default. */
@@ -276,184 +201,256 @@ const MONTH_YEAR = new Intl.DateTimeFormat('en', {
 	timeZone: 'UTC'
 });
 
-/** What the right-hand column says: a label, the figure, and where the figure comes from. */
+/** A sentence about the collective, in three parts around the figure, which is set heavier. */
 interface Outlook {
-	label: string;
+	before: string;
 	figure: string;
-	note: string;
-	/** The dashboard's icon for the trend, tinted red while the money runs down and green while it grows. */
-	trend?: { icon: LucideIcon; color: string };
+	after: string;
 }
 
-/** How long the collective is funded for, as the dashboard forecasts it, or how it is doing if it is not running down. */
-function outlook(stats: CollectiveStats): Outlook {
+/** Where the balance is heading from the money available now, as the dashboard forecasts it. */
+interface Projection {
+	now: Date;
+	available: number;
+	result: Forecast;
+}
+
+function project(stats: CollectiveStats): Projection {
 	const now = new Date(stats.fetchedAt);
-	const money = (amount: number) =>
-		formatMoney(Math.round(amount), stats.currency).replace(/\.00$/, '');
 	const balance = stats.months.at(-1)?.balance ?? 0;
 	// Approved expenses will be paid soon, so they are taken out first, as on the dashboard.
 	const committed = stats.unpaid.filter((e) => e.approved).reduce((sum, e) => sum + e.amount, 0);
 	const available = balance - committed;
-	const result = forecast({ months: stats.months, basis: BASIS, now, start: available });
+	return {
+		now,
+		available,
+		result: forecast({ months: stats.months, basis: BASIS, now, start: available })
+	};
+}
+
+/** How long the collective is funded for, or how it is doing if it is not running down. */
+function outlook(stats: CollectiveStats, { now, available, result }: Projection): Outlook {
+	const money = (amount: number) =>
+		formatMoney(Math.round(amount), stats.currency).replace(/\.00$/, '');
 
 	if (result.zeroDate) {
 		const months = monthsBetween(now, result.zeroDate);
 		const years = Math.floor(months / 12);
 		return {
-			label: 'Funded for',
+			before: 'is funded for',
 			figure:
 				months < 1
 					? 'under a month'
 					: months < 24
 						? `${months} month${months === 1 ? '' : 's'}`
 						: `${years} years`,
-			note: `until around ${MONTH_YEAR.format(result.zeroDate)}`,
-			trend: { icon: Hourglass, color: DESTRUCTIVE }
+			after: `, until around ${MONTH_YEAR.format(result.zeroDate).replace(' ', '\u00a0')}.`
 		};
 	}
 	if (result.basis === 0 || result.avgNet === 0) {
-		return {
-			label: 'Available',
-			figure: money(available),
-			note: 'on Open Collective'
-		};
+		return { before: 'has', figure: money(available), after: ' available.' };
 	}
 	if (result.avgNet < 0) {
-		return {
-			label: 'Available',
-			figure: money(available),
-			note: 'and shrinking',
-			trend: { icon: TrendingDown, color: DESTRUCTIVE }
-		};
+		return { before: 'has', figure: money(available), after: ' available, and it is shrinking.' };
 	}
 	return {
-		label: 'Growing by',
+		before: 'is growing by',
 		figure: money(result.avgNet),
-		note: 'a month on average',
-		trend: { icon: TrendingUp, color: PAID }
+		after: ' a\u00a0month on\u00a0average.'
 	};
 }
 
 async function collectiveCard(slug: string): Promise<VNode | undefined> {
-	const [stats, about, image] = await Promise.all([
+	const [stats, image] = await Promise.all([
 		getCollectiveStats(slug).catch(() => undefined),
-		publicGraphql<CollectiveResult>({ query: COLLECTIVE_QUERY, variables: { slug } }).catch(
-			() => undefined
-		),
 		logo(slug)
 	]);
 	if (!stats) return undefined;
-	const { label, figure, note, trend } = outlook(stats);
-	// The collective's own words, as written.
-	const tagline = about?.account?.description;
+	const projection = project(stats);
+	const { before, figure, after } = outlook(stats, projection);
 
-	return card([
-		h(
-			'div',
-			{
-				style: {
-					display: 'flex',
-					flexDirection: 'column',
-					marginTop: 'auto',
-					marginBottom: 'auto'
-				}
-			},
-			[
-				// The padding evens out the gaps between the ink, about 28px each. Besley's tall
-				// ascender leaves room above the figures, and the label sits higher than the logo's
-				// edge, so the right column needs less padding above the figure than the left.
-				row({
-					left: logoImage(image),
-					right: [
-						h('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } }, [
-							...(trend ? [iconImage(trend)] : []),
-							line(label, SLATE)
-						])
-					],
-					style: { alignItems: 'flex-end', paddingBottom: 16 },
-					rightStyle: { paddingBottom: 8 }
-				}),
-				row({ left: [figureLine(stats.name)], right: [figureLine(figure)] }),
-				// The tagline may take two lines; the note beside it keeps to the first.
-				row({
-					left: tagline ? [line(tagline, SLATE, 2)] : [],
-					right: [line(note, MUTED)],
-					style: { paddingTop: 12 }
-				})
-			]
-		)
-	]);
-}
-
-/** The right column: wide enough for "under a month" or a whole-dollar balance in the millions. */
-const PANEL = 420;
-
-/**
- * One row of the two columns, the collective on the left and its outlook on the right, so each
- * thing on the left lines up with its partner: the logo with the label, the name with the figure,
- * the tagline with the note. Each pair is the same font and size, so their baselines match.
- */
-function row({
-	left,
-	right,
-	style = {},
-	rightStyle = {}
-}: {
-	left: VNode[];
-	right: VNode[];
-	/** For both cells. */
-	style?: Record<string, unknown>;
-	/** For the right cell only, over `style`. */
-	rightStyle?: Record<string, unknown>;
-}): VNode {
-	// Only the cells take the padding, so the rule between them runs unbroken from row to row.
-	return h('div', { style: { display: 'flex' } }, [
-		h('div', { style: { display: 'flex', flex: 1, paddingRight: 48, ...style } }, left),
-		h(
-			'div',
-			{
-				style: {
-					display: 'flex',
-					width: PANEL,
-					paddingLeft: 48,
-					borderLeft: `1.5px solid ${BORDER}`,
-					...style,
-					...rightStyle
-				}
-			},
-			right
-		)
-	]);
-}
-
-/**
- * A Lucide icon as an image. Satori cannot draw Svelte components, so the icon is rendered to its
- * SVG markup first, without the comments Svelte leaves for hydration.
- */
-function iconImage({ icon, color }: { icon: LucideIcon; color: string }): VNode {
-	const svg = render(icon, { props: { size: ICON, color, strokeWidth: 2 } }).body.replace(
-		/<!--.*?-->/g,
-		''
+	// One sentence, read in a glance: who, then how they are doing, with the logo just above it. The
+	// two sit in the middle of the space above the balance's band along the bottom.
+	return h(
+		'div',
+		{
+			style: {
+				display: 'flex',
+				flexDirection: 'column',
+				justifyContent: 'center',
+				gap: 24,
+				width: '100%',
+				height: '100%',
+				// Clear of the chart by `GAP` even when the sentence takes three lines.
+				padding: `36px 80px ${BAND + GAP}px`,
+				backgroundColor: 'white',
+				fontFamily: 'Source Serif 4'
+			}
+		},
+		[
+			...chart(stats, projection),
+			...logoImage(image),
+			sentence([
+				{ text: shorten(stats.name, 40), strong: true },
+				{ text: ` ${before} ` },
+				// The figure is one thing to read, so it never breaks across lines.
+				{ text: figure.replaceAll(' ', '\u00a0'), strong: true },
+				{ text: after }
+			])
+		]
 	);
-	return h('img', {
-		src: `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`,
-		width: ICON,
-		height: ICON
-	});
 }
 
-const ICON = 30;
+/** How many months of history the chart shows and how far ahead, as on the dashboard by default. */
+const HISTORY = 24;
+const AHEAD = 24;
+
+/** The height of the chart's band along the bottom, below the sentence. */
+const BAND = 160;
+/** The least room between the sentence and the chart, so neither crowds the other. */
+const GAP = 56;
+
+/**
+ * The dashboard's balance chart, drawn edge to edge in a band along the bottom without its axes:
+ * the balance and its forecast as one line, the balance a year before dashed behind it, green
+ * between the two where the collective has more than it did and red where it has less, the
+ * forecast hatched, and a red mark where the money runs out. Lines are thicker than on the page,
+ * as a chat shows the picture about a quarter as wide.
+ */
+function chart(stats: CollectiveStats, { now, available, result }: Projection): VNode[] {
+	const history = stats.months
+		.slice(-HISTORY)
+		.map((m) => ({ date: m.partial ? now : monthEnd(m.key), balance: m.balance }));
+	if (history.length < 2) return [];
+	const ahead = result.points.filter((p) => monthsBetween(now, p.date) <= AHEAD);
+	const projection = [{ date: now, balance: available }, ...ahead.slice(1)];
+	// Always the full span ahead, as on the dashboard, so where the money runs out falls inside it.
+	const end = forecastDates({ now, horizon: AHEAD }).at(-1) ?? now;
+
+	const key = (date: Date) => date.toISOString().slice(0, 7);
+	const byMonth = new Map([
+		...projection.map((p) => [key(p.date), p.balance] as const),
+		...stats.months.map((m) => [m.key, m.balance] as const)
+	]);
+	const trend = [...history, ...projection].map((p) => {
+		const [year, month] = key(p.date).split('-');
+		return { ...p, yearBefore: byMonth.get(`${Number(year) - 1}-${month}`) };
+	});
+	const compared = trend.filter(
+		(p): p is typeof p & { yearBefore: number } => p.yearBefore !== undefined
+	);
+	const top = Math.max(...trend.map((p) => Math.max(p.balance, p.yearBefore ?? 0)));
+	if (top <= 0) return [];
+
+	const start = history[0].date.getTime();
+	const x = (date: Date) => ((date.getTime() - start) / (end.getTime() - start)) * WIDTH;
+	// Room above the tallest point for the line, and below zero for the mark where it runs out.
+	const y = (balance: number) => BAND - 14 - (Math.max(balance, 0) / top) * (BAND - 24);
+	const path = (points: { date: Date; balance: number }[]) =>
+		points
+			.map((p, i) => `${i ? 'L' : 'M'}${x(p.date).toFixed(1)} ${y(p.balance).toFixed(1)}`)
+			.join(' ');
+	const line = path(trend);
+	const yearBefore = path(compared.map((p) => ({ date: p.date, balance: p.yearBefore })));
+	const between = `${yearBefore} ${path([...compared].reverse()).replace('M', 'L')} Z`;
+	const first = x(trend[0].date).toFixed(1);
+	const last = x(end).toFixed(1);
+	const today = x(now).toFixed(1);
+	const runsOut = result.zeroDate && result.zeroDate <= end ? x(result.zeroDate) : undefined;
+
+	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${BAND}" viewBox="0 0 ${WIDTH} ${BAND}">
+		<defs>
+			<pattern id="hatch" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+				<line x1="0" y1="0" x2="0" y2="20" stroke="${MUTED}" stroke-opacity="0.3" stroke-width="2.5"/>
+			</pattern>
+			<clipPath id="above"><path d="${line} L${last} 0 L${first} 0 Z"/></clipPath>
+			<clipPath id="below"><path d="${line} L${last} ${BAND} L${first} ${BAND} Z"/></clipPath>
+		</defs>
+		<rect x="${today}" y="0" width="${WIDTH - Number(today)}" height="${BAND}" fill="url(#hatch)"/>
+		<path d="${between}" fill="${DESTRUCTIVE}" fill-opacity="0.22" clip-path="url(#above)"/>
+		<path d="${between}" fill="${PAID}" fill-opacity="0.22" clip-path="url(#below)"/>
+		<path d="${yearBefore}" fill="none" stroke="${MUTED}" stroke-width="3" stroke-dasharray="5 7.5"/>
+		<line x1="${today}" y1="0" x2="${today}" y2="${BAND}" stroke="${MUTED}" stroke-opacity="0.6" stroke-width="3" stroke-dasharray="5 7.5"/>
+		<path d="${line}" fill="none" stroke="${NAVY}" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+		${
+			runsOut === undefined
+				? ''
+				: `<line x1="${runsOut}" y1="0" x2="${runsOut}" y2="${BAND}" stroke="${DESTRUCTIVE}" stroke-width="3" stroke-dasharray="5 7.5"/>
+		<circle cx="${runsOut}" cy="${y(0)}" r="9" fill="${DESTRUCTIVE}" stroke="white" stroke-width="3"/>`
+		}
+	</svg>`;
+	return [
+		h('img', {
+			src: `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`,
+			width: WIDTH,
+			height: BAND,
+			style: { position: 'absolute', bottom: 0, left: 0 }
+		})
+	];
+}
+
+/** Cut to a length, with an ellipsis, so a long name leaves room for the rest of the sentence. */
+function shorten(text: string, length: number): string {
+	return text.length > length ? `${text.slice(0, length - 1).trimEnd()}…` : text;
+}
+
+/**
+ * Text in runs, some heavier. Satori cannot set mixed runs inline, so each word is its own box in a
+ * wrapping row. A word split between runs, like a figure and the comma after it, stays together, and
+ * so do words joined by a non-breaking space.
+ */
+function sentence(runs: { text: string; strong?: boolean }[]): VNode {
+	// As large as fits in three lines above the chart.
+	const length = runs.reduce((sum, { text }) => sum + text.length, 0);
+	const fontSize = length <= 64 ? 76 : length <= 84 ? 64 : 56;
+	const words: { text: string; strong?: boolean }[][] = [];
+	let joined = false;
+	for (const { text, strong } of runs) {
+		text.split(/( +)/).forEach((part) => {
+			if (!part) return;
+			if (part.startsWith(' ')) {
+				joined = false;
+				return;
+			}
+			if (joined) words.at(-1)?.push({ text: part, strong });
+			else words.push([{ text: part, strong }]);
+			joined = true;
+		});
+	}
+	return h(
+		'div',
+		{
+			style: {
+				display: 'flex',
+				flexWrap: 'wrap',
+				columnGap: fontSize * 0.25,
+				fontSize,
+				lineHeight: 1.2,
+				color: SLATE
+			}
+		},
+		words.map((parts) =>
+			h(
+				'div',
+				{ style: { display: 'flex' } },
+				parts.map(({ text, strong }) =>
+					h('span', { style: strong ? { fontWeight: 600, color: NAVY } : {} }, text)
+				)
+			)
+		)
+	);
+}
 
 function logoImage(image: string | undefined): VNode[] {
 	return image
 		? [
 				h('img', {
 					src: image,
-					width: 104,
-					height: 104,
+					width: 80,
+					height: 80,
 					// Logos are not always square, so fit them inside the box as the page does
 					style: {
-						borderRadius: 20,
+						borderRadius: 16,
 						border: `1px solid ${BORDER}`,
 						backgroundColor: 'white',
 						objectFit: 'contain'
@@ -470,20 +467,6 @@ function clamped(text: string, style: Record<string, unknown>, lines = 1): VNode
 		{ style: { display: 'block', overflow: 'hidden', lineClamp: lines, ...style } },
 		text
 	);
-}
-
-function figureLine(text: string, color = NAVY): VNode {
-	return clamped(text, {
-		fontFamily: 'Besley',
-		fontSize: 56,
-		fontWeight: 700,
-		lineHeight: 1.15,
-		color
-	});
-}
-
-function line(text: string, color: string, lines = 1): VNode {
-	return clamped(text, { fontSize: 30, lineHeight: 1.35, color }, lines);
 }
 
 export const GET: RequestHandler = async ({ params, url }) => {
