@@ -508,20 +508,23 @@ export function forecastDates({ now, horizon }: { now: Date; horizon: number }):
 
 /**
  * Project the balance forward using the average of the last `basis` complete months.
- * The projection starts at `now` from `start`, or from the latest balance.
+ * The projection starts at `now` from `start`, or from the latest balance. `net` projects with
+ * that change a month instead, as when a chart eases from one average to the next.
  */
 export function forecast({
 	months,
 	basis,
 	now,
 	start,
-	horizon = 120
+	horizon = 120,
+	net
 }: {
 	months: Month[];
 	basis: number;
 	now: Date;
 	start?: number;
 	horizon?: number;
+	net?: number;
 }): Forecast {
 	const complete = months.filter((m) => !m.partial).slice(-basis);
 	const count = complete.length;
@@ -529,13 +532,14 @@ export function forecast({
 	const avgIncome = count ? sum((m) => m.income) / count : 0;
 	const avgExpenses = count ? sum((m) => m.expenses) / count : 0;
 	const avgNet = avgIncome - avgExpenses;
+	const projected = net ?? avgNet;
 
 	const latest = months.at(-1);
 	const balance = start ?? latest?.balance ?? 0;
-	const perDay = avgNet / DAYS_PER_MONTH;
+	const perDay = projected / DAYS_PER_MONTH;
 
 	const zeroDate =
-		latest && avgNet < 0 && balance > 0
+		latest && projected < 0 && balance > 0
 			? new Date(now.getTime() + (balance / -perDay) * DAY_MS)
 			: null;
 

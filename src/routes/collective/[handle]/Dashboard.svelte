@@ -3,6 +3,8 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
+	import { cubicInOut } from 'svelte/easing';
+	import { prefersReducedMotion, Tween } from 'svelte/motion';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { chartPadding, TICK_LENGTH, X_TICK_OCCLUSION, Y_TICK_LABEL } from '#lib/chart-padding.js';
 	import * as Alert from '#lib/components/ui/alert/index.js';
@@ -151,8 +153,42 @@
 			horizon: horizonMonths
 		})
 	);
+	/** The forecast with `net` a month in place of the average. */
+	const forecastWith = (net: number) =>
+		forecast({
+			months: data.months,
+			basis: Number(basis) || 6,
+			now,
+			start: available,
+			horizon: horizonMonths,
+			net
+		});
+	/**
+	 * The change a month the chart draws, eased from one average to the next, so the forecast and
+	 * everything drawn from it turn together rather than the line alone. Where the forecast sets the
+	 * top of the axis, before or after, it changes at once: its line then ends in the top corner
+	 * however steep, so easing would only slide the scale and the history under it.
+	 */
+	const easedNet = Tween.of(() => result.avgNet, {
+		duration: (from, to) =>
+			prefersReducedMotion.current ||
+			[from, to].some(
+				(net) => Math.max(...forecastWith(net).points.map((p) => p.balance)) > recordedTop
+			)
+				? 0
+				: 300,
+		easing: cubicInOut
+	});
+	/** `result` as the chart draws it, which differs only while a new average eases in. */
+	const drawn = $derived(
+		easedNet.current === result.avgNet ? result : forecastWith(easedNet.current)
+	);
 	const shown = $derived(data.months.slice(-Math.min(RANGES[range] ?? 24, data.months.length)));
 	const shownKeys = $derived(shown.map((m) => m.key));
+	/** The highest balance on record the chart shows: the months shown, and the year before them. */
+	const recordedTop = $derived(
+		Math.max(0, ...data.months.slice(-(shown.length + 12)).map((m) => Math.round(m.balance)))
+	);
 	/** Everything that came in and went out in the months shown, this month included. */
 	const shownIncome = $derived(shown.reduce((sum, m) => sum + m.income, 0));
 	const shownExpenses = $derived(shown.reduce((sum, m) => sum + m.expenses, 0));
@@ -185,7 +221,7 @@
 		shown.map((m) => ({ date: m.partial ? now : monthEnd(m.key), balance: Math.round(m.balance) }))
 	);
 	const projection = $derived(
-		result.points.map((p) => ({ date: p.date, balance: Math.round(p.balance) }))
+		drawn.points.map((p) => ({ date: p.date, balance: Math.round(p.balance) }))
 	);
 	/** Each month's balance, recorded or forecast, by its "YYYY-MM" key. Recorded wins where both exist. */
 	const balanceByMonth = $derived(
@@ -281,6 +317,12 @@
 	const runsOutDate = $derived(
 		result.zeroDate && result.points.at(-1)?.date.getTime() === result.zeroDate.getTime()
 			? result.zeroDate
+			: null
+	);
+	/** Where the drawn forecast reaches nothing, which moves with it while a new average eases in. */
+	const runsOutX = $derived(
+		drawn.zeroDate && drawn.points.at(-1)?.date.getTime() === drawn.zeroDate.getTime()
+			? drawn.zeroDate
 			: null
 	);
 	/** How wide "Forecast" is drawn, measured once the web font is in, so its arrow sits just after. */
@@ -456,14 +498,15 @@
 
 <!-- On two lines, which keeps it inside the forecast range on a phone. -->
 {#snippet runsOutLabel({ props }: { props: TextProps })}
-	{#if runsOutDate}
+	{@const date = runsOutDate ?? runsOutX}
+	{#if date}
 		<text
 			transform="translate({props.x} {props.y})"
 			text-anchor="end"
 			class="pointer-events-none fill-destructive text-xs font-medium"
 		>
 			<tspan x="0" dy="0.9em">Runs out</tspan>
-			<tspan x="0" dy="1.25em">{monthYear.format(runsOutDate)}</tspan>
+			<tspan x="0" dy="1.25em">{monthYear.format(date)}</tspan>
 		</text>
 	{/if}
 {/snippet}
@@ -731,11 +774,11 @@
 												line: { class: 'stroke-muted-foreground/60!', dashArray: [2, 3] }
 											}
 										},
-										...(runsOutDate
+										...(runsOutX
 											? [
 													{
 														type: 'line' as const,
-														x: runsOutDate,
+														x: runsOutX,
 														label: runsOutLabel,
 														labelPlacement: 'top-left' as const,
 														labelXOffset: 6,
@@ -746,7 +789,7 @@
 													},
 													{
 														type: 'point' as const,
-														x: runsOutDate,
+														x: runsOutX,
 														y: 0,
 														r: 4,
 														props: { circle: { class: 'fill-destructive stroke-card' } }
