@@ -197,12 +197,6 @@ function homeCard(): VNode {
 /** How far the forecast looks back, as on the dashboard by default. */
 const BASIS = 6;
 
-const MONTH_YEAR = new Intl.DateTimeFormat('en', {
-	month: 'long',
-	year: 'numeric',
-	timeZone: 'UTC'
-});
-
 /** A sentence about the collective, in three parts around the figure, which is set heavier. */
 interface Outlook {
 	before: string;
@@ -238,22 +232,18 @@ function outlook(stats: CollectiveStats, { now, available, result }: Projection)
 	if (result.zeroDate) {
 		const months = monthsBetween(now, result.zeroDate);
 		const years = Math.floor(months / 12);
+		// Said as how long it is funded for rather than when the money runs out: the picture invites
+		// sponsors, and should not read as the project failing.
+		if (months < 1)
+			return { before: 'is funded for', figure: 'the rest of this month', after: '.' };
 		return {
-			before: 'is funded for',
-			figure:
-				months < 1
-					? 'under a month'
-					: months < 24
-						? `${months} month${months === 1 ? '' : 's'}`
-						: `${years} years`,
-			after: `, until around ${MONTH_YEAR.format(result.zeroDate).replace(' ', '\u00a0')}.`
+			before: 'is funded for the next',
+			figure: months < 24 ? `${months} month${months === 1 ? '' : 's'}` : `${years} years`,
+			after: '.'
 		};
 	}
-	if (result.basis === 0 || result.avgNet === 0) {
+	if (result.basis === 0 || result.avgNet <= 0) {
 		return { before: 'has', figure: money(available), after: ' available.' };
-	}
-	if (result.avgNet < 0) {
-		return { before: 'has', figure: money(available), after: ' available, and it is shrinking.' };
 	}
 	return {
 		before: 'is growing by',
@@ -318,16 +308,16 @@ const GAP = 56;
  * The dashboard's balance chart, drawn edge to edge in a band along the bottom without its axes:
  * the balance and its forecast as one line, the balance a year before dashed behind it, green
  * between the two where the collective has more than it did and red where it has less, the
- * forecast hatched, and a red mark where the money runs out. Lines are thicker than on the page,
- * as a chat shows the picture about a quarter as wide.
+ * forecast hatched. It leaves out the page's red mark where the money runs out, so the picture
+ * does not alarm, and both ends fade instead. Lines are thicker than on the page, as a chat shows
+ * the picture about a quarter as wide.
  */
 function chart(stats: CollectiveStats, { now, available, result }: Projection): VNode[] {
 	const history = stats.months
 		.slice(-HISTORY)
 		.map((m) => ({ date: m.partial ? now : monthEnd(m.key), balance: m.balance }));
 	if (history.length < 2) return [];
-	// The full span ahead, as on the dashboard, but ending where the money runs out within it, so
-	// nothing is left over to its right.
+	// The full span ahead, as on the dashboard, but ending where the money runs out within it.
 	const horizon = forecastDates({ now, horizon: AHEAD }).at(-1) ?? now;
 	const ahead = result.points.filter((p) => p.date <= horizon);
 	const projection = [{ date: now, balance: available }, ...ahead.slice(1)];
@@ -349,10 +339,9 @@ function chart(stats: CollectiveStats, { now, available, result }: Projection): 
 	if (top <= 0) return [];
 
 	const start = history[0].date.getTime();
-	// A faded end runs to the edge of the picture and is half faded at the margin, so it lines up
-	// with the text. Where the money runs out, the chart stops sharply at the margin instead.
-	const right = result.zeroDate && result.zeroDate < horizon ? WIDTH - MARGIN : WIDTH;
-	const x = (date: Date) => ((date.getTime() - start) / (end.getTime() - start)) * right;
+	// The chart runs to both edges of the picture and is half faded at the margins, so it lines up
+	// with the text.
+	const x = (date: Date) => ((date.getTime() - start) / (end.getTime() - start)) * WIDTH;
 	// Room above the tallest point for the line, and below zero for the mark where it runs out.
 	const y = (balance: number) => BAND - 14 - (Math.max(balance, 0) / top) * (BAND - 24);
 	const path = (points: { date: Date; balance: number }[]) =>
@@ -365,7 +354,6 @@ function chart(stats: CollectiveStats, { now, available, result }: Projection): 
 	const first = x(trend[0].date).toFixed(1);
 	const last = x(end).toFixed(1);
 	const today = x(now).toFixed(1);
-	const runsOut = result.zeroDate && result.zeroDate <= end ? x(result.zeroDate) : undefined;
 
 	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${BAND}" viewBox="0 0 ${WIDTH} ${BAND}">
 		<defs>
@@ -377,8 +365,8 @@ function chart(stats: CollectiveStats, { now, available, result }: Projection): 
 			<linearGradient id="fade" gradientUnits="userSpaceOnUse" x1="${first}" y1="0" x2="${last}" y2="0">
 				<stop offset="0" stop-color="white" stop-opacity="0"/>
 				<stop offset="${(FADE / (Number(last) - Number(first))).toFixed(3)}" stop-color="white"/>
-				<stop offset="${runsOut === undefined ? (1 - FADE / (Number(last) - Number(first))).toFixed(3) : 1}" stop-color="white"/>
-				<stop offset="1" stop-color="white" stop-opacity="${runsOut === undefined ? 0 : 1}"/>
+				<stop offset="${(1 - FADE / (Number(last) - Number(first))).toFixed(3)}" stop-color="white"/>
+				<stop offset="1" stop-color="white" stop-opacity="0"/>
 			</linearGradient>
 			<mask id="ends" maskUnits="userSpaceOnUse" x="0" y="0" width="${WIDTH}" height="${BAND}">
 				<rect x="0" y="0" width="${WIDTH}" height="${BAND}" fill="url(#fade)"/>
@@ -392,12 +380,6 @@ function chart(stats: CollectiveStats, { now, available, result }: Projection): 
 		<path d="${line}" fill="none" stroke="${NAVY}" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
 		</g>
 		<line x1="${today}" y1="0" x2="${today}" y2="${BAND}" stroke="${MUTED}" stroke-opacity="0.6" stroke-width="3" stroke-dasharray="5 7.5"/>
-		${
-			runsOut === undefined
-				? ''
-				: `<line x1="${runsOut}" y1="0" x2="${runsOut}" y2="${BAND}" stroke="${DESTRUCTIVE}" stroke-width="3" stroke-dasharray="5 7.5"/>
-		<circle cx="${runsOut}" cy="${y(0)}" r="9" fill="${DESTRUCTIVE}" stroke="white" stroke-width="3"/>`
-		}
 	</svg>`;
 	return [
 		h('img', {
