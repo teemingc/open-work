@@ -26,6 +26,8 @@ import serifBoldLatin from './fonts/source-serif-4-600-latin.ttf?url';
 import serifBoldLatinExt from './fonts/source-serif-4-600-latin-ext.ttf?url';
 
 const WIDTH = 1200;
+/** The space at either side, which the text and the chart both keep to so their edges line up. */
+const MARGIN = 80;
 const HEIGHT = 630;
 
 /** Open Collective's colours, as in layout.css. */
@@ -156,7 +158,7 @@ function canvas({ top, bottom }: { top: VNode; bottom: VNode[] }): VNode {
 				justifyContent: 'space-between',
 				width: '100%',
 				height: '100%',
-				padding: '72px 80px',
+				padding: `72px ${MARGIN}px`,
 				backgroundColor: 'white',
 				fontFamily: 'Source Serif 4'
 			}
@@ -282,7 +284,7 @@ async function collectiveCard(slug: string): Promise<VNode | undefined> {
 				width: '100%',
 				height: '100%',
 				// Clear of the chart by `GAP` even when the sentence takes three lines.
-				padding: `36px 80px ${BAND + GAP}px`,
+				padding: `36px ${MARGIN}px ${BAND + GAP}px`,
 				backgroundColor: 'white',
 				fontFamily: 'Source Serif 4'
 			}
@@ -307,6 +309,8 @@ const AHEAD = 24;
 
 /** The height of the chart's band along the bottom, below the sentence. */
 const BAND = 160;
+/** How far in from each end the chart fades: the past carries on before it, and the forecast grows less sure. */
+const FADE = 2 * MARGIN;
 /** The least room between the sentence and the chart, so neither crowds the other. */
 const GAP = 56;
 
@@ -322,10 +326,12 @@ function chart(stats: CollectiveStats, { now, available, result }: Projection): 
 		.slice(-HISTORY)
 		.map((m) => ({ date: m.partial ? now : monthEnd(m.key), balance: m.balance }));
 	if (history.length < 2) return [];
-	const ahead = result.points.filter((p) => monthsBetween(now, p.date) <= AHEAD);
+	// The full span ahead, as on the dashboard, but ending where the money runs out within it, so
+	// nothing is left over to its right.
+	const horizon = forecastDates({ now, horizon: AHEAD }).at(-1) ?? now;
+	const ahead = result.points.filter((p) => p.date <= horizon);
 	const projection = [{ date: now, balance: available }, ...ahead.slice(1)];
-	// Always the full span ahead, as on the dashboard, so where the money runs out falls inside it.
-	const end = forecastDates({ now, horizon: AHEAD }).at(-1) ?? now;
+	const end = result.zeroDate && result.zeroDate < horizon ? result.zeroDate : horizon;
 
 	const key = (date: Date) => date.toISOString().slice(0, 7);
 	const byMonth = new Map([
@@ -343,7 +349,10 @@ function chart(stats: CollectiveStats, { now, available, result }: Projection): 
 	if (top <= 0) return [];
 
 	const start = history[0].date.getTime();
-	const x = (date: Date) => ((date.getTime() - start) / (end.getTime() - start)) * WIDTH;
+	// A faded end runs to the edge of the picture and is half faded at the margin, so it lines up
+	// with the text. Where the money runs out, the chart stops sharply at the margin instead.
+	const right = result.zeroDate && result.zeroDate < horizon ? WIDTH - MARGIN : WIDTH;
+	const x = (date: Date) => ((date.getTime() - start) / (end.getTime() - start)) * right;
 	// Room above the tallest point for the line, and below zero for the mark where it runs out.
 	const y = (balance: number) => BAND - 14 - (Math.max(balance, 0) / top) * (BAND - 24);
 	const path = (points: { date: Date; balance: number }[]) =>
@@ -365,13 +374,24 @@ function chart(stats: CollectiveStats, { now, available, result }: Projection): 
 			</pattern>
 			<clipPath id="above"><path d="${line} L${last} 0 L${first} 0 Z"/></clipPath>
 			<clipPath id="below"><path d="${line} L${last} ${BAND} L${first} ${BAND} Z"/></clipPath>
+			<linearGradient id="fade" gradientUnits="userSpaceOnUse" x1="${first}" y1="0" x2="${last}" y2="0">
+				<stop offset="0" stop-color="white" stop-opacity="0"/>
+				<stop offset="${(FADE / (Number(last) - Number(first))).toFixed(3)}" stop-color="white"/>
+				<stop offset="${runsOut === undefined ? (1 - FADE / (Number(last) - Number(first))).toFixed(3) : 1}" stop-color="white"/>
+				<stop offset="1" stop-color="white" stop-opacity="${runsOut === undefined ? 0 : 1}"/>
+			</linearGradient>
+			<mask id="ends" maskUnits="userSpaceOnUse" x="0" y="0" width="${WIDTH}" height="${BAND}">
+				<rect x="0" y="0" width="${WIDTH}" height="${BAND}" fill="url(#fade)"/>
+			</mask>
 		</defs>
-		<rect x="${today}" y="0" width="${WIDTH - Number(today)}" height="${BAND}" fill="url(#hatch)"/>
+		<g mask="url(#ends)">
+		<rect x="${today}" y="0" width="${Number(last) - Number(today)}" height="${BAND}" fill="url(#hatch)"/>
 		<path d="${between}" fill="${DESTRUCTIVE}" fill-opacity="0.22" clip-path="url(#above)"/>
 		<path d="${between}" fill="${PAID}" fill-opacity="0.22" clip-path="url(#below)"/>
 		<path d="${yearBefore}" fill="none" stroke="${MUTED}" stroke-width="3" stroke-dasharray="5 7.5"/>
-		<line x1="${today}" y1="0" x2="${today}" y2="${BAND}" stroke="${MUTED}" stroke-opacity="0.6" stroke-width="3" stroke-dasharray="5 7.5"/>
 		<path d="${line}" fill="none" stroke="${NAVY}" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+		</g>
+		<line x1="${today}" y1="0" x2="${today}" y2="${BAND}" stroke="${MUTED}" stroke-opacity="0.6" stroke-width="3" stroke-dasharray="5 7.5"/>
 		${
 			runsOut === undefined
 				? ''
