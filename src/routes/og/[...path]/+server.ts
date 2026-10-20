@@ -451,7 +451,13 @@ function logoImage(image: string | undefined): VNode[] {
 					src: image,
 					width: 104,
 					height: 104,
-					style: { borderRadius: 20, border: `1px solid ${BORDER}` }
+					// Logos are not always square, so fit them inside the box as the page does
+					style: {
+						borderRadius: 20,
+						border: `1px solid ${BORDER}`,
+						backgroundColor: 'white',
+						objectFit: 'contain'
+					}
 				})
 			]
 		: [];
