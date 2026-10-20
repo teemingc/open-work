@@ -105,7 +105,18 @@
 	// Settings that arrived in the address, from a reload or a shared link, are the latest too.
 	onMount(() => rememberDashboardSearch(page.url.search));
 
-	const range = $derived(param('show', Object.keys(RANGES), '2y') as Range);
+	/**
+	 * The ranges that show something different. Any as long as the history shows the same months as
+	 * all time, so a new collective has fewer to pick from.
+	 */
+	const ranges = $derived(
+		(Object.keys(RANGES) as Range[]).filter(
+			(range) => range === 'all' || RANGES[range] < data.months.length
+		)
+	);
+	const chosenRange = $derived(param('show', Object.keys(RANGES), '2y') as Range);
+	/** All time when the range picked is as long as the history, which is what it shows anyway. */
+	const range = $derived(ranges.includes(chosenRange) ? chosenRange : 'all');
 	const basis = $derived(param('average', BASES, '6'));
 	const horizon = $derived(param('forecast', HORIZONS, '2'));
 
@@ -589,22 +600,28 @@
 			<div
 				class="grid w-fit grid-cols-[auto_auto] items-center gap-x-3 gap-y-3 text-sm md:flex md:gap-x-8"
 			>
-				<div class="contents md:flex md:items-center md:gap-3">
-					<span id="range-label" class="text-muted-foreground">Range</span>
-					<ToggleGroup.Root
-						type="single"
-						variant="outline"
-						size="sm"
-						aria-labelledby="range-label"
-						bind:value={
-							() => range, (value) => value && setParam({ name: 'show', value, fallback: '2y' })
-						}
-					>
-						<ToggleGroup.Item value="1y">12 months</ToggleGroup.Item>
-						<ToggleGroup.Item value="2y">2 years</ToggleGroup.Item>
-						<ToggleGroup.Item value="all">All time</ToggleGroup.Item>
-					</ToggleGroup.Root>
-				</div>
+				{#if ranges.length > 1}
+					<div class="contents md:flex md:items-center md:gap-3">
+						<span id="range-label" class="text-muted-foreground">Range</span>
+						<ToggleGroup.Root
+							type="single"
+							variant="outline"
+							size="sm"
+							aria-labelledby="range-label"
+							bind:value={
+								() => range, (value) => value && setParam({ name: 'show', value, fallback: '2y' })
+							}
+						>
+							{#if ranges.includes('1y')}
+								<ToggleGroup.Item value="1y">12 months</ToggleGroup.Item>
+							{/if}
+							{#if ranges.includes('2y')}
+								<ToggleGroup.Item value="2y">2 years</ToggleGroup.Item>
+							{/if}
+							<ToggleGroup.Item value="all">All time</ToggleGroup.Item>
+						</ToggleGroup.Root>
+					</div>
+				{/if}
 				<div class="contents md:flex md:items-center md:gap-3">
 					<span id="basis-label" class="text-muted-foreground">Average of last</span>
 					<ToggleGroup.Root
