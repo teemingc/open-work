@@ -6,7 +6,6 @@
 	import { restoreSettings } from '#lib/settings.remote.js';
 	import { LEGACY_STORAGE_KEY, parseBackup } from '#lib/settings.js';
 	import { onMount } from 'svelte';
-	import GitHubMark from './GitHubMark.svelte';
 	import Header from './Header.svelte';
 	import NavigationLoader from './NavigationLoader.svelte';
 
@@ -76,7 +75,13 @@
 	{@render children()}
 </main>
 
-<footer class="mx-auto flex w-full max-w-6xl justify-center gap-6 px-4 pb-8 sm:px-6">
+<!--
+	A double rule opens the footer as one closes the masthead, so every page is bound top and bottom
+	like a ledger sheet. No name or mark: the sticky header already shows them.
+-->
+<footer
+	class="flex justify-center gap-6 border-t-[3px] border-double border-rule bg-card px-4 py-5 sm:px-6"
+>
 	<a href={resolve('/privacy')} class="text-sm text-muted-foreground hover:text-foreground">
 		Privacy
 	</a>
@@ -85,10 +90,9 @@
 		href="https://github.com/teemingc/open-work"
 		target="_blank"
 		rel="noreferrer"
-		class="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+		class="text-sm text-muted-foreground hover:text-foreground"
 	>
-		<GitHubMark class="size-4" />
-		Source code
+		GitHub
 		<span class="sr-only">(opens in a new tab)</span>
 	</a>
 	<!-- eslint-enable svelte/no-navigation-without-resolve -->
