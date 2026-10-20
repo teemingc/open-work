@@ -11,7 +11,6 @@ import {
 	categoriesByMonth,
 	categoryName,
 	forecastDates,
-	forecastRange,
 	lastMonthKeys,
 	toContributions,
 	othersBySize,
@@ -348,24 +347,6 @@ describe('forecastDates', () => {
 			new Date('2026-07-31T23:59:59.999Z'),
 			new Date('2026-08-31T23:59:59.999Z')
 		]);
-	});
-});
-
-describe('forecastRange', () => {
-	it('spans the forecasts for each basis and stops at 0', () => {
-		const now = new Date('2026-07-01T00:00:00Z');
-		const months = [month('2026-05', -3000, 0), month('2026-06', -1000, 0)];
-		const later = new Date(now.getTime() + (365.25 / 12) * 2 * 24 * 60 * 60 * 1000);
-		const [first, second] = forecastRange({
-			months,
-			bases: [1, 2],
-			now,
-			start: 3000,
-			dates: [now, later]
-		});
-		expect(first).toEqual({ date: now, low: 3000, high: 3000 });
-		expect(second.low).toBe(0);
-		expect(second.high).toBeCloseTo(1000);
 	});
 });
 

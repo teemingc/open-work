@@ -10,9 +10,14 @@
 	import type { ChartConfig } from '#lib/components/ui/chart/chart-utils.js';
 	import * as ToggleGroup from '#lib/components/ui/toggle-group/index.js';
 	import { scaleBand, scaleTime } from 'd3-scale';
-	import type { ChartState } from 'layerchart';
-	import { getStringWidth } from 'layerchart/utils/string';
-	import { CalendarClock, ExternalLink, TrendingDown, TrendingUp } from '@lucide/svelte';
+	import type { TextProps } from 'layerchart';
+	import {
+		ArrowRight,
+		CalendarClock,
+		ExternalLink,
+		TrendingDown,
+		TrendingUp
+	} from '@lucide/svelte';
 	import RetryableError from '#lib/components/RetryableError.svelte';
 	import StatStrip, { type Stat } from '#lib/components/StatStrip.svelte';
 	import { bandTickLabel, bandTicks, compactFormat, monthLabel, moneyFormat } from './chart-format';
@@ -21,7 +26,6 @@
 		change,
 		forecast,
 		forecastDates,
-		forecastRange,
 		monthEnd,
 		monthsBetween,
 		paidTo,
@@ -172,24 +176,26 @@
 	const projection = $derived(
 		result.points.map((p) => ({ date: p.date, balance: Math.round(p.balance) }))
 	);
-	/** How far the forecast moves when it is based on the last 3, 6 or 12 months instead. */
-	const band = $derived(
-		forecastRange({
-			months: data.months,
-			bases: [3, 6, 12],
-			now,
-			start: available,
-			dates: forecastSpan
+	/** Each month's balance, recorded or forecast, by its "YYYY-MM" key. Recorded wins where both exist. */
+	const balanceByMonth = $derived(
+		new Map([
+			...projection.map((p) => [p.date.toISOString().slice(0, 7), p.balance] as const),
+			...data.months.map((m) => [m.key, Math.round(m.balance)] as const)
+		])
+	);
+	/**
+	 * Balance and forecast against the balance a year before, the baseline that colours the chart
+	 * green where the collective has more than it did and red where it has less.
+	 */
+	const trend = $derived(
+		[...history, ...projection].map((p) => {
+			const [year, month] = p.date.toISOString().slice(0, 7).split('-');
+			return { ...p, yearBefore: balanceByMonth.get(`${Number(year) - 1}-${month}`) };
 		})
 	);
-	/** The axis is sized from the series, which leave out the band, so a rising band ran off the top. */
+	/** The axis is sized from the series, which leave out the year before, so a richer year ran off the top. */
 	const balanceMax = $derived(
-		Math.max(
-			0,
-			...history.map((p) => p.balance),
-			...projection.map((p) => p.balance),
-			...band.map((p) => p.high)
-		)
+		Math.max(0, ...trend.map((p) => Math.max(p.balance, p.yearBefore ?? 0)))
 	);
 
 	const previous = $derived(previousAverages({ months: data.months, basis: result.basis }));
@@ -260,31 +266,18 @@
 
 	const runwayMonths = $derived(result.zeroDate ? monthsBetween(now, result.zeroDate) : null);
 
-	let balanceChart = $state<ChartState>();
-	/** The annotation labels' size and weight, for measuring them. */
-	const ANNOTATION_STYLE = { fontSize: '12px', fontWeight: '500' } as CSSStyleDeclaration;
 	/** When the money runs out within the years forecast, as the projection then ends there. */
 	const runsOutDate = $derived(
 		result.zeroDate && result.points.at(-1)?.date.getTime() === result.zeroDate.getTime()
 			? result.zeroDate
 			: null
 	);
-	const runsOutLabel = $derived(runsOutDate ? `Runs out ${monthYear.format(runsOutDate)}` : '');
-	/**
-	 * Whether "Forecast", starting just right of today, would run into "Runs out", which ends just
-	 * left of the date the money runs out. They share a row when there is room, else it drops below.
-	 */
-	const runsOutCollides = $derived.by(() => {
-		if (!balanceChart || !runsOutDate) return false;
-		const room = balanceChart.xScale(runsOutDate) - balanceChart.xScale(now);
-		const needed =
-			8 +
-			(getStringWidth('Forecast', ANNOTATION_STYLE) ?? 0) +
-			16 +
-			(getStringWidth(runsOutLabel, ANNOTATION_STYLE) ?? 0) +
-			6;
-		return needed > room;
-	});
+	/** How wide "Forecast" is drawn, measured once the web font is in, so its arrow sits just after. */
+	let forecastWidth = $state(50);
+
+	function measureForecast(text: SVGTextElement) {
+		document.fonts.ready.then(() => (forecastWidth = text.getComputedTextLength()));
+	}
 
 	const balanceConfig = {
 		balance: { label: 'Balance', color: 'var(--color-chart-balance)' },
@@ -442,6 +435,28 @@
 	/>
 </svelte:head>
 
+{#snippet forecastLabel({ props }: { props: TextProps })}
+	<g transform="translate({props.x} {props.y})" class="pointer-events-none">
+		<text class="fill-muted-foreground text-xs font-medium" {@attach measureForecast}>Forecast</text
+		>
+		<ArrowRight x={forecastWidth + 3} y={-10} size={12} class="text-muted-foreground" />
+	</g>
+{/snippet}
+
+<!-- On two lines, which keeps it inside the forecast range on a phone. -->
+{#snippet runsOutLabel({ props }: { props: TextProps })}
+	{#if runsOutDate}
+		<text
+			transform="translate({props.x} {props.y})"
+			text-anchor="end"
+			class="pointer-events-none fill-destructive text-xs font-medium"
+		>
+			<tspan x="0" dy="0.9em">Runs out</tspan>
+			<tspan x="0" dy="1.25em">{monthYear.format(runsOutDate)}</tspan>
+		</text>
+	{/if}
+{/snippet}
+
 {#snippet moneyRow({
 	value,
 	name,
@@ -575,7 +590,7 @@
 				class="grid w-fit grid-cols-[auto_auto] items-center gap-x-3 gap-y-3 text-sm md:flex md:gap-x-8"
 			>
 				<div class="contents md:flex md:items-center md:gap-3">
-					<span id="range-label" class="text-muted-foreground">Show</span>
+					<span id="range-label" class="text-muted-foreground">Range</span>
 					<ToggleGroup.Root
 						type="single"
 						variant="outline"
@@ -629,19 +644,17 @@
 				<Card.Header>
 					<Card.Title>Balance and forecast</Card.Title>
 					<Card.Description>
-						The dashed line assumes every month from now looks like the average month, starting from
-						what is available. The shaded band shows where it lands with a 3, 6 or 12 month average.
+						Green when the balance is higher than a year earlier, red when lower.
 					</Card.Description>
 				</Card.Header>
 				<Card.Content>
 					<LazyChart class="h-80">
-						{#snippet children({ Area, AreaChart, Chart, LinearGradient })}
+						{#snippet children({ Area, AreaChart, Chart, ClipPath })}
 							<Chart.Container
 								config={balanceConfig}
 								class="aspect-auto h-80 w-full cursor-pointer"
 							>
 								<AreaChart
-									bind:context={balanceChart}
 									padding={chartPadding()}
 									onTooltipClick={openBalanceMonth}
 									x="date"
@@ -675,20 +688,17 @@
 										{
 											type: 'range',
 											x: [now, forecastSpan.at(-1) ?? now],
-											label: 'Forecast',
+											// Above the plot, like a column heading, so it never meets "Runs out" inside it.
+											label: forecastLabel,
 											labelPlacement: 'top-left',
-											labelXOffset: 8,
-											labelYOffset: 8,
+											labelYOffset: -6,
 											pattern: {
 												size: 8,
 												lines: {
 													rotate: -45,
 													color: 'var(--color-muted-foreground)',
-													opacity: 0.15
+													opacity: 0.3
 												}
-											},
-											props: {
-												label: { class: 'fill-muted-foreground text-xs font-medium' }
 											}
 										},
 										{
@@ -706,10 +716,9 @@
 														label: runsOutLabel,
 														labelPlacement: 'top-left' as const,
 														labelXOffset: 6,
-														labelYOffset: runsOutCollides ? 26 : 8,
+														labelYOffset: 8,
 														props: {
-															line: { class: 'stroke-destructive!', dashArray: [2, 3] },
-															label: { class: 'fill-destructive text-xs font-medium' }
+															line: { class: 'stroke-destructive!', dashArray: [2, 3] }
 														}
 													},
 													{
@@ -737,34 +746,43 @@
 									}}
 								>
 									{#snippet marks()}
-										<!-- Spans the whole chart rather than each area's own box, so the same height has the same
-							shade. Per area, a rising forecast stretched the fade over its tall box and left a pale
-							wedge below the band. -->
-										<LinearGradient
-											stops={[
-												[0, 'color-mix(in oklab, var(--color-chart-balance) 40%, transparent)'],
-												[1, 'color-mix(in oklab, var(--color-chart-balance) 2%, transparent)']
-											]}
-											vertical
-											units="userSpaceOnUse"
-										>
-											{#snippet children({ gradient })}
-												<Area
-													data={band}
-													x="date"
-													y0="low"
-													y1="high"
-													fill="color-mix(in oklab, var(--color-chart-balance) 14%, transparent)"
-												/>
-												<Area seriesKey="balance" fill={gradient} line={{ strokeWidth: 2 }} />
-												<Area
-													seriesKey="forecast"
-													fill={gradient}
-													opacity={0.5}
-													line={{ strokeWidth: 2, 'stroke-dasharray': '6 5' }}
-												/>
+										<!-- Between the balance and the year before: red where the year before is above the
+							balance, green where it is below, split by clipping to either side of the balance. -->
+										<ClipPath>
+											{#snippet clip()}
+												<Area data={trend} y0="balance" y1={() => balanceMax * 2 + 1} />
 											{/snippet}
-										</LinearGradient>
+											<Area
+												data={trend}
+												y0="yearBefore"
+												y1="balance"
+												defined={(d: { yearBefore?: number }) => d.yearBefore !== undefined}
+												fill="color-mix(in oklab, var(--color-destructive) 22%, transparent)"
+											/>
+										</ClipPath>
+										<ClipPath>
+											{#snippet clip()}
+												<Area data={trend} y0={() => 0} y1="balance" />
+											{/snippet}
+											<Area
+												data={trend}
+												y0="yearBefore"
+												y1="balance"
+												defined={(d: { yearBefore?: number }) => d.yearBefore !== undefined}
+												fill="color-mix(in oklab, var(--color-status-paid) 22%, transparent)"
+											/>
+										</ClipPath>
+										<Area
+											data={trend}
+											y0="yearBefore"
+											y1="yearBefore"
+											defined={(d: { yearBefore?: number }) => d.yearBefore !== undefined}
+											fill="none"
+											line={{ class: 'stroke-muted-foreground', 'stroke-dasharray': '2 3' }}
+										/>
+										<Area seriesKey="balance" fill="none" line={{ strokeWidth: 2 }} />
+										<!-- Solid like the balance: the hatched range already says it is a forecast. -->
+										<Area seriesKey="forecast" fill="none" line={{ strokeWidth: 2 }} />
 									{/snippet}
 									{#snippet tooltip()}
 										<Chart.Tooltip
