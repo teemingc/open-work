@@ -6,9 +6,10 @@
 export const SUGGESTED_COLLECTIVES = [
 	{ slug: 'svelte', name: 'Svelte', about: 'Web development for the rest of us' },
 	{
-		slug: 'vuejs',
-		name: 'Vue',
-		about: 'We are on a mission to help more frontend devs enjoy building apps for the web.'
+		slug: 'astrodotbuild',
+		name: 'Astro',
+		about:
+			'Join Astro and Starlight on the mission to make websites fast, lightweight, accessible, and eco-friendly! Build the web you want. Support the framework that gets you there!'
 	},
 	{
 		slug: 'vite',

@@ -15,15 +15,24 @@
 
 	/**
 	 * Icons alone on phones and small tablets, each at least 40px wide so it is easy to tap. Below
-	 * 768px the four labels do not fit beside the name, and would wrap and squeeze the icons.
+	 * 680px the four labels do not fit beside the name, and would wrap and squeeze the icons.
 	 */
 	const LINK =
-		'relative -mb-[3px] flex min-w-10 items-center justify-center gap-1.5 border-b-2 border-transparent text-muted-foreground hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:font-medium aria-[current=page]:text-foreground md:min-w-0 md:px-3 md:whitespace-nowrap [&>svg]:shrink-0';
+		'relative -mb-[3px] flex min-w-10 items-center justify-center gap-1.5 border-b-2 border-transparent text-muted-foreground hover:text-foreground [&[aria-current]]:border-primary [&[aria-current]]:font-medium [&[aria-current]]:text-foreground min-[680px]:min-w-0 min-[680px]:px-3 min-[680px]:whitespace-nowrap [&>svg]:shrink-0';
 
-	/** The home page is the collective page too. */
-	function isCurrent(path: '/collective' | '/invoices' | '/worklog' | '/settings'): boolean {
+	/**
+	 * `page` when the link leads to the page you are on, `true` when you are elsewhere in its
+	 * section, such as another collective's page. The collective link leads to the home page, which
+	 * shows your own collective.
+	 */
+	function current(
+		path: '/collective' | '/invoices' | '/worklog' | '/settings'
+	): 'page' | 'true' | undefined {
 		const { pathname } = page.url;
-		return pathname.startsWith(path) || (path === '/collective' && pathname === '/');
+		if (path === '/collective' && pathname === '/') return 'page';
+		if (pathname === path) return path === '/collective' ? 'true' : 'page';
+		if (pathname.startsWith(`${path}/`)) return 'true';
+		return undefined;
 	}
 </script>
 
@@ -44,45 +53,29 @@
 			<span class="max-[359px]:sr-only">Open Work</span>
 		</a>
 
-		<nav aria-label="Main" class="flex items-stretch text-sm md:gap-2">
-			<a
-				href={resolve(`/${dashboardSearch()}`)}
-				aria-current={isCurrent('/collective') ? 'page' : undefined}
-				class={LINK}
-			>
+		<nav aria-label="Main" class="flex items-stretch text-sm min-[680px]:gap-2">
+			<a href={resolve(`/${dashboardSearch()}`)} aria-current={current('/collective')} class={LINK}>
 				<ChartLine size={15} />
-				<span class="max-md:sr-only">Collective</span>
+				<span class="max-[680px]:sr-only">Collective</span>
 			</a>
-			<a
-				href={resolve('/worklog')}
-				aria-current={isCurrent('/worklog') ? 'page' : undefined}
-				class={LINK}
-			>
+			<a href={resolve('/worklog')} aria-current={current('/worklog')} class={LINK}>
 				<Clock size={15} />
-				<span class="max-md:sr-only">Work log</span>
+				<span class="max-[680px]:sr-only">Work log</span>
 			</a>
-			<a
-				href={resolve('/invoices')}
-				aria-current={isCurrent('/invoices') ? 'page' : undefined}
-				class={LINK}
-			>
+			<a href={resolve('/invoices')} aria-current={current('/invoices')} class={LINK}>
 				<FileText size={15} />
-				<span class="max-md:sr-only">Invoices</span>
+				<span class="max-[680px]:sr-only">Invoices</span>
 			</a>
-			<a
-				href={resolve('settings')}
-				aria-current={isCurrent('/settings') ? 'page' : undefined}
-				class={LINK}
-			>
+			<a href={resolve('settings')} aria-current={current('/settings')} class={LINK}>
 				<Settings size={15} />
-				<span class="max-md:sr-only">Settings</span>
+				<span class="max-[680px]:sr-only">Settings</span>
 				<!--
 					Always takes its space, so the nav does not move when it appears. Without labels it sits on
 					the icon's corner, so the icon stays centred in its tap target.
 				-->
 				<span
 					class={[
-						'size-1.5 rounded-full bg-attention max-md:absolute max-md:top-[calc(50%-11px)] max-md:right-2',
+						'size-1.5 rounded-full bg-attention max-[680px]:absolute max-[680px]:top-[calc(50%-11px)] max-[680px]:right-2',
 						!needsSetup && 'invisible'
 					]}
 					title={needsSetup ? 'Setup unfinished' : undefined}
