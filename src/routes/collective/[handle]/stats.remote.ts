@@ -20,14 +20,16 @@ import {
 	type Unpaid
 } from './financials';
 
-/** An Open Collective account slug, like "svelte". */
-const Slug = v.pipe(
-	v.string(),
-	v.trim(),
-	v.toLowerCase(),
-	v.regex(/^[a-z0-9][a-z0-9-]*$/, 'Not an Open Collective slug'),
-	v.maxLength(100)
-);
+/**
+ * The collective in the address, like "svelte". Any text is let through and checked with `slug`, so
+ * an address no collective could have shows that it does not exist rather than "Bad Request".
+ */
+const Slug = v.pipe(v.string(), v.trim(), v.toLowerCase(), v.maxLength(100));
+
+/** `handle` if it can be an Open Collective slug, else a not-found page that names it. */
+function slug(handle: string): string {
+	return /^[a-z0-9][a-z0-9-]*$/.test(handle) ? handle : missing(handle);
+}
 
 const MAX_CACHED = 50;
 
@@ -289,7 +291,7 @@ const loadStats = perKey({
 	}
 });
 
-export const getCollectiveStats = query(Slug, (slug) => loadStats(slug));
+export const getCollectiveStats = query(Slug, (handle) => loadStats(slug(handle)));
 
 const CONTRIBUTIONS_QUERY = /* GraphQL */ `
 	query Contributions($slug: String!, $from: DateTime, $limit: Int!, $offset: Int!) {
@@ -472,8 +474,8 @@ function incomeSources(nodes: ContributionNode[]) {
 	};
 }
 
-export const getIncomeSources = query(Slug, async (slug) =>
-	incomeSources(await loadContributions(slug))
+export const getIncomeSources = query(Slug, async (handle) =>
+	incomeSources(await loadContributions(slug(handle)))
 );
 
 /**
@@ -481,8 +483,8 @@ export const getIncomeSources = query(Slug, async (slug) =>
  * waits for this, so a reload arrives complete and the browser can put you back where you were.
  * Fetching them can take many seconds, so when they are not ready the page asks afterwards.
  */
-export const getCachedIncomeSources = query(Slug, async (slug) => {
-	const nodes = await loadContributions.peek(slug);
+export const getCachedIncomeSources = query(Slug, async (handle) => {
+	const nodes = await loadContributions.peek(slug(handle));
 	return nodes ? incomeSources(nodes) : null;
 });
 
