@@ -31,11 +31,11 @@ export function monthLabel({ key, partialKey }: { key: string; partialKey?: stri
 }
 
 /**
- * The months on screen as a phrase that finishes "contributed …": "in the last 12 months",
+ * The months on screen as a phrase that finishes "contributed …": "in the last year",
  * "in the last 2 years", or "since Mar 2019" for any other span, like all time.
  */
 export function periodPhrase(keys: string[]): string {
-	if (keys.length === 12) return 'in the last 12 months';
+	if (keys.length === 12) return 'in the last year';
 	if (keys.length === 24) return 'in the last 2 years';
 	return keys.length ? `since ${monthYear.format(monthEnd(keys[0]))}` : '';
 }

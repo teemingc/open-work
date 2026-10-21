@@ -662,9 +662,7 @@
 							() => range, (value) => value && setParam({ name: 'show', value, fallback: '2y' })
 						}
 					>
-						<ToggleGroup.Item value="1y" disabled={!ranges.includes('1y')}>
-							12 months
-						</ToggleGroup.Item>
+						<ToggleGroup.Item value="1y" disabled={!ranges.includes('1y')}>1 year</ToggleGroup.Item>
 						<ToggleGroup.Item value="2y" disabled={!ranges.includes('2y')}>
 							2 years
 						</ToggleGroup.Item>
@@ -684,7 +682,7 @@
 					>
 						<ToggleGroup.Item value="3">3 months</ToggleGroup.Item>
 						<ToggleGroup.Item value="6">6 months</ToggleGroup.Item>
-						<ToggleGroup.Item value="12">12 months</ToggleGroup.Item>
+						<ToggleGroup.Item value="12">1 year</ToggleGroup.Item>
 					</ToggleGroup.Root>
 				</div>
 				<div class="contents md:flex md:items-center md:gap-3">

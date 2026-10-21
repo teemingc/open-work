@@ -10,7 +10,7 @@
 		/** Top backers, biggest first, and an "others" row without a slug. */
 		backers: { slug: string; name: string; amount: number; channel: boolean }[];
 		money: Intl.NumberFormat;
-		/** When the contributions were made, like "in the last 12 months". */
+		/** When the contributions were made, like "in the last year". */
 		period: string;
 	} = $props();
 
