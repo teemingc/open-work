@@ -71,6 +71,10 @@
 	);
 
 	let hovered = $state<number | undefined>();
+	/** A touch pointer leaves as soon as the finger lifts, so keep a tapped group picked out. */
+	function leave(event: PointerEvent) {
+		if (event.pointerType === 'mouse') hovered = undefined;
+	}
 	const percent = new Intl.NumberFormat('en-US', { style: 'percent' });
 </script>
 
@@ -82,18 +86,19 @@
 	<Card.Content class="flex flex-col gap-6">
 		<!--
 			A band across the full card width, so each group reads as a run like a stacked bar. Hovering
-			a square picks out its group, as hovering its row below does. One listener for the band, read
-			from the square under the pointer, rather than one on each of the hundred squares.
+			a square picks out its group, as hovering its row below does; on touch, tapping does. One
+			listener for the band, read from the square under the pointer, rather than one on each of
+			the hundred squares.
 		-->
 		<div
-			class="grid aspect-[4/1] w-full grid-cols-20 gap-0.5 @xl:aspect-[25/4] @xl:grid-cols-25"
+			class="grid aspect-[4/1] w-full grid-cols-20 gap-0.5 select-none [-webkit-touch-callout:none] @xl:aspect-[25/4] @xl:grid-cols-25"
 			role="img"
 			aria-label={groups.map((group, index) => `${group.label}: ${counts[index]}%`).join(', ')}
 			onpointerover={(event) => {
 				const group = (event.target as HTMLElement).dataset.group;
 				if (group !== undefined) hovered = Number(group);
 			}}
-			onpointerleave={() => (hovered = undefined)}
+			onpointerleave={leave}
 		>
 			{#each cells as group, index (index)}
 				<div
@@ -114,7 +119,7 @@
 						hovered === index && 'bg-muted'
 					]}
 					onpointerenter={() => (hovered = index)}
-					onpointerleave={() => (hovered = undefined)}
+					onpointerleave={leave}
 				>
 					<span class="size-2.5 shrink-0 rounded-[2px] {group.swatch}" aria-hidden="true"></span>
 					<span class="min-w-0 flex-1 truncate">{group.label}</span>

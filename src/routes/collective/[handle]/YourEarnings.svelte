@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tapToPreview } from '#lib/tap-to-preview.js';
 	import { chartPadding, TICK_LENGTH, X_TICK_OCCLUSION, Y_TICK_LABEL } from '#lib/chart-padding.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import type { ChartConfig } from '#lib/components/ui/chart/chart-utils.js';
@@ -77,6 +78,7 @@
 			'noopener'
 		);
 	}
+	const openMonthOnTap = tapToPreview(openMonth);
 
 	const config = {
 		paid: { label: 'Paid', color: 'var(--color-chart-expenses)' },
@@ -117,7 +119,7 @@
 						<BarChart
 							padding={chartPadding({ legend: true })}
 							data={rows}
-							onTooltipClick={openMonth}
+							onTooltipClick={openMonthOnTap}
 							x="month"
 							xScale={scaleBand().padding(0.2)}
 							seriesLayout="stack"

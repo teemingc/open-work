@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tapToPreview } from '#lib/tap-to-preview.js';
 	import { chartPadding, TICK_LENGTH, X_TICK_OCCLUSION, Y_TICK_LABEL } from '#lib/chart-padding.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import type { ChartConfig } from '#lib/components/ui/chart/chart-utils.js';
@@ -65,6 +66,7 @@
 			'noopener'
 		);
 	}
+	const openMonthOnTap = tapToPreview(openMonth);
 	import LazyChart from '#lib/components/LazyChart.svelte';
 </script>
 
@@ -100,7 +102,7 @@
 							x="month"
 							xScale={scaleBand().padding(0.2)}
 							seriesLayout="stack"
-							onTooltipClick={openMonth}
+							onTooltipClick={openMonthOnTap}
 							{series}
 							props={{
 								bars: { radius: 2, strokeWidth: 0 },

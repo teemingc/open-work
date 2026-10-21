@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tapToPreview } from '#lib/tap-to-preview.js';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -447,12 +448,14 @@
 	function openMonth(_event: MouseEvent, { data: row }: { data: { month: string } }) {
 		open(transactionsUrl({ slug: data.slug, month: row.month }));
 	}
+	const openMonthOnTap = tapToPreview(openMonth);
 
 	/** A point on the balance line opens that month's transactions; the forecast has none yet. */
 	function openBalanceMonth(_event: MouseEvent, { data: point }: { data: { date: Date } }) {
 		if (point.date > now) return;
 		open(transactionsUrl({ slug: data.slug, month: point.date.toISOString().slice(0, 7) }));
 	}
+	const openBalanceMonthOnTap = tapToPreview(openBalanceMonth);
 
 	/** The "others" row has no slug, so it opens every expense. */
 	function openPayee(
@@ -468,6 +471,7 @@
 			})
 		);
 	}
+	const openPayeeOnTap = tapToPreview(openPayee);
 
 	const ticks = $derived(bandTicks(shownKeys));
 	import LazyChart from '#lib/components/LazyChart.svelte';
@@ -713,7 +717,7 @@
 							>
 								<AreaChart
 									padding={chartPadding()}
-									onTooltipClick={openBalanceMonth}
+									onTooltipClick={openBalanceMonthOnTap}
 									x="date"
 									y="balance"
 									xScale={scaleTime()}
@@ -881,7 +885,7 @@
 									x="month"
 									xScale={scaleBand().padding(0.2)}
 									seriesLayout="overlap"
-									onTooltipClick={openMonth}
+									onTooltipClick={openMonthOnTap}
 									series={flowSeries}
 									props={{
 										bars: { radius: 2, strokeWidth: 0 },
@@ -988,7 +992,7 @@
 										>
 											<ScatterChart
 												series={payeeSeries}
-												onTooltipClick={openPayee}
+												onTooltipClick={openPayeeOnTap}
 												x="month"
 												xScale={scaleBand()}
 												xDomain={shownKeys}

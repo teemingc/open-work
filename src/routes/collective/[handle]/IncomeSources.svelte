@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tapToPreview } from '#lib/tap-to-preview.js';
 	import { chartPadding, TICK_LENGTH, X_TICK_OCCLUSION, Y_TICK_LABEL } from '#lib/chart-padding.js';
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
@@ -94,6 +95,7 @@
 			'noopener'
 		);
 	}
+	const openMonthOnTap = tapToPreview(openMonth);
 
 	const config = {
 		recurring: { label: 'Recurring', color: 'var(--color-chart-income)' },
@@ -191,7 +193,7 @@
 									x="month"
 									xScale={scaleBand().padding(0.2)}
 									seriesLayout="stack"
-									onTooltipClick={openMonth}
+									onTooltipClick={openMonthOnTap}
 									series={[
 										{
 											key: 'recurring',
@@ -264,7 +266,7 @@
 										xScale={scalePoint().padding(0.6)}
 										y={['active', 'yearBefore']}
 										yNice
-										onTooltipClick={openMonth}
+										onTooltipClick={openMonthOnTap}
 										series={[
 											{
 												key: 'active',
