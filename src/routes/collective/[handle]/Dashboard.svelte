@@ -253,15 +253,17 @@
 			...data.months.map((m) => [m.key, Math.round(m.balance)] as const)
 		])
 	);
+	/** The balance in the same month a year before `date`, if there is one. */
+	const balanceYearBefore = (date: Date) => {
+		const [year, month] = date.toISOString().slice(0, 7).split('-');
+		return balanceByMonth.get(`${Number(year) - 1}-${month}`);
+	};
 	/**
 	 * Balance and forecast against the balance a year before, the baseline that colours the chart
 	 * green where the collective has more than it did and red where it has less.
 	 */
 	const trend = $derived(
-		[...history, ...projection].map((p) => {
-			const [year, month] = p.date.toISOString().slice(0, 7).split('-');
-			return { ...p, yearBefore: balanceByMonth.get(`${Number(year) - 1}-${month}`) };
-		})
+		[...history, ...projection].map((p) => ({ ...p, yearBefore: balanceYearBefore(p.date) }))
 	);
 	/** The axis is sized from the series, which leave out the year before, so a richer year ran off the top. */
 	const balanceMax = $derived(
@@ -1015,11 +1017,23 @@
 										<!-- Solid like the balance: the hatched range already says it is a forecast. -->
 										<Area seriesKey="forecast" fill="none" line={{ strokeWidth: 2 }} />
 									{/snippet}
-									{#snippet tooltip()}
-										<Chart.Tooltip
-											labelFormatter={(d: Date) => dayMonthYear.format(d)}
-											formatter={moneyRow}
-										/>
+									{#snippet tooltip({ context })}
+										{@const point = context.tooltip.data as { date: Date } | null}
+										{@const yearBefore = point ? balanceYearBefore(point.date) : undefined}
+										<Chart.Tooltip labelFormatter={(d: Date) => dayMonthYear.format(d)}>
+											{#snippet formatter({ value, name, item, index, payload })}
+												{@render moneyRow({ value, name, item })}
+												<!-- Once, after the last series, where balance and forecast meet. -->
+												{#if yearBefore !== undefined && index === payload.length - 1}
+													<MoneyRow
+														value={yearBefore}
+														name="A year earlier"
+														color="var(--color-muted-foreground)"
+														{money}
+													/>
+												{/if}
+											{/snippet}
+										</Chart.Tooltip>
 									{/snippet}
 								</AreaChart>
 							</Chart.Container>
