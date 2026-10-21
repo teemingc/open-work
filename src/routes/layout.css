@@ -150,6 +150,14 @@
 	--chart-3: #00684f;
 	--chart-4: #c27c00;
 	--chart-other: #8794a8;
+	/* A fifth series hue, for charts where pink would clash with a brand colour. */
+	--chart-5: #7e44c9;
+	/* GitHub Sponsors in its own pink, from GitHub's Primer palette. */
+	--chart-github-sponsors: #99286e;
+	/* Pale fills for grouped backers, outlined in --chart-other so they show on a card while staying quieter than
+	   named series. */
+	--chart-more-backers: #cbd5e1;
+	--chart-others: #eef2f6;
 	--chart-balance: #0c2764;
 }
 
@@ -193,6 +201,10 @@
 	--chart-3: #7ee0c9;
 	--chart-4: #f3b544;
 	--chart-other: #5f6e98;
+	--chart-5: #b48cf2;
+	--chart-github-sponsors: #ffadda;
+	--chart-more-backers: #34406a;
+	--chart-others: #1a2650;
 	--chart-balance: #8fb4ff;
 }
 
@@ -239,7 +251,11 @@
 	--color-chart-2: var(--chart-2);
 	--color-chart-3: var(--chart-3);
 	--color-chart-4: var(--chart-4);
+	--color-chart-5: var(--chart-5);
 	--color-chart-other: var(--chart-other);
+	--color-chart-github-sponsors: var(--chart-github-sponsors);
+	--color-chart-more-backers: var(--chart-more-backers);
+	--color-chart-others: var(--chart-others);
 	--color-chart-balance: var(--chart-balance);
 }
 
