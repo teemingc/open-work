@@ -24,7 +24,25 @@
 			return config;
 		}
 	});
+
+	/** Elements a touch left while their tooltip stays up, to hide it later. */
+	let held: EventTarget[] = [];
+
+	/** Hides a tooltip a tap left up, by letting its held back `pointerleave` through as a mouse's. */
+	function release() {
+		for (const target of held)
+			target.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
+		held = [];
+	}
 </script>
+
+<!-- A tooltip a tap left up would otherwise stay over the page as it scrolls, or after tapping elsewhere. -->
+<svelte:window onscroll={release} />
+<svelte:document
+	onpointerdown={(event) => {
+		if (!ref?.contains(event.target as Node)) release();
+	}}
+/>
 
 <div
 	bind:this={ref}
@@ -32,6 +50,9 @@
 	data-slot="chart"
 	class={cn(
 		'flex aspect-video justify-center overflow-visible text-xs',
+		// Pressing and dragging across a chart scrubs its tooltip, so don't select text or open the
+		// iOS callout menu instead
+		'select-none [-webkit-touch-callout:none]',
 		// Overrides
 		//
 		// Stroke around dots/marks when hovering
@@ -73,6 +94,14 @@
 		'[&_.lc-root-container]:w-full',
 		className
 	)}
+	onpointerleavecapture={(event) => {
+		// A touch pointer leaves as soon as the finger lifts, which would hide the tooltip a tap
+		// just showed. Keep it until the next tap moves it, the page scrolls or a tap lands elsewhere.
+		if (event.pointerType !== 'mouse' && event.target) {
+			event.stopPropagation();
+			held.push(event.target);
+		}
+	}}
 	{...restProps}
 >
 	<ChartStyle id={chartId} {config} />

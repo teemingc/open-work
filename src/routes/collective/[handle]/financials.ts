@@ -269,6 +269,9 @@ export function backerHistory(nodes: ContributionNode[]): Map<string, BackerHist
 	return history;
 }
 
+/** How long after a recurring contribution the next can arrive before the backer counts as stopped. */
+const GRACE_DAYS = { MONTHLY: 45, YEARLY: 380 };
+
 /** Whether a backer still gives: a recurring contribution counts as stopped once a payment is overdue. */
 export function backerStatus({
 	frequency,
@@ -278,8 +281,69 @@ export function backerStatus({
 	'Monthly' | 'Yearly' | 'Stopped' | 'One-off' {
 	if (!frequency) return 'One-off';
 	const days = (now.getTime() - new Date(last).getTime()) / DAY_MS;
-	if (frequency === 'MONTHLY') return days <= 45 ? 'Monthly' : 'Stopped';
-	return days <= 380 ? 'Yearly' : 'Stopped';
+	if (frequency === 'MONTHLY') return days <= GRACE_DAYS.MONTHLY ? 'Monthly' : 'Stopped';
+	return days <= GRACE_DAYS.YEARLY ? 'Yearly' : 'Stopped';
+}
+
+/** How many backers started or stopped recurring contributions in one month. */
+export interface RecurringChange {
+	/** YYYY-MM */
+	month: string;
+	started: number;
+	stopped: number;
+	/** Recurring backers at the end of the month, or now for the current month. */
+	active: number;
+}
+
+/**
+ * Recurring backers who started or stopped each month, and how many gave, oldest first. A backer stops in the month
+ * their next payment became overdue, as `backerStatus` decides, and one who resumes after that
+ * starts again. One-off contributions are left out, as are backers in `skip`.
+ */
+export function recurringChanges({
+	nodes,
+	now,
+	skip
+}: {
+	nodes: ContributionNode[];
+	now: Date;
+	skip: Set<string>;
+}): RecurringChange[] {
+	const byBacker = new Map<string, { at: number; frequency: 'MONTHLY' | 'YEARLY' }[]>();
+	for (const node of nodes) {
+		const slug = node.fromAccount?.slug;
+		const frequency = node.order?.frequency;
+		if (!slug || skip.has(slug) || (frequency !== 'MONTHLY' && frequency !== 'YEARLY')) continue;
+		const list = byBacker.get(slug) ?? [];
+		list.push({ at: Date.parse(node.createdAt), frequency });
+		byBacker.set(slug, list);
+	}
+
+	const months = new Map<string, RecurringChange>();
+	const count = (at: number, key: 'started' | 'stopped') => {
+		const month = new Date(at).toISOString().slice(0, 7);
+		const row = months.get(month) ?? { month, started: 0, stopped: 0, active: 0 };
+		row[key]++;
+		months.set(month, row);
+	};
+	for (const payments of byBacker.values()) {
+		payments.sort((a, b) => a.at - b.at);
+		count(payments[0].at, 'started');
+		for (const [index, payment] of payments.entries()) {
+			const due = payment.at + GRACE_DAYS[payment.frequency] * DAY_MS;
+			const next = payments[index + 1];
+			if (next && next.at <= due) continue;
+			if (due > now.getTime()) continue;
+			count(due, 'stopped');
+			if (next) count(next.at, 'started');
+		}
+	}
+	// Every start is followed by a stop unless the backer still gives, so the running difference
+	// is how many give at the end of each month.
+	let active = 0;
+	return [...months.values()]
+		.sort((a, b) => a.month.localeCompare(b.month))
+		.map((row) => ({ ...row, active: (active += row.started - row.stopped) }));
 }
 
 /** The `count` month keys up to and including the month of `now`, oldest first. */

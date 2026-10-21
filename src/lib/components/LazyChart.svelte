@@ -41,7 +41,8 @@
 					ClipPath,
 					LinearGradient,
 					LineChart,
-					ScatterChart
+					ScatterChart,
+					Threshold
 				}) => ({
 					Area,
 					AreaChart,
@@ -51,7 +52,8 @@
 					ClipPath,
 					LinearGradient,
 					LineChart,
-					ScatterChart
+					ScatterChart,
+					Threshold
 				})
 			),
 			import('./SeriesLegend.svelte').then(({ default: Legend }) => ({ Legend })),
