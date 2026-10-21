@@ -91,7 +91,7 @@
 	{#if totals.logged > 0}
 		<Card.Content class="space-y-4">
 			<LazyChart class="h-56">
-				{#snippet children({ BarChart, Chart, Legend })}
+				{#snippet children({ BarChart, Chart, Legend, legendMotion })}
 					<Chart.Container {config} class="aspect-auto h-56 w-full">
 						<BarChart
 							padding={chartPadding({ left: 44, legend: true })}
@@ -104,7 +104,7 @@
 								{ key: 'logged', label: config.logged.label, color: config.logged.color }
 							]}
 							props={{
-								bars: { radius: 2, strokeWidth: 0 },
+								bars: { radius: 2, strokeWidth: 0, motion: legendMotion },
 								xAxis: {
 									tickLength: TICK_LENGTH,
 									tickOcclusion: X_TICK_OCCLUSION,

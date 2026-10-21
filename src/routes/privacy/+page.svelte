@@ -4,8 +4,13 @@
 
 <svelte:head>
 	<title>Privacy policy · Open Work</title>
+	<meta property="og:title" content="Privacy policy · Open Work" />
 	<meta
 		name="description"
+		content="What Open Work stores about you, where it lives and who sees it."
+	/>
+	<meta
+		property="og:description"
 		content="What Open Work stores about you, where it lives and who sees it."
 	/>
 </svelte:head>

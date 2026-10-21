@@ -10,14 +10,17 @@
 			text: string;
 			icon?: 'up' | 'down' | 'hourglass';
 			tone?: string;
-			title?: string;
+			/** What the badge means, opened by tapping or clicking it, since a hover title never shows on touch. */
+			detail?: string;
 		};
 	}
 </script>
 
 <script lang="ts">
-	import { Badge } from '#lib/components/ui/badge/index.js';
+	import { Badge, badgeVariants } from '#lib/components/ui/badge/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
+	import * as Popover from '#lib/components/ui/popover/index.js';
+	import { cn } from '#lib/utils.js';
 	import { Hourglass, TrendingDown, TrendingUp } from '@lucide/svelte';
 
 	let { stats }: { stats: Stat[] } = $props();
@@ -42,10 +45,33 @@
 					{stat.label}
 					{#if stat.badge}
 						{@const Icon = stat.badge.icon && ICONS[stat.badge.icon]}
-						<Badge variant="outline" class={stat.badge.tone} title={stat.badge.title}>
-							{#if Icon}<Icon />{/if}
-							{stat.badge.text}
-						</Badge>
+						{#if stat.badge.detail}
+							<Popover.Root>
+								<Popover.Trigger>
+									{#snippet child({ props })}
+										<button
+											{...props}
+											class={cn(
+												badgeVariants({ variant: 'outline' }),
+												'hover:bg-muted',
+												stat.badge?.tone
+											)}
+										>
+											{#if Icon}<Icon aria-hidden="true" />{/if}
+											{stat.badge?.text}
+										</button>
+									{/snippet}
+								</Popover.Trigger>
+								<Popover.Content class="w-64 p-3 text-sm whitespace-normal" align="end">
+									{stat.badge.detail}
+								</Popover.Content>
+							</Popover.Root>
+						{:else}
+							<Badge variant="outline" class={stat.badge.tone}>
+								{#if Icon}<Icon />{/if}
+								{stat.badge.text}
+							</Badge>
+						{/if}
 					{/if}
 				</dt>
 				<dd class="font-display text-2xl font-medium tabular-nums {stat.tone ?? ''}">

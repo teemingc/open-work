@@ -17,7 +17,12 @@
 
 <svelte:head>
 	<title>Work log · Open Work</title>
+	<meta property="og:title" content="Work log · Open Work" />
 	<meta name="description" content="Log your hours and keep track of your pace for the month." />
+	<meta
+		property="og:description"
+		content="Log your hours and keep track of your pace for the month."
+	/>
 </svelte:head>
 
 <!--

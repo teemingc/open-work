@@ -169,7 +169,9 @@
 
 <svelte:head>
 	<title>Settings · Open Work</title>
+	<meta property="og:title" content="Settings · Open Work" />
 	<meta name="description" content="Connect to Open Collective to start sending invoices." />
+	<meta property="og:description" content="Connect to Open Collective to start sending invoices." />
 </svelte:head>
 
 <!--

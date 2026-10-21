@@ -114,7 +114,7 @@
 	{#if !nothing}
 		<Card.Content>
 			<LazyChart class="mb-3 h-64">
-				{#snippet children({ BarChart, Chart, Legend })}
+				{#snippet children({ BarChart, Chart, Legend, legendMotion })}
 					<Chart.Container {config} class="aspect-auto h-64 w-full cursor-pointer">
 						<BarChart
 							padding={chartPadding({ legend: true })}
@@ -128,7 +128,7 @@
 								{ key: 'unpaid', label: config.unpaid.label, color: config.unpaid.color }
 							]}
 							props={{
-								bars: { radius: 2, strokeWidth: 0 },
+								bars: { radius: 2, strokeWidth: 0, motion: legendMotion },
 								xAxis: {
 									tickLength: TICK_LENGTH,
 									tickOcclusion: X_TICK_OCCLUSION,

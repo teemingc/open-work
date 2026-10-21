@@ -110,7 +110,12 @@
 
 <svelte:head>
 	<title>New invoice · Open Work</title>
+	<meta property="og:title" content="New invoice · Open Work" />
 	<meta name="description" content="Send an invoice to Open Collective along with your work log." />
+	<meta
+		property="og:description"
+		content="Send an invoice to Open Collective along with your work log."
+	/>
 </svelte:head>
 
 <div class="animate-in duration-300 fade-in">

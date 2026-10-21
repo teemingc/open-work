@@ -31,6 +31,10 @@
 
 <svelte:head>
 	<title>{notFound ? 'Page not found' : 'Page did not load'} · Open Work</title>
+	<meta
+		property="og:title"
+		content="{notFound ? 'Page not found' : 'Page did not load'} · Open Work"
+	/>
 </svelte:head>
 
 <!-- The same narrow column as the home page: a heading, one line, then a list of places to go. -->

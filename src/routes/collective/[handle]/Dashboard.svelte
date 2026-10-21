@@ -392,7 +392,11 @@
 	 * A relative change as a trend badge, or nothing without an earlier window to compare. Coloured
 	 * by whether the change is good for the collective, so rising expenses read as bad news.
 	 */
-	function trendBadge(change: number | undefined, goodWhen: 'up' | 'down'): Stat['badge'] {
+	function trendBadge(
+		change: number | undefined,
+		goodWhen: 'up' | 'down',
+		detail: string
+	): Stat['badge'] {
 		if (change === undefined) return undefined;
 		const good = goodWhen === 'up' ? change > 0 : change < 0;
 		return {
@@ -402,11 +406,58 @@
 				Math.abs(change) < STEADY
 					? undefined
 					: good
-						? 'border-status-paid/30 text-status-paid'
-						: 'border-destructive/30 text-destructive',
-			title: `Change on the ${result.basis} complete months before`
+						? 'border-status-paid/30 text-status-paid hover:bg-status-paid/10'
+						: 'border-destructive/30 text-destructive hover:bg-destructive/10',
+			detail
 		};
 	}
+
+	/** The two windows a trend compares, in words: "the last 6 complete months" and "the 6 months before". */
+	const windows = $derived(
+		result.basis === 12
+			? { recent: 'the last year', earlier: 'the year before' }
+			: {
+					recent: `the last ${result.basis} complete months`,
+					earlier: `the ${result.basis} months before`
+				}
+	);
+
+	/** Spells out an average's trend badge with both amounts, so the percentage needs no guessing. */
+	function averageDetail({
+		what,
+		now,
+		before,
+		change
+	}: {
+		what: string;
+		now: number;
+		before: number | undefined;
+		change: number | undefined;
+	}): string {
+		if (before === undefined || change === undefined) return '';
+		return `${what} averaged ${money.format(now)} a month over ${windows.recent}. That's ${percent.format(Math.abs(change))} ${change >= 0 ? 'more' : 'less'} than the ${money.format(before)} a month in ${windows.earlier}.`;
+	}
+
+	/** What the average month did to the balance, like "took in $500 more than it spent". */
+	function netPhrase(net: number): string {
+		return net < 0
+			? `spent ${money.format(-net)} more than it took in`
+			: `took in ${money.format(net)} more than it spent`;
+	}
+
+	const netDetail = $derived.by(() => {
+		if (!previous || trends.net === undefined) return '';
+		return `The average month ${netPhrase(result.avgNet)} over ${windows.recent}. That's ${percent.format(Math.abs(trends.net))} ${trends.net >= 0 ? 'better' : 'worse'} than ${windows.earlier}, when it ${netPhrase(previous.avgIncome - previous.avgExpenses)}.`;
+	});
+
+	/** Spells out the runway badge, so the months left say where they come from. */
+	const runwayDetail = $derived.by(() => {
+		if (!result.zeroDate) return '';
+		const approved = committed
+			? `, after ${money.format(committed)} of approved expenses waiting to be paid,`
+			: '';
+		return `The ${money.format(available)} available${approved} drops by about ${money.format(-result.avgNet)} a month, the average of ${windows.recent}. At that rate it runs out around ${longMonthYear.format(result.zeroDate)}.`;
+	});
 
 	const stats = $derived<Stat[]>([
 		{
@@ -416,20 +467,34 @@
 			badge:
 				runwayMonths === null
 					? undefined
-					: { text: `${runwayMonths} months left`, icon: 'hourglass', tone: 'text-destructive' }
+					: {
+							text: `${runwayMonths} months left`,
+							icon: 'hourglass',
+							tone: 'border-destructive/30 text-destructive hover:bg-destructive/10',
+							detail: runwayDetail
+						}
 		},
 		{
 			label: 'Average month',
 			value: signed(result.avgNet),
 			tone: result.avgNet < 0 ? 'text-destructive' : 'text-status-paid',
 			note: `Income covers ${percent.format(result.avgExpenses ? result.avgIncome / result.avgExpenses : 1)} of expenses`,
-			badge: trendBadge(trends.net, 'up')
+			badge: trendBadge(trends.net, 'up', netDetail)
 		},
 		{
 			label: 'Average income',
 			value: money.format(result.avgIncome),
 			note: `Over the last ${result.basis} complete months`,
-			badge: trendBadge(trends.income, 'up')
+			badge: trendBadge(
+				trends.income,
+				'up',
+				averageDetail({
+					what: 'Income',
+					now: result.avgIncome,
+					before: previous?.avgIncome,
+					change: trends.income
+				})
+			)
 		},
 		{
 			label: 'Average expenses',
@@ -437,7 +502,16 @@
 			note: awaitingApproval
 				? `${money.format(awaitingApproval)} more awaits approval`
 				: `Over the last ${result.basis} complete months`,
-			badge: trendBadge(trends.expenses, 'down')
+			badge: trendBadge(
+				trends.expenses,
+				'down',
+				averageDetail({
+					what: 'Expenses',
+					now: result.avgExpenses,
+					before: previous?.avgExpenses,
+					change: trends.expenses
+				})
+			)
 		}
 	]);
 
@@ -479,8 +553,13 @@
 
 <svelte:head>
 	<title>{data.name} · Open Work</title>
+	<meta property="og:title" content="{data.name} · Open Work" />
 	<meta
 		name="description"
+		content="{data.name} on Open Collective: its balance, runway, income, expenses and who funds it."
+	/>
+	<meta
+		property="og:description"
 		content="{data.name} on Open Collective: its balance, runway, income, expenses and who funds it."
 	/>
 </svelte:head>
@@ -876,7 +955,7 @@
 			</Card.Header>
 			<Card.Content>
 				<LazyChart class="mb-3 h-64">
-					{#snippet children({ BarChart, Chart, Legend })}
+					{#snippet children({ BarChart, Chart, Legend, legendMotion })}
 						<div bind:clientWidth={flowWidth}>
 							<Chart.Container config={flowConfig} class="aspect-auto h-64 w-full cursor-pointer">
 								<BarChart
@@ -888,7 +967,7 @@
 									onTooltipClick={openMonthOnTap}
 									series={flowSeries}
 									props={{
-										bars: { radius: 2, strokeWidth: 0 },
+										bars: { radius: 2, strokeWidth: 0, motion: legendMotion },
 										xAxis: {
 											tickLength: TICK_LENGTH,
 											tickOcclusion: X_TICK_OCCLUSION,
