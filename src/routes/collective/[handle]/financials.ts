@@ -153,6 +153,15 @@ const TYPE_CATEGORIES: Record<string, string> = {
 	GRANT: 'Grants'
 };
 
+/**
+ * What to call an account. Guests, who give without signing up, can have an empty name, which Open
+ * Collective shows as "Guest"; here they are "Anonymous".
+ */
+export function accountName(account: { slug: string; name: string } | null): string {
+	if (account?.name) return account.name;
+	return account?.slug.startsWith('guest-') ? 'Anonymous' : 'Unknown';
+}
+
 /** A short category name, such as "Hosting & Subscriptions" from "Expenses - Hosting & Subscriptions". */
 export function categoryName(expense: PayoutNode['expense']): string {
 	const name = expense?.accountingCategory?.name;
@@ -171,7 +180,7 @@ export function toPayouts(nodes: PayoutNode[]): Payout[] {
 		const payout = payouts.get(id) ?? {
 			month,
 			slug,
-			name: node.oppositeAccount?.name ?? 'Unknown',
+			name: accountName(node.oppositeAccount),
 			category,
 			amount: 0
 		};
@@ -212,7 +221,7 @@ export function toContributions(nodes: ContributionNode[]): {
 		const backer = backers.get(id) ?? {
 			month,
 			slug,
-			name: node.fromAccount?.name ?? 'Unknown',
+			name: accountName(node.fromAccount),
 			amount: 0
 		};
 		backer.amount += amount;

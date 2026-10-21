@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	accountName,
 	accountsByMonth,
 	change,
 	forecast,
@@ -475,5 +476,14 @@ describe('recurringChanges', () => {
 			{ month: '2026-06', started: 1, stopped: 0, active: 2 },
 			{ month: '2026-08', started: 0, stopped: 1, active: 1 }
 		]);
+	});
+});
+
+describe('accountName', () => {
+	it('names guests with no name "Anonymous" and other nameless accounts "Unknown"', () => {
+		expect(accountName({ slug: 'mochajs', name: 'Mocha' })).toBe('Mocha');
+		expect(accountName({ slug: 'guest-a3c3ba7a', name: '' })).toBe('Anonymous');
+		expect(accountName({ slug: 'someone', name: '' })).toBe('Unknown');
+		expect(accountName(null)).toBe('Unknown');
 	});
 });
