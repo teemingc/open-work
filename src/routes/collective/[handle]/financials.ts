@@ -601,6 +601,25 @@ export function accountsByMonth({
 	};
 }
 
+/** The first month of the quarter `key` (YYYY-MM) is in, like "2026-07" for "2026-08". */
+export function quarterStart(key: string): string {
+	const [year, month] = key.split('-').map(Number);
+	return `${year}-${String(month - ((month - 1) % 3)).padStart(2, '0')}`;
+}
+
+/** `cells` summed per quarter and account, each under its quarter's first month. */
+export function byQuarter(cells: AccountMonth[]): AccountMonth[] {
+	const quarters = new Map<string, AccountMonth>();
+	for (const cell of cells) {
+		const month = quarterStart(cell.month);
+		const id = `${month} ${cell.slug}`;
+		const quarter = quarters.get(id) ?? { ...cell, month, amount: 0 };
+		quarter.amount += cell.amount;
+		quarters.set(id, quarter);
+	}
+	return [...quarters.values()];
+}
+
 /**
  * Split `cells` squares between the values in proportion, rounding so they still add up to
  * `cells`: the largest remainders get the leftover squares.

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
 	accountName,
 	accountsByMonth,
+	byQuarter,
+	quarterStart,
 	change,
 	forecast,
 	previousAverages,
@@ -387,6 +389,35 @@ describe('recurring and one-off income', () => {
 				contributions
 			})
 		).toEqual([month('2026-07', 0, 5), month('2026-09', 10, 20)]);
+	});
+});
+
+describe('quarters', () => {
+	it('finds the first month of a quarter', () => {
+		expect(['2026-01', '2026-03', '2026-04', '2026-08', '2026-12'].map(quarterStart)).toEqual([
+			'2026-01',
+			'2026-01',
+			'2026-04',
+			'2026-07',
+			'2026-10'
+		]);
+	});
+
+	it('sums cells per quarter and account', () => {
+		const cell = (month: string, slug: string, amount: number) => ({
+			month,
+			slug,
+			name: slug,
+			amount
+		});
+		expect(
+			byQuarter([
+				cell('2026-07', 'a', 10),
+				cell('2026-09', 'a', 5),
+				cell('2026-08', 'b', 1),
+				cell('2026-10', 'a', 2)
+			])
+		).toEqual([cell('2026-07', 'a', 15), cell('2026-07', 'b', 1), cell('2026-10', 'a', 2)]);
 	});
 });
 

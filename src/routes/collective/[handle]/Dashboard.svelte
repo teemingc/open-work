@@ -42,6 +42,8 @@
 		paidTo,
 		previousAverages,
 		accountsByMonth,
+		byQuarter,
+		quarterStart,
 		transactionsUrl,
 		withRecurringIncome
 	} from './financials';
@@ -299,15 +301,29 @@
 	const PAYEE_TOTAL_WIDTH = 60;
 	/** The payee chart's width, for sizing its dots. */
 	let payeeWidth = $state(0);
+	/** The width the payee chart's dots are drawn across, between the names and the totals. */
+	const payeePlot = $derived(
+		payeeWidth - (PAYEE_LABEL_WIDTH + TICK_LENGTH + 6) - (PAYEE_TOTAL_WIDTH + TICK_LENGTH)
+	);
+	/** Narrower than this a month, as on phones, dots barely differ in size, so quarters are shown. */
+	const MIN_MONTH_WIDTH = 12;
+	const payeeQuarterly = $derived(
+		payeeWidth > 0 && payeePlot / Math.max(1, shownKeys.length) < MIN_MONTH_WIDTH
+	);
+	/** The columns of the payee chart: the months shown, or the first month of each quarter. */
+	const payeeKeys = $derived(
+		payeeQuarterly ? [...new Set(shownKeys.map(quarterStart))] : shownKeys
+	);
+	/** The months shown that a column covers: one, or up to three for a quarter. */
+	const payeeMonths = (key: string) =>
+		payeeQuarterly ? shownKeys.filter((month) => quarterStart(month) === key) : [key];
 	/**
-	 * The biggest dot: under half a month's width, so dots in neighbouring months never overlap and
+	 * The biggest dot: under half a column's width, so dots in neighbouring columns never overlap and
 	 * each is its own target, but no bigger than 11px however wide the chart.
 	 */
-	const payeeMaxRadius = $derived.by(() => {
-		const plot =
-			payeeWidth - (PAYEE_LABEL_WIDTH + TICK_LENGTH + 6) - (PAYEE_TOTAL_WIDTH + TICK_LENGTH);
-		return Math.max(1.5, Math.min(11, (plot / Math.max(1, shownKeys.length)) * 0.45));
-	});
+	const payeeMaxRadius = $derived(
+		Math.max(1.5, Math.min(11, (payeePlot / Math.max(1, payeeKeys.length)) * 0.45))
+	);
 	/** The axis labels' size, for measuring them. */
 	const LABEL_STYLE = { fontSize: '12px' } as CSSStyleDeclaration;
 	const payees = $derived(accountsByMonth({ rows: data.payouts, months: shownKeys, limit: 7 }));
@@ -326,7 +342,9 @@
 			key,
 			label: payeeConfig[key].label,
 			color: payeeConfig[key].color,
-			data: payees.cells.filter((cell) => (cell.slug === me) === (key === 'you'))
+			data: (payeeQuarterly ? byQuarter(payees.cells) : payees.cells).filter(
+				(cell) => (cell.slug === me) === (key === 'you')
+			)
 		}))
 	);
 
@@ -601,16 +619,28 @@
 		_event: MouseEvent,
 		{ data: cell }: { data: { slug: string; month: string } }
 	) {
+		const months = payeeMonths(cell.month);
 		open(
 			transactionsUrl({
 				slug: data.slug,
-				month: cell.month,
+				between: { from: months[0], to: months.at(-1)! },
 				account: cell.slug || undefined,
 				kinds: ['EXPENSE']
 			})
 		);
 	}
 	const openPayeeOnTap = tapToPreview(openPayee);
+
+	const shortMonth = new Intl.DateTimeFormat('en', { month: 'short', timeZone: 'UTC' });
+	/** A payee chart column in words: "Oct 2026", or "Jul–Sep 2026" for a quarter. */
+	function payeeColumnLabel(key: string): string {
+		const months = payeeMonths(key);
+		const last = labelMonth(months.at(-1)!);
+		return months.length > 1 ? `${shortMonth.format(monthEnd(months[0]))}–${last}` : last;
+	}
+	/** A quarter on the axis, like "Q3 26". */
+	const quarterTick = (key: string) => `Q${(Number(key.slice(5, 7)) + 2) / 3} ${key.slice(2, 4)}`;
+	const payeeTicks = $derived(bandTicks(payeeKeys));
 
 	const ticks = $derived(bandTicks(shownKeys));
 	import LazyChart from '#lib/components/LazyChart.svelte';
@@ -1054,7 +1084,10 @@
 			</Card.Content>
 		</Card.Root>
 
-		<!-- The charts above as figures, for screen readers and keyboards: each month opens its transactions. -->
+		<!--
+			The charts above as figures, for screen readers and keyboards: each month opens its transactions.
+			On phones the gain or loss, which is income less expenses, makes way for the rest.
+		-->
 		<details class="rounded-xl border bg-card text-sm">
 			<summary class="cursor-pointer px-4 py-3 font-medium">Monthly figures</summary>
 			<div class="overflow-x-auto border-t">
@@ -1062,17 +1095,17 @@
 					<caption class="sr-only">Contributions, expenses and balance by month</caption>
 					<thead class="text-xs">
 						<tr>
-							<th class="px-4 py-2">Month</th>
-							<th class="px-4 py-2 text-right">Contributions</th>
-							<th class="px-4 py-2 text-right">Expenses</th>
-							<th class="px-4 py-2 text-right">Gained or lost</th>
-							<th class="px-4 py-2 text-right">Balance</th>
+							<th class="py-2 pr-2 pl-4 sm:px-4">Month</th>
+							<th class="px-2 py-2 text-right sm:px-4">Contributions</th>
+							<th class="px-2 py-2 text-right sm:px-4">Expenses</th>
+							<th class="hidden px-4 py-2 text-right sm:table-cell">Gained or lost</th>
+							<th class="px-2 py-2 text-right sm:px-4">Balance</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each shown as month (month.key)}
 							<tr>
-								<th scope="row" class="px-4 py-2 font-normal">
+								<th scope="row" class="py-2 pr-2 pl-4 font-normal whitespace-nowrap sm:px-4">
 									<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
 									<a
 										href={transactionsUrl({ slug: data.slug, month: month.key })}
@@ -1085,10 +1118,12 @@
 									</a>
 									<!-- eslint-enable svelte/no-navigation-without-resolve -->
 								</th>
-								<td class="px-4 py-2 text-right">{money.format(month.income)}</td>
-								<td class="px-4 py-2 text-right">{money.format(month.expenses)}</td>
-								<td class="px-4 py-2 text-right">{signed(Math.round(month.net))}</td>
-								<td class="px-4 py-2 text-right">{money.format(month.balance)}</td>
+								<td class="px-2 py-2 text-right sm:px-4">{money.format(month.income)}</td>
+								<td class="px-2 py-2 text-right sm:px-4">{money.format(month.expenses)}</td>
+								<td class="hidden px-4 py-2 text-right sm:table-cell"
+									>{signed(Math.round(month.net))}</td
+								>
+								<td class="px-2 py-2 text-right sm:px-4">{money.format(month.balance)}</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -1116,8 +1151,8 @@
 						<Card.Header>
 							<Card.Title>Who was paid</Card.Title>
 							<Card.Description>
-								Expenses paid out each month. The bigger the dot, the more was paid. The total
-								amount paid out {periodPhrase(shownKeys)} is on the right.
+								Expenses paid out each {payeeQuarterly ? 'quarter' : 'month'}. The bigger the dot,
+								the more was paid. The total amount paid out {periodPhrase(shownKeys)} is on the right.
 							</Card.Description>
 						</Card.Header>
 						<Card.Content>
@@ -1133,7 +1168,7 @@
 												onTooltipClick={openPayeeOnTap}
 												x="month"
 												xScale={scaleBand()}
-												xDomain={shownKeys}
+												xDomain={payeeKeys}
 												y="slug"
 												yScale={scaleBand()}
 												yDomain={payees.accounts.map((account) => account.slug)}
@@ -1149,8 +1184,8 @@
 													xAxis: {
 														tickLength: TICK_LENGTH,
 														tickOcclusion: X_TICK_OCCLUSION,
-														ticks,
-														format: bandTickLabel
+														ticks: payeeTicks,
+														format: payeeQuarterly ? quarterTick : bandTickLabel
 													},
 													yAxis: {
 														tickLength: TICK_LENGTH,
@@ -1207,7 +1242,7 @@
 													} | null}
 													<Chart.Tooltip
 														hideIndicator
-														labelFormatter={() => (cell ? labelMonth(cell.month) : '')}
+														labelFormatter={() => (cell ? payeeColumnLabel(cell.month) : '')}
 													>
 														{#snippet formatter()}
 															{#if cell}
