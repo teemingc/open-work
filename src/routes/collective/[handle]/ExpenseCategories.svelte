@@ -121,11 +121,15 @@
 							{#snippet legend({ context })}
 								<!--
 									Category names are long, so the legend wraps and the plot makes room for every row.
-									Left-aligned, so the swatches line up once it wraps, and pulled out by each item's
+									Centred like the other charts' legends where a row holds several. On phones, where it
+									becomes a list, left-aligned so the swatches line up, and pulled out by each item's
 									padding so they line up with the title too.
 								-->
 								<div class="absolute inset-x-0 bottom-0 z-1" bind:clientHeight={legendHeight}>
-									<Legend {context} classes={{ root: 'w-full', items: '-mx-2 flex-wrap' }} />
+									<Legend
+										{context}
+										classes={{ root: 'w-full', items: '-mx-2 flex-wrap sm:justify-center' }}
+									/>
 								</div>
 							{/snippet}
 							{#snippet tooltip()}
