@@ -23,8 +23,16 @@
 	} from '@lucide/svelte';
 	import RetryableError from '#lib/components/RetryableError.svelte';
 	import StatStrip, { type Stat } from '#lib/components/StatStrip.svelte';
-	import { bandTickLabel, bandTicks, compactFormat, monthLabel, moneyFormat } from './chart-format';
+	import {
+		bandTickLabel,
+		bandTicks,
+		compactFormat,
+		monthLabel,
+		moneyFormat,
+		periodPhrase
+	} from './chart-format';
 	import ExpenseCategories from './ExpenseCategories.svelte';
+	import * as details from './stat-details';
 	import {
 		change,
 		forecast,
@@ -34,7 +42,8 @@
 		paidTo,
 		previousAverages,
 		accountsByMonth,
-		transactionsUrl
+		transactionsUrl,
+		withRecurringIncome
 	} from './financials';
 	import CollectiveSearch from './CollectiveSearch.svelte';
 	import IncomeSources from './IncomeSources.svelte';
@@ -142,12 +151,23 @@
 	);
 	const available = $derived(balance - committed);
 
+	/**
+	 * The months the averages and forecast are taken from. Once the contributions are in, income
+	 * counts recurring contributions alone: one-off gifts are lumpy, so one big gift would otherwise
+	 * lift the averages and stretch the runway as if it came every month.
+	 */
+	const basisMonths = $derived(
+		income
+			? withRecurringIncome({ months: data.months, contributions: income.months })
+			: data.months
+	);
+
 	const horizonMonths = $derived(Number(horizon) * 12);
 	/** Every month forecast, even after the money runs out, so the other averages still show. */
 	const forecastSpan = $derived(forecastDates({ now, horizon: horizonMonths }));
 	const result = $derived(
 		forecast({
-			months: data.months,
+			months: basisMonths,
 			basis: Number(basis) || 6,
 			now,
 			start: available,
@@ -157,7 +177,7 @@
 	/** The forecast with `net` a month in place of the average. */
 	const forecastWith = (net: number) =>
 		forecast({
-			months: data.months,
+			months: basisMonths,
 			basis: Number(basis) || 6,
 			now,
 			start: available,
@@ -246,7 +266,7 @@
 		Math.max(0, ...trend.map((p) => Math.max(p.balance, p.yearBefore ?? 0)))
 	);
 
-	const previous = $derived(previousAverages({ months: data.months, basis: result.basis }));
+	const previous = $derived(previousAverages({ months: basisMonths, basis: result.basis }));
 	/** How each average moved against the same number of months before it. */
 	const trends = $derived({
 		income: previous && change(previous.avgIncome, result.avgIncome),
@@ -337,7 +357,7 @@
 	} satisfies ChartConfig;
 
 	const flowConfig = $derived({
-		income: { label: 'Income', color: 'var(--color-chart-income)' },
+		income: { label: 'Contributions', color: 'var(--color-chart-income)' },
 		// When "Paid to you" sits on top of it, what shows of expenses is what went to others.
 		expenses: {
 			label: 'Expenses',
@@ -412,58 +432,96 @@
 		};
 	}
 
-	/** The two windows a trend compares, in words: "the last 6 complete months" and "the 6 months before". */
+	/** The two windows a trend compares, in words: "the last 6 months" and "the 6 months before". */
 	const windows = $derived(
 		result.basis === 12
 			? { recent: 'the last year', earlier: 'the year before' }
 			: {
-					recent: `the last ${result.basis} complete months`,
+					recent: `the last ${result.basis} months`,
 					earlier: `the ${result.basis} months before`
 				}
 	);
 
-	/** Spells out an average's trend badge with both amounts, so the percentage needs no guessing. */
+	/** Spells out an average's trend badge in money, beside the percentage on the badge. */
 	function averageDetail({
 		what,
 		now,
-		before,
-		change
+		before
 	}: {
 		what: string;
 		now: number;
 		before: number | undefined;
-		change: number | undefined;
 	}): string {
-		if (before === undefined || change === undefined) return '';
-		return `${what} averaged ${money.format(now)} a month over ${windows.recent}. That's ${percent.format(Math.abs(change))} ${change >= 0 ? 'more' : 'less'} than the ${money.format(before)} a month in ${windows.earlier}.`;
-	}
-
-	/** What the average month did to the balance, like "took in $500 more than it spent". */
-	function netPhrase(net: number): string {
-		return net < 0
-			? `spent ${money.format(-net)} more than it took in`
-			: `took in ${money.format(net)} more than it spent`;
+		if (before === undefined) return '';
+		return details.averageDetail({
+			what,
+			before: money.format(before),
+			change: money.format(Math.abs(now - before)),
+			up: now >= before,
+			windows
+		});
 	}
 
 	const netDetail = $derived.by(() => {
 		if (!previous || trends.net === undefined) return '';
-		return `The average month ${netPhrase(result.avgNet)} over ${windows.recent}. That's ${percent.format(Math.abs(trends.net))} ${trends.net >= 0 ? 'better' : 'worse'} than ${windows.earlier}, when it ${netPhrase(previous.avgIncome - previous.avgExpenses)}.`;
+		const before = previous.avgIncome - previous.avgExpenses;
+		return details.netDetail({
+			before: money.format(before),
+			change: money.format(Math.abs(result.avgNet - before)),
+			up: result.avgNet >= before,
+			windows
+		});
+	});
+
+	/** Spells out the one-off contributions trend in money, against the year before. */
+	const oneOffDetail = $derived.by(() => {
+		if (!income) return '';
+		const { total } = income.oneOffs;
+		const before = income.oneOffsBefore.total;
+		return details.oneOffDetail({
+			before: money.format(before),
+			change: money.format(Math.abs(total - before)),
+			up: total >= before
+		});
+	});
+
+	/** How many one-off gifts came in, against the year before, which says more than the total when one gift is big. */
+	const oneOffNote = $derived.by(() => {
+		if (incomeQuery?.error && !income) return 'Could not load contributions';
+		if (!income) return 'Loading contributions';
+		const { count } = income.oneOffs;
+		const before = income.oneOffsBefore.count;
+		const made = `${count} in the last 12 months`;
+		if (before === count) return `${made}, as many as the year before`;
+		return `${made}, ${count > before ? 'up' : 'down'} from ${before}`;
+	});
+
+	/** The line under the forecast's title: the months left, and what the forecast counts. */
+	const forecastBasis = $derived.by(() => {
+		if (income && result.avgNet >= 0) return 'Recurring backers alone cover the expenses.';
+		const basis = income ? 'current recurring backers' : `the last ${result.basis} months`;
+		return result.zeroDate
+			? `About ${runwayMonths} months left based on ${basis}.`
+			: `Based on ${basis}.`;
 	});
 
 	/** Spells out the runway badge, so the months left say where they come from. */
 	const runwayDetail = $derived.by(() => {
 		if (!result.zeroDate) return '';
-		const approved = committed
-			? `, after ${money.format(committed)} of approved expenses waiting to be paid,`
-			: '';
-		return `The ${money.format(available)} available${approved} drops by about ${money.format(-result.avgNet)} a month, the average of ${windows.recent}. At that rate it runs out around ${longMonthYear.format(result.zeroDate)}.`;
+		return details.runwayDetail({
+			drop: money.format(-result.avgNet),
+			runsOut: longMonthYear.format(result.zeroDate),
+			oneOffs: income?.oneOffs.count
+		});
 	});
 
 	const stats = $derived<Stat[]>([
 		{
 			label: 'Available',
 			value: money.format(available),
-			note: `${money.format(balance)} balance, less ${money.format(committed)} approved`,
+			note: committed
+				? `After ${money.format(committed)} of approved, unpaid expenses`
+				: 'No approved expenses waiting to be paid',
 			badge:
 				runwayMonths === null
 					? undefined
@@ -475,41 +533,48 @@
 						}
 		},
 		{
-			label: 'Average month',
-			value: signed(result.avgNet),
+			// A minus sign when the balance shrinks; growing is the plain case, so it has no plus.
+			label: 'Monthly change',
+			value: money.format(result.avgNet),
 			tone: result.avgNet < 0 ? 'text-destructive' : 'text-status-paid',
-			note: `Income covers ${percent.format(result.avgExpenses ? result.avgIncome / result.avgExpenses : 1)} of expenses`,
+			note: `${income ? 'Average recurring contributions cover' : 'Average contributions cover'} ${percent.format(result.avgExpenses ? result.avgIncome / result.avgExpenses : 1)} of expenses`,
 			badge: trendBadge(trends.net, 'up', netDetail)
 		},
 		{
-			label: 'Average income',
+			label: income ? 'Recurring contributions' : 'Contributions',
 			value: money.format(result.avgIncome),
-			note: `Over the last ${result.basis} complete months`,
+			note: `Average over the last ${result.basis} months`,
 			badge: trendBadge(
 				trends.income,
 				'up',
 				averageDetail({
-					what: 'Income',
+					what: income ? 'recurring contributions' : 'contributions',
 					now: result.avgIncome,
-					before: previous?.avgIncome,
-					change: trends.income
+					before: previous?.avgIncome
 				})
 			)
+		},
+		{
+			label: 'One-off contributions',
+			value: income ? money.format(income.oneOffs.total) : '–',
+			note: oneOffNote,
+			badge: income
+				? trendBadge(change(income.oneOffsBefore.total, income.oneOffs.total), 'up', oneOffDetail)
+				: undefined
 		},
 		{
 			label: 'Average expenses',
 			value: money.format(result.avgExpenses),
 			note: awaitingApproval
 				? `${money.format(awaitingApproval)} more awaits approval`
-				: `Over the last ${result.basis} complete months`,
+				: `Average over the last ${result.basis} months`,
 			badge: trendBadge(
 				trends.expenses,
 				'down',
 				averageDetail({
-					what: 'Expenses',
+					what: 'expenses',
 					now: result.avgExpenses,
-					before: previous?.avgExpenses,
-					change: trends.expenses
+					before: previous?.avgExpenses
 				})
 			)
 		}
@@ -556,11 +621,11 @@
 	<meta property="og:title" content="{data.name} · Open Work" />
 	<meta
 		name="description"
-		content="{data.name} on Open Collective: its balance, runway, income, expenses and who funds it."
+		content="{data.name} on Open Collective: its balance, runway, contributions, expenses and who funds it."
 	/>
 	<meta
 		property="og:description"
-		content="{data.name} on Open Collective: its balance, runway, income, expenses and who funds it."
+		content="{data.name} on Open Collective: its balance, runway, contributions, expenses and who funds it."
 	/>
 </svelte:head>
 
@@ -643,7 +708,7 @@
 				</h1>
 				<span class="sr-only">on Open Collective (opens in a new tab)</span>
 				{#if data.months[0]}
-					<!-- The first month money came in or went out, which is where all time starts. -->
+					<!-- The first month with contributions or expenses, which is where all time starts. -->
 					<span class="text-sm text-muted-foreground">
 						Since {monthLabel({ key: data.months[0].key })}
 					</span>
@@ -663,7 +728,7 @@
 	{#if data.months.length === 0}
 		<Alert.Root>
 			<Alert.Title>No transactions yet</Alert.Title>
-			<Alert.Description>This collective has not received or spent any money.</Alert.Description>
+			<Alert.Description>This collective has no contributions or expenses yet.</Alert.Description>
 		</Alert.Root>
 	{:else}
 		{#if tooNew}
@@ -691,24 +756,16 @@
 				{/if}
 				<Alert.Title>
 					{#if result.zeroDate}
-						Money runs out around {longMonthYear.format(result.zeroDate)}
+						Balance may run out before {longMonthYear.format(result.zeroDate)}
 					{:else if result.avgNet < 0}
 						Shrinking, but no end in sight
 					{:else}
 						Balance is growing
 					{/if}
 				</Alert.Title>
+				<!-- The figures are in the strip below; this says only what they rest on. -->
 				<Alert.Description>
-					<p>
-						{#if result.zeroDate}
-							{runwayMonths} months left. The {money.format(available)} available drops by about
-							{money.format(-result.avgNet)} a month, the average of the last {result.basis} complete
-							months.
-						{:else}
-							The balance grows by about {money.format(result.avgNet)} a month, the average of the last
-							{result.basis} complete months.
-						{/if}
-					</p>
+					<p>{forecastBasis}</p>
 				</Alert.Description>
 			</Alert.Root>
 		{/if}
@@ -940,14 +997,16 @@
 
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>Income and expenses</Card.Title>
+				<Card.Title>Expenses and contributions</Card.Title>
 				<Card.Description>
 					{#if tooNew && thisMonth}
-						{money.format(thisMonth.income)} in and {money.format(thisMonth.expenses)} out so far this
-						month, {signed(Math.round(thisMonth.net))} overall.
+						Contributions of {money.format(thisMonth.income)} and expenses of {money.format(
+							thisMonth.expenses
+						)} so far this month.
 					{:else}
-						{money.format(totals.income)} in, {money.format(totals.expenses)} out over {totals.months}
-						complete months, {signed(totals.net)} overall{#if me}. {money.format(totals.mine)}
+						Contributions of {money.format(totals.income)} and expenses of {money.format(
+							totals.expenses
+						)} over {totals.months} months{#if me}. {money.format(totals.mine)}
 							({percent.format(totals.expenses ? totals.mine / totals.expenses : 0)}) of expenses
 							went to you{/if}.
 					{/if}
@@ -1000,11 +1059,11 @@
 			<summary class="cursor-pointer px-4 py-3 font-medium">Monthly figures</summary>
 			<div class="overflow-x-auto border-t">
 				<table class="ledger">
-					<caption class="sr-only">Income, expenses and balance by month</caption>
+					<caption class="sr-only">Contributions, expenses and balance by month</caption>
 					<thead class="text-xs">
 						<tr>
 							<th class="px-4 py-2">Month</th>
-							<th class="px-4 py-2 text-right">Income</th>
+							<th class="px-4 py-2 text-right">Contributions</th>
 							<th class="px-4 py-2 text-right">Expenses</th>
 							<th class="px-4 py-2 text-right">Gained or lost</th>
 							<th class="px-4 py-2 text-right">Balance</th>
@@ -1057,8 +1116,8 @@
 						<Card.Header>
 							<Card.Title>Who was paid</Card.Title>
 							<Card.Description>
-								Expenses paid out each month, by payee. The bigger the dot, the more was paid, and
-								each payee's total is on the right.
+								Expenses paid out each month. The bigger the dot, the more was paid. The total
+								amount paid out {periodPhrase(shownKeys)} is on the right.
 							</Card.Description>
 						</Card.Header>
 						<Card.Content>

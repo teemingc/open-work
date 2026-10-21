@@ -197,24 +197,66 @@ export interface ContributionMonth {
 	oneOff: number;
 	/** The part of `oneOff` moved from other accounts' balances. */
 	transferred: number;
+	/**
+	 * Recurring income as it is earned: a yearly contribution counts a twelfth in each of the 12
+	 * months it pays for, so it does not look like a spike in the month it arrives.
+	 */
+	steady: number;
 }
 
-/** Sum contributions per month by frequency, and per month and backer. */
-export function toContributions(nodes: ContributionNode[]): {
+const isRecurring = (node: ContributionNode, channels: Set<string>) =>
+	node.order?.frequency === 'MONTHLY' ||
+	node.order?.frequency === 'YEARLY' ||
+	channels.has(node.fromAccount?.slug ?? '');
+
+/**
+ * Sum contributions per month by frequency, and per month and backer. Platforms in `channels`,
+ * like GitHub Sponsors, pass on people's monthly sponsorships in batches that Open Collective
+ * records as one-off, so they count as recurring.
+ */
+export function toContributions(
+	nodes: ContributionNode[],
+	channels = new Set<string>()
+): {
 	months: ContributionMonth[];
 	backers: AccountMonth[];
 } {
 	const months = new Map<string, ContributionMonth>();
 	const backers = new Map<string, AccountMonth>();
+	const row = (month: string) => {
+		const found = months.get(month) ?? {
+			month,
+			recurring: 0,
+			oneOff: 0,
+			transferred: 0,
+			steady: 0
+		};
+		months.set(month, found);
+		return found;
+	};
+	const latest = nodes.reduce((max, node) => {
+		const month = monthKey(node.createdAt);
+		return month > max ? month : max;
+	}, '');
 	for (const node of nodes) {
 		const month = monthKey(node.createdAt);
 		const amount = node.netAmount.value;
-		const row = months.get(month) ?? { month, recurring: 0, oneOff: 0, transferred: 0 };
-		const frequency = node.order?.frequency;
-		if (frequency === 'MONTHLY' || frequency === 'YEARLY') row.recurring += amount;
-		else row.oneOff += amount;
-		if (isTransfer(node)) row.transferred += amount;
-		months.set(month, row);
+		const current = row(month);
+		if (isRecurring(node, channels)) {
+			current.recurring += amount;
+			if (node.order?.frequency === 'YEARLY') {
+				// Spread up to the newest month on record; later months have not happened yet.
+				let key = month;
+				for (let i = 0; i < 12 && key <= latest; i++, key = nextMonthKey(key)) {
+					row(key).steady += amount / 12;
+				}
+			} else {
+				current.steady += amount;
+			}
+		} else {
+			current.oneOff += amount;
+		}
+		if (isTransfer(node)) current.transferred += amount;
 
 		const slug = node.fromAccount?.slug ?? '';
 		const id = `${month} ${slug}`;
@@ -231,6 +273,56 @@ export function toContributions(nodes: ContributionNode[]): {
 		months: [...months.values()].sort((a, b) => a.month.localeCompare(b.month)),
 		backers: [...backers.values()]
 	};
+}
+
+/** One-off contributions over some months: what they added up to, and the biggest. */
+export interface OneOffSummary {
+	total: number;
+	count: number;
+	largest: { name: string; amount: number; month: string } | null;
+}
+
+/** One-off contributions in `months`, leaving out platforms in `channels`, which count as recurring. */
+export function oneOffSummary({
+	nodes,
+	months,
+	channels
+}: {
+	nodes: ContributionNode[];
+	months: string[];
+	channels: Set<string>;
+}): OneOffSummary {
+	const keys = new Set(months);
+	const summary: OneOffSummary = { total: 0, count: 0, largest: null };
+	for (const node of nodes) {
+		const month = monthKey(node.createdAt);
+		if (!keys.has(month) || isRecurring(node, channels)) continue;
+		const amount = node.netAmount.value;
+		summary.total += amount;
+		summary.count++;
+		if (amount > (summary.largest?.amount ?? 0)) {
+			summary.largest = { name: accountName(node.fromAccount), amount, month };
+		}
+	}
+	return summary;
+}
+
+/**
+ * `months` with income counting recurring contributions alone, so averages and the forecast rest on
+ * what backers have promised to keep giving rather than on one-off gifts that may not come again.
+ */
+export function withRecurringIncome({
+	months,
+	contributions
+}: {
+	months: Month[];
+	contributions: ContributionMonth[];
+}): Month[] {
+	const steady = new Map(contributions.map((row) => [row.month, row.steady]));
+	return months.map((month) => {
+		const income = steady.get(month.key) ?? 0;
+		return { ...month, income, net: income - month.expenses };
+	});
 }
 
 /** When a backer contributed and how often they were set to give. */

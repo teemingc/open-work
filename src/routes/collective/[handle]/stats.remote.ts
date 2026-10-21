@@ -8,6 +8,7 @@ import {
 	backerHistory,
 	lastMonthKeys,
 	recurringChanges,
+	oneOffSummary,
 	toContributions,
 	toMonths,
 	othersBySize,
@@ -415,12 +416,12 @@ const loadContributions = perKey({
 });
 
 /**
- * Where the collective's money comes from: recurring and one-off contributions per month,
- * and the biggest backers over the last year, 2 years and all time.
+ * Where the collective's money comes from: recurring and one-off contributions per month, the
+ * one-offs of the last year and the year before, and the biggest backers over the last year, 2 years and all time.
  */
 function incomeSources(nodes: ContributionNode[]) {
 	const now = new Date();
-	const { months, backers } = toContributions(nodes);
+	const { months, backers } = toContributions(nodes, CHANNELS);
 	const history = backerHistory(nodes);
 	// Payment platforms pass on money from many people, so they are shown apart from the
 	// people and companies that back the collective directly.
@@ -449,6 +450,12 @@ function incomeSources(nodes: ContributionNode[]) {
 	};
 	return {
 		months,
+		oneOffs: oneOffSummary({ nodes, months: lastMonthKeys(now, 12), channels: CHANNELS }),
+		oneOffsBefore: oneOffSummary({
+			nodes,
+			months: lastMonthKeys(now, 24).slice(0, 12),
+			channels: CHANNELS
+		}),
 		recurring: recurringChanges({ nodes, now, skip: CHANNELS }),
 		backers: {
 			'1y': top(lastMonthKeys(now, 12)),

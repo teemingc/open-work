@@ -20,6 +20,8 @@ import {
 	topAccounts,
 	toPayouts,
 	transactionsUrl,
+	oneOffSummary,
+	withRecurringIncome,
 	type Month,
 	type TimeSeriesNode
 } from './financials';
@@ -319,8 +321,8 @@ describe('toContributions', () => {
 			node('2026-10-20T00:00:00Z', 300, 'company', null)
 		]);
 		expect(result.months).toEqual([
-			{ month: '2026-09', recurring: 5, oneOff: 150, transferred: 0 },
-			{ month: '2026-10', recurring: 5, oneOff: 300, transferred: 300 }
+			{ month: '2026-09', recurring: 5, oneOff: 150, transferred: 0, steady: 5 },
+			{ month: '2026-10', recurring: 5, oneOff: 300, transferred: 300, steady: 5 }
 		]);
 		expect(topAccounts({ rows: result.backers, limit: 5 })).toEqual([
 			{ slug: 'company', name: 'company', amount: 300 },
@@ -328,6 +330,63 @@ describe('toContributions', () => {
 			{ slug: 'host', name: 'host', amount: 50 },
 			{ slug: 'a', name: 'a', amount: 10 }
 		]);
+	});
+});
+
+describe('recurring and one-off income', () => {
+	const node = (createdAt: string, value: number, slug: string, frequency: string | null) => ({
+		id: crypto.randomUUID(),
+		createdAt,
+		netAmount: { value },
+		fromAccount: { slug, name: slug },
+		order: frequency ? { frequency } : null,
+		kind: 'CONTRIBUTION'
+	});
+	const nodes = [
+		node('2026-08-05T00:00:00Z', 120, 'yearly', 'YEARLY'),
+		node('2026-08-30T00:00:00Z', 50, 'github-sponsors', 'ONETIME'),
+		node('2026-09-10T00:00:00Z', 1000, 'big', 'ONETIME'),
+		node('2026-10-01T00:00:00Z', 30, 'small', null)
+	];
+	const channels = new Set(['github-sponsors']);
+
+	it('counts channels as recurring and spreads yearly contributions up to the newest month', () => {
+		expect(toContributions(nodes, channels).months).toEqual([
+			{ month: '2026-08', recurring: 170, oneOff: 0, transferred: 0, steady: 60 },
+			{ month: '2026-09', recurring: 0, oneOff: 1000, transferred: 0, steady: 10 },
+			{ month: '2026-10', recurring: 0, oneOff: 30, transferred: 0, steady: 10 }
+		]);
+	});
+
+	it('sums the one-offs in the months asked for and finds the largest', () => {
+		expect(oneOffSummary({ nodes, months: ['2026-09', '2026-10'], channels })).toEqual({
+			total: 1030,
+			count: 2,
+			largest: { name: 'big', amount: 1000, month: '2026-09' }
+		});
+		expect(oneOffSummary({ nodes, months: ['2026-08'], channels })).toEqual({
+			total: 0,
+			count: 0,
+			largest: null
+		});
+	});
+
+	it("swaps each month's income for its recurring income", () => {
+		const month = (key: string, income: number, expenses: number) => ({
+			key,
+			income,
+			expenses,
+			net: income - expenses,
+			balance: 0,
+			partial: false
+		});
+		const { months: contributions } = toContributions(nodes, channels);
+		expect(
+			withRecurringIncome({
+				months: [month('2026-07', 0, 5), month('2026-09', 1000, 20)],
+				contributions
+			})
+		).toEqual([month('2026-07', 0, 5), month('2026-09', 10, 20)]);
 	});
 });
 

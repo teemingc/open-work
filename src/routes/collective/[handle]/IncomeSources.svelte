@@ -156,7 +156,7 @@
 			<Card.Description>
 				No contributions {periodPhrase(months) || 'yet'}.
 				{#if received >= 1}
-					The {money.format(received)} that came in was not recorded as contributions.
+					{money.format(received)} arrived without being recorded as contributions.
 				{/if}
 			</Card.Description>
 		</Card.Header>

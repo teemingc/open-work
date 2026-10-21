@@ -85,8 +85,7 @@
 			{:else}
 				No expenses paid {periodPhrase(months) || 'yet'}.
 				{#if spent >= 1}
-					The {money.format(spent)} that went out was paid another way, such as contributions to other
-					collectives.
+					Expenses of {money.format(spent)} were paid another way, such as contributions to other collectives.
 				{/if}
 			{/if}
 		</Card.Description>
