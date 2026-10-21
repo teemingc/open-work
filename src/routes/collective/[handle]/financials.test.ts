@@ -8,6 +8,7 @@ import {
 	paidTo,
 	backerHistory,
 	backerStatus,
+	recurringChanges,
 	categoriesByMonth,
 	categoryName,
 	forecastDates,
@@ -436,5 +437,43 @@ describe('accountsByMonth', () => {
 				limit: 5
 			}).cells
 		).toEqual([]);
+	});
+});
+
+describe('recurringChanges', () => {
+	const node = (slug: string, createdAt: string, frequency: string | null = 'MONTHLY') => ({
+		id: crypto.randomUUID(),
+		createdAt,
+		netAmount: { value: 5 },
+		fromAccount: { slug, name: slug },
+		order: frequency ? { frequency } : null,
+		kind: 'CONTRIBUTION'
+	});
+
+	it('counts starts, stops once a payment is overdue, and restarts', () => {
+		const months = recurringChanges({
+			nodes: [
+				// Gives monthly, misses April and May, then resumes in June.
+				node('a', '2026-01-10T00:00:00Z'),
+				node('a', '2026-02-10T00:00:00Z'),
+				node('a', '2026-03-10T00:00:00Z'),
+				node('a', '2026-06-10T00:00:00Z'),
+				node('a', '2026-07-10T00:00:00Z'),
+				// Still within a year of its yearly payment.
+				node('b', '2026-02-01T00:00:00Z', 'YEARLY'),
+				// One-off and skipped backers are left out.
+				node('c', '2026-03-01T00:00:00Z', null),
+				node('github-sponsors', '2026-03-01T00:00:00Z')
+			],
+			now: new Date('2026-10-01T00:00:00Z'),
+			skip: new Set(['github-sponsors'])
+		});
+		expect(months).toEqual([
+			{ month: '2026-01', started: 1, stopped: 0, active: 1 },
+			{ month: '2026-02', started: 1, stopped: 0, active: 2 },
+			{ month: '2026-04', started: 0, stopped: 1, active: 1 },
+			{ month: '2026-06', started: 1, stopped: 0, active: 2 },
+			{ month: '2026-08', started: 0, stopped: 1, active: 1 }
+		]);
 	});
 });

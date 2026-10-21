@@ -260,9 +260,7 @@
 			month: m.key,
 			income: Math.round(m.income),
 			expenses: Math.round(m.expenses),
-			you: Math.round(paidToMe.get(m.key) ?? 0),
-			gained: m.net >= 0 ? Math.round(m.net) : null,
-			lost: m.net < 0 ? Math.round(m.net) : null
+			you: Math.round(paidToMe.get(m.key) ?? 0)
 		}))
 	);
 
@@ -385,11 +383,6 @@
 			color: me ? 'var(--color-chart-expenses-muted)' : 'var(--color-chart-expenses)'
 		}
 	} satisfies ChartConfig);
-
-	const netConfig = {
-		gained: { label: 'Gained', color: 'var(--color-chart-income)' },
-		lost: { label: 'Lost', color: 'var(--color-chart-expenses)' }
-	} satisfies ChartConfig;
 
 	/** Changes smaller than this are noise, so their badges stay uncoloured. */
 	const STEADY = 0.05;
@@ -864,87 +857,35 @@
 			</Card.Root>
 		{/if}
 
-		<div class="grid gap-4 lg:grid-cols-2">
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>Income and expenses</Card.Title>
-					<Card.Description>
-						{#if tooNew && thisMonth}
-							{money.format(thisMonth.income)} in and {money.format(thisMonth.expenses)} out so far this
-							month.
-						{:else}
-							{money.format(totals.income)} in, {money.format(totals.expenses)} out over {totals.months}
-							complete months{#if me}, {money.format(totals.mine)}
-								({percent.format(totals.expenses ? totals.mine / totals.expenses : 0)}) of it to you{/if}.
-						{/if}
-					</Card.Description>
-				</Card.Header>
-				<Card.Content>
-					<LazyChart class="mb-3 h-64">
-						{#snippet children({ BarChart, Chart })}
-							<div bind:clientWidth={flowWidth}>
-								<Chart.Container config={flowConfig} class="aspect-auto h-64 w-full cursor-pointer">
-									<BarChart
-										padding={flowPadding}
-										data={monthly}
-										x="month"
-										xScale={scaleBand().padding(0.2)}
-										seriesLayout="overlap"
-										onTooltipClick={openMonth}
-										legend
-										series={flowSeries}
-										props={{
-											bars: { radius: 2, strokeWidth: 0 },
-											xAxis: {
-												tickLength: TICK_LENGTH,
-												tickOcclusion: X_TICK_OCCLUSION,
-												ticks,
-												format: bandTickLabel
-											},
-											yAxis: {
-												tickLength: TICK_LENGTH,
-												tickLabelProps: Y_TICK_LABEL,
-												format: (v: number) => compact.format(v)
-											}
-										}}
-									>
-										{#snippet tooltip()}
-											<Chart.Tooltip labelFormatter={labelMonth} formatter={moneyRow} />
-										{/snippet}
-									</BarChart>
-								</Chart.Container>
-							</div>
-						{/snippet}
-					</LazyChart>
-				</Card.Content>
-			</Card.Root>
-
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>Gained or lost each month</Card.Title>
-					<Card.Description>
-						{#if tooNew && thisMonth}
-							{signed(Math.round(thisMonth.net))} so far this month.
-						{:else}
-							{signed(totals.net)} over {totals.months} complete months.
-						{/if}
-					</Card.Description>
-				</Card.Header>
-				<Card.Content>
-					<LazyChart class="h-64">
-						{#snippet children({ BarChart, Chart })}
-							<Chart.Container config={netConfig} class="aspect-auto h-64 w-full cursor-pointer">
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Income and expenses</Card.Title>
+				<Card.Description>
+					{#if tooNew && thisMonth}
+						{money.format(thisMonth.income)} in and {money.format(thisMonth.expenses)} out so far this
+						month, {signed(Math.round(thisMonth.net))} overall.
+					{:else}
+						{money.format(totals.income)} in, {money.format(totals.expenses)} out over {totals.months}
+						complete months, {signed(totals.net)} overall{#if me}. {money.format(totals.mine)}
+							({percent.format(totals.expenses ? totals.mine / totals.expenses : 0)}) of expenses
+							went to you{/if}.
+					{/if}
+				</Card.Description>
+			</Card.Header>
+			<Card.Content>
+				<LazyChart class="mb-3 h-64">
+					{#snippet children({ BarChart, Chart })}
+						<div bind:clientWidth={flowWidth}>
+							<Chart.Container config={flowConfig} class="aspect-auto h-64 w-full cursor-pointer">
 								<BarChart
-									padding={chartPadding()}
+									padding={flowPadding}
 									data={monthly}
 									x="month"
 									xScale={scaleBand().padding(0.2)}
-									seriesLayout="stackDiverging"
+									seriesLayout="overlap"
 									onTooltipClick={openMonth}
-									series={[
-										{ key: 'gained', label: netConfig.gained.label, color: netConfig.gained.color },
-										{ key: 'lost', label: netConfig.lost.label, color: netConfig.lost.color }
-									]}
+									legend
+									series={flowSeries}
 									props={{
 										bars: { radius: 2, strokeWidth: 0 },
 										xAxis: {
@@ -965,11 +906,11 @@
 									{/snippet}
 								</BarChart>
 							</Chart.Container>
-						{/snippet}
-					</LazyChart>
-				</Card.Content>
-			</Card.Root>
-		</div>
+						</div>
+					{/snippet}
+				</LazyChart>
+			</Card.Content>
+		</Card.Root>
 
 		<!-- The charts above as figures, for screen readers and keyboards: each month opens its transactions. -->
 		<details class="rounded-xl border bg-card text-sm">

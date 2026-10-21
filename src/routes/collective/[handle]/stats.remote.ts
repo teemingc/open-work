@@ -7,6 +7,7 @@ import { getToken } from '#lib/server/session.js';
 import {
 	backerHistory,
 	lastMonthKeys,
+	recurringChanges,
 	toContributions,
 	toMonths,
 	othersBySize,
@@ -448,6 +449,7 @@ function incomeSources(nodes: ContributionNode[]) {
 	};
 	return {
 		months,
+		recurring: recurringChanges({ nodes, now, skip: CHANNELS }),
 		backers: {
 			'1y': top(lastMonthKeys(now, 12)),
 			'2y': top(lastMonthKeys(now, 24)),
