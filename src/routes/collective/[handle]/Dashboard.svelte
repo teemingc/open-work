@@ -876,7 +876,7 @@
 			</Card.Header>
 			<Card.Content>
 				<LazyChart class="mb-3 h-64">
-					{#snippet children({ BarChart, Chart, Legend })}
+					{#snippet children({ BarChart, Chart, Legend, legendMotion })}
 						<div bind:clientWidth={flowWidth}>
 							<Chart.Container config={flowConfig} class="aspect-auto h-64 w-full cursor-pointer">
 								<BarChart
@@ -888,7 +888,7 @@
 									onTooltipClick={openMonthOnTap}
 									series={flowSeries}
 									props={{
-										bars: { radius: 2, strokeWidth: 0 },
+										bars: { radius: 2, strokeWidth: 0, motion: legendMotion },
 										xAxis: {
 											tickLength: TICK_LENGTH,
 											tickOcclusion: X_TICK_OCCLUSION,

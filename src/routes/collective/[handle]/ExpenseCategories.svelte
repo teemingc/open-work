@@ -94,7 +94,7 @@
 	{#if series.length}
 		<Card.Content>
 			<LazyChart class="h-72">
-				{#snippet children({ BarChart, Chart, Legend })}
+				{#snippet children({ BarChart, Chart, Legend, legendMotion })}
 					<Chart.Container {config} class="aspect-auto h-72 w-full cursor-pointer">
 						<BarChart
 							padding={{ ...chartPadding({ legend: true }), bottom: 38 + legendHeight }}
@@ -105,7 +105,7 @@
 							onTooltipClick={openMonthOnTap}
 							{series}
 							props={{
-								bars: { radius: 2, strokeWidth: 0 },
+								bars: { radius: 2, strokeWidth: 0, motion: legendMotion },
 								xAxis: {
 									tickLength: TICK_LENGTH,
 									tickOcclusion: X_TICK_OCCLUSION,

@@ -56,7 +56,10 @@
 					Threshold
 				})
 			),
-			import('./SeriesLegend.svelte').then(({ default: Legend }) => ({ Legend })),
+			import('./SeriesLegend.svelte').then(({ default: Legend, legendMotion }) => ({
+				Legend,
+				legendMotion
+			})),
 			import('#lib/components/ui/chart/index.js').then(({ Container, Tooltip }) => ({
 				Chart: { Container, Tooltip }
 			}))

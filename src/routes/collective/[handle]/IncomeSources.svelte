@@ -185,7 +185,7 @@
 		-->
 				<Card.Content class="flex flex-1 flex-col">
 					<LazyChart class="mb-3 min-h-64 flex-1">
-						{#snippet children({ BarChart, Chart, Legend })}
+						{#snippet children({ BarChart, Chart, Legend, legendMotion })}
 							<Chart.Container {config} class="aspect-auto h-full min-h-64 w-full cursor-pointer">
 								<BarChart
 									padding={chartPadding({ legend: true })}
@@ -203,7 +203,7 @@
 										{ key: 'oneOff', label: config.oneOff.label, color: config.oneOff.color }
 									]}
 									props={{
-										bars: { radius: 2, strokeWidth: 0 },
+										bars: { radius: 2, strokeWidth: 0, motion: legendMotion },
 										xAxis: {
 											tickLength: TICK_LENGTH,
 											tickOcclusion: X_TICK_OCCLUSION,

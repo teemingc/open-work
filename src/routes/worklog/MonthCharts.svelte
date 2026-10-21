@@ -70,7 +70,7 @@
 		</Card.Header>
 		<Card.Content>
 			<LazyChart class="h-64">
-				{#snippet children({ LineChart, Chart, Legend })}
+				{#snippet children({ LineChart, Chart, Legend, legendMotion })}
 					<Chart.Container config={paceConfig} class="aspect-auto h-64 w-full">
 						<LineChart
 							padding={chartPadding({ left: 44, legend: true })}
@@ -96,6 +96,7 @@
 								}
 							]}
 							props={{
+								spline: { motion: legendMotion },
 								xAxis: {
 									tickLength: TICK_LENGTH,
 									tickOcclusion: X_TICK_OCCLUSION,
@@ -136,7 +137,7 @@
 		</Card.Header>
 		<Card.Content>
 			<LazyChart class="h-64">
-				{#snippet children({ BarChart, Chart, Legend })}
+				{#snippet children({ BarChart, Chart, Legend, legendMotion })}
 					<Chart.Container config={dailyConfig} class="aspect-auto h-64 w-full">
 						<BarChart
 							padding={chartPadding({ left: 44, legend: shownClients.length > 1 })}
@@ -150,7 +151,7 @@
 								color
 							}))}
 							props={{
-								bars: { radius: 2, strokeWidth: 0 },
+								bars: { radius: 2, strokeWidth: 0, motion: legendMotion },
 								xAxis: {
 									tickLength: TICK_LENGTH,
 									tickOcclusion: X_TICK_OCCLUSION,

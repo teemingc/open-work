@@ -1,3 +1,22 @@
+<script lang="ts" module>
+	import { cubicInOut } from 'svelte/easing';
+	import { prefersReducedMotion } from 'svelte/motion';
+
+	let toggledAt = -Infinity;
+
+	/**
+	 * Eases the categories left on show into place after one is hidden or brought back, so the eye
+	 * can follow each bar as the stack closes up. Every other change, from the chart first drawing
+	 * to the page resizing, lands at once.
+	 */
+	export const legendMotion = {
+		type: 'tween',
+		duration: () =>
+			!prefersReducedMotion.current && performance.now() - toggledAt < 100 ? 250 : 0,
+		easing: cubicInOut
+	} as const;
+</script>
+
 <script lang="ts">
 	import type { getChartContext } from 'layerchart';
 	import { Legend, type LegendProps } from 'layerchart/svg';
@@ -27,6 +46,7 @@
 		} else if (shown.length > 1) {
 			shown.splice(shown.indexOf(key), 1);
 		}
+		toggledAt = performance.now();
 		selected.current = shown.length === keys.length ? [] : shown;
 		return highlight(key);
 	}
