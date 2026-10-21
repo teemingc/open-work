@@ -11,11 +11,19 @@
 
 	let { children } = $props();
 
+	/** Bump when the og/[...path] cards change, so sharing sites fetch them again instead of using their copy. */
+	const OG_IMAGE_VERSION = '2';
+
 	/** The picture shown when this page is shared, drawn by og/[...path]. */
 	// Absolute, as sharing sites need, though `resolve` gives a relative path while rendering on the server.
-	const ogImage = $derived(
-		new URL(resolve('/og/[...path]', { path: page.url.pathname.slice(1) }), page.url.href).href
-	);
+	const ogImage = $derived.by(() => {
+		const url = new URL(
+			resolve('/og/[...path]', { path: page.url.pathname.slice(1) }),
+			page.url.href
+		);
+		url.searchParams.set('v', OG_IMAGE_VERSION);
+		return url.href;
+	});
 
 	// Older versions kept settings in localStorage. Move them into the settings cookie once.
 	onMount(async () => {
