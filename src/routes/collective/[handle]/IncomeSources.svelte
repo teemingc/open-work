@@ -142,7 +142,7 @@
 		-->
 			<Card.Content class="flex flex-1 flex-col">
 				<LazyChart class="mb-3 min-h-64 flex-1">
-					{#snippet children({ BarChart, Chart })}
+					{#snippet children({ BarChart, Chart, Legend })}
 						<Chart.Container {config} class="aspect-auto h-full min-h-64 w-full cursor-pointer">
 							<BarChart
 								padding={chartPadding({ legend: true })}
@@ -151,7 +151,6 @@
 								xScale={scaleBand().padding(0.2)}
 								seriesLayout="stack"
 								onTooltipClick={openMonth}
-								legend
 								series={[
 									{
 										key: 'recurring',
@@ -180,6 +179,9 @@
 										labelFormatter={(key: string) => monthLabel({ key, partialKey })}
 										formatter={row}
 									/>
+								{/snippet}
+								{#snippet legend({ context })}
+									<Legend {context} placement="bottom" />
 								{/snippet}
 							</BarChart>
 						</Chart.Container>

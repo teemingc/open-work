@@ -91,7 +91,7 @@
 	{#if totals.logged > 0}
 		<Card.Content class="space-y-4">
 			<LazyChart class="h-56">
-				{#snippet children({ BarChart, Chart })}
+				{#snippet children({ BarChart, Chart, Legend })}
 					<Chart.Container {config} class="aspect-auto h-56 w-full">
 						<BarChart
 							padding={chartPadding({ left: 44, legend: true })}
@@ -99,7 +99,6 @@
 							x="month"
 							xScale={scaleBand().padding(0.2)}
 							seriesLayout="group"
-							legend
 							series={[
 								{ key: 'expected', label: config.expected.label, color: config.expected.color },
 								{ key: 'logged', label: config.logged.label, color: config.logged.color }
@@ -123,6 +122,9 @@
 									labelFormatter={(month: string) => longMonth.format(monthDate(month))}
 									formatter={hoursRow}
 								/>
+							{/snippet}
+							{#snippet legend({ context })}
+								<Legend {context} placement="bottom" />
 							{/snippet}
 						</BarChart>
 					</Chart.Container>

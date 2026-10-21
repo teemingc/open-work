@@ -112,7 +112,7 @@
 	{#if !nothing}
 		<Card.Content>
 			<LazyChart class="mb-3 h-64">
-				{#snippet children({ BarChart, Chart })}
+				{#snippet children({ BarChart, Chart, Legend })}
 					<Chart.Container {config} class="aspect-auto h-64 w-full cursor-pointer">
 						<BarChart
 							padding={chartPadding({ legend: true })}
@@ -121,7 +121,6 @@
 							x="month"
 							xScale={scaleBand().padding(0.2)}
 							seriesLayout="stack"
-							legend
 							series={[
 								{ key: 'paid', label: config.paid.label, color: config.paid.color },
 								{ key: 'unpaid', label: config.unpaid.label, color: config.unpaid.color }
@@ -146,6 +145,9 @@
 									labelFormatter={(key: string) => monthLabel({ key, partialKey })}
 									formatter={row}
 								/>
+							{/snippet}
+							{#snippet legend({ context })}
+								<Legend {context} placement="bottom" />
 							{/snippet}
 						</BarChart>
 					</Chart.Container>
