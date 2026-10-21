@@ -119,12 +119,13 @@
 							}}
 						>
 							{#snippet legend({ context })}
-								<!-- Category names are long, so the legend wraps and the plot makes room for every row. -->
+								<!--
+									Category names are long, so the legend wraps and the plot makes room for every row.
+									Left-aligned, so the swatches line up once it wraps, and pulled out by each item's
+									padding so they line up with the title too.
+								-->
 								<div class="absolute inset-x-0 bottom-0 z-1" bind:clientHeight={legendHeight}>
-									<Legend
-										{context}
-										classes={{ root: 'w-full', items: 'flex-wrap justify-center' }}
-									/>
+									<Legend {context} classes={{ root: 'w-full', items: '-mx-2 flex-wrap' }} />
 								</div>
 							{/snippet}
 							{#snippet tooltip()}

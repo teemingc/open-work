@@ -10,8 +10,12 @@
 			text: string;
 			icon?: 'up' | 'down' | 'hourglass';
 			tone?: string;
-			/** What the badge means, opened by tapping or clicking it, since a hover title never shows on touch. */
+			/**
+			 * What the badge means, opened by tapping or clicking it, since a hover title never shows on
+			 * touch. An aside, like what a forecast leaves out, goes after it in a paragraph of its own.
+			 */
 			detail?: string;
+			aside?: string;
 		};
 	}
 </script>
@@ -27,10 +31,13 @@
 
 	const ICONS = { up: TrendingUp, down: TrendingDown, hourglass: Hourglass };
 
-	/** Columns for the number of figures, so a short strip leaves no empty cell showing the divider colour. */
+	/**
+	 * Columns for the number of figures, so a short strip leaves no empty cell showing the divider colour.
+	 * Five in one row squeezes the labels onto two lines, so five sit on six columns as two over three.
+	 */
 	const columns = $derived(
 		stats.length >= 5
-			? 'sm:grid-cols-2 xl:grid-cols-5'
+			? 'sm:grid-cols-2 lg:grid-cols-6'
 			: stats.length === 4
 				? 'sm:grid-cols-2 xl:grid-cols-4'
 				: stats.length > 1
@@ -44,21 +51,28 @@
 	<dl class={['grid grid-cols-1 gap-px bg-border', columns]}>
 		{#each stats as stat, index (stat.label)}
 			<!--
-				With an odd number in two columns, the first takes a row of its own. Each figure's label, value
-				and note share rows with its neighbours', so a label that wraps keeps the values in line.
+				With an odd number in two columns, the first takes a row of its own. With five on six columns,
+				the first two take half a row each and the rest a third. Each figure's label, value and note
+				share rows with its neighbours', so a label that wraps keeps the values in line.
 			-->
 			<div
 				class={[
 					'row-span-3 grid min-w-0 grid-rows-subgrid gap-y-1 bg-card px-4 py-3',
-					index === 0 && stats.length === 5 && 'sm:col-span-2 xl:col-span-1'
+					stats.length === 5 &&
+						(index === 0
+							? 'sm:col-span-2 lg:col-span-3'
+							: index === 1
+								? 'lg:col-span-3'
+								: 'lg:col-span-2')
 				]}
 			>
 				<!--
 					As tall as a badge with or without one, so a badge coming or going moves nothing. A long
-					label wraps beside the badge rather than running under it.
+					label wraps beside the badge rather than running under it, and labels sit at the top so a
+					one-line label lines up with a neighbour that wraps.
 				-->
-				<dt class="flex min-h-5.5 items-center justify-between gap-2 text-sm text-muted-foreground">
-					<span class="min-w-0">{stat.label}</span>
+				<dt class="flex min-h-5.5 items-start justify-between gap-2 text-sm text-muted-foreground">
+					<span class="min-w-0 leading-5.5">{stat.label}</span>
 					{#if stat.badge}
 						{@const Icon = stat.badge.icon && ICONS[stat.badge.icon]}
 						{#if stat.badge.detail}
@@ -78,8 +92,11 @@
 										</button>
 									{/snippet}
 								</Popover.Trigger>
-								<Popover.Content class="w-64 p-3 text-sm whitespace-normal" align="end">
-									{stat.badge.detail}
+								<Popover.Content class="w-64 space-y-2 p-3 text-sm whitespace-normal" align="end">
+									<p>{stat.badge.detail}</p>
+									{#if stat.badge.aside}
+										<p class="text-muted-foreground">{stat.badge.aside}</p>
+									{/if}
 								</Popover.Content>
 							</Popover.Root>
 						{:else}
@@ -93,7 +110,7 @@
 				<dd class="font-display text-2xl font-medium tabular-nums {stat.tone ?? ''}">
 					{stat.value}
 				</dd>
-				<dd class="truncate text-xs text-muted-foreground" title={stat.note}>{stat.note}</dd>
+				<dd class="text-xs text-muted-foreground">{stat.note}</dd>
 			</div>
 		{/each}
 	</dl>

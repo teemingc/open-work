@@ -19,14 +19,18 @@
 
 <script lang="ts">
 	import type { getChartContext } from 'layerchart';
+	import { cn } from '#lib/utils.js';
 	import { Legend, type LegendProps } from 'layerchart/svg';
 
 	/**
 	 * The chart comes from the `legend` snippet rather than `getChartContext`, which can resolve to a
 	 * different copy of LayerChart from the one drawing the chart.
 	 */
-	let { context, ...props }: LegendProps & { context: ReturnType<typeof getChartContext> } =
-		$props();
+	let {
+		context,
+		classes,
+		...props
+	}: LegendProps & { context: ReturnType<typeof getChartContext> } = $props();
 
 	/**
 	 * Tapping a category hides it and tapping it again brings it back, as in Chart.js and Google
@@ -58,8 +62,17 @@
 	}
 </script>
 
+<!--
+	A grey background on the category under the pointer, as on the rows beside the backer squares,
+	so hovering shows which one a tap will hide. Padding takes the place of most of the gap between.
+-->
 <Legend
 	onclick={(_, item) => hide(item.value)}
 	onpointerenter={(_, item) => highlight(item.value)}
+	classes={{
+		...classes,
+		items: cn('gap-x-1', classes?.items),
+		item: 'rounded-md px-2 py-0.5 transition-colors hover:bg-muted focus-visible:bg-muted'
+	}}
 	{...props}
 />

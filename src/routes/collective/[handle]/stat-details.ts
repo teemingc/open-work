@@ -47,20 +47,14 @@ export function netDetail({
 }
 
 /** The "months left" badge on the available money. */
-export function runwayDetail({
-	drop,
-	runsOut,
-	oneOffs
-}: {
-	drop: string;
-	runsOut: string;
-	/** One-off contributions in the last 12 months, which the forecast leaves out. */
-	oneOffs: number | undefined;
-}): string {
-	const made = oneOffs
-		? ` There ${oneOffs === 1 ? 'was 1 one-off contribution' : `were ${oneOffs} one-off contributions`} last year.`
-		: '';
-	return `The balance is decreasing at an average of ${drop} a month and will run out around ${runsOut}.${made}`;
+export function runwayDetail({ drop, runsOut }: { drop: string; runsOut: string }): string {
+	return `The balance is decreasing at an average of ${drop} a month and will run out around ${runsOut}.`;
+}
+
+/** Beside the runway: the one-off contributions in the last 12 months, which the forecast leaves out. */
+export function runwayAside(oneOffs: number | undefined): string | undefined {
+	if (!oneOffs) return undefined;
+	return `There ${oneOffs === 1 ? 'was 1 one-off contribution' : `were ${oneOffs} one-off contributions`} last year.`;
 }
 
 /** The trend badge on one-off contributions, comparing the last 12 months' total with the 12 before. */

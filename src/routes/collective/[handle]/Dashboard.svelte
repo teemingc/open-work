@@ -295,15 +295,21 @@
 		return { months: complete.length, income, expenses, mine, net: income - expenses };
 	});
 
-	/** How wide a payee's name may be beside the "Who was paid" chart. */
-	const PAYEE_LABEL_WIDTH = 110;
-	/** Room for a payee's total, like "$12,300", on the other side. */
-	const PAYEE_TOTAL_WIDTH = 60;
 	/** The payee chart's width, for sizing its dots. */
 	let payeeWidth = $state(0);
+	/**
+	 * On phones, full names and totals left the dots so little room that they all looked the same
+	 * size, so names are cut shorter and totals are rounded, like "$54K".
+	 */
+	const payeeNarrow = $derived(payeeWidth > 0 && payeeWidth < 400);
+	/** How wide a payee's name may be beside the "Who was paid" chart. */
+	const payeeLabelWidth = $derived(payeeNarrow ? 72 : 110);
+	/** Room for a payee's total, like "$12,300", on the other side. */
+	const payeeTotalWidth = $derived(payeeNarrow ? 40 : 60);
+	const payeeTotalFormat = $derived(payeeNarrow ? compact : money);
 	/** The width the payee chart's dots are drawn across, between the names and the totals. */
 	const payeePlot = $derived(
-		payeeWidth - (PAYEE_LABEL_WIDTH + TICK_LENGTH + 6) - (PAYEE_TOTAL_WIDTH + TICK_LENGTH)
+		payeeWidth - (payeeLabelWidth + TICK_LENGTH + 6) - (payeeTotalWidth + TICK_LENGTH)
 	);
 	/** Narrower than this a month, as on phones, dots barely differ in size, so quarters are shown. */
 	const MIN_MONTH_WIDTH = 12;
@@ -528,8 +534,7 @@
 		if (!result.zeroDate) return '';
 		return details.runwayDetail({
 			drop: money.format(-result.avgNet),
-			runsOut: longMonthYear.format(result.zeroDate),
-			oneOffs: income?.oneOffs.count
+			runsOut: longMonthYear.format(result.zeroDate)
 		});
 	});
 
@@ -547,7 +552,8 @@
 							text: `${runwayMonths} months left`,
 							icon: 'hourglass',
 							tone: 'border-destructive/30 text-destructive hover:bg-destructive/10',
-							detail: runwayDetail
+							detail: runwayDetail,
+							aside: details.runwayAside(income?.oneOffs.count)
 						}
 		},
 		{
@@ -808,13 +814,11 @@
 
 		{#if !tooNew}
 			<!--
-				One row where both fit. Below that, a label column and a button column, so the two sets of
-				buttons start at the same place.
+				Each label above its buttons, which leaves the buttons the full width on phones. One row from
+				tablets up, and labels beside their buttons on wide screens.
 			-->
-			<div
-				class="grid w-fit grid-cols-[auto_auto] items-center gap-x-3 gap-y-3 text-sm md:flex md:gap-x-8"
-			>
-				<div class="contents md:flex md:items-center md:gap-3">
+			<div class="flex flex-col gap-3 text-sm md:flex-row md:gap-x-6 lg:gap-x-8">
+				<div class="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-3">
 					<span id="range-label" class="text-muted-foreground">Range</span>
 					<ToggleGroup.Root
 						type="single"
@@ -832,7 +836,7 @@
 						<ToggleGroup.Item value="all">All time</ToggleGroup.Item>
 					</ToggleGroup.Root>
 				</div>
-				<div class="contents md:flex md:items-center md:gap-3">
+				<div class="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-3">
 					<span id="basis-label" class="text-muted-foreground">Average of last</span>
 					<ToggleGroup.Root
 						type="single"
@@ -848,7 +852,7 @@
 						<ToggleGroup.Item value="12">1 year</ToggleGroup.Item>
 					</ToggleGroup.Root>
 				</div>
-				<div class="contents md:flex md:items-center md:gap-3">
+				<div class="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-3">
 					<span id="horizon-label" class="text-muted-foreground">Forecast</span>
 					<ToggleGroup.Root
 						type="single"
@@ -1086,26 +1090,31 @@
 
 		<!--
 			The charts above as figures, for screen readers and keyboards: each month opens its transactions.
-			On phones the gain or loss, which is income less expenses, makes way for the rest.
+			On phones the gain or loss, which is income less expenses, makes way for the rest, and the
+			month and the contributions heading shorten, so the table fits without scrolling sideways. On
+			wide screens the table stops short of the card's edge, so a month stays near its figures.
 		-->
 		<details class="rounded-xl border bg-card text-sm">
 			<summary class="cursor-pointer px-4 py-3 font-medium">Monthly figures</summary>
 			<div class="overflow-x-auto border-t">
-				<table class="ledger">
+				<table class="ledger lg:max-w-3xl">
 					<caption class="sr-only">Contributions, expenses and balance by month</caption>
 					<thead class="text-xs">
 						<tr>
-							<th class="py-2 pr-2 pl-4 sm:px-4">Month</th>
-							<th class="px-2 py-2 text-right sm:px-4">Contributions</th>
-							<th class="px-2 py-2 text-right sm:px-4">Expenses</th>
+							<th class="py-2 pr-1.5 pl-3 sm:px-4">Month</th>
+							<th class="px-1.5 py-2 text-right sm:px-4">
+								<span class="sm:hidden">Income</span>
+								<span class="hidden sm:inline">Contributions</span>
+							</th>
+							<th class="px-1.5 py-2 text-right sm:px-4">Expenses</th>
 							<th class="hidden px-4 py-2 text-right sm:table-cell">Gained or lost</th>
-							<th class="px-2 py-2 text-right sm:px-4">Balance</th>
+							<th class="py-2 pr-3 pl-1.5 text-right sm:px-4">Balance</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each shown as month (month.key)}
 							<tr>
-								<th scope="row" class="py-2 pr-2 pl-4 font-normal whitespace-nowrap sm:px-4">
+								<th scope="row" class="py-2 pr-1.5 pl-3 font-normal whitespace-nowrap sm:px-4">
 									<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
 									<a
 										href={transactionsUrl({ slug: data.slug, month: month.key })}
@@ -1113,17 +1122,23 @@
 										rel="noreferrer"
 										class="hover:underline"
 									>
-										{labelMonth(month.key)}
+										<span class="sm:hidden">
+											{bandTickLabel(month.key)}
+											{#if month.key === partialKey}
+												<span class="block text-xs text-muted-foreground">so far</span>
+											{/if}
+										</span>
+										<span class="hidden sm:inline">{labelMonth(month.key)}</span>
 										<span class="sr-only">(opens in a new tab)</span>
 									</a>
 									<!-- eslint-enable svelte/no-navigation-without-resolve -->
 								</th>
-								<td class="px-2 py-2 text-right sm:px-4">{money.format(month.income)}</td>
-								<td class="px-2 py-2 text-right sm:px-4">{money.format(month.expenses)}</td>
+								<td class="px-1.5 py-2 text-right sm:px-4">{money.format(month.income)}</td>
+								<td class="px-1.5 py-2 text-right sm:px-4">{money.format(month.expenses)}</td>
 								<td class="hidden px-4 py-2 text-right sm:table-cell"
 									>{signed(Math.round(month.net))}</td
 								>
-								<td class="px-2 py-2 text-right sm:px-4">{money.format(month.balance)}</td>
+								<td class="py-2 pr-3 pl-1.5 text-right sm:px-4">{money.format(month.balance)}</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -1175,8 +1190,8 @@
 												r="amount"
 												rRange={[Math.min(2, payeeMaxRadius), payeeMaxRadius]}
 												padding={chartPadding({
-													left: PAYEE_LABEL_WIDTH + TICK_LENGTH,
-													right: PAYEE_TOTAL_WIDTH + TICK_LENGTH
+													left: payeeLabelWidth + TICK_LENGTH,
+													right: payeeTotalWidth + TICK_LENGTH
 												})}
 												props={{
 													points: { strokeWidth: 0, fillOpacity: 0.85 },
@@ -1194,7 +1209,7 @@
 														// Measured at the labels' own size; LayerChart would use the page's 16px.
 														tickLabelProps: {
 															verticalAnchor: 'middle',
-															truncate: { maxWidth: PAYEE_LABEL_WIDTH, style: LABEL_STYLE }
+															truncate: { maxWidth: payeeLabelWidth, style: LABEL_STYLE }
 														},
 														format: (slug: string) => payeeName.get(slug) ?? ''
 													},
@@ -1212,12 +1227,13 @@
 														tickLength={TICK_LENGTH}
 														rule={false}
 														grid={false}
-														format={(slug: string) => money.format(payeeTotals.get(slug) ?? 0)}
+														format={(slug: string) =>
+															payeeTotalFormat.format(payeeTotals.get(slug) ?? 0)}
 														tickLabelProps={{
 															verticalAnchor: 'middle',
 															// Right-aligned in their column, so the figures line up by digit.
 															textAnchor: 'end',
-															dx: PAYEE_TOTAL_WIDTH,
+															dx: payeeTotalWidth,
 															class: 'tabular-nums'
 														}}
 													/>

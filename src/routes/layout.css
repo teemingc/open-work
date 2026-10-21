@@ -298,11 +298,12 @@
 	}
 	.ledger thead {
 		border-bottom: 3px double var(--rule);
-		text-align: left;
 		color: var(--muted-foreground);
 	}
+	/* On the cells, since a header cell centres itself rather than inheriting from the row. */
 	.ledger th {
 		font-weight: 500;
+		text-align: left;
 	}
 	.ledger tbody > tr:nth-child(even),
 	.ledger-rows > li:nth-child(even) {
