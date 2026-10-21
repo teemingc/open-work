@@ -19,7 +19,10 @@
 
 <svelte:head>
 	<title>Clients and days off · Open Work</title>
-	<meta name="description" content="Set the clients you log hours for and the days you take off." />
+	<meta
+		name="description"
+		content="Set the clients you log hours for and the days you’ve taken off."
+	/>
 </svelte:head>
 
 <a

@@ -70,7 +70,7 @@
 		</Card.Header>
 		<Card.Content>
 			<LazyChart class="h-64">
-				{#snippet children({ LineChart, Chart })}
+				{#snippet children({ LineChart, Chart, Legend })}
 					<Chart.Container config={paceConfig} class="aspect-auto h-64 w-full">
 						<LineChart
 							padding={chartPadding({ left: 44, legend: true })}
@@ -79,7 +79,6 @@
 							xScale={scaleTime()}
 							yDomain={[0, null]}
 							yNice
-							legend
 							series={[
 								{
 									key: 'expected',
@@ -116,6 +115,9 @@
 									formatter={hoursRow}
 								/>
 							{/snippet}
+							{#snippet legend({ context })}
+								<Legend {context} placement="bottom" />
+							{/snippet}
 						</LineChart>
 					</Chart.Container>
 				{/snippet}
@@ -134,7 +136,7 @@
 		</Card.Header>
 		<Card.Content>
 			<LazyChart class="h-64">
-				{#snippet children({ BarChart, Chart })}
+				{#snippet children({ BarChart, Chart, Legend })}
 					<Chart.Container config={dailyConfig} class="aspect-auto h-64 w-full">
 						<BarChart
 							padding={chartPadding({ left: 44, legend: shownClients.length > 1 })}
@@ -142,7 +144,6 @@
 							x="date"
 							xScale={scaleBand().padding(0.2)}
 							seriesLayout="stack"
-							legend={shownClients.length > 1}
 							series={shownClients.map(({ client, color }) => ({
 								key: client.id,
 								label: client.name,
@@ -175,6 +176,11 @@
 									labelFormatter={(date: string) => weekdayDayMonth.format(parseIsoDate(date))}
 									formatter={hoursRow}
 								/>
+							{/snippet}
+							{#snippet legend({ context })}
+								{#if shownClients.length > 1}
+									<Legend {context} placement="bottom" />
+								{/if}
 							{/snippet}
 						</BarChart>
 					</Chart.Container>

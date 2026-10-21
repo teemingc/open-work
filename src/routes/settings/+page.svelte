@@ -169,10 +169,7 @@
 
 <svelte:head>
 	<title>Settings · Open Work</title>
-	<meta
-		name="description"
-		content="Connect Open Collective and GitHub, set your billing details and back up your work log."
-	/>
+	<meta name="description" content="Connect to Open Collective to start sending invoices." />
 </svelte:head>
 
 <!--

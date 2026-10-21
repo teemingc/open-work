@@ -38,7 +38,6 @@
 					Axis,
 					BarChart,
 					Circle,
-					Legend,
 					ClipPath,
 					LinearGradient,
 					LineChart,
@@ -50,7 +49,6 @@
 					Axis,
 					BarChart,
 					Circle,
-					Legend,
 					ClipPath,
 					LinearGradient,
 					LineChart,
@@ -58,10 +56,11 @@
 					Threshold
 				})
 			),
+			import('./SeriesLegend.svelte').then(({ default: Legend }) => ({ Legend })),
 			import('#lib/components/ui/chart/index.js').then(({ Container, Tooltip }) => ({
 				Chart: { Container, Tooltip }
 			}))
-		]).then(([layerchart, chart]) => ({ ...layerchart, ...chart }));
+		]).then(([layerchart, legend, chart]) => ({ ...layerchart, ...legend, ...chart }));
 	}
 
 	type Charts = Awaited<ReturnType<typeof load>>;

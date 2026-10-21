@@ -17,10 +17,7 @@
 
 <svelte:head>
 	<title>Work log · Open Work</title>
-	<meta
-		name="description"
-		content="Log your hours and the pull requests and issues you worked on, and see whether you are on pace for the month."
-	/>
+	<meta name="description" content="Log your hours and keep track of your pace for the month." />
 </svelte:head>
 
 <!--

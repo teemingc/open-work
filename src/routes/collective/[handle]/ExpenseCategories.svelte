@@ -117,10 +117,13 @@
 								}
 							}}
 						>
-							{#snippet legend()}
+							{#snippet legend({ context })}
 								<!-- Category names are long, so the legend wraps and the plot makes room for every row. -->
 								<div class="absolute inset-x-0 bottom-0 z-1" bind:clientHeight={legendHeight}>
-									<Legend classes={{ root: 'w-full', items: 'flex-wrap justify-center' }} />
+									<Legend
+										{context}
+										classes={{ root: 'w-full', items: 'flex-wrap justify-center' }}
+									/>
 								</div>
 							{/snippet}
 							{#snippet tooltip()}

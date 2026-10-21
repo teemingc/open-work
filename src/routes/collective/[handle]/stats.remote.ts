@@ -416,7 +416,7 @@ const loadContributions = perKey({
 
 /**
  * Where the collective's money comes from: recurring and one-off contributions per month,
- * and the biggest backers over the last 12 months, 2 years and all time.
+ * and the biggest backers over the last year, 2 years and all time.
  */
 function incomeSources(nodes: ContributionNode[]) {
 	const now = new Date();

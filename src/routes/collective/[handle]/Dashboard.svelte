@@ -655,9 +655,7 @@
 							() => range, (value) => value && setParam({ name: 'show', value, fallback: '2y' })
 						}
 					>
-						<ToggleGroup.Item value="1y" disabled={!ranges.includes('1y')}>
-							12 months
-						</ToggleGroup.Item>
+						<ToggleGroup.Item value="1y" disabled={!ranges.includes('1y')}>1 year</ToggleGroup.Item>
 						<ToggleGroup.Item value="2y" disabled={!ranges.includes('2y')}>
 							2 years
 						</ToggleGroup.Item>
@@ -677,7 +675,7 @@
 					>
 						<ToggleGroup.Item value="3">3 months</ToggleGroup.Item>
 						<ToggleGroup.Item value="6">6 months</ToggleGroup.Item>
-						<ToggleGroup.Item value="12">12 months</ToggleGroup.Item>
+						<ToggleGroup.Item value="12">1 year</ToggleGroup.Item>
 					</ToggleGroup.Root>
 				</div>
 				<div class="contents md:flex md:items-center md:gap-3">
@@ -874,7 +872,7 @@
 			</Card.Header>
 			<Card.Content>
 				<LazyChart class="mb-3 h-64">
-					{#snippet children({ BarChart, Chart })}
+					{#snippet children({ BarChart, Chart, Legend })}
 						<div bind:clientWidth={flowWidth}>
 							<Chart.Container config={flowConfig} class="aspect-auto h-64 w-full cursor-pointer">
 								<BarChart
@@ -884,7 +882,6 @@
 									xScale={scaleBand().padding(0.2)}
 									seriesLayout="overlap"
 									onTooltipClick={openMonth}
-									legend
 									series={flowSeries}
 									props={{
 										bars: { radius: 2, strokeWidth: 0 },
@@ -903,6 +900,9 @@
 								>
 									{#snippet tooltip()}
 										<Chart.Tooltip labelFormatter={labelMonth} formatter={moneyRow} />
+									{/snippet}
+									{#snippet legend({ context })}
+										<Legend {context} placement="bottom" />
 									{/snippet}
 								</BarChart>
 							</Chart.Container>
