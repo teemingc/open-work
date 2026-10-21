@@ -450,6 +450,15 @@
 		return `The average month ${netPhrase(result.avgNet)} over ${windows.recent}. That's ${percent.format(Math.abs(trends.net))} ${trends.net >= 0 ? 'better' : 'worse'} than ${windows.earlier}, when it ${netPhrase(previous.avgIncome - previous.avgExpenses)}.`;
 	});
 
+	/** Spells out the runway badge, so the months left say where they come from. */
+	const runwayDetail = $derived.by(() => {
+		if (!result.zeroDate) return '';
+		const approved = committed
+			? `, after ${money.format(committed)} of approved expenses waiting to be paid,`
+			: '';
+		return `The ${money.format(available)} available${approved} drops by about ${money.format(-result.avgNet)} a month, the average of ${windows.recent}. At that rate it runs out around ${longMonthYear.format(result.zeroDate)}.`;
+	});
+
 	const stats = $derived<Stat[]>([
 		{
 			label: 'Available',
@@ -458,7 +467,12 @@
 			badge:
 				runwayMonths === null
 					? undefined
-					: { text: `${runwayMonths} months left`, icon: 'hourglass', tone: 'text-destructive' }
+					: {
+							text: `${runwayMonths} months left`,
+							icon: 'hourglass',
+							tone: 'border-destructive/30 text-destructive hover:bg-destructive/10',
+							detail: runwayDetail
+						}
 		},
 		{
 			label: 'Average month',
