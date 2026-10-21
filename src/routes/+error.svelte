@@ -6,6 +6,25 @@
 	import { ChartLine, ChevronRight, Clock, FileText } from '@lucide/svelte';
 
 	const notFound = $derived(page.status === 404);
+	/** What went wrong in a few words. A page that did not load says so already, so this names the side at fault. */
+	/** A collective page that exists, for a collective that does not. */
+	const noCollective = $derived(notFound && !!page.route.id?.startsWith('/collective'));
+	const heading = $derived(
+		noCollective
+			? 'Collective not found'
+			: notFound
+				? 'No page at this address'
+				: page.status >= 500
+					? 'Something went wrong on our side'
+					: 'That request did not work'
+	);
+	/** SvelteKit's message for an unexpected error, which says nothing about what to do. */
+	const UNEXPECTED = 'Internal Error';
+	const error = $derived(
+		page.error?.message === UNEXPECTED
+			? { message: 'Trying again usually fixes it. If not, give it a few minutes.' }
+			: page.error
+	);
 
 	const destinations = [
 		{
@@ -30,18 +49,19 @@
 </script>
 
 <svelte:head>
-	<title>{notFound ? 'Page not found' : 'Page did not load'} · Open Work</title>
-	<meta
-		property="og:title"
-		content="{notFound ? 'Page not found' : 'Page did not load'} · Open Work"
-	/>
+	<title>{heading} · Open Work</title>
+	<meta property="og:title" content="{heading} · Open Work" />
 </svelte:head>
 
 <!-- The same narrow column as the home page: a heading, one line, then a list of places to go. -->
 <div class="mx-auto flex max-w-md flex-col gap-6 pt-10 sm:pt-16">
 	<div class="space-y-3 text-center">
-		<h1>{notFound ? 'No page at this address' : 'This page did not load'}</h1>
-		{#if notFound}
+		<h1>{heading}</h1>
+		{#if noCollective}
+			<p class="text-muted-foreground">
+				{page.error?.message} Check the spelling, or search for it from the Collective page.
+			</p>
+		{:else if notFound}
 			<p class="text-muted-foreground">
 				Nothing in Open Work lives at
 				<span class="font-medium break-all text-foreground">{page.url.pathname}</span>. Check the
@@ -49,7 +69,7 @@
 			</p>
 		{:else}
 			<div class="flex justify-center text-muted-foreground">
-				<RetryableError error={page.error} onretry={() => invalidateAll()} />
+				<RetryableError {error} onretry={() => invalidateAll()} />
 			</div>
 		{/if}
 	</div>
