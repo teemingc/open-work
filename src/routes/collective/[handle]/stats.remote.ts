@@ -477,11 +477,12 @@ export type CollectiveStats = Awaited<ReturnType<typeof getCollectiveStats>>;
 export type IncomeSources = ReturnType<typeof incomeSources>;
 
 const SEARCH_QUERY = /* GraphQL */ `
-	query SearchCollectives($term: String!, $slug: String) {
-		exact: account(slug: $slug, throwIfMissing: false) {
+	query SearchCollectives($term: String!, $slug: String = "", $bySlug: Boolean!) {
+		exact: account(slug: $slug, throwIfMissing: false) @include(if: $bySlug) {
 			slug
 			name
 			type
+			isHost
 			imageUrl(height: 64)
 		}
 		accounts(searchTerm: $term, type: [COLLECTIVE, PROJECT, FUND], limit: 8) {
@@ -502,30 +503,47 @@ export interface CollectiveMatch {
 }
 
 interface SearchResult {
-	exact: (CollectiveMatch & { type: string }) | null;
+	exact?: (CollectiveMatch & { type: string; isHost: boolean }) | null;
 	accounts: { nodes: (CollectiveMatch & { type: string })[] };
 }
 
 const FUNDED_TYPES = new Set(['COLLECTIVE', 'PROJECT', 'FUND']);
+
+/**
+ * Whether an account looked up by its exact slug has money of its own to show. Some projects, like
+ * Node.js, are organizations that hold their own funds rather than collectives, so the fuzzy search
+ * leaves them out; they still come up when you type their slug.
+ */
+function isFunded(account: { type: string; isHost: boolean }): boolean {
+	return FUNDED_TYPES.has(account.type) || (account.type === 'ORGANIZATION' && account.isHost);
+}
+
+/** The slug a term would be, like "nodejs" for "Node.js", or null if it cannot be one. */
+function slugFor(term: string): string | null {
+	const slug = term.replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+	return /^[a-z0-9][a-z0-9-]*$/.test(slug) ? slug : null;
+}
 const SEARCH_CACHE_MS = 24 * 60 * 60 * 1000;
 const searches = perKey({
-	cacheKey: (term) => `search:v2:${term}`,
+	cacheKey: (term) => `search:v3:${term}`,
 	maxAgeMs: SEARCH_CACHE_MS,
 	// One per term typed is too many writes for KV, and a search is one request to redo.
 	store: 'edge',
 	load: async (term, ask): Promise<CollectiveMatch[]> => {
 		let result: SearchResult;
+		// The search is fuzzy; looking the term up as a slug too puts an exact match first. Open
+		// Collective errors on a lookup with no slug, so it is left out when the term cannot be one.
+		const slug = slugFor(term);
 		try {
 			result = await ask<SearchResult>({
 				query: SEARCH_QUERY,
-				// The search is fuzzy; looking the term up as a slug too puts an exact match first.
-				variables: { term, slug: /^[a-z0-9-]+$/.test(term) ? term : null }
+				variables: slug ? { term, slug, bySlug: true } : { term, bySlug: false }
 			});
 		} catch (err) {
 			toHttpError(err);
 		}
 		const matches = [
-			...(result.exact && FUNDED_TYPES.has(result.exact.type) ? [result.exact] : []),
+			...(result.exact && isFunded(result.exact) ? [result.exact] : []),
 			...result.accounts.nodes
 		];
 		const seen = new Set<string>();
