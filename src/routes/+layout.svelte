@@ -48,7 +48,7 @@
 <svelte:head>
 	<link rel="icon" href={favicon} />
 	<title>Open Work</title>
-	<!-- Sites showing a shared link take its title and description from the page's own tags. -->
+	<!-- Each page sets its own og:title and og:description beside its title and description. -->
 	<meta property="og:site_name" content="Open Work" />
 	<meta property="og:type" content="website" />
 	<meta property="og:url" content={page.url.origin + page.url.pathname} />

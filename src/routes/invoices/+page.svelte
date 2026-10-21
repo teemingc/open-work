@@ -55,8 +55,13 @@
 
 <svelte:head>
 	<title>Invoices · Open Work</title>
+	<meta property="og:title" content="Invoices · Open Work" />
 	<meta
 		name="description"
+		content="Send invoices to Open Collective in a few clicks, and keep track of each one."
+	/>
+	<meta
+		property="og:description"
 		content="Send invoices to Open Collective in a few clicks, and keep track of each one."
 	/>
 </svelte:head>

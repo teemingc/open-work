@@ -553,8 +553,13 @@
 
 <svelte:head>
 	<title>{data.name} · Open Work</title>
+	<meta property="og:title" content="{data.name} · Open Work" />
 	<meta
 		name="description"
+		content="{data.name} on Open Collective: its balance, runway, income, expenses and who funds it."
+	/>
+	<meta
+		property="og:description"
 		content="{data.name} on Open Collective: its balance, runway, income, expenses and who funds it."
 	/>
 </svelte:head>

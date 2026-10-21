@@ -20,8 +20,13 @@
 	<!-- A collective's dashboard names and describes itself. -->
 	{#if !slug}
 		<title>Collective · Open Work</title>
+		<meta property="og:title" content="Collective · Open Work" />
 		<meta
 			name="description"
+			content="Look up a collective on Open Collective and see its balance, runway and who funds it."
+		/>
+		<meta
+			property="og:description"
 			content="Look up a collective on Open Collective and see its balance, runway and who funds it."
 		/>
 	{/if}
