@@ -14,16 +14,11 @@
 		period: string;
 	} = $props();
 
-	// Categorical hues in a fixed order for named backers, then pale outlined neutrals for the groups, so the
-	// people who can be named carry the most weight. More than four named backers would need more hues than can
-	// be told apart, so the rest fold into groups. No pink, so GitHub Sponsors' pink stays its own.
+	// Categorical hues in a fixed order for named backers, as in the other charts, then fading shades of the
+	// "other" grey for the groups, so the people who can be named carry the most weight. More than four named
+	// backers would need more hues than can be told apart, so the rest fold into groups.
 	const NAMED = 4;
-	const SWATCHES = ['bg-chart-1', 'bg-chart-3', 'bg-chart-4', 'bg-chart-5'];
-	const GROUPED = 'inset-ring inset-ring-chart-other';
-	/** Platforms in their own brand colour, so they read as the platform rather than a backer. */
-	const CHANNEL_SWATCHES: Record<string, string> = {
-		'github-sponsors': 'bg-chart-github-sponsors'
-	};
+	const SWATCHES = ['bg-chart-1', 'bg-chart-2', 'bg-chart-3', 'bg-chart-4'];
 
 	const groups = $derived.by(() => {
 		const people = backers.filter((backer) => backer.slug && !backer.channel);
@@ -44,7 +39,7 @@
 							key: 'rest',
 							label: `${rest.length} more top ${rest.length === 1 ? 'backer' : 'backers'}`,
 							amount: rest.reduce((sum, backer) => sum + backer.amount, 0),
-							swatch: `bg-chart-more-backers ${GROUPED}`
+							swatch: 'bg-chart-other'
 						}
 					]
 				: []),
@@ -54,7 +49,7 @@
 					key: channel.slug,
 					label: `Via ${channel.name}`,
 					amount: channel.amount,
-					swatch: CHANNEL_SWATCHES[channel.slug] ?? 'bg-chart-other'
+					swatch: 'bg-chart-other/60'
 				})),
 				...(others
 					? [
@@ -62,7 +57,7 @@
 								key: 'others',
 								label: others.name,
 								amount: others.amount,
-								swatch: `bg-chart-others ${GROUPED}`
+								swatch: 'bg-chart-other/30'
 							}
 						]
 					: [])
