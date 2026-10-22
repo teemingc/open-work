@@ -511,28 +511,31 @@
 									one-off, whatever each person chose, so it gets an average per month instead of a
 									frequency, counted from its first contribution in these months.
 								-->
-										{#if backer.channel}
-											{@const first = backer.history.first.slice(0, 7)}
-											{@const active = months.filter((month) => month >= first).length}
-											{#if active}
+										<!-- On phones the badge always takes its own line, rather than whichever line it fits on. -->
+										<span class="flex basis-full items-center gap-x-2 sm:basis-auto">
+											{#if backer.channel}
+												{@const first = backer.history.first.slice(0, 7)}
+												{@const active = months.filter((month) => month >= first).length}
+												{#if active}
+													<Badge variant="secondary"
+														>{money.format(backer.amount / active)}/month avg</Badge
+													>
+												{/if}
+											{:else if status === 'Stopped'}
+												<Badge variant="outline">Stopped</Badge>
+												{#if per}
+													<span>was {money.format(backer.history.lastAmount)}/{per}</span>
+												{/if}
+											{:else if per}
 												<Badge variant="secondary"
-													>{money.format(backer.amount / active)}/month avg</Badge
+													>{money.format(backer.history.lastAmount)}/{per}</Badge
+												>
+											{:else}
+												<Badge variant="secondary"
+													>{backer.history.lastTransfer ? 'Balance transfer' : status}</Badge
 												>
 											{/if}
-										{:else if status === 'Stopped'}
-											<Badge variant="outline">Stopped</Badge>
-											{#if per}
-												<span>was {money.format(backer.history.lastAmount)}/{per}</span>
-											{/if}
-										{:else if per}
-											<Badge variant="secondary"
-												>{money.format(backer.history.lastAmount)}/{per}</Badge
-											>
-										{:else}
-											<Badge variant="secondary"
-												>{backer.history.lastTransfer ? 'Balance transfer' : status}</Badge
-											>
-										{/if}
+										</span>
 									</div>
 								{/if}
 							</div>

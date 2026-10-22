@@ -29,21 +29,31 @@ export function averageDetail({
 	return `Average ${what} have ${up ? 'increased' : 'decreased'} by ${change} ${from} the ${before} in ${windows.earlier}.`;
 }
 
-/** The trend badge on the monthly change, which is contributions less expenses. */
+/** The trend badge on the monthly change, which is contributions less expenses, like "Decreasing by $3,074 more…". */
 export function netDetail({
+	now,
 	before,
 	change,
-	up,
+	more,
 	windows
 }: {
-	/** With a minus sign when expenses were more, like "-$8,672". */
-	before: string;
-	/** How much it moved, like "$1,334". */
+	/** The average monthly change in the recent window, signed. */
+	now: { amount: string; falling: boolean };
+	/** The same in the window before, so it can be compared. */
+	before: { amount: string; falling: boolean };
+	/** How much more or less it moves by when both windows go the same way, like "$1,334". */
 	change: string;
-	up: boolean;
+	/** Whether it moves by more than before. */
+	more: boolean;
 	windows: Windows;
 }): string {
-	return `Average monthly change has ${up ? 'increased' : 'decreased'} by ${change} compared to ${before} in ${windows.earlier}.`;
+	const direction = (falling: boolean) => (falling ? 'decreasing' : 'increasing');
+	const lead = direction(now.falling).replace(/^./, (letter) => letter.toUpperCase());
+	// Going the other way to before, "more" or "less" would compare unlike things, so it names both.
+	if (now.falling !== before.falling) {
+		return `${lead} by ${now.amount} compared to ${direction(before.falling)} by ${before.amount} in ${windows.earlier}.`;
+	}
+	return `${lead} by ${change} ${more ? 'more' : 'less'} compared to ${before.amount} in ${windows.earlier}.`;
 }
 
 /** The "months left" badge on the available money. */

@@ -492,10 +492,15 @@
 	const netDetail = $derived.by(() => {
 		if (!previous || trends.net === undefined) return '';
 		const before = previous.avgIncome - previous.avgExpenses;
+		const signed = (amount: number) => ({
+			amount: money.format(Math.abs(amount)),
+			falling: amount < 0
+		});
 		return details.netDetail({
-			before: money.format(before),
-			change: money.format(Math.abs(result.avgNet - before)),
-			up: result.avgNet >= before,
+			now: signed(result.avgNet),
+			before: signed(before),
+			change: money.format(Math.abs(Math.abs(result.avgNet) - Math.abs(before))),
+			more: Math.abs(result.avgNet) > Math.abs(before),
 			windows
 		});
 	});
