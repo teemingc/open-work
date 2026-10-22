@@ -31,6 +31,15 @@ export function monthLabel({ key, partialKey }: { key: string; partialKey?: stri
 }
 
 /**
+ * How long the money lasts: "18 months", or in whole years from two years on, as a count of
+ * months that large is hard to picture. Rounded down, like the share image: "15 years".
+ */
+export function runwayLength(months: number): string {
+	if (months < 24) return `${months} month${months === 1 ? '' : 's'}`;
+	return `${Math.floor(months / 12)} years`;
+}
+
+/**
  * The months on screen as a phrase that finishes "contributed …": "in the last year",
  * "in the last 2 years", or "since Mar 2019" for any other span, like all time.
  */

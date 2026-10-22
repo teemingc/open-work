@@ -29,7 +29,8 @@
 		compactFormat,
 		monthLabel,
 		moneyFormat,
-		periodPhrase
+		periodPhrase,
+		runwayLength
 	} from './chart-format';
 	import ExpenseCategories from './ExpenseCategories.svelte';
 	import * as details from './stat-details';
@@ -527,7 +528,7 @@
 		if (income && result.avgNet >= 0) return 'Recurring backers alone cover the expenses.';
 		const basis = income ? 'current recurring backers' : `the last ${result.basis} months`;
 		return result.zeroDate
-			? `About ${runwayMonths} months left based on ${basis}.`
+			? `About ${runwayLength(runwayMonths ?? 0)} left based on ${basis}.`
 			: `Based on ${basis}.`;
 	});
 
@@ -551,7 +552,7 @@
 				runwayMonths === null
 					? undefined
 					: {
-							text: `${runwayMonths} months left`,
+							text: `${runwayLength(runwayMonths)} left`,
 							icon: 'hourglass',
 							tone: 'border-destructive/30 text-destructive hover:bg-destructive/10',
 							detail: runwayDetail,
