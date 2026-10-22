@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tapToPreview } from '#lib/tap-to-preview.js';
+	import { TooltipLink } from '#lib/tooltip-link.svelte.js';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -612,38 +612,27 @@
 		}
 	]);
 
-	function open(url: string) {
-		window.open(url, '_blank', 'noopener');
-	}
+	const monthLink = new TooltipLink(({ month }: { month: string }) =>
+		transactionsUrl({ slug: data.slug, month })
+	);
 
-	function openMonth(_event: MouseEvent, { data: row }: { data: { month: string } }) {
-		open(transactionsUrl({ slug: data.slug, month: row.month }));
-	}
-	const openMonthOnTap = tapToPreview(openMonth);
+	/** A point on the balance line links to that month's transactions; the forecast has none yet. */
+	const balanceLink = new TooltipLink(({ date }: { date: Date }) =>
+		date > now
+			? undefined
+			: transactionsUrl({ slug: data.slug, month: date.toISOString().slice(0, 7) })
+	);
 
-	/** A point on the balance line opens that month's transactions; the forecast has none yet. */
-	function openBalanceMonth(_event: MouseEvent, { data: point }: { data: { date: Date } }) {
-		if (point.date > now) return;
-		open(transactionsUrl({ slug: data.slug, month: point.date.toISOString().slice(0, 7) }));
-	}
-	const openBalanceMonthOnTap = tapToPreview(openBalanceMonth);
-
-	/** The "others" row has no slug, so it opens every expense. */
-	function openPayee(
-		_event: MouseEvent,
-		{ data: cell }: { data: { slug: string; month: string } }
-	) {
+	/** The "others" row has no slug, so it links to every expense. */
+	const payeeLink = new TooltipLink((cell: { slug: string; month: string }) => {
 		const months = payeeMonths(cell.month);
-		open(
-			transactionsUrl({
-				slug: data.slug,
-				between: { from: months[0], to: months.at(-1)! },
-				account: cell.slug || undefined,
-				kinds: ['EXPENSE']
-			})
-		);
-	}
-	const openPayeeOnTap = tapToPreview(openPayee);
+		return transactionsUrl({
+			slug: data.slug,
+			between: { from: months[0], to: months.at(-1)! },
+			account: cell.slug || undefined,
+			kinds: ['EXPENSE']
+		});
+	});
 
 	const shortMonth = new Intl.DateTimeFormat('en', { month: 'short', timeZone: 'UTC' });
 	/** A payee chart column in words: "Oct 2026", or "Jul–Sep 2026" for a quarter. */
@@ -895,7 +884,7 @@
 							>
 								<AreaChart
 									padding={chartPadding()}
-									onTooltipClick={openBalanceMonthOnTap}
+									onTooltipClick={balanceLink.click}
 									x="date"
 									y="balance"
 									xScale={scaleTime()}
@@ -981,7 +970,8 @@
 											tickLength: TICK_LENGTH,
 											tickLabelProps: Y_TICK_LABEL,
 											format: (v: number) => compact.format(v)
-										}
+										},
+										tooltip: { context: { locked: balanceLink.locked } }
 									}}
 								>
 									{#snippet marks()}
@@ -1026,7 +1016,10 @@
 									{#snippet tooltip({ context })}
 										{@const point = context.tooltip.data as { date: Date } | null}
 										{@const yearBefore = point ? balanceYearBefore(point.date) : undefined}
-										<Chart.Tooltip labelFormatter={(d: Date) => dayMonthYear.format(d)}>
+										<Chart.Tooltip
+											labelFormatter={(d: Date) => dayMonthYear.format(d)}
+											href={balanceLink.href}
+										>
 											{#snippet formatter({ value, name, item, index, payload })}
 												{@render moneyRow({ value, name, item })}
 												<!-- Once, after the last series, where balance and forecast meet. -->
@@ -1077,7 +1070,7 @@
 									x="month"
 									xScale={scaleBand().padding(0.2)}
 									seriesLayout="overlap"
-									onTooltipClick={openMonthOnTap}
+									onTooltipClick={monthLink.click}
 									series={flowSeries}
 									props={{
 										bars: { radius: 2, strokeWidth: 0, motion: legendMotion },
@@ -1091,11 +1084,16 @@
 											tickLength: TICK_LENGTH,
 											tickLabelProps: Y_TICK_LABEL,
 											format: (v: number) => compact.format(v)
-										}
+										},
+										tooltip: { context: { locked: monthLink.locked } }
 									}}
 								>
 									{#snippet tooltip()}
-										<Chart.Tooltip labelFormatter={labelMonth} formatter={moneyRow} />
+										<Chart.Tooltip
+											labelFormatter={labelMonth}
+											formatter={moneyRow}
+											href={monthLink.href}
+										/>
 									{/snippet}
 									{#snippet legend({ context })}
 										<Legend {context} placement="bottom" />
@@ -1200,7 +1198,7 @@
 										>
 											<ScatterChart
 												series={payeeSeries}
-												onTooltipClick={openPayeeOnTap}
+												onTooltipClick={payeeLink.click}
 												x="month"
 												xScale={scaleBand()}
 												xDomain={payeeKeys}
@@ -1233,7 +1231,7 @@
 														},
 														format: (slug: string) => payeeName.get(slug) ?? ''
 													},
-													tooltip: { context: { mode: 'band' } }
+													tooltip: { context: { mode: 'band', locked: payeeLink.locked } }
 												}}
 											>
 												<!--
@@ -1279,6 +1277,7 @@
 													<Chart.Tooltip
 														hideIndicator
 														labelFormatter={() => (cell ? payeeColumnLabel(cell.month) : '')}
+														href={payeeLink.href}
 													>
 														{#snippet formatter()}
 															{#if cell}

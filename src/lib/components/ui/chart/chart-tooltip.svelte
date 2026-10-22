@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ExternalLink } from '@lucide/svelte';
 	import { getChartContext, Tooltip as TooltipPrimitive } from 'layerchart';
 	import { cn, type WithElementRef, type WithoutChildren } from '#lib/utils.js';
 	import { getPayloadConfigFromPayload, useChart, type TooltipPayload } from './chart-utils.js';
@@ -23,6 +24,7 @@
 		formatter,
 		nameKey,
 		color,
+		href,
 		...restProps
 	}: WithoutChildren<WithElementRef<HTMLAttributes<HTMLDivElement>>> & {
 		hideLabel?: boolean;
@@ -32,6 +34,8 @@
 		labelKey?: string;
 		hideIndicator?: boolean;
 		labelClassName?: string;
+		/** The point's transactions on Open Collective, for a tooltip pinned so a finger can reach it. */
+		href?: string;
 		labelFormatter?:
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			((value: any, payload: TooltipPayload[]) => string | number | Snippet) | null;
@@ -103,7 +107,7 @@
 	{/if}
 {/snippet}
 
-<TooltipPrimitive.Root variant="none">
+<TooltipPrimitive.Root variant="none" pointerEvents={href !== undefined}>
 	<div
 		bind:this={ref}
 		class={cn(
@@ -177,5 +181,17 @@
 				</div>
 			{/each}
 		</div>
+		{#if href}
+			<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
+			<a
+				{href}
+				target="_blank"
+				rel="noreferrer"
+				class="flex items-center gap-1 border-t border-border/50 pt-1.5 font-medium underline-offset-4 hover:underline"
+			>
+				View on Open Collective
+				<ExternalLink class="size-3 text-muted-foreground" aria-hidden="true" />
+			</a>
+		{/if}
 	</div>
 </TooltipPrimitive.Root>

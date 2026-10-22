@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tapToPreview } from '#lib/tap-to-preview.js';
+	import { TooltipLink } from '#lib/tooltip-link.svelte.js';
 	import { chartPadding, TICK_LENGTH, X_TICK_OCCLUSION, Y_TICK_LABEL } from '#lib/chart-padding.js';
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
@@ -88,14 +88,10 @@
 	);
 	const topShare = $derived(total && backers[0]?.slug ? backers[0].amount / total : 0);
 
-	function openMonth(_event: MouseEvent, { data: row }: { data: { month: string } }) {
-		window.open(
-			transactionsUrl({ slug, month: row.month, kinds: CONTRIBUTION_KINDS }),
-			'_blank',
-			'noopener'
-		);
-	}
-	const openMonthOnTap = tapToPreview(openMonth);
+	const contributionsUrl = ({ month }: { month: string }) =>
+		transactionsUrl({ slug, month, kinds: CONTRIBUTION_KINDS });
+	const contributionsLink = new TooltipLink(contributionsUrl);
+	const backersLink = new TooltipLink(contributionsUrl);
 
 	const config = {
 		recurring: { label: 'Recurring', color: 'var(--color-chart-income)' },
@@ -193,7 +189,7 @@
 									x="month"
 									xScale={scaleBand().padding(0.2)}
 									seriesLayout="stack"
-									onTooltipClick={openMonthOnTap}
+									onTooltipClick={contributionsLink.click}
 									series={[
 										{
 											key: 'recurring',
@@ -214,13 +210,15 @@
 											tickLength: TICK_LENGTH,
 											tickLabelProps: Y_TICK_LABEL,
 											format: (v: number) => compact.format(v)
-										}
+										},
+										tooltip: { context: { locked: contributionsLink.locked } }
 									}}
 								>
 									{#snippet tooltip()}
 										<Chart.Tooltip
 											labelFormatter={(key: string) => monthLabel({ key, partialKey })}
 											formatter={row}
+											href={contributionsLink.href}
 										/>
 									{/snippet}
 									{#snippet legend({ context })}
@@ -266,7 +264,7 @@
 										xScale={scalePoint().padding(0.6)}
 										y={['active', 'yearBefore']}
 										yNice
-										onTooltipClick={openMonthOnTap}
+										onTooltipClick={backersLink.click}
 										series={[
 											{
 												key: 'active',
@@ -285,7 +283,8 @@
 												tickLength: TICK_LENGTH,
 												tickLabelProps: Y_TICK_LABEL,
 												format: (v: number) => whole.format(v)
-											}
+											},
+											tooltip: { context: { locked: backersLink.locked } }
 										}}
 									>
 										{#snippet marks()}
@@ -321,6 +320,7 @@
 											{@const hovered = context.tooltip.data as (typeof changes)[number] | null}
 											<Chart.Tooltip
 												labelFormatter={(key: string) => monthLabel({ key, partialKey })}
+												href={backersLink.href}
 											>
 												{#snippet formatter()}
 													{#if hovered}

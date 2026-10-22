@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tapToPreview } from '#lib/tap-to-preview.js';
+	import { TooltipLink } from '#lib/tooltip-link.svelte.js';
 	import { chartPadding, TICK_LENGTH, X_TICK_OCCLUSION, Y_TICK_LABEL } from '#lib/chart-padding.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import type { ChartConfig } from '#lib/components/ui/chart/chart-utils.js';
@@ -59,14 +59,9 @@
 	/** Measured, since the legend wraps onto more rows the narrower the card. */
 	let legendHeight = $state(20);
 
-	function openMonth(_event: MouseEvent, { data: row }: { data: { month: string } }) {
-		window.open(
-			transactionsUrl({ slug, month: row.month, kinds: ['EXPENSE'] }),
-			'_blank',
-			'noopener'
-		);
-	}
-	const openMonthOnTap = tapToPreview(openMonth);
+	const link = new TooltipLink(({ month }: { month: string }) =>
+		transactionsUrl({ slug, month, kinds: ['EXPENSE'] })
+	);
 	import LazyChart from '#lib/components/LazyChart.svelte';
 </script>
 
@@ -101,7 +96,7 @@
 							x="month"
 							xScale={scaleBand().padding(0.2)}
 							seriesLayout="stack"
-							onTooltipClick={openMonthOnTap}
+							onTooltipClick={link.click}
 							{series}
 							props={{
 								bars: { radius: 2, strokeWidth: 0, motion: legendMotion },
@@ -115,7 +110,8 @@
 									tickLength: TICK_LENGTH,
 									tickLabelProps: Y_TICK_LABEL,
 									format: (v: number) => compact.format(v)
-								}
+								},
+								tooltip: { context: { locked: link.locked } }
 							}}
 						>
 							{#snippet legend({ context })}
@@ -136,6 +132,7 @@
 								<Chart.Tooltip
 									labelFormatter={(key: string) => monthLabel({ key, partialKey })}
 									formatter={row}
+									href={link.href}
 								/>
 							{/snippet}
 						</BarChart>
