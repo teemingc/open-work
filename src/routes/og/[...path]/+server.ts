@@ -4,10 +4,11 @@
  * page shows its title and what it is for.
  */
 import { read } from '$app/server';
-import { waitUntil } from 'cloudflare:workers';
+import { env, waitUntil } from 'cloudflare:workers';
 import { Resvg } from '@cf-wasm/resvg';
 import { satori, type Font, type VNode } from '@cf-wasm/satori';
 import { formatMoney } from '#lib/format.js';
+import { collectiveImageVersion } from '#lib/share-image.js';
 import {
 	forecast,
 	forecastDates,
@@ -393,12 +394,7 @@ function outlook(stats: CollectiveStats, { now, available, result }: Projection)
 	};
 }
 
-async function collectiveCard(slug: string): Promise<VNode | undefined> {
-	const [stats, image] = await Promise.all([
-		getCollectiveStats(slug).catch(() => undefined),
-		logo(slug)
-	]);
-	if (!stats) return undefined;
+function collectiveCard(stats: CollectiveStats, image: string | undefined): VNode {
 	const projection = project(stats);
 	const { before, figure, after } = outlook(stats, projection);
 
@@ -612,30 +608,77 @@ function clamped(text: string, style: Record<string, unknown>, lines = 1): VNode
 	);
 }
 
+/** Long enough that the card of a collective nobody shares any more drops out. */
+const KV_KEPT_FOR_SECONDS = 60 * 60 * 24 * 90;
+/** A year, as long as caches keep anything. */
+const FOREVER = 60 * 60 * 24 * 365;
+
+/** Where a collective's card for one version of its figures is kept, shared by every data centre. */
+const kvKey = (slug: string, version: string) => `og-image:${slug}:${version}`;
+
+async function storedCard(slug: string, version: string): Promise<ArrayBuffer | undefined> {
+	try {
+		return (await env.OC_CACHE?.get(kvKey(slug, version), 'arrayBuffer')) ?? undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+async function storeCard(slug: string, version: string, png: Uint8Array): Promise<void> {
+	try {
+		await env.OC_CACHE?.put(kvKey(slug, version), png, { expirationTtl: KV_KEPT_FOR_SECONDS });
+	} catch {
+		// Drawn again next time.
+	}
+}
+
 export const GET: RequestHandler = async ({ params, url }) => {
 	const path = params.path.replace(/\/+$/, '').toLowerCase();
 	// Cloudflare's shared cache, missing outside a Worker.
 	const cache =
 		typeof caches === 'undefined' ? undefined : (caches as unknown as { default?: Cache }).default;
 	const key = new Request(url);
+	const respond = (png: BufferSource, maxAge: number) => {
+		const response = new Response(png, {
+			headers: {
+				'Content-Type': 'image/png',
+				'Cache-Control': `public, max-age=${maxAge}${maxAge === FOREVER ? ', immutable' : ''}`
+			}
+		});
+		if (cache) waitUntil(cache.put(key, response.clone()));
+		return response;
+	};
 	const cached = await cache?.match(key);
 	if (cached) return cached;
 
 	const slug = /^collective\/([a-z0-9][a-z0-9-]{0,99})$/.exec(path)?.[1];
+	// A version names one set of figures, so its card never changes once drawn.
+	const requested = url.searchParams.get('v');
+	if (slug && requested) {
+		const stored = await storedCard(slug, requested);
+		if (stored) return respond(stored, FOREVER);
+	}
+
 	// An unknown collective, or one Open Collective could not tell us about, gets the plain card.
-	const collective = slug ? await collectiveCard(slug) : undefined;
+	const [stats, image] = slug
+		? await Promise.all([getCollectiveStats(slug).catch(() => undefined), logo(slug)])
+		: [];
 	const page = PAGES[path];
-	const element = collective ?? (page ? pageCard(page) : homeCard());
+	const element = stats ? collectiveCard(stats, image) : page ? pageCard(page) : homeCard();
 
 	const svg = await satori(element, { width: WIDTH, height: HEIGHT, fonts: await loadFonts() });
-	const png = (await Resvg.async(svg)).render().asPng();
+	const png = (await Resvg.async(svg)).render().asPng() as Uint8Array<ArrayBuffer>;
 
-	// A collective's balance changes, and a plain card in its place may only mean Open Collective
-	// was busy. The other pages only change with a deploy.
-	const maxAge = collective ? 60 * 60 : slug ? 5 * 60 : 24 * 60 * 60;
-	const response = new Response(png as Uint8Array<ArrayBuffer>, {
-		headers: { 'Content-Type': 'image/png', 'Cache-Control': `public, max-age=${maxAge}` }
-	});
-	if (cache) waitUntil(cache.put(key, response.clone()));
-	return response;
+	if (slug && stats) {
+		// Kept only when asked for by its version, which was just found missing, so it is written once.
+		if (requested === collectiveImageVersion(stats)) {
+			waitUntil(storeCard(slug, requested, png));
+			return respond(png, FOREVER);
+		}
+		// Asked for older figures, or none, this is only the latest card, which changes with them.
+		return respond(png, 60 * 60);
+	}
+	// A plain card in a collective's place may only mean Open Collective was busy. The other pages
+	// only change with a deploy.
+	return respond(png, slug ? 5 * 60 : 24 * 60 * 60);
 };

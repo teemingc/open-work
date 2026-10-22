@@ -5,14 +5,24 @@
 	import favicon from '#lib/assets/favicon.svg';
 	import { restoreSettings } from '#lib/settings.remote.js';
 	import { LEGACY_STORAGE_KEY, parseBackup } from '#lib/settings.js';
+	import { collectiveImageVersion, OG_IMAGE_VERSION } from '#lib/share-image.js';
 	import { onMount } from 'svelte';
+	import { getCollectiveStats } from './collective/[handle]/stats.remote';
 	import Header from './Header.svelte';
 	import NavigationLoader from './NavigationLoader.svelte';
 
 	let { children } = $props();
 
-	/** Bump when the og/[...path] cards change, so sharing sites fetch them again instead of using their copy. */
-	const OG_IMAGE_VERSION = '2';
+	// A collective's card shows its figures, so it is drawn again when they change. The page waits
+	// on the same stats, so this asks Open Collective for nothing more.
+	const ogVersion = $derived(
+		page.route.id === '/collective/[handle]' && page.params.handle
+			? await getCollectiveStats(page.params.handle.toLowerCase()).then(
+					collectiveImageVersion,
+					() => OG_IMAGE_VERSION
+				)
+			: OG_IMAGE_VERSION
+	);
 
 	/** The picture shown when this page is shared, drawn by og/[...path]. */
 	// Absolute, as sharing sites need, though `resolve` gives a relative path while rendering on the server.
@@ -21,7 +31,7 @@
 			resolve('/og/[...path]', { path: page.url.pathname.slice(1) }),
 			page.url.href
 		);
-		url.searchParams.set('v', OG_IMAGE_VERSION);
+		url.searchParams.set('v', ogVersion);
 		return url.href;
 	});
 
