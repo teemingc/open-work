@@ -40,6 +40,7 @@ export default defineConfig({
 
 				test: {
 					name: 'server',
+					// TODO: use workerd once it supports vitest 5 https://developers.cloudflare.com/workers/testing/vitest-integration/
 					environment: 'node',
 					include: ['src/**/*.{test,spec}.{js,ts}'],
 					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
