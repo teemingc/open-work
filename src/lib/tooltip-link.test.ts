@@ -32,14 +32,15 @@ describe('TooltipLink', () => {
 			'noopener'
 		);
 		expect(link.locked).toBe(false);
+		expect(link.href({ month: '2026-01' })).toBeUndefined();
 	});
 
 	it('pins the tapped point with touch', () => {
 		const link = new TooltipLink(url);
 		const january = { month: '2026-01' };
 		click(link, january);
-		expect(link.data).toBe(january);
-		expect(link.href).toBe('https://example.com/2026-01');
+		expect(link.locked).toBe(true);
+		expect(link.href(january)).toBe('https://example.com/2026-01');
 		expect(window.open).not.toHaveBeenCalled();
 	});
 

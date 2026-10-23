@@ -34,8 +34,9 @@
 		labelKey?: string;
 		hideIndicator?: boolean;
 		labelClassName?: string;
-		/** The point's transactions on Open Collective, for a tooltip pinned so a finger can reach it. */
-		href?: string;
+		/** A point's transactions on Open Collective, for the tooltip to link to. */
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		href?: (data: any) => string | undefined;
 		labelFormatter?:
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			((value: any, payload: TooltipPayload[]) => string | number | Snippet) | null;
@@ -92,6 +93,8 @@
 		return labelFormatter(value, visibleSeries);
 	});
 
+	const link = $derived(chartCtx.tooltip.data == null ? undefined : href?.(chartCtx.tooltip.data));
+
 	const nestLabel = $derived(visibleSeries.length === 1 && indicator !== 'dot');
 </script>
 
@@ -107,7 +110,7 @@
 	{/if}
 {/snippet}
 
-<TooltipPrimitive.Root variant="none" pointerEvents={href !== undefined}>
+<TooltipPrimitive.Root variant="none" pointerEvents={link !== undefined}>
 	<div
 		bind:this={ref}
 		class={cn(
@@ -181,10 +184,10 @@
 				</div>
 			{/each}
 		</div>
-		{#if href}
+		{#if link}
 			<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
 			<a
-				{href}
+				href={link}
 				target="_blank"
 				rel="noreferrer"
 				class="flex items-center gap-1 border-t border-border/50 pt-1.5 font-medium underline-offset-4 hover:underline"
