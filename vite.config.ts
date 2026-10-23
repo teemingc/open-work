@@ -8,12 +8,10 @@ export default defineConfig({
 	plugins: [
 		tailwindcss(),
 		sveltekit({
-			// Consult https://svelte.dev/docs/kit/integrations
-			// for more information about preprocessors
 			preprocess: vitePreprocess(),
 			compilerOptions: { experimental: { async: true } },
 			experimental: { remoteFunctions: true },
-			// The page holds your GitHub token and work log, so only this app's own scripts may run.
+			// The page holds users GitHub token and work log, so ensure only this app's own scripts may run.
 			csp: {
 				directives: {
 					'default-src': ['self'],
@@ -33,8 +31,6 @@ export default defineConfig({
 			adapter: adapter()
 		})
 	],
-	// The OAuth app only allows the callback on this port, so fail rather than pick another one.
-	server: { port: 5173, strictPort: true },
 	test: {
 		expect: { requireAssertions: true },
 
