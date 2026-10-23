@@ -5,7 +5,16 @@
 	import { LogIn, RotateCcw } from '@lucide/svelte';
 	import { isHttpError } from '@sveltejs/kit';
 
-	let { error, onretry }: { error: unknown; onretry: () => unknown } = $props();
+	let {
+		error,
+		onretry,
+		prominent = false
+	}: {
+		error: unknown;
+		onretry: () => unknown;
+		/** Trying again is the main thing to do on the page, as on the error page, so its button is full size and filled. */
+		prominent?: boolean;
+	} = $props();
 
 	const details = $derived.by((): { message: string; retryAfter?: number; connect?: boolean } => {
 		if (isHttpError(error)) return error.body;
@@ -64,13 +73,17 @@
 	<!-- The buttons grow only once they wrap, so stacked they make two even rows rather than a ragged pair. -->
 	<div class="mt-4 inline-flex flex-wrap gap-2">
 		{#if details.connect}
-			<Button href="{resolve('/settings')}#oc-connection" size="sm" class="grow">
+			<Button
+				href="{resolve('/settings')}#oc-connection"
+				size={prominent ? 'lg' : 'sm'}
+				class="grow"
+			>
 				<LogIn /> Connect Open Collective
 			</Button>
 		{/if}
 		<Button
-			variant="outline"
-			size="sm"
+			variant={prominent && !details.connect ? 'default' : 'outline'}
+			size={prominent ? 'lg' : 'sm'}
 			class="grow"
 			disabled={left > 0 || retrying}
 			onclick={retry}

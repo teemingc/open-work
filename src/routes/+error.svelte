@@ -53,35 +53,62 @@
 	<meta property="og:title" content="{heading} · Open Work" />
 </svelte:head>
 
-<!-- The same narrow column as the home page: a heading, one line, then a list of places to go. -->
-<div class="mx-auto flex max-w-md flex-col gap-6 pt-10 sm:pt-16">
-	<div class="space-y-3 text-center">
-		<h1>{heading}</h1>
+<!--
+	Phones get one narrow column: a heading, what to do, then a list of places to go. Wide screens fill
+	the space between header and footer, with what went wrong on the left, set large as the only thing
+	on the page, and where to go on the right. Every error shares this frame, so a failed page still
+	leaves the rest of the app a click away.
+-->
+<div
+	class="mx-auto grid max-w-md gap-8 pt-10 sm:pt-16 lg:min-h-[calc(100svh-17rem)] lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:content-center lg:items-center lg:gap-20 lg:pt-0"
+>
+	<div class="space-y-3 text-center lg:space-y-5 lg:text-left">
+		<h1 class="lg:text-[clamp(3rem,1.5rem+3vw,4.5rem)] lg:leading-[1.05]">{heading}</h1>
 		{#if noCollective}
-			<p class="text-muted-foreground">
+			<p class="text-muted-foreground lg:max-w-[34ch] lg:text-lg">
 				{page.error?.message} Check the spelling, or search for it from the Collective page.
 			</p>
 		{:else if notFound}
-			<p class="text-muted-foreground">
+			<p class="text-muted-foreground lg:max-w-[34ch] lg:text-lg">
 				Nothing in Open Work lives at
-				<span class="font-medium break-all text-foreground">{page.url.pathname}</span>. Check the
-				address for a typo, or go to one of these.
+				<span class="font-medium wrap-break-word text-foreground">{page.url.pathname}</span>. Check
+				the address for a typo, or go to one of these.
 			</p>
 		{:else}
-			<div class="flex justify-center text-muted-foreground">
-				<RetryableError {error} onretry={() => invalidateAll()} />
+			<div class="text-muted-foreground lg:max-w-[34ch] lg:text-lg">
+				<RetryableError {error} onretry={() => invalidateAll()} prominent />
 			</div>
+			{#if page.status >= 500}
+				<p class="pt-2 text-sm text-muted-foreground">
+					Still not working?
+					<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
+					<a
+						href="https://github.com/teemingc/open-work/issues/new"
+						target="_blank"
+						rel="noreferrer"
+						class="text-foreground underline underline-offset-4 hover:text-primary"
+					>
+						Report it on GitHub<span class="sr-only"> (opens in a new tab)</span></a
+					>.
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
+				</p>
+			{/if}
 		{/if}
 	</div>
 
-	{#if notFound}
-		<nav aria-label="Pages" class="overflow-hidden rounded-xl border bg-card">
+	<nav aria-label="Pages">
+		{#if !notFound}
+			<p class="mb-3 text-center text-sm text-muted-foreground lg:text-left">
+				Other pages may still load.
+			</p>
+		{/if}
+		<div class="overflow-hidden rounded-xl border bg-card">
 			<ul class="divide-y">
 				{#each destinations as { href, icon: Icon, name, about } (href)}
 					<li>
 						<a
 							{href}
-							class="group flex items-center gap-3 px-3.5 py-2.5 hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+							class="group flex items-center gap-3 px-3.5 py-2.5 hover:bg-accent focus-visible:bg-accent focus-visible:outline-none lg:gap-4 lg:px-5 lg:py-4"
 						>
 							<Icon class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
 							<span class="min-w-0 flex-1">
@@ -96,6 +123,6 @@
 					</li>
 				{/each}
 			</ul>
-		</nav>
-	{/if}
+		</div>
+	</nav>
 </div>
