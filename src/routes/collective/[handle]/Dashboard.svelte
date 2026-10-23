@@ -238,6 +238,11 @@
 		year: 'numeric',
 		timeZone: 'UTC'
 	});
+	const dayMonth = new Intl.DateTimeFormat('en', {
+		day: 'numeric',
+		month: 'short',
+		timeZone: 'UTC'
+	});
 	const partialKey = $derived(data.months.find((m) => m.partial)?.key);
 	const labelMonth = (key: string) => monthLabel({ key, partialKey });
 
@@ -1117,7 +1122,9 @@
 			The charts above as figures, for screen readers and keyboards: each month opens its transactions.
 			On phones the gain or loss, which is income less expenses, makes way for the rest, and the
 			month and the contributions heading shorten, so the table fits without scrolling sideways. On
-			wide screens the table stops short of the card's edge, so a month stays near its figures.
+			wide screens the table stops short of the card's edge, so a month stays near its figures. The
+			month still in progress is ruled off with its figures in italics, as a ledger marks an entry not
+			yet closed, and says how far its figures go.
 		-->
 		<details class="rounded-xl border bg-card text-sm">
 			<summary class="cursor-pointer px-4 py-3 font-medium">Monthly figures</summary>
@@ -1138,7 +1145,8 @@
 					</thead>
 					<tbody>
 						{#each shown as month (month.key)}
-							<tr>
+							{@const partial = month.key === partialKey}
+							<tr class={partial ? 'border-t border-dashed border-rule/40 [&>td]:italic' : ''}>
 								<th scope="row" class="py-2 pr-1.5 pl-3 font-normal whitespace-nowrap sm:px-4">
 									<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
 									<a
@@ -1147,13 +1155,13 @@
 										rel="noreferrer"
 										class="hover:underline"
 									>
-										<span class="sm:hidden">
-											{bandTickLabel(month.key)}
-											{#if month.key === partialKey}
-												<span class="block text-xs text-muted-foreground">so far</span>
-											{/if}
-										</span>
-										<span class="hidden sm:inline">{labelMonth(month.key)}</span>
+										<span class="sm:hidden">{bandTickLabel(month.key)}</span>
+										<span class="hidden sm:inline">{monthLabel({ key: month.key })}</span>
+										{#if partial}
+											<span class="block text-xs text-muted-foreground italic">
+												to {dayMonth.format(now)}
+											</span>
+										{/if}
 										<span class="sr-only">(opens in a new tab)</span>
 									</a>
 									<!-- eslint-enable svelte/no-navigation-without-resolve -->
