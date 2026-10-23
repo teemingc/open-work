@@ -9,7 +9,10 @@
 	import { Command as CommandPrimitive } from 'bits-ui';
 	import { dashboardSearch } from '#lib/dashboard-search.svelte.js';
 	import { readRecentCollectives } from '#lib/recent-collectives.js';
-	import { searchCollectives, type CollectiveMatch } from './stats.remote';
+	import {
+		searchCollectives,
+		type CollectiveMatch
+	} from '../../routes/collective/[handle]/stats.remote';
 
 	let {
 		name,

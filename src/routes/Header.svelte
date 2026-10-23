@@ -23,7 +23,7 @@
 	/**
 	 * `page` when the link leads to the page you are on, `true` when you are elsewhere in its
 	 * section, such as another collective's page. The collective link leads to the home page, which
-	 * shows your own collective.
+	 * sends you on to your own collective.
 	 */
 	function current(
 		path: '/collective' | '/invoices' | '/worklog' | '/settings'

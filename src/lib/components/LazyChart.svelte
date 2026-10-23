@@ -26,8 +26,8 @@
 
 	/**
 	 * LayerChart and the chart parts built on it, fetched once, with the first chart to come near the
-	 * screen. Imported with the page, their styles held up its first paint, even on the home page,
-	 * which has no charts. Each part is named so the bundle keeps only these.
+	 * screen. Imported with the page, their scripts and styles held up its first paint. Each part is
+	 * named so the bundle keeps only these.
 	 */
 	function load() {
 		return Promise.all([

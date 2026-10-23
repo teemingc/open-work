@@ -48,7 +48,7 @@
 		transactionsUrl,
 		withRecurringIncome
 	} from './financials';
-	import CollectiveSearch from './CollectiveSearch.svelte';
+	import CollectiveSearch from '#lib/components/CollectiveSearch.svelte';
 	import IncomeSources from './IncomeSources.svelte';
 	import MoneyRow from './MoneyRow.svelte';
 	import { rememberCollective } from '#lib/recent-collectives.js';
