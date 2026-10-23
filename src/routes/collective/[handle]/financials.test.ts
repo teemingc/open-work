@@ -17,7 +17,6 @@ import {
 	flowGraph,
 	forecastDates,
 	passesOn,
-	swarm,
 	lastMonthKeys,
 	toContributions,
 	othersBySize,
@@ -682,30 +681,5 @@ describe('flowGraph', () => {
 			value: 22500
 		});
 		expect(graph.links.some((l) => l.target === 'out:expenses')).toBe(false);
-	});
-});
-
-describe('swarm', () => {
-	it('keeps circles that do not overlap on the line', () => {
-		expect(
-			swarm([
-				{ x: 0, r: 5 },
-				{ x: 20, r: 5 }
-			])
-		).toEqual([0, 0]);
-	});
-
-	it('stacks overlapping circles above and below, biggest on the line', () => {
-		const offsets = swarm(
-			[
-				{ x: 0, r: 2 },
-				{ x: 0, r: 10 },
-				{ x: 0, r: 2 }
-			],
-			0
-		);
-		expect(offsets[1]).toBe(0);
-		expect(Math.abs(offsets[0])).toBeCloseTo(12);
-		expect(offsets[2]).toBeCloseTo(-offsets[0]);
 	});
 });

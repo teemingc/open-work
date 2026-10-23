@@ -3,6 +3,7 @@
 	import { collectiveLogo } from '#lib/collective-suggestions.js';
 	import { dashboardSearch } from '#lib/dashboard-search.svelte.js';
 	import LazyChart from '#lib/components/LazyChart.svelte';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { compactFormat, moneyFormat } from './chart-format';
 	import type { FlowLink, FlowNode } from './financials';
 
@@ -71,6 +72,19 @@
 	let width = $state(0);
 	const LABEL_STYLE = { fontSize: '12px' } as CSSStyleDeclaration;
 	const LOGO = 16;
+	/** A drop's radius, and how fast drops run along a flow, in pixels a second. */
+	const DROP = 2;
+	const SPEED = 90;
+	/**
+	 * Starts a drop `start` of the way along its flow: on to the end, back to the start at once, and
+	 * on to where it began. Attributes of `<animateMotion>` that MotionPath passes on but does not type.
+	 */
+	const stagger = (start: number) =>
+		({
+			calcMode: 'linear',
+			keyPoints: `${start};1;0;${start}`,
+			keyTimes: `0;${1 - start};${1 - start};1`
+		}) as Record<string, string>;
 
 	const total = $derived(
 		graph.links.filter((l) => l.target === 'collective').reduce((sum, l) => sum + l.value, 0)
@@ -141,7 +155,7 @@
 
 <div bind:clientWidth={width} style:height="{height}px" data-slot="chart">
 	<LazyChart class="size-full">
-		{#snippet children({ ChartRoot, Group, Link, Rect, Sankey, Svg, Text, Tooltip })}
+		{#snippet children({ ChartRoot, Group, Link, MotionPath, Rect, Sankey, Svg, Text, Tooltip })}
 			<ChartRoot data={graph} flatData={[]} padding={{ top: 22, bottom: 2 }}>
 				{#snippet children({ context })}
 					<Svg>
@@ -179,6 +193,7 @@
 								{#each links as link (`${link.source.id} ${link.target.id}`)}
 									<Link
 										sankey
+										id="{uid}-path-{link.index}"
 										data={link}
 										fill="none"
 										stroke="url(#{uid}-{link.index})"
@@ -197,6 +212,46 @@
 										}}
 									/>
 								{/each}
+								{#if !prefersReducedMotion.current}
+									<!--
+										Drops running along each flow, more on a wider one, so the money is seen moving
+										downstream. Spread across the flow's width and along it, each starting part way.
+									-->
+									{#each links as link (`${link.source.id} ${link.target.id}`)}
+										{#if isLit(link as Link)}
+											{@const w = Math.max(1, link.width ?? 0)}
+											{@const count = Math.min(5, Math.max(1, Math.round(w / 10)))}
+											{@const seconds = Math.max(
+												1.5,
+												((link.target.x0 ?? 0) - (link.source.x1 ?? 0)) / SPEED
+											)}
+											{#each { length: count }, i (i)}
+												{@const start = (i + 0.5) / count}
+												{@const across =
+													count === 1
+														? 0
+														: (w / 2 - DROP) * ((((i * 7) % count) / (count - 1)) * 2 - 1)}
+												<MotionPath
+													pathId="{uid}-path-{link.index}"
+													objectId="{uid}-drop-{link.index}-{i}"
+													duration="{seconds}s"
+													repeatCount="indefinite"
+													{...stagger(start)}
+												>
+													{#snippet children({ objectId })}
+														<circle
+															id={objectId}
+															cy={across}
+															r={Math.min(DROP, w / 2)}
+															class="pointer-events-none fill-card"
+															opacity="0.75"
+														/>
+													{/snippet}
+												</MotionPath>
+											{/each}
+										{/if}
+									{/each}
+								{/if}
 								{#each nodes as node (node.id)}
 									{@const h = Math.max(1, (node.y1 ?? 0) - (node.y0 ?? 0))}
 									{@const w = (node.x1 ?? 0) - (node.x0 ?? 0)}

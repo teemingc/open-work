@@ -250,42 +250,6 @@ export function passesOn({
 	return given > 0 && given >= spent * PASS_ON_SHARE;
 }
 
-/** A circle in a beeswarm: where it sits across, and how big it is. */
-export interface SwarmItem {
-	x: number;
-	r: number;
-}
-
-/**
- * Stacks circles that would overlap away from a centre line, alternately above and below, so each
- * stays at its own place across: a beeswarm. Biggest first, so the big ones sit on the line. Returns
- * each circle's offset from the line, in the order given.
- */
-export function swarm(items: SwarmItem[], gap = 1): number[] {
-	const offsets = new Array<number>(items.length).fill(0);
-	const placed: { x: number; y: number; r: number }[] = [];
-	const order = items.map((_, index) => index).sort((a, b) => items[b].r - items[a].r);
-	for (const index of order) {
-		const { x, r } = items[index];
-		const near = placed.filter((p) => Math.abs(p.x - x) < p.r + r + gap);
-		// Every height where the circle touches one already placed, nearest the line first.
-		const candidates = [0];
-		for (const p of near) {
-			const reach = (p.r + r + gap) ** 2 - (p.x - x) ** 2;
-			const dy = Math.sqrt(Math.max(0, reach));
-			candidates.push(p.y + dy, p.y - dy);
-		}
-		candidates.sort((a, b) => Math.abs(a) - Math.abs(b) || b - a);
-		const y =
-			candidates.find((y) =>
-				near.every((p) => (p.x - x) ** 2 + (p.y - y) ** 2 >= (p.r + r + gap) ** 2 - 1e-6)
-			) ?? 0;
-		placed.push({ x, y, r });
-		offsets[index] = y;
-	}
-	return offsets;
-}
-
 /** A place money came from or went to, in the chart of where it flows. */
 export interface FlowNode {
 	id: string;

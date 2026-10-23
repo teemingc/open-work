@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { TICK_LENGTH, X_TICK_OCCLUSION } from '#lib/chart-padding.js';
+	import { collectiveLogo } from '#lib/collective-suggestions.js';
 	import { dashboardSearch } from '#lib/dashboard-search.svelte.js';
 	import LazyChart from '#lib/components/LazyChart.svelte';
 	import { scaleSqrt, scaleTime } from 'd3-scale';
 	import { moneyFormat } from './chart-format';
-	import { monthEnd, swarm, type Transfer } from './financials';
+	import { monthEnd, type Transfer } from './financials';
 
 	let {
 		transfers,
@@ -41,12 +42,15 @@
 		timeZone: 'UTC'
 	});
 
-	const PADDING = { top: 4, bottom: 24, left: 12, right: 12 };
+	const uid = $props.id();
+	const PADDING = { top: 8, bottom: 24, left: 12, right: 12 };
 	/** The biggest dot, so a big grant stands out without hiding the small ones around it. */
-	const MAX_R = 14;
-
-	let width = $state(0);
-	const plotWidth = $derived(Math.max(0, width - PADDING.left - PADDING.right));
+	const MAX_R = 18;
+	/** The smallest, still big enough to point at. */
+	const MIN_R = 4;
+	/** From this size a dot shows the collective's logo; smaller, a logo is too small to tell. */
+	const LOGO_R = 8;
+	const GAP = 1;
 
 	/** From the start of the first month shown to now, or the end of the last month. */
 	const domain = $derived<[Date, Date]>([
@@ -55,25 +59,37 @@
 	]);
 	/** Under three months, ticks name days; over it, months. */
 	const short = $derived(domain[1].getTime() - domain[0].getTime() < 92 * 24 * 60 * 60 * 1000);
-	const x = $derived(scaleTime().domain(domain).range([0, plotWidth]));
 	const r = $derived(
 		scaleSqrt()
 			.domain([0, Math.max(1, ...transfers.map((t) => t.amount))])
 			.range([0, MAX_R])
 	);
 
-	const dots = $derived.by(() => {
-		const placed = transfers.map((t) => ({
-			...t,
-			date: new Date(`${t.day}T12:00:00Z`),
-			r: Math.max(3, r(t.amount))
-		}));
-		const offsets = swarm(placed.map((d) => ({ x: x(d.date), r: d.r })));
-		return placed.map((d, i) => ({ ...d, offset: offsets[i] }));
-	});
-	/** As tall as the swarm, so a busy day is never cut off. */
+	/** Biggest first, so the big gifts sit at the bottom of each pile and the small ones on top. */
+	const dots = $derived(
+		transfers
+			.map((t) => ({ ...t, date: new Date(`${t.day}T12:00:00Z`), r: Math.max(MIN_R, r(t.amount)) }))
+			.sort((a, b) => b.amount - a.amount)
+	);
+	/** The week a date is in, counted from the first week of 1970. */
+	const week = (date: Date) => Math.floor(date.getTime() / (7 * 24 * 60 * 60 * 1000));
+	/**
+	 * Tall enough for the highest pile: at most every gift of one week stacked on each other, as gifts
+	 * days apart pile together, while gifts further apart sit beside them.
+	 */
 	const height = $derived(
-		Math.max(120, 2 * Math.max(0, ...dots.map((d) => Math.abs(d.offset) + d.r)) + 8) +
+		Math.max(
+			120,
+			Math.max(
+				0,
+				...dots
+					.reduce(
+						(weeks, d) => weeks.set(week(d.date), (weeks.get(week(d.date)) ?? 0) + 2 * d.r + GAP),
+						new Map<number, number>()
+					)
+					.values()
+			) + 8
+		) +
 			PADDING.top +
 			PADDING.bottom
 	);
@@ -83,13 +99,18 @@
 		resolve(`/collective/[handle]${dashboardSearch()}`, { handle: slug });
 </script>
 
-<div bind:clientWidth={width} style:height="{height}px" data-slot="chart">
+<div style:height="{height}px" data-slot="chart">
 	<LazyChart class="size-full">
-		{#snippet children({ Axis, ChartRoot, Svg, Tooltip })}
+		{#snippet children({ Axis, ChartRoot, Dodge, Svg, Tooltip })}
 			<ChartRoot data={dots} x="date" xScale={scaleTime()} xDomain={domain} padding={PADDING}>
 				{#snippet children({ context })}
-					{@const middle = (height - PADDING.top - PADDING.bottom) / 2}
 					<Svg>
+						<defs>
+							<!-- One circle for every logo, sized to each by its own box. -->
+							<clipPath id="{uid}-round" clipPathUnits="objectBoundingBox">
+								<circle cx="0.5" cy="0.5" r="0.5" />
+							</clipPath>
+						</defs>
 						<Axis
 							placement="bottom"
 							rule
@@ -99,38 +120,64 @@
 							ticks={short ? 6 : 8}
 							format={(d: Date) => (short ? dayMonth : monthYear).format(d)}
 						/>
-						{#each dots as dot (`${dot.day} ${dot.slug}`)}
-							{@const picked = focus === `out:${dot.slug}`}
-							{@const events = {
-								onpointerenter: () => (focus = `out:${dot.slug}`),
-								onpointermove: (e: PointerEvent) => context.tooltip.show(e, dot),
-								onpointerleave: () => {
-									focus = null;
-									context.tooltip.hide();
-								}
-							}}
-							{@const circle = {
-								cx: context.xScale(dot.date),
-								cy: middle + dot.offset,
-								r: dot.r,
-								class: [
-									'fill-chart-3 stroke-card transition-opacity duration-200',
-									focus && !picked ? 'opacity-25' : 'opacity-85',
-									picked && 'stroke-foreground'
-								]
-							}}
-							{#if dot.slug}
-								<a
-									href={page(dot.slug)}
-									aria-label="{dot.name}, {money.format(dot.amount)} on {fullDate.format(dot.date)}"
-									{...events}
-								>
-									<circle {...circle} stroke-width={picked ? 2 : 1} />
-								</a>
-							{:else}
-								<circle {...circle} stroke-width={1} {...events} />
-							{/if}
-						{/each}
+						<!-- Gifts pile up from the axis, like drops collecting, each day's beside the day before. -->
+						<Dodge
+							data={dots}
+							axis="y"
+							anchor="bottom"
+							r={(d: (typeof dots)[number]) => d.r}
+							padding={GAP}
+						>
+							{#snippet children({ items })}
+								{#each items as { data: dot, x, y, r } (`${dot.day} ${dot.slug}`)}
+									{@const picked = focus === `out:${dot.slug}`}
+									{@const events = {
+										onpointerenter: () => (focus = `out:${dot.slug}`),
+										onpointermove: (e: PointerEvent) => context.tooltip.show(e, dot),
+										onpointerleave: () => {
+											focus = null;
+											context.tooltip.hide();
+										}
+									}}
+									{@const mark = [
+										'transition-opacity duration-200',
+										focus && !picked ? 'opacity-25' : 'opacity-100'
+									]}
+									<!-- A gift opens the collective's own page here; one Open Collective no longer shows has none. -->
+									<a
+										href={dot.slug ? page(dot.slug) : undefined}
+										aria-label="{dot.name}, {money.format(dot.amount)} on {fullDate.format(
+											dot.date
+										)}"
+										class={mark}
+										{...events}
+									>
+										<circle cx={x} cy={y} {r} class="fill-chart-3" />
+										{#if dot.slug && r >= LOGO_R}
+											<!-- Hidden if the collective has no logo, leaving the dot. -->
+											<image
+												href={collectiveLogo(dot.slug)}
+												x={x - r}
+												y={y - r}
+												width={2 * r}
+												height={2 * r}
+												clip-path="url(#{uid}-round)"
+												preserveAspectRatio="xMidYMid slice"
+												onerror={(e) => e.currentTarget.remove()}
+											/>
+										{/if}
+										<circle
+											cx={x}
+											cy={y}
+											{r}
+											fill="none"
+											class={picked ? 'stroke-foreground' : 'stroke-card'}
+											stroke-width={picked ? 2 : 1}
+										/>
+									</a>
+								{/each}
+							{/snippet}
+						</Dodge>
 					</Svg>
 					<Tooltip.Root variant="none" {context}>
 						{#snippet children({ data }: { data: (typeof dots)[number] })}
