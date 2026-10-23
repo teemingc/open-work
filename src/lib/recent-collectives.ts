@@ -1,4 +1,4 @@
-import type { CollectiveMatch } from '../routes/collective/[handle]/stats.remote';
+import type { CollectiveMatch } from '#lib/collective-search.js';
 
 const RECENT_KEY = 'invoicer:recent-collectives';
 const MAX_RECENT = 6;

@@ -6,11 +6,14 @@ import { on } from 'svelte/events';
  * it instead; the next tap on the chart, one anywhere else but the tooltip, or Escape lets it go.
  * Pass `click` as the chart's `onTooltipClick`, `locked` to its tooltip context and `href` to its
  * tooltip.
+ *
+ * The link is in the tooltip from the moment a tap shows it, not only once the tap pins it: the
+ * tooltip shows as the finger touches, but the click that pins it waits for the finger to lift.
  */
 export class TooltipLink<T> {
 	#url: (data: T) => string | undefined;
-	/** The point the tooltip is pinned to. */
-	data = $state<T>();
+	/** Whether the tooltip is pinned. */
+	locked = $state(false);
 	#handled: Event | undefined;
 	#stopListening: (() => void) | undefined;
 
@@ -19,14 +22,8 @@ export class TooltipLink<T> {
 		this.#url = url;
 	}
 
-	/** The pinned point's link. */
-	get href() {
-		return this.data === undefined ? undefined : this.#url(this.data);
-	}
-
-	get locked() {
-		return this.data !== undefined;
-	}
+	/** The link in the tooltip for a point: none with a mouse, which opens it with a click instead. */
+	href = (data: T) => (matchMedia('(hover: hover)').matches ? undefined : this.#url(data));
 
 	click = (event: MouseEvent, { data }: { data: T }) => {
 		// On band charts LayerChart calls `onTooltipClick` from the bar and again as the click bubbles
@@ -43,7 +40,7 @@ export class TooltipLink<T> {
 			window.open(url, '_blank', 'noopener');
 			return;
 		}
-		this.data = data;
+		this.locked = true;
 		const chart = (event.target as Element).closest('[data-slot="chart"]');
 		const offs = [
 			on(document, 'pointerdown', (event) => {
@@ -59,7 +56,7 @@ export class TooltipLink<T> {
 	};
 
 	unpin() {
-		this.data = undefined;
+		this.locked = false;
 		this.#stopListening?.();
 		this.#stopListening = undefined;
 	}
