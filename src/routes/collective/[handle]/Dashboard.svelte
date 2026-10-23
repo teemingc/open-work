@@ -530,7 +530,11 @@
 
 	/** The line under the forecast's title: the months left, and what the forecast counts. */
 	const forecastBasis = $derived.by(() => {
-		if (income && result.avgNet >= 0) return 'Recurring backers alone cover the expenses.';
+		if (income && result.avgNet >= 0) {
+			return result.avgExpenses
+				? 'Recurring backers alone cover the expenses.'
+				: 'With no recent expenses, every contribution adds to the balance.';
+		}
 		const basis = income ? 'current recurring backers' : `the last ${result.basis} months`;
 		return result.zeroDate
 			? `About ${runwayLength(runwayMonths ?? 0)} left based on ${basis}.`
