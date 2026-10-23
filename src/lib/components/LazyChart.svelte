@@ -49,7 +49,8 @@
 					ScatterChart,
 					Svg,
 					Text,
-					Threshold
+					Threshold,
+					Tooltip
 				}) => ({
 					Area,
 					AreaChart,
@@ -68,7 +69,8 @@
 					ScatterChart,
 					Svg,
 					Text,
-					Threshold
+					Threshold,
+					Tooltip
 				})
 			),
 			import('./SeriesLegend.svelte').then(({ default: Legend, legendMotion }) => ({

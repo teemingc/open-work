@@ -17,6 +17,7 @@ import {
 	flowGraph,
 	forecastDates,
 	passesOn,
+	swarm,
 	lastMonthKeys,
 	toContributions,
 	othersBySize,
@@ -595,8 +596,8 @@ describe('toTransfers', () => {
 				transfer('2026-10-22T11:00:00Z', -500, 'vuejs')
 			])
 		).toEqual([
-			{ month: '2026-10', slug: 'vite', name: 'VITE', amount: 36000 },
-			{ month: '2026-10', slug: 'vuejs', name: 'VUEJS', amount: 500 }
+			{ day: '2026-10-08', month: '2026-10', slug: 'vite', name: 'VITE', amount: 36000 },
+			{ day: '2026-10-22', month: '2026-10', slug: 'vuejs', name: 'VUEJS', amount: 500 }
 		]);
 	});
 });
@@ -649,6 +650,21 @@ describe('flowGraph', () => {
 		expect(graph.nodes.find((n) => n.id === 'out:kept')?.name).toBe('Not yet given out');
 	});
 
+	it('scales backers down to the income when they add up to more', () => {
+		const graph = flowGraph({
+			name: 'Fund',
+			backers: [{ slug: 'cloudflare', name: 'Cloudflare', amount: 320000 }],
+			income: 300000,
+			spent: 300000,
+			transfers: [{ month: '2026-10', slug: 'f', name: 'F', amount: 300000 }],
+			limit: 5
+		});
+		expect(graph.links).toEqual([
+			{ source: 'in:cloudflare', target: 'collective', value: 300000 },
+			{ source: 'collective', target: 'out:f', value: 300000 }
+		]);
+	});
+
 	it('draws on the earlier balance when more went out than came in', () => {
 		const graph = flowGraph({
 			name: 'Fund',
@@ -666,5 +682,30 @@ describe('flowGraph', () => {
 			value: 22500
 		});
 		expect(graph.links.some((l) => l.target === 'out:expenses')).toBe(false);
+	});
+});
+
+describe('swarm', () => {
+	it('keeps circles that do not overlap on the line', () => {
+		expect(
+			swarm([
+				{ x: 0, r: 5 },
+				{ x: 20, r: 5 }
+			])
+		).toEqual([0, 0]);
+	});
+
+	it('stacks overlapping circles above and below, biggest on the line', () => {
+		const offsets = swarm(
+			[
+				{ x: 0, r: 2 },
+				{ x: 0, r: 10 },
+				{ x: 0, r: 2 }
+			],
+			0
+		);
+		expect(offsets[1]).toBe(0);
+		expect(Math.abs(offsets[0])).toBeCloseTo(12);
+		expect(offsets[2]).toBeCloseTo(-offsets[0]);
 	});
 });

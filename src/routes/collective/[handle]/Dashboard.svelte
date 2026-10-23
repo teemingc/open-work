@@ -738,6 +738,7 @@
 		currency={data.currency}
 		months={shownKeys}
 		{partialKey}
+		{now}
 		transfers={data.transfers}
 		backers={income?.backers[range] ?? null}
 		income={shownIncome}

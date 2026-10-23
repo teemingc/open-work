@@ -201,15 +201,22 @@ export interface TransferNode {
 	oppositeAccount: { slug: string; name: string } | null;
 }
 
-/** Sum transfers per month and recipient. */
-export function toTransfers(nodes: TransferNode[]): AccountMonth[] {
-	const transfers = new Map<string, AccountMonth>();
+/** What the collective gave one account on one day. */
+export interface Transfer extends AccountMonth {
+	/** YYYY-MM-DD, in UTC. */
+	day: string;
+}
+
+/** Sum transfers per day and recipient, so a round of grants on one day stays together. */
+export function toTransfers(nodes: TransferNode[]): Transfer[] {
+	const transfers = new Map<string, Transfer>();
 	for (const node of nodes) {
-		const month = monthKey(node.createdAt);
+		const day = node.createdAt.slice(0, 10);
 		const slug = node.oppositeAccount?.slug ?? '';
-		const id = `${month} ${slug}`;
+		const id = `${day} ${slug}`;
 		const transfer = transfers.get(id) ?? {
-			month,
+			day,
+			month: monthKey(day),
 			slug,
 			name: accountName(node.oppositeAccount),
 			amount: 0
@@ -243,11 +250,47 @@ export function passesOn({
 	return given > 0 && given >= spent * PASS_ON_SHARE;
 }
 
+/** A circle in a beeswarm: where it sits across, and how big it is. */
+export interface SwarmItem {
+	x: number;
+	r: number;
+}
+
+/**
+ * Stacks circles that would overlap away from a centre line, alternately above and below, so each
+ * stays at its own place across: a beeswarm. Biggest first, so the big ones sit on the line. Returns
+ * each circle's offset from the line, in the order given.
+ */
+export function swarm(items: SwarmItem[], gap = 1): number[] {
+	const offsets = new Array<number>(items.length).fill(0);
+	const placed: { x: number; y: number; r: number }[] = [];
+	const order = items.map((_, index) => index).sort((a, b) => items[b].r - items[a].r);
+	for (const index of order) {
+		const { x, r } = items[index];
+		const near = placed.filter((p) => Math.abs(p.x - x) < p.r + r + gap);
+		// Every height where the circle touches one already placed, nearest the line first.
+		const candidates = [0];
+		for (const p of near) {
+			const reach = (p.r + r + gap) ** 2 - (p.x - x) ** 2;
+			const dy = Math.sqrt(Math.max(0, reach));
+			candidates.push(p.y + dy, p.y - dy);
+		}
+		candidates.sort((a, b) => Math.abs(a) - Math.abs(b) || b - a);
+		const y =
+			candidates.find((y) =>
+				near.every((p) => (p.x - x) ** 2 + (p.y - y) ** 2 >= (p.r + r + gap) ** 2 - 1e-6)
+			) ?? 0;
+		placed.push({ x, y, r });
+		offsets[index] = y;
+	}
+	return offsets;
+}
+
 /** A place money came from or went to, in the chart of where it flows. */
 export interface FlowNode {
 	id: string;
 	name: string;
-	/** The account's slug, for the collectives the money went to. */
+	/** The account's slug, unless the node stands for several. */
 	slug?: string;
 	side: 'source' | 'collective' | 'target';
 	/** What the node stands for, which colours it. */
@@ -264,7 +307,7 @@ export interface FlowLink {
  * Where the collective's money came from and where it went, as nodes and links for a Sankey chart:
  * backers on one side, then the collective, then the collectives it gave to, its expenses and what
  * it kept. Backers' contributions and the months' income are counted differently, so any income the
- * backers leave out comes in as "Other income". Spending more than came in draws on the balance from
+ * backers leave out comes in as "Other income", and backers who add up to more are scaled down to it. Spending more than came in draws on the balance from
  * before, which comes in as "Earlier balance"; spending less leaves the rest "Kept".
  */
 export function flowGraph({
@@ -303,18 +346,23 @@ export function flowGraph({
 		);
 	};
 
+	// Backers' contributions can add up to more than the income on record, as when fees come off
+	// later. What came in is the income, so they are then scaled down to it, keeping their shares.
+	const contributed = (backers ?? []).reduce((sum, b) => sum + Math.max(0, b.amount), 0);
+	const scale = contributed > income && income > 0 ? income / contributed : 1;
 	let received = 0;
 	for (const [index, backer] of (backers ?? []).entries()) {
 		if (backer.amount <= 0) continue;
-		received += backer.amount;
+		received += backer.amount * scale;
 		add(
 			{
 				id: `in:${backer.slug || `others-${index}`}`,
 				name: backer.name,
+				slug: backer.slug || undefined,
 				side: 'source',
-				kind: 'backer'
+				kind: backer.slug ? 'backer' : 'other'
 			},
-			backer.amount
+			backer.amount * scale
 		);
 	}
 	if (income - received >= 1) {
@@ -328,7 +376,6 @@ export function flowGraph({
 			income - received
 		);
 	}
-	const inflow = Math.max(income, received);
 
 	let given = 0;
 	for (const recipient of topAccounts({ rows: transfers, limit })) {
@@ -347,7 +394,7 @@ export function flowGraph({
 	const expenses = Math.max(0, spent - given);
 	add({ id: 'out:expenses', name: 'Expenses', side: 'target', kind: 'expenses' }, expenses);
 
-	const left = inflow - given - expenses;
+	const left = Math.max(income, received) - given - expenses;
 	if (left > 0) add({ id: 'out:kept', name: keptName, side: 'target', kind: 'kept' }, left);
 	else add({ id: 'in:balance', name: 'Earlier balance', side: 'source', kind: 'kept' }, -left);
 

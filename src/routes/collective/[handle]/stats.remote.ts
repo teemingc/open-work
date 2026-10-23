@@ -278,7 +278,7 @@ interface StatsResult {
 
 /** Monthly balance, income and spending for the collective, from Open Collective's public stats. */
 const loadStats = perKey({
-	cacheKey: (slug) => `stats:v4:${slug}`,
+	cacheKey: (slug) => `stats:v5:${slug}`,
 	maxAgeMs: CACHE_MS,
 	load: async (slug, ask) => {
 		const from = '2016-01-01T00:00:00Z';
