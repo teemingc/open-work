@@ -569,7 +569,10 @@
 			label: 'Monthly change',
 			value: money.format(result.avgNet),
 			tone: result.avgNet < 0 ? 'text-destructive' : 'text-status-paid',
-			note: `${income ? 'Average recurring contributions cover' : 'Average contributions cover'} ${percent.format(result.avgExpenses ? result.avgIncome / result.avgExpenses : 1)} of expenses`,
+			// With nothing spent, a share of expenses says nothing, so it says that instead.
+			note: result.avgExpenses
+				? `${income ? 'Average recurring contributions cover' : 'Average contributions cover'} ${percent.format(result.avgIncome / result.avgExpenses)} of expenses`
+				: `No expenses over the last ${result.basis} months`,
 			badge: trendBadge(trends.net, 'up', netDetail)
 		},
 		{
@@ -1115,7 +1118,7 @@
 		<details class="rounded-xl border bg-card text-sm">
 			<summary class="cursor-pointer px-4 py-3 font-medium">Monthly figures</summary>
 			<div class="overflow-x-auto border-t">
-				<table class="ledger lg:max-w-3xl">
+				<table class="ledger">
 					<caption class="sr-only">Contributions, expenses and balance by month</caption>
 					<thead class="text-xs">
 						<tr>

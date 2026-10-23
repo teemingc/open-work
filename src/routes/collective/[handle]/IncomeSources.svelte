@@ -69,9 +69,14 @@
 			};
 		})
 	);
-	const recurring = $derived(rows.reduce((sum, row) => sum + row.recurring, 0));
-	const transferred = $derived(rows.reduce((sum, row) => sum + row.transferred, 0));
-	const total = $derived(rows.reduce((sum, row) => sum + row.recurring + row.oneOff, 0));
+	/**
+	 * Summed before rounding: rounding each month first can drift the total by up to 50¢ a month,
+	 * enough for a backer's exact amount to come to more than 100% of it.
+	 */
+	const inRange = $derived(income.months.filter((m) => months.includes(m.month)));
+	const recurring = $derived(inRange.reduce((sum, m) => sum + m.recurring, 0));
+	const transferred = $derived(inRange.reduce((sum, m) => sum + m.transferred, 0));
+	const total = $derived(inRange.reduce((sum, m) => sum + m.recurring + m.oneOff, 0));
 
 	const backers = $derived(income.backers[range]);
 	/** Each bar is that backer's share of everything contributed in the range. */
@@ -170,8 +175,8 @@
 							total ? recurring / total : 0
 						)} of it from recurring contributions.
 						{#if transferred}
-							{transferred === total ? 'All of it' : money.format(transferred)} was moved from other accounts'
-							balances on Open Collective, not paid in.
+							{total - transferred < 0.005 ? 'All of it' : money.format(transferred)} was moved from other
+							accounts' balances on Open Collective, not paid in.
 						{/if}
 					</Card.Description>
 				</Card.Header>
