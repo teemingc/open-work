@@ -42,6 +42,7 @@
 					ClipPath,
 					Dodge,
 					Group,
+					isometric,
 					LinearGradient,
 					LineChart,
 					Link,
@@ -64,6 +65,7 @@
 					ClipPath,
 					Dodge,
 					Group,
+					isometric,
 					LinearGradient,
 					LineChart,
 					Link,
@@ -77,6 +79,7 @@
 					Tooltip
 				})
 			),
+			import('layerchart/hierarchy').then(({ Treemap }) => ({ Treemap })),
 			import('./SeriesLegend.svelte').then(({ default: Legend, legendMotion }) => ({
 				Legend,
 				legendMotion
@@ -84,7 +87,12 @@
 			import('#lib/components/ui/chart/index.js').then(({ Container, Tooltip }) => ({
 				Chart: { Container, Tooltip }
 			}))
-		]).then(([layerchart, legend, chart]) => ({ ...layerchart, ...legend, ...chart }));
+		]).then(([layerchart, hierarchy, legend, chart]) => ({
+			...layerchart,
+			...hierarchy,
+			...legend,
+			...chart
+		}));
 	}
 
 	type Charts = Awaited<ReturnType<typeof load>>;

@@ -6,7 +6,9 @@
 	import { ChevronRight } from '@lucide/svelte';
 	import { monthLabel, moneyFormat, periodPhrase } from './chart-format';
 	import { flowGraph, topAccounts, type Transfer } from './financials';
+	import DripFunnel from './DripFunnel.svelte';
 	import FlowSankey from './FlowSankey.svelte';
+	import GivingTreemap from './GivingTreemap.svelte';
 	import GivingRounds from './GivingRounds.svelte';
 	import { getDownstream } from './stats.remote';
 
@@ -126,6 +128,39 @@
 		})
 	);
 
+	/** Every recipient named, for the treemap, which has room for them all. */
+	const everyone = $derived(
+		flowGraph({
+			downstream,
+			name,
+			backers,
+			income,
+			spent,
+			transfers: shown,
+			limit: Infinity
+		})
+	);
+	/** What the recipients followed further gave on themselves, as the collective's share. */
+	const onward = $derived(
+		everyone.links
+			.filter(
+				(l) =>
+					l.source.startsWith('out:') &&
+					everyone.nodes.some(
+						(n) => n.id === l.target && (n.kind === 'recipient' || n.kind === 'other')
+					)
+			)
+			.reduce((sum, l) => sum + l.value, 0)
+	);
+	/** How far the money dripped down: what came in, what was given on, and what that gave on. */
+	const stages = $derived([
+		income >= given
+			? { label: 'Came in', amount: income }
+			: { label: 'Came in or held before', amount: given },
+		{ label: 'Given to collectives', amount: given },
+		...(onward >= 1 ? [{ label: 'Given on by them', amount: onward }] : [])
+	]);
+
 	const receivedShown = $derived.by(() => {
 		const keys = new Set(months);
 		return received?.filter((d) => keys.has(d.day.slice(0, 7))) ?? null;
@@ -201,6 +236,10 @@
 		</Card.Description>
 	</Card.Header>
 	<Card.Content class="grid gap-8 *:min-w-0 lg:grid-cols-[3fr_2fr]">
+		<div class="lg:col-span-2">
+			<DripFunnel {stages} {currency} />
+		</div>
+
 		<!-- Where the money came from and where it went, the width of each flow its amount. -->
 		<figure class="flex flex-col gap-2">
 			<FlowSankey
@@ -261,6 +300,20 @@
 				</details>
 			{/if}
 		</div>
+
+		<!-- Who got what, as blocks sized by amount, with what those followed further did with theirs on top. -->
+		<figure class="flex flex-col gap-2 lg:col-span-2">
+			<div>
+				<h3 class="font-medium">Where it landed</h3>
+				<p class="text-sm text-muted-foreground">
+					Each block is a collective given to, sized by how much it got.
+					{#if onward >= 1}
+						On those that passed money on, a raised tier shows where their share of it went.
+					{/if}
+				</p>
+			</div>
+			<GivingTreemap graph={everyone} {currency} bind:focus />
+		</figure>
 
 		<!-- When the money went out: a dot for each collective on each day, so rounds of grants show as clusters. -->
 		<figure class="flex flex-col gap-2 lg:col-span-2">
