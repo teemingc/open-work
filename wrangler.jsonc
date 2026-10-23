@@ -8,12 +8,20 @@
 		"binding": "ASSETS",
 		"directory": ".svelte-kit/cloudflare"
 	},
-	"routes": [{ "pattern": "openwork.ing", "custom_domain": true }],
-	// Kept on only to send the old address to the custom domain, in src/hooks.server.ts.
+	"routes": [
+		{
+			"pattern": "openwork.ing",
+			"custom_domain": true
+		}
+	],
 	"workers_dev": true,
-	"preview_urls": false,
-	// Open Collective results and the share images drawn from them, shared by every data centre.
-	"kv_namespaces": [{ "binding": "OC_CACHE", "id": "8045022794264a459303e9455b39ba04" }],
+	"preview_urls": true,
+	"kv_namespaces": [
+		{
+			"binding": "OC_CACHE",
+			"id": "8045022794264a459303e9455b39ba04"
+		}
+	],
 	"observability": {
 		"enabled": true
 	}

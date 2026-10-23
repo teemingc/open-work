@@ -6,18 +6,19 @@
 	"packageManager": "pnpm@12.9.1",
 	"scripts": {
 		"dev": "vite dev",
-		"build": "vite build",
+		"build": "wrangler types --check && vite build",
 		"preview": "wrangler dev .svelte-kit/cloudflare/_worker.js --port 4173",
 		"deploy": "pnpm run build && wrangler deploy",
-		"prepare": "pnpm run types && svelte-kit sync || echo ''",
-		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "wrangler types --check && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write .",
 		"lint": "prettier --check . && eslint .",
 		"test:e2e": "playwright test",
 		"test": "pnpm run test:unit -- --run && pnpm run test:e2e",
 		"test:unit": "vitest",
-		"types": "wrangler types"
+		"types": "wrangler types",
+		"gen": "wrangler types"
 	},
 	"devDependencies": {
 		"@cf-wasm/resvg": "^0.4.0",
@@ -27,7 +28,7 @@
 		"@internationalized/date": "^3.12.4",
 		"@lucide/svelte": "^1.57.0",
 		"@playwright/test": "^1.64.1",
-		"@sveltejs/adapter-cloudflare": "^8.0.1",
+		"@sveltejs/adapter-cloudflare": "^8.0.0",
 		"@sveltejs/kit": "^3.1.0",
 		"@sveltejs/load-config": "^0.2.2",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
@@ -36,6 +37,7 @@
 		"@tailwindcss/vite": "^4.3.3",
 		"@types/d3-scale": "^4.0.9",
 		"@types/node": "^26.6.5",
+		"better-auth": "^1.7.10",
 		"bits-ui": "^2.19.5",
 		"clsx": "^2.1.1",
 		"d3-scale": "^4.0.2",
@@ -62,8 +64,5 @@
 	},
 	"imports": {
 		"#lib/*": "./src/lib/*"
-	},
-	"dependencies": {
-		"better-auth": "^1.7.10"
 	}
 }
