@@ -5,10 +5,10 @@ import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
 
-// Matches the Google OAuth redirect URI registered for local development.
+// Matches the Open Collective and Google OAuth callback URLs registered for local development.
 const DEV_PORT = 5317;
 
-/** Warns when Vite falls back to another port, since the OAuth callback only works on {@link DEV_PORT}. */
+/** Warns when Vite falls back to another port, since the OAuth callbacks only work on {@link DEV_PORT}. */
 function warnOnPortFallback(): Plugin {
 	return {
 		name: 'warn-on-port-fallback',
@@ -18,7 +18,7 @@ function warnOnPortFallback(): Plugin {
 				const address = server.httpServer?.address();
 				if (typeof address === 'object' && address && address.port !== DEV_PORT) {
 					server.config.logger.warn(
-						`Port ${DEV_PORT} is in use, so the dev server started on ${address.port}. Google sign-in will fail because its OAuth callback is registered for http://localhost:${DEV_PORT}.`
+						`Port ${DEV_PORT} is in use, so the dev server started on ${address.port}. Connecting Open Collective and signing in with Google will fail because their OAuth callbacks are registered for http://localhost:${DEV_PORT}.`
 					);
 				}
 			});

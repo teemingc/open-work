@@ -111,6 +111,8 @@ Date | Repository | Issue/PR
 
 ## Develop
 
+The dev server runs on port 5317, the port the OAuth callbacks are registered for. For Open Collective, create a separate OAuth app with the callback URL `http://localhost:5317/auth/callback` and put its `OC_CLIENT_ID` and `OC_CLIENT_SECRET` in `.dev.vars`. If the port is taken, Vite picks another and warns that sign-in will not work.
+
 ```sh
 pnpm format
 pnpm lint
