@@ -1,11 +1,35 @@
 import adapter from '@sveltejs/adapter-cloudflare';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
+import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
 
+// Matches the Google OAuth redirect URI registered for local development.
+const DEV_PORT = 5317;
+
+/** Warns when Vite falls back to another port, since the OAuth callback only works on {@link DEV_PORT}. */
+function warnOnPortFallback(): Plugin {
+	return {
+		name: 'warn-on-port-fallback',
+		apply: 'serve',
+		configureServer(server) {
+			server.httpServer?.once('listening', () => {
+				const address = server.httpServer?.address();
+				if (typeof address === 'object' && address && address.port !== DEV_PORT) {
+					server.config.logger.warn(
+						`Port ${DEV_PORT} is in use, so the dev server started on ${address.port}. Google sign-in will fail because its OAuth callback is registered for http://localhost:${DEV_PORT}.`
+					);
+				}
+			});
+		}
+	};
+}
+
 export default defineConfig({
+	server: { port: DEV_PORT },
 	plugins: [
+		warnOnPortFallback(),
 		tailwindcss(),
 		sveltekit({
 			preprocess: vitePreprocess(),

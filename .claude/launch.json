@@ -5,19 +5,13 @@
 			"name": "dev",
 			"runtimeExecutable": "pnpm",
 			"runtimeArgs": ["dev"],
-			"port": 5173
+			"port": 5317
 		},
 		{
-			"name": "worker",
+			"name": "preview",
 			"runtimeExecutable": "pnpm",
 			"runtimeArgs": ["exec", "wrangler", "dev", "--port", "8787"],
 			"port": 8787
-		},
-		{
-			"name": "penang-holidays",
-			"runtimeExecutable": "pnpm",
-			"runtimeArgs": ["--dir", "/Users/teeming/git/penang-holidays", "preview"],
-			"port": 4173
 		}
 	]
 }

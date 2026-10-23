@@ -41,7 +41,7 @@ Without the Google credentials below, sign-in is hidden and the work log stays i
 1. In [Google Cloud Console](https://console.cloud.google.com/), create a project and enable the **Google Drive API** under APIs & Services.
 2. Open **Google Auth Platform**. On **Audience**, choose _External_ and add yourself as a test user.
 3. On **Data access**, add the `https://www.googleapis.com/auth/drive.appdata` scope. It is non-sensitive, so it needs no security review.
-4. On **Clients**, create an OAuth client of type _Web application_ with the authorized redirect URI `http://localhost:5173/api/auth/callback/google`.
+4. On **Clients**, create an OAuth client of type _Web application_ with the authorized redirect URI `http://localhost:5317/api/auth/callback/google`.
 5. Put `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `BETTER_AUTH_SECRET` (at least 32 random characters, for example from `openssl rand -base64 32`) in `.dev.vars`.
 
 While the app is in testing, only test users can sign in and Google expires their sign-in after 7 days.
