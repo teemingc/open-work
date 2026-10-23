@@ -155,10 +155,10 @@
 	/** How far the money dripped down: what came in, what was given on, and what that gave on. */
 	const stages = $derived([
 		income >= given
-			? { label: 'Came in', amount: income }
-			: { label: 'Came in or held before', amount: given },
-		{ label: 'Given to collectives', amount: given },
-		...(onward >= 1 ? [{ label: 'Given on by them', amount: onward }] : [])
+			? { label: 'Came in', short: 'In', amount: income }
+			: { label: 'Came in or held before', short: 'In', amount: given },
+		{ label: 'Given to collectives', short: 'Given', amount: given },
+		...(onward >= 1 ? [{ label: 'Given on by them', short: 'Given on', amount: onward }] : [])
 	]);
 
 	const receivedShown = $derived.by(() => {

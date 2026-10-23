@@ -7,8 +7,11 @@
 		stages,
 		currency
 	}: {
-		/** Each step the money took, biggest first, like what came in, then what was given on. */
-		stages: { label: string; amount: number }[];
+		/**
+		 * Each step the money took, biggest first, like what came in, then what was given on, with a
+		 * shorter name for when the steps are narrow.
+		 */
+		stages: { label: string; short: string; amount: number }[];
 		currency: string;
 	} = $props();
 
@@ -76,6 +79,8 @@
 				>
 					{#snippet marks({ context })}
 						{@const step = context.width / stages.length}
+						<!-- Narrow steps, as on phones, take the short names so neighbouring labels never meet. -->
+						{@const narrow = step < 170}
 						<defs>
 							<linearGradient id="{uid}-drip" x1="0" x2="1" y1="0" y2="0">
 								<stop offset="0%" stop-color="var(--color-chart-income)" />
@@ -110,7 +115,7 @@
 							<Text
 								{x}
 								y={inside ? y + 2 : y - (points[i].value / 100) * (context.height / 2) - 22}
-								value="{stage.label} · {compact.format(stage.amount)}"
+								value="{narrow ? stage.short : stage.label} · {compact.format(stage.amount)}"
 								textAnchor="middle"
 								verticalAnchor="start"
 								class="text-xs {inside ? 'fill-white/85' : 'fill-muted-foreground'}"

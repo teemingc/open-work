@@ -68,7 +68,9 @@
 	};
 
 	let view = $state<'isometric' | 'flat'>('isometric');
-	const HEIGHT = 420;
+	let width = $state(0);
+	/** Shorter on phones, where the blocks seen at an angle would leave the rest empty. */
+	const height = $derived(width > 0 && width < 520 ? 280 : 420);
 
 	/** A label lying along a block's longer side, as large as fits, or nothing on a sliver. */
 	function label(node: Placed) {
@@ -110,7 +112,7 @@
 		<ToggleGroup.Item value="isometric">3D</ToggleGroup.Item>
 		<ToggleGroup.Item value="flat">Flat</ToggleGroup.Item>
 	</ToggleGroup.Root>
-	<div style:height="{HEIGHT}px" data-slot="chart">
+	<div bind:clientWidth={width} style:height="{height}px" data-slot="chart">
 		<LazyChart class="size-full">
 			{#snippet children({ ChartRoot, isometric, Rect, Svg, Text, Tooltip, Treemap })}
 				<!-- One thin tier for each level: recipients, then what they did with the money. -->
