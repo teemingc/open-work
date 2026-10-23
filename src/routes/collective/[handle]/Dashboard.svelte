@@ -18,6 +18,7 @@
 		ArrowRight,
 		CalendarClock,
 		ExternalLink,
+		HandCoins,
 		TrendingDown,
 		TrendingUp
 	} from '@lucide/svelte';
@@ -41,6 +42,7 @@
 		monthEnd,
 		monthsBetween,
 		paidTo,
+		passesOn,
 		previousAverages,
 		accountsByMonth,
 		byQuarter,
@@ -51,6 +53,7 @@
 	import CollectiveSearch from './CollectiveSearch.svelte';
 	import IncomeSources from './IncomeSources.svelte';
 	import MoneyRow from './MoneyRow.svelte';
+	import Transfers from './Transfers.svelte';
 	import { rememberCollective } from '#lib/recent-collectives.js';
 	import { rememberDashboardSearch, type Search } from '#lib/dashboard-search.svelte.js';
 	import {
@@ -357,6 +360,22 @@
 		}))
 	);
 
+	/**
+	 * Whether the collective mostly passes its money on to other collectives, like a fund. Its balance
+	 * is then waiting to be given out, so it has no runway and no forecast.
+	 */
+	const fund = $derived(passesOn({ months: data.months, transfers: data.transfers, now }));
+	/** What it passed on to other collectives in the months shown, and to how many. */
+	const shownTransfers = $derived.by(() => {
+		const keys = new Set(shownKeys);
+		const rows = data.transfers.filter((t) => keys.has(t.month));
+		return {
+			total: rows.reduce((sum, t) => sum + t.amount, 0),
+			recipients: new Set(rows.map((t) => t.slug)).size,
+			last: rows.reduce((last, t) => (t.month > last ? t.month : last), '')
+		};
+	});
+
 	const runwayMonths = $derived(result.zeroDate ? monthsBetween(now, result.zeroDate) : null);
 
 	/** When the money runs out within the years forecast, as the projection then ends there. */
@@ -612,6 +631,34 @@
 		}
 	]);
 
+	/** A fund's figures: what it holds, received and gave, rather than averages and a runway. */
+	const fundStats = $derived<Stat[]>([
+		{
+			label: 'Waiting to be given out',
+			value: money.format(available),
+			note: committed
+				? `After ${money.format(committed)} of approved, unpaid expenses`
+				: 'Held until the next collectives are given money'
+		},
+		{
+			label: 'Given to collectives',
+			value: money.format(shownTransfers.total),
+			note: `To ${shownTransfers.recipients} ${shownTransfers.recipients === 1 ? 'collective' : 'collectives'} ${periodPhrase(shownKeys)}`
+		},
+		{
+			label: 'Received',
+			value: money.format(shownIncome),
+			note: shownIncome
+				? `${percent.format(shownTransfers.total / shownIncome)} of it given out ${periodPhrase(shownKeys)}`
+				: `Nothing came in ${periodPhrase(shownKeys)}`
+		},
+		{
+			label: 'Last given',
+			value: shownTransfers.last ? labelMonth(shownTransfers.last) : '–',
+			note: `${money.format(data.transfers.filter((t) => t.month === shownTransfers.last).reduce((sum, t) => sum + t.amount, 0))} that month`
+		}
+	]);
+
 	const monthLink = new TooltipLink(({ month }: { month: string }) =>
 		transactionsUrl({ slug: data.slug, month })
 	);
@@ -683,6 +730,21 @@
 			<tspan x="0" dy="1.25em">{monthYear.format(date)}</tspan>
 		</text>
 	{/if}
+{/snippet}
+
+{#snippet transfers()}
+	<Transfers
+		name={data.name}
+		currency={data.currency}
+		months={shownKeys}
+		{partialKey}
+		transfers={data.transfers}
+		backers={income?.backers[range] ?? null}
+		income={shownIncome}
+		spent={shownExpenses}
+		{balance}
+		{fund}
+	/>
 {/snippet}
 
 {#snippet moneyRow({
@@ -764,7 +826,18 @@
 			<Alert.Description>This collective has no contributions or expenses yet.</Alert.Description>
 		</Alert.Root>
 	{:else}
-		{#if tooNew}
+		{#if fund}
+			<Alert.Root>
+				<HandCoins />
+				<Alert.Title>Gives its money to other collectives</Alert.Title>
+				<Alert.Description>
+					<p>
+						Most of what it spends goes to other collectives, so what it holds is waiting to be
+						given out rather than a runway.
+					</p>
+				</Alert.Description>
+			</Alert.Root>
+		{:else if tooNew}
 			<Alert.Root>
 				<CalendarClock />
 				<Alert.Title>Too new to forecast</Alert.Title>
@@ -807,7 +880,7 @@
 			One compact strip, so the balance chart is on screen when the page opens. Averages of no months
 			say nothing, so only what is available shows until there are some.
 		-->
-		<StatStrip stats={tooNew ? stats.slice(0, 1) : stats} />
+		<StatStrip stats={fund ? fundStats : tooNew ? stats.slice(0, 1) : stats} />
 
 		{#if !tooNew}
 			<!--
@@ -833,41 +906,51 @@
 						<ToggleGroup.Item value="all">All time</ToggleGroup.Item>
 					</ToggleGroup.Root>
 				</div>
-				<div class="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-3">
-					<span id="basis-label" class="text-muted-foreground">Average of last</span>
-					<ToggleGroup.Root
-						type="single"
-						variant="outline"
-						size="sm"
-						aria-labelledby="basis-label"
-						bind:value={
-							() => basis, (value) => value && setParam({ name: 'average', value, fallback: '6' })
-						}
-					>
-						<ToggleGroup.Item value="3">3 months</ToggleGroup.Item>
-						<ToggleGroup.Item value="6">6 months</ToggleGroup.Item>
-						<ToggleGroup.Item value="12">1 year</ToggleGroup.Item>
-					</ToggleGroup.Root>
-				</div>
-				<div class="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-3">
-					<span id="horizon-label" class="text-muted-foreground">Forecast</span>
-					<ToggleGroup.Root
-						type="single"
-						variant="outline"
-						size="sm"
-						aria-labelledby="horizon-label"
-						bind:value={
-							() => horizon,
-							(value) => value && setParam({ name: 'forecast', value, fallback: '2' })
-						}
-					>
-						<ToggleGroup.Item value="1">1 year</ToggleGroup.Item>
-						<ToggleGroup.Item value="2">2 years</ToggleGroup.Item>
-						<ToggleGroup.Item value="5">5 years</ToggleGroup.Item>
-					</ToggleGroup.Root>
-				</div>
+				<!-- A fund has no forecast, so nothing to average or look ahead to. -->
+				{#if !fund}
+					<div class="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-3">
+						<span id="basis-label" class="text-muted-foreground">Average of last</span>
+						<ToggleGroup.Root
+							type="single"
+							variant="outline"
+							size="sm"
+							aria-labelledby="basis-label"
+							bind:value={
+								() => basis, (value) => value && setParam({ name: 'average', value, fallback: '6' })
+							}
+						>
+							<ToggleGroup.Item value="3">3 months</ToggleGroup.Item>
+							<ToggleGroup.Item value="6">6 months</ToggleGroup.Item>
+							<ToggleGroup.Item value="12">1 year</ToggleGroup.Item>
+						</ToggleGroup.Root>
+					</div>
+					<div class="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-3">
+						<span id="horizon-label" class="text-muted-foreground">Forecast</span>
+						<ToggleGroup.Root
+							type="single"
+							variant="outline"
+							size="sm"
+							aria-labelledby="horizon-label"
+							bind:value={
+								() => horizon,
+								(value) => value && setParam({ name: 'forecast', value, fallback: '2' })
+							}
+						>
+							<ToggleGroup.Item value="1">1 year</ToggleGroup.Item>
+							<ToggleGroup.Item value="2">2 years</ToggleGroup.Item>
+							<ToggleGroup.Item value="5">5 years</ToggleGroup.Item>
+						</ToggleGroup.Root>
+					</div>
+				{/if}
 			</div>
+		{/if}
 
+		<!-- What a fund does, first; for any other collective, after what it paid for itself. -->
+		{#if fund}
+			{@render transfers()}
+		{/if}
+
+		{#if !tooNew && !fund}
 			<Card.Root>
 				<Card.Header>
 					<Card.Title>Balance and forecast</Card.Title>
@@ -1295,6 +1378,10 @@
 					</Card.Root>
 				{/if}
 			</div>
+		{/if}
+
+		{#if !fund && shownTransfers.total > 0}
+			{@render transfers()}
 		{/if}
 
 		<ExpenseCategories

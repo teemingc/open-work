@@ -190,6 +190,170 @@ export function toPayouts(nodes: PayoutNode[]): Payout[] {
 	return [...payouts.values()];
 }
 
+/**
+ * Money the collective passed on to another account on Open Collective: a contribution it made to
+ * another collective, or its balance moved to one. Neither is an expense, so neither is a payout.
+ */
+export interface TransferNode {
+	createdAt: string;
+	/** Negative. */
+	netAmount: { value: number };
+	oppositeAccount: { slug: string; name: string } | null;
+}
+
+/** Sum transfers per month and recipient. */
+export function toTransfers(nodes: TransferNode[]): AccountMonth[] {
+	const transfers = new Map<string, AccountMonth>();
+	for (const node of nodes) {
+		const month = monthKey(node.createdAt);
+		const slug = node.oppositeAccount?.slug ?? '';
+		const id = `${month} ${slug}`;
+		const transfer = transfers.get(id) ?? {
+			month,
+			slug,
+			name: accountName(node.oppositeAccount),
+			amount: 0
+		};
+		transfer.amount -= node.netAmount.value;
+		transfers.set(id, transfer);
+	}
+	return [...transfers.values()];
+}
+
+/** The share of spending passed on to other collectives from which a collective counts as a fund that gives its money away. */
+const PASS_ON_SHARE = 0.5;
+
+/**
+ * Whether the collective mostly passes its money on to other collectives, like a fund that pays out
+ * grants, rather than spending it on expenses. Its balance is then money waiting to be given out,
+ * so a runway says nothing about it.
+ */
+export function passesOn({
+	months,
+	transfers,
+	now
+}: {
+	months: Month[];
+	transfers: AccountMonth[];
+	now: Date;
+}): boolean {
+	const keys = new Set(lastMonthKeys(now, 12));
+	const spent = months.filter((m) => keys.has(m.key)).reduce((sum, m) => sum + m.expenses, 0);
+	const given = transfers.filter((t) => keys.has(t.month)).reduce((sum, t) => sum + t.amount, 0);
+	return given > 0 && given >= spent * PASS_ON_SHARE;
+}
+
+/** A place money came from or went to, in the chart of where it flows. */
+export interface FlowNode {
+	id: string;
+	name: string;
+	/** The account's slug, for the collectives the money went to. */
+	slug?: string;
+	side: 'source' | 'collective' | 'target';
+	/** What the node stands for, which colours it. */
+	kind: 'backer' | 'collective' | 'recipient' | 'expenses' | 'kept' | 'other';
+}
+
+export interface FlowLink {
+	source: string;
+	target: string;
+	value: number;
+}
+
+/**
+ * Where the collective's money came from and where it went, as nodes and links for a Sankey chart:
+ * backers on one side, then the collective, then the collectives it gave to, its expenses and what
+ * it kept. Backers' contributions and the months' income are counted differently, so any income the
+ * backers leave out comes in as "Other income". Spending more than came in draws on the balance from
+ * before, which comes in as "Earlier balance"; spending less leaves the rest "Kept".
+ */
+export function flowGraph({
+	name,
+	backers,
+	income,
+	spent,
+	transfers,
+	limit,
+	keptName = 'Kept'
+}: {
+	/** The collective's name. */
+	name: string;
+	/** The top backers, with everyone else as a row with an empty slug, or none if not loaded yet. */
+	backers: { slug: string; name: string; amount: number }[] | null;
+	/** All that came in. */
+	income: number;
+	/** All that went out, transfers included. */
+	spent: number;
+	transfers: AccountMonth[];
+	/** How many recipients to name; the rest share a node. */
+	limit: number;
+	/** What to call the money left over, like "Not yet given out" for a fund. */
+	keptName?: string;
+}): { nodes: FlowNode[]; links: FlowLink[] } {
+	const nodes: FlowNode[] = [{ id: 'collective', name, side: 'collective', kind: 'collective' }];
+	const links: FlowLink[] = [];
+	const add = (node: FlowNode, value: number) => {
+		const rounded = Math.round(value);
+		if (rounded <= 0) return;
+		nodes.push(node);
+		links.push(
+			node.side === 'source'
+				? { source: node.id, target: 'collective', value: rounded }
+				: { source: 'collective', target: node.id, value: rounded }
+		);
+	};
+
+	let received = 0;
+	for (const [index, backer] of (backers ?? []).entries()) {
+		if (backer.amount <= 0) continue;
+		received += backer.amount;
+		add(
+			{
+				id: `in:${backer.slug || `others-${index}`}`,
+				name: backer.name,
+				side: 'source',
+				kind: 'backer'
+			},
+			backer.amount
+		);
+	}
+	if (income - received >= 1) {
+		add(
+			{
+				id: 'in:other',
+				name: backers ? 'Other income' : 'Contributions',
+				side: 'source',
+				kind: 'other'
+			},
+			income - received
+		);
+	}
+	const inflow = Math.max(income, received);
+
+	let given = 0;
+	for (const recipient of topAccounts({ rows: transfers, limit })) {
+		given += recipient.amount;
+		add(
+			{
+				id: `out:${recipient.slug || 'others'}`,
+				name: recipient.name,
+				slug: recipient.slug || undefined,
+				side: 'target',
+				kind: recipient.slug ? 'recipient' : 'other'
+			},
+			recipient.amount
+		);
+	}
+	const expenses = Math.max(0, spent - given);
+	add({ id: 'out:expenses', name: 'Expenses', side: 'target', kind: 'expenses' }, expenses);
+
+	const left = inflow - given - expenses;
+	if (left > 0) add({ id: 'out:kept', name: keptName, side: 'target', kind: 'kept' }, left);
+	else add({ id: 'in:balance', name: 'Earlier balance', side: 'source', kind: 'kept' }, -left);
+
+	return { nodes, links };
+}
+
 /** Contributions per month: what recurring and one-off contributions brought in. */
 export interface ContributionMonth {
 	month: string;

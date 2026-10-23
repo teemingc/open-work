@@ -14,9 +14,11 @@ import {
 	othersBySize,
 	topAccounts,
 	toPayouts,
+	toTransfers,
 	type ContributionNode,
 	type PayoutNode,
 	type TimeSeriesNode,
+	type TransferNode,
 	type Unpaid
 } from './financials';
 
@@ -151,6 +153,35 @@ const PAYOUTS_QUERY = /* GraphQL */ `
 	}
 `;
 
+const TRANSFER_NODES = /* GraphQL */ `
+	nodes {
+		createdAt
+		netAmount {
+			value
+		}
+		oppositeAccount {
+			slug
+			name
+		}
+	}
+`;
+
+/** What the collective passed on to other collectives, which Open Collective does not count as expenses. */
+const TRANSFERS_QUERY = /* GraphQL */ `
+	query Transfers($slug: String!, $from: DateTime!, $limit: Int!, $offset: Int!) {
+		transactions(
+			account: [{ slug: $slug }]
+			type: DEBIT
+			kind: [CONTRIBUTION, BALANCE_TRANSFER]
+			dateFrom: $from
+			limit: $limit
+			offset: $offset
+		) {
+			${TRANSFER_NODES}
+		}
+	}
+`;
+
 // `net: true` takes fees out of what was received and adds payment processor fees to what was
 // spent, so each month's balance change is exactly income minus expenses.
 /** Stops with a not-found page that names the collective asked for. */
@@ -201,6 +232,16 @@ const STATS_QUERY = /* GraphQL */ `
 			totalCount
 			${PAYOUT_NODES}
 		}
+		transfers: transactions(
+			account: [{ slug: $slug }]
+			type: DEBIT
+			kind: [CONTRIBUTION, BALANCE_TRANSFER]
+			dateFrom: $from
+			limit: $limit
+		) {
+			totalCount
+			${TRANSFER_NODES}
+		}
 		unpaid: expenses(
 			account: { slug: $slug }
 			status: [PENDING, APPROVED, SCHEDULED_FOR_PAYMENT, PROCESSING]
@@ -231,17 +272,19 @@ interface StatsResult {
 		};
 	} | null;
 	payouts: { totalCount: number; nodes: PayoutNode[] };
+	transfers: { totalCount: number; nodes: TransferNode[] };
 	unpaid: { nodes: { status: string; amount: { value: number }; payee: { slug: string } }[] };
 }
 
 /** Monthly balance, income and spending for the collective, from Open Collective's public stats. */
 const loadStats = perKey({
-	cacheKey: (slug) => `stats:v3:${slug}`,
+	cacheKey: (slug) => `stats:v4:${slug}`,
 	maxAgeMs: CACHE_MS,
 	load: async (slug, ask) => {
 		const from = '2016-01-01T00:00:00Z';
 		let result: StatsResult;
 		let payouts: PayoutNode[];
+		let transfers: TransferNode[];
 		try {
 			result = await ask<StatsResult>({
 				query: STATS_QUERY,
@@ -254,6 +297,19 @@ const loadStats = perKey({
 					fetchPage: async (offset) => {
 						const page = await ask<{ transactions: { nodes: PayoutNode[] } }>({
 							query: PAYOUTS_QUERY,
+							variables: { slug, from, limit: PAGE_SIZE, offset }
+						});
+						return page.transactions.nodes;
+					}
+				}))
+			];
+			transfers = [
+				...result.transfers.nodes,
+				...(await remainingPages({
+					total: result.transfers.totalCount,
+					fetchPage: async (offset) => {
+						const page = await ask<{ transactions: { nodes: TransferNode[] } }>({
+							query: TRANSFERS_QUERY,
 							variables: { slug, from, limit: PAGE_SIZE, offset }
 						});
 						return page.transactions.nodes;
@@ -282,6 +338,7 @@ const loadStats = perKey({
 				now
 			}),
 			payouts: toPayouts(payouts),
+			transfers: toTransfers(transfers),
 			unpaid: result.unpaid.nodes.map((expense): Unpaid => ({
 				slug: expense.payee.slug,
 				amount: expense.amount.value,

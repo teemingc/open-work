@@ -14,13 +14,16 @@ import {
 	recurringChanges,
 	categoriesByMonth,
 	categoryName,
+	flowGraph,
 	forecastDates,
+	passesOn,
 	lastMonthKeys,
 	toContributions,
 	othersBySize,
 	waffleCells,
 	topAccounts,
 	toPayouts,
+	toTransfers,
 	transactionsUrl,
 	oneOffSummary,
 	withRecurringIncome,
@@ -575,5 +578,93 @@ describe('accountName', () => {
 		expect(accountName({ slug: 'guest-a3c3ba7a', name: '' })).toBe('Anonymous');
 		expect(accountName({ slug: 'someone', name: '' })).toBe('Unknown');
 		expect(accountName(null)).toBe('Unknown');
+	});
+});
+
+describe('toTransfers', () => {
+	it('sums what each collective was given per month', () => {
+		const transfer = (createdAt: string, value: number, slug: string) => ({
+			createdAt,
+			netAmount: { value },
+			oppositeAccount: { slug, name: slug.toUpperCase() }
+		});
+		expect(
+			toTransfers([
+				transfer('2026-10-08T09:00:00Z', -35000, 'vite'),
+				transfer('2026-10-08T09:19:00Z', -1000, 'vite'),
+				transfer('2026-10-22T11:00:00Z', -500, 'vuejs')
+			])
+		).toEqual([
+			{ month: '2026-10', slug: 'vite', name: 'VITE', amount: 36000 },
+			{ month: '2026-10', slug: 'vuejs', name: 'VUEJS', amount: 500 }
+		]);
+	});
+});
+
+describe('passesOn', () => {
+	const now = new Date('2026-10-23T00:00:00Z');
+	const months = [month('2026-09', -1000, 0), month('2026-10', -1000, 0)];
+
+	it('is true when most spending went to other collectives', () => {
+		const transfers = [{ month: '2026-10', slug: 'vite', name: 'Vite', amount: 1500 }];
+		expect(passesOn({ months, transfers, now })).toBe(true);
+	});
+
+	it('is false when most spending was expenses', () => {
+		const transfers = [{ month: '2026-10', slug: 'vite', name: 'Vite', amount: 500 }];
+		expect(passesOn({ months, transfers, now })).toBe(false);
+	});
+
+	it('leaves out transfers from over a year ago', () => {
+		const transfers = [{ month: '2024-10', slug: 'vite', name: 'Vite', amount: 5000 }];
+		expect(passesOn({ months, transfers, now })).toBe(false);
+	});
+});
+
+describe('flowGraph', () => {
+	const transfers = [
+		{ month: '2026-10', slug: 'vite', name: 'Vite', amount: 36000 },
+		{ month: '2026-10', slug: 'oxc', name: 'Oxc', amount: 36000 },
+		{ month: '2026-10', slug: 'vuejs', name: 'Vue', amount: 500 }
+	];
+
+	it('runs from backers through the collective to recipients, expenses and what is kept', () => {
+		const graph = flowGraph({
+			name: 'Fund',
+			backers: [{ slug: 'cloudflare', name: 'Cloudflare', amount: 100000 }],
+			income: 100000,
+			spent: 80000,
+			transfers,
+			limit: 2,
+			keptName: 'Not yet given out'
+		});
+		expect(graph.links).toEqual([
+			{ source: 'in:cloudflare', target: 'collective', value: 100000 },
+			{ source: 'collective', target: 'out:vite', value: 36000 },
+			{ source: 'collective', target: 'out:oxc', value: 36000 },
+			{ source: 'collective', target: 'out:others', value: 500 },
+			{ source: 'collective', target: 'out:expenses', value: 7500 },
+			{ source: 'collective', target: 'out:kept', value: 20000 }
+		]);
+		expect(graph.nodes.find((n) => n.id === 'out:kept')?.name).toBe('Not yet given out');
+	});
+
+	it('draws on the earlier balance when more went out than came in', () => {
+		const graph = flowGraph({
+			name: 'Fund',
+			backers: null,
+			income: 50000,
+			spent: 72500,
+			transfers,
+			limit: 5
+		});
+		expect(graph.links[0]).toEqual({ source: 'in:other', target: 'collective', value: 50000 });
+		expect(graph.nodes.find((n) => n.id === 'in:other')?.name).toBe('Contributions');
+		expect(graph.links.at(-1)).toEqual({
+			source: 'in:balance',
+			target: 'collective',
+			value: 22500
+		});
+		expect(graph.links.some((l) => l.target === 'out:expenses')).toBe(false);
 	});
 });
