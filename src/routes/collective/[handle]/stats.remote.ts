@@ -3,6 +3,14 @@ import { error, isHttpError } from '@sveltejs/kit';
 import * as v from 'valibot';
 import { cached, kvStore, type Cached } from '#lib/server/cache.js';
 import { graphql, publicGraphql, toHttpError } from '#lib/server/opencollective.js';
+import {
+	isFunded,
+	rankMatches,
+	searchTerms,
+	slugFor,
+	type CollectiveMatch,
+	type SearchMatch
+} from '#lib/collective-search.js';
 import { getToken } from '#lib/server/session.js';
 import {
 	backerHistory,
@@ -492,56 +500,44 @@ export type CollectiveStats = Awaited<ReturnType<typeof getCollectiveStats>>;
 
 export type IncomeSources = ReturnType<typeof incomeSources>;
 
-const SEARCH_QUERY = /* GraphQL */ `
-	query SearchCollectives($term: String!, $slug: String = "", $bySlug: Boolean!) {
-		exact: account(slug: $slug, throwIfMissing: false) @include(if: $bySlug) {
-			slug
-			name
-			type
-			isHost
-			imageUrl(height: 64)
-		}
-		accounts(searchTerm: $term, type: [COLLECTIVE, PROJECT, FUND], limit: 8) {
-			nodes {
-				slug
-				name
+const ACCOUNT_FIELDS =
+	'slug name imageUrl(height: 64) backers: members(role: BACKER, limit: 0) { totalCount }';
+
+/** One search of collectives and one of fund-holding organizations for each term, in one request. */
+function searchQuery(count: number): string {
+	const terms = Array.from({ length: count }, (_, i) => i);
+	return /* GraphQL */ `
+		query SearchCollectives(${terms.map((i) => `$term${i}: String!`).join(', ')}, $slug: String = "", $bySlug: Boolean!) {
+			exact: account(slug: $slug, throwIfMissing: false) @include(if: $bySlug) {
+				${ACCOUNT_FIELDS}
 				type
-				imageUrl(height: 64)
+				isHost
 			}
+			${terms
+				.map(
+					(i) => `
+			collectives${i}: accounts(searchTerm: $term${i}, type: [COLLECTIVE, PROJECT, FUND], limit: 8) { nodes { ${ACCOUNT_FIELDS} } }
+			hosts${i}: accounts(searchTerm: $term${i}, type: [ORGANIZATION], isHost: true, limit: 8) { nodes { ${ACCOUNT_FIELDS} } }`
+				)
+				.join('')}
 		}
-	}
-`;
-
-export interface CollectiveMatch {
-	slug: string;
-	name: string;
-	imageUrl: string | null;
+	`;
 }
 
-interface SearchResult {
-	exact?: (CollectiveMatch & { type: string; isHost: boolean }) | null;
-	accounts: { nodes: (CollectiveMatch & { type: string })[] };
+/** An account as the search returns it. */
+type FoundAccount = CollectiveMatch & { backers: { totalCount: number } };
+
+type SearchResult = {
+	exact?: (FoundAccount & { type: string; isHost: boolean }) | null;
+} & Record<`collectives${number}` | `hosts${number}`, { nodes: FoundAccount[] }>;
+
+function searchMatch({ slug, name, imageUrl, backers }: FoundAccount): SearchMatch {
+	return { slug, name, imageUrl, backers: backers.totalCount };
 }
 
-const FUNDED_TYPES = new Set(['COLLECTIVE', 'PROJECT', 'FUND']);
-
-/**
- * Whether an account looked up by its exact slug has money of its own to show. Some projects, like
- * Node.js, are organizations that hold their own funds rather than collectives, so the fuzzy search
- * leaves them out; they still come up when you type their slug.
- */
-function isFunded(account: { type: string; isHost: boolean }): boolean {
-	return FUNDED_TYPES.has(account.type) || (account.type === 'ORGANIZATION' && account.isHost);
-}
-
-/** The slug a term would be, like "nodejs" for "Node.js", or null if it cannot be one. */
-function slugFor(term: string): string | null {
-	const slug = term.replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-	return /^[a-z0-9][a-z0-9-]*$/.test(slug) ? slug : null;
-}
 const SEARCH_CACHE_MS = 24 * 60 * 60 * 1000;
 const searches = perKey({
-	cacheKey: (term) => `search:v3:${term}`,
+	cacheKey: (term) => `search:v9:${term}`,
 	maxAgeMs: SEARCH_CACHE_MS,
 	// One per term typed is too many writes for KV, and a search is one request to redo.
 	store: 'edge',
@@ -549,23 +545,28 @@ const searches = perKey({
 		let result: SearchResult;
 		// The search is fuzzy; looking the term up as a slug too puts an exact match first. Open
 		// Collective errors on a lookup with no slug, so it is left out when the term cannot be one.
+		// Organizations that hold their own funds, like Bombshell, are searched as well as collectives.
 		const slug = slugFor(term);
+		const terms = searchTerms(term);
+		const variables = Object.fromEntries(terms.map((t, i) => [`term${i}`, t]));
 		try {
 			result = await ask<SearchResult>({
-				query: SEARCH_QUERY,
-				variables: slug ? { term, slug, bySlug: true } : { term, bySlug: false }
+				query: searchQuery(terms.length),
+				variables: slug ? { ...variables, slug, bySlug: true } : { ...variables, bySlug: false }
 			});
 		} catch (err) {
 			toHttpError(err);
 		}
-		const matches = [
-			...(result.exact && isFunded(result.exact) ? [result.exact] : []),
-			...result.accounts.nodes
-		];
-		const seen = new Set<string>();
-		return matches
-			.filter((match) => !seen.has(match.slug) && seen.add(match.slug))
-			.map(({ slug, name, imageUrl }) => ({ slug, name, imageUrl }));
+		return rankMatches(
+			term,
+			[
+				...(result.exact && isFunded(result.exact) ? [result.exact] : []),
+				...terms.flatMap((_, i) => [
+					...result[`collectives${i}`].nodes,
+					...result[`hosts${i}`].nodes
+				])
+			].map(searchMatch)
+		).map(({ slug, name, imageUrl }) => ({ slug, name, imageUrl }));
 	}
 });
 
