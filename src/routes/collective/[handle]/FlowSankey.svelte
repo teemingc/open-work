@@ -91,7 +91,9 @@
 	);
 
 	/** Room beside a node for its logo and label: up to the middle, less the node and gaps. */
-	const room = $derived(width / 2 - 40);
+	/** Whether some recipients are followed a column further, which leaves each column less room. */
+	const deeper = $derived(graph.links.some((l) => l.source.startsWith('out:')));
+	const room = $derived(width / (deeper ? 3 : 2) - 40);
 	/** A name cut to the room there is, about 6.5px a character at the labels' size. */
 	/** On phones the labels keep to names alone; amounts are in the tooltips and the list. */
 	const narrow = $derived(width > 0 && width < 520);
@@ -166,7 +168,7 @@
 						</defs>
 						<Sankey
 							nodeId={(d: FlowNode) => d.id}
-							nodeAlign="justify"
+							nodeAlign={deeper ? 'left' : 'justify'}
 							nodeWidth={10}
 							nodePadding={16}
 							// In the order given, biggest first, rather than moved about to shorten the flows.

@@ -6,6 +6,7 @@ import { graphql, publicGraphql, toHttpError } from '#lib/server/opencollective.
 import { getToken } from '#lib/server/session.js';
 import {
 	backerHistory,
+	contributionsByDay,
 	lastMonthKeys,
 	recurringChanges,
 	oneOffSummary,
@@ -18,6 +19,7 @@ import {
 	type ContributionNode,
 	type PayoutNode,
 	type TimeSeriesNode,
+	type Transfer,
 	type TransferNode,
 	type Unpaid
 } from './financials';
@@ -350,6 +352,103 @@ const loadStats = perKey({
 
 export const getCollectiveStats = query(Slug, (handle) => loadStats(slug(handle)));
 
+/** Recipients whose own giving is looked up at most, to keep it to one request. */
+const DOWNSTREAM_LIMIT = 6;
+
+/** What one of a collective's recipients received, spent and passed on since a month. */
+export interface Downstream {
+	slug: string;
+	received: number;
+	/** Everything that went out, transfers included. */
+	spent: number;
+	transfers: Transfer[];
+}
+
+/**
+ * One request for several recipients at once: what each received and spent since `$from`, and its transfers
+ * to other collectives. Each gets its own aliases, `r0` and `t0` for the first, and so on.
+ */
+function downstreamQuery(count: number): string {
+	const variables = Array.from({ length: count }, (_, i) => `$s${i}: String!`).join(', ');
+	const fields = Array.from(
+		{ length: count },
+		(_, i) => /* GraphQL */ `
+		r${i}: account(slug: $s${i}, throwIfMissing: false) {
+			stats {
+				received: totalAmountReceived(dateFrom: $from, net: true) {
+					value
+				}
+				spent: totalAmountSpent(dateFrom: $from, net: true) {
+					value
+				}
+			}
+		}
+		t${i}: transactions(
+			account: [{ slug: $s${i} }]
+			type: DEBIT
+			kind: [CONTRIBUTION, BALANCE_TRANSFER]
+			dateFrom: $from
+			limit: ${PAGE_SIZE}
+		) {
+			${TRANSFER_NODES}
+		}`
+	).join('');
+	return `query Downstream(${variables}, $from: DateTime!) {${fields}\n}`;
+}
+
+type AccountTotals = { stats: { received: { value: number }; spent: { value: number } } };
+type DownstreamResult = Record<string, AccountTotals | { nodes: TransferNode[] } | null>;
+
+/** Keyed by the month and the slugs, like "2026-10 vite,vitest". */
+const downstreams = perKey({
+	cacheKey: (key) => `downstream:v2:${key}`,
+	maxAgeMs: CACHE_MS,
+	store: 'edge',
+	load: async (key, ask): Promise<Downstream[]> => {
+		const [from, list] = key.split(' ');
+		const slugs = list.split(',');
+		let result: DownstreamResult;
+		try {
+			result = await ask<DownstreamResult>({
+				query: downstreamQuery(slugs.length),
+				variables: {
+					from: `${from}-01T00:00:00Z`,
+					...Object.fromEntries(slugs.map((slug, i) => [`s${i}`, slug]))
+				}
+			});
+		} catch (err) {
+			toHttpError(err);
+		}
+		return slugs.map((slug, i) => {
+			const account = result[`r${i}`] as AccountTotals | null;
+			const transfers = result[`t${i}`] as { nodes: TransferNode[] } | null;
+			return {
+				slug,
+				received: account?.stats.received.value ?? 0,
+				// Reported as a negative amount.
+				spent: Math.abs(account?.stats.spent.value ?? 0),
+				transfers: toTransfers(transfers?.nodes ?? [])
+			};
+		});
+	}
+});
+
+/**
+ * What some of a collective's recipients received, spent and passed on since a month, to follow its money
+ * a step further. Only for a few, as each adds to the one request.
+ */
+export const getDownstream = query(
+	v.object({
+		slugs: v.pipe(
+			v.array(v.pipe(v.string(), v.regex(/^[a-z0-9][a-z0-9-]*$/))),
+			v.minLength(1),
+			v.maxLength(DOWNSTREAM_LIMIT)
+		),
+		from: v.pipe(v.string(), v.regex(/^\d{4}-\d{2}$/))
+	}),
+	({ slugs, from }) => downstreams(`${from} ${[...slugs].sort().join(',')}`)
+);
+
 const CONTRIBUTIONS_QUERY = /* GraphQL */ `
 	query Contributions($slug: String!, $from: DateTime, $limit: Int!, $offset: Int!) {
 		transactions(
@@ -516,6 +615,7 @@ function incomeSources(nodes: ContributionNode[]) {
 	};
 	return {
 		months,
+		days: contributionsByDay(nodes),
 		oneOffs: oneOffSummary({ nodes, months: lastMonthKeys(now, 12), channels: CHANNELS }),
 		oneOffsBefore: oneOffSummary({
 			nodes,

@@ -10,6 +10,7 @@
 
 	let {
 		transfers,
+		received,
 		months,
 		now,
 		currency,
@@ -17,6 +18,8 @@
 	}: {
 		/** What was given in the months shown, a dot for each collective on each day. */
 		transfers: Transfer[];
+		/** What came in each day of the months shown, or null while it loads. */
+		received: { day: string; amount: number }[] | null;
 		months: string[];
 		now: Date;
 		currency: string;
@@ -59,39 +62,56 @@
 	]);
 	/** Under three months, ticks name days; over it, months. */
 	const short = $derived(domain[1].getTime() - domain[0].getTime() < 92 * 24 * 60 * 60 * 1000);
+	/** Money in and out on one scale, so a day's income and the gifts it paid for compare by size. */
 	const r = $derived(
 		scaleSqrt()
-			.domain([0, Math.max(1, ...transfers.map((t) => t.amount))])
+			.domain([
+				0,
+				Math.max(1, ...transfers.map((t) => t.amount), ...(received ?? []).map((d) => d.amount))
+			])
 			.range([0, MAX_R])
 	);
 
-	/** Biggest first, so the big gifts sit at the bottom of each pile and the small ones on top. */
-	const dots = $derived(
-		transfers
-			.map((t) => ({ ...t, date: new Date(`${t.day}T12:00:00Z`), r: Math.max(MIN_R, r(t.amount)) }))
-			.sort((a, b) => b.amount - a.amount)
+	type Dot = Transfer & { date: Date; r: number; incoming: boolean };
+	/** Biggest first, so the big ones sit nearest the line and the small ones further out. */
+	const toDots = (rows: Transfer[], incoming: boolean): Dot[] =>
+		rows
+			.filter((row) => row.amount > 0)
+			.map((row) => ({
+				...row,
+				date: new Date(`${row.day}T12:00:00Z`),
+				r: Math.max(MIN_R, r(row.amount)),
+				incoming
+			}))
+			.sort((a, b) => b.amount - a.amount);
+	const gifts = $derived(toDots(transfers, false));
+	const income = $derived(
+		toDots(
+			(received ?? []).map((d) => ({ ...d, month: d.day.slice(0, 7), slug: '', name: 'Came in' })),
+			true
+		)
 	);
+
 	/** The week a date is in, counted from the first week of 1970. */
 	const week = (date: Date) => Math.floor(date.getTime() / (7 * 24 * 60 * 60 * 1000));
 	/**
-	 * Tall enough for the highest pile: at most every gift of one week stacked on each other, as gifts
-	 * days apart pile together, while gifts further apart sit beside them.
+	 * How far the highest pile reaches: at most every dot of one week stacked on each other, as dots
+	 * days apart pile together, while those further apart sit beside them.
 	 */
-	const height = $derived(
+	const reach = (dots: Dot[]) =>
 		Math.max(
-			120,
-			Math.max(
-				0,
-				...dots
-					.reduce(
-						(weeks, d) => weeks.set(week(d.date), (weeks.get(week(d.date)) ?? 0) + 2 * d.r + GAP),
-						new Map<number, number>()
-					)
-					.values()
-			) + 8
-		) +
-			PADDING.top +
-			PADDING.bottom
+			0,
+			...dots
+				.reduce(
+					(weeks, d) => weeks.set(week(d.date), (weeks.get(week(d.date)) ?? 0) + 2 * d.r + GAP),
+					new Map<number, number>()
+				)
+				.values()
+		);
+	/** Where money in rises from and gifts hang from, in the plot: under the highest pile of income. */
+	const baseline = $derived(income.length ? reach(income) + 6 : 0);
+	const height = $derived(
+		Math.max(120, baseline + reach(gifts) + 8) + PADDING.top + PADDING.bottom
 	);
 
 	/** A collective's page here, which keeps the chart settings you chose. */
@@ -102,7 +122,13 @@
 <div style:height="{height}px" data-slot="chart">
 	<LazyChart class="size-full">
 		{#snippet children({ Axis, ChartRoot, Dodge, Svg, Tooltip })}
-			<ChartRoot data={dots} x="date" xScale={scaleTime()} xDomain={domain} padding={PADDING}>
+			<ChartRoot
+				data={[...income, ...gifts]}
+				x="date"
+				xScale={scaleTime()}
+				xDomain={domain}
+				padding={PADDING}
+			>
 				{#snippet children({ context })}
 					<Svg>
 						<defs>
@@ -120,14 +146,47 @@
 							ticks={short ? 6 : 8}
 							format={(d: Date) => (short ? dayMonth : monthYear).format(d)}
 						/>
-						<!-- Gifts pile up from the axis, like drops collecting, each day's beside the day before. -->
-						<Dodge
-							data={dots}
-							axis="y"
-							anchor="bottom"
-							r={(d: (typeof dots)[number]) => d.r}
-							padding={GAP}
-						>
+						{#if income.length}
+							<!-- What came in each day rises above the line. -->
+							<Dodge
+								data={income}
+								axis="y"
+								anchor="bottom"
+								{baseline}
+								r={(d: Dot) => d.r}
+								padding={GAP}
+							>
+								{#snippet children({ items })}
+									{#each items as { data: dot, x, y, r } (dot.day)}
+										<circle
+											cx={x}
+											cy={y}
+											{r}
+											role="img"
+											aria-label="{money.format(dot.amount)} came in on {fullDate.format(dot.date)}"
+											class={[
+												'fill-chart-income stroke-card transition-opacity duration-200',
+												focus ? 'opacity-25' : 'opacity-70'
+											]}
+											onpointermove={(e) => context.tooltip.show(e, dot)}
+											onpointerleave={() => context.tooltip.hide()}
+										/>
+									{/each}
+								{/snippet}
+							</Dodge>
+							<line
+								x1={0}
+								x2={context.width}
+								y1={baseline}
+								y2={baseline}
+								class="stroke-muted-foreground/40"
+								stroke-dasharray="2 3"
+							/>
+							<text x={0} y={baseline - 6} class="fill-muted-foreground text-xs">In</text>
+							<text x={0} y={baseline + 14} class="fill-muted-foreground text-xs">Out</text>
+						{/if}
+						<!-- Gifts hang from the line like drops, each day's beside the day before. -->
+						<Dodge data={gifts} axis="y" anchor="top" {baseline} r={(d: Dot) => d.r} padding={GAP}>
 							{#snippet children({ items })}
 								{#each items as { data: dot, x, y, r } (`${dot.day} ${dot.slug}`)}
 									{@const picked = focus === `out:${dot.slug}`}
@@ -180,7 +239,7 @@
 						</Dodge>
 					</Svg>
 					<Tooltip.Root variant="none" {context}>
-						{#snippet children({ data }: { data: (typeof dots)[number] })}
+						{#snippet children({ data }: { data: Dot })}
 							<div
 								class="grid min-w-36 gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl"
 							>

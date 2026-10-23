@@ -664,6 +664,90 @@ describe('flowGraph', () => {
 		]);
 	});
 
+	it('follows a recipient that got most of its income from the collective a step further', () => {
+		const graph = flowGraph({
+			name: 'Cloudflare',
+			backers: null,
+			income: 300000,
+			spent: 300000,
+			transfers: [{ month: '2026-10', slug: 'fund', name: 'Fund', amount: 300000 }],
+			limit: 5,
+			downstream: [
+				{
+					slug: 'fund',
+					received: 300000,
+					spent: 150000,
+					transfers: [
+						{ month: '2026-10', slug: 'vite', name: 'Vite', amount: 100000 },
+						{ month: '2026-10', slug: 'oxc', name: 'Oxc', amount: 50000 }
+					]
+				}
+			]
+		});
+		expect(graph.links.filter((l) => l.source === 'out:fund')).toEqual([
+			{ source: 'out:fund', target: 'out:fund>vite', value: 100000 },
+			{ source: 'out:fund', target: 'out:fund>oxc', value: 50000 },
+			{ source: 'out:fund', target: 'out:fund>kept', value: 150000 }
+		]);
+	});
+
+	it('scales onward gifts to the share of income that came from the collective', () => {
+		const graph = flowGraph({
+			name: 'Backer',
+			backers: null,
+			income: 1000,
+			spent: 1000,
+			transfers: [{ month: '2026-10', slug: 'fund', name: 'Fund', amount: 1000 }],
+			limit: 5,
+			downstream: [
+				{
+					slug: 'fund',
+					received: 1600,
+					spent: 1200,
+					transfers: [{ month: '2026-10', slug: 'vite', name: 'Vite', amount: 800 }]
+				}
+			]
+		});
+		expect(graph.links.filter((l) => l.source === 'out:fund')).toEqual([
+			{ source: 'out:fund', target: 'out:fund>vite', value: 500 },
+			{ source: 'out:fund', target: 'out:fund>expenses', value: 250 },
+			{ source: 'out:fund', target: 'out:fund>kept', value: 250 }
+		]);
+	});
+
+	it('leaves a recipient that gave nothing on where it is', () => {
+		const graph = flowGraph({
+			name: 'Fund',
+			backers: null,
+			income: 1000,
+			spent: 1000,
+			transfers: [{ month: '2026-10', slug: 'oxc', name: 'Oxc', amount: 1000 }],
+			limit: 5,
+			downstream: [{ slug: 'oxc', received: 1000, spent: 400, transfers: [] }]
+		});
+		expect(graph.links.some((l) => l.source === 'out:oxc')).toBe(false);
+	});
+
+	it('leaves a recipient with mostly other income where it is', () => {
+		const graph = flowGraph({
+			name: 'Backer',
+			backers: null,
+			income: 1000,
+			spent: 1000,
+			transfers: [{ month: '2026-10', slug: 'vite', name: 'Vite', amount: 1000 }],
+			limit: 5,
+			downstream: [
+				{
+					slug: 'vite',
+					received: 50000,
+					spent: 800,
+					transfers: [{ month: '2026-10', slug: 'oxc', name: 'Oxc', amount: 800 }]
+				}
+			]
+		});
+		expect(graph.links.some((l) => l.source === 'out:vite')).toBe(false);
+	});
+
 	it('draws on the earlier balance when more went out than came in', () => {
 		const graph = flowGraph({
 			name: 'Fund',

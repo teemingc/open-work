@@ -8,6 +8,7 @@
 	import { flowGraph, topAccounts, type Transfer } from './financials';
 	import FlowSankey from './FlowSankey.svelte';
 	import GivingRounds from './GivingRounds.svelte';
+	import { getDownstream } from './stats.remote';
 
 	let {
 		name,
@@ -17,6 +18,7 @@
 		now,
 		transfers,
 		backers,
+		received,
 		income,
 		spent,
 		balance,
@@ -32,6 +34,8 @@
 		transfers: Transfer[];
 		/** Its top backers in these months, or null while the contributions load. */
 		backers: { slug: string; name: string; amount: number }[] | null;
+		/** What contributions brought in each day, in every month, or null while they load. */
+		received: { day: string; amount: number }[] | null;
 		/** All that came in over these months. */
 		income: number;
 		/** All that went out over these months, transfers included. */
@@ -93,8 +97,25 @@
 	/** The node picked out across the charts and the list, like "out:vite". */
 	let focus = $state<string | null>(null);
 
+	/**
+	 * What the biggest recipients received and gave on themselves, to follow the money a step
+	 * further. Read without `await`, so the chart draws first and grows a column once it arrives.
+	 */
+	const followed = $derived(listed.slice(0, 6).map((r) => r.slug));
+	const downstreamQuery = $derived(
+		followed.length ? getDownstream({ slugs: followed, from: months[0] }) : undefined
+	);
+	const downstream = $derived.by(() => {
+		const keys = new Set(months);
+		return (downstreamQuery?.current ?? []).map((d) => ({
+			...d,
+			transfers: d.transfers.filter((t) => keys.has(t.month))
+		}));
+	});
+
 	const graph = $derived(
 		flowGraph({
+			downstream,
 			name,
 			backers,
 			income,
@@ -103,6 +124,18 @@
 			limit: othersOpen ? Infinity : NAMED,
 			keptName: fund ? 'Not yet given out' : 'Kept'
 		})
+	);
+
+	const receivedShown = $derived.by(() => {
+		const keys = new Set(months);
+		return received?.filter((d) => keys.has(d.day.slice(0, 7))) ?? null;
+	});
+
+	/** The recipients the chart follows further, by name. */
+	const passedOn = $derived(
+		graph.nodes
+			.filter((n) => graph.links.some((l) => l.source === n.id && n.side === 'target'))
+			.map((n) => n.name)
 	);
 
 	/** A collective's page here, which keeps the chart settings you chose. */
@@ -185,7 +218,8 @@
 			>
 				<span>
 					{#if backers}
-						Backers on the left, then {name}, then where the money went.
+						Backers on the left, then {name}, then where the money went{#if passedOn.length}, and
+							where {passedOn.join(' and ')} passed it on{/if}.
 					{:else}
 						Loading backers. Where the money went is on the right.
 					{/if}
@@ -231,9 +265,10 @@
 		<!-- When the money went out: a dot for each collective on each day, so rounds of grants show as clusters. -->
 		<figure class="flex flex-col gap-2 lg:col-span-2">
 			<div>
-				<h3 class="font-medium">When it gave</h3>
+				<h3 class="font-medium">When money came in and went out</h3>
 				<p class="text-sm text-muted-foreground">
-					Each dot is what one collective was given on one day; the bigger, the more.
+					Above the line, what contributions brought in each day; below it, each dot is what one
+					collective was given on one day. The bigger, the more.
 					{#if days[0]}
 						Money went out on {days.length}
 						{days.length === 1 ? 'day' : 'days'}{#if days.length > 1}, the most on {fullDate.format(
@@ -243,7 +278,14 @@
 					{/if}
 				</p>
 			</div>
-			<GivingRounds transfers={shown} {months} {now} {currency} bind:focus />
+			<GivingRounds
+				transfers={shown}
+				received={receivedShown}
+				{months}
+				{now}
+				{currency}
+				bind:focus
+			/>
 		</figure>
 	</Card.Content>
 </Card.Root>

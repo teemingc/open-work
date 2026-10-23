@@ -741,6 +741,7 @@
 		{now}
 		transfers={data.transfers}
 		backers={income?.backers[range] ?? null}
+		received={income?.days ?? null}
 		income={shownIncome}
 		spent={shownExpenses}
 		{balance}

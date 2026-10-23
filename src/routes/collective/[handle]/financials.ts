@@ -271,8 +271,13 @@ export interface FlowLink {
  * Where the collective's money came from and where it went, as nodes and links for a Sankey chart:
  * backers on one side, then the collective, then the collectives it gave to, its expenses and what
  * it kept. Backers' contributions and the months' income are counted differently, so any income the
- * backers leave out comes in as "Other income", and backers who add up to more are scaled down to it. Spending more than came in draws on the balance from
- * before, which comes in as "Earlier balance"; spending less leaves the rest "Kept".
+ * backers leave out comes in as "Other income", and backers who add up to more are scaled down to it.
+ * Spending more than came in draws on the balance from before, which comes in as "Earlier balance";
+ * spending less leaves the rest "Kept".
+ *
+ * A recipient that got most of its income from the collective, like a fund it set up, and gave some
+ * of it on is followed a step further: what it gave on, spent and kept, each scaled to the
+ * collective's share of its income.
  */
 export function flowGraph({
 	name,
@@ -281,7 +286,8 @@ export function flowGraph({
 	spent,
 	transfers,
 	limit,
-	keptName = 'Kept'
+	keptName = 'Kept',
+	downstream = []
 }: {
 	/** The collective's name. */
 	name: string;
@@ -296,17 +302,19 @@ export function flowGraph({
 	limit: number;
 	/** What to call the money left over, like "Not yet given out" for a fund. */
 	keptName?: string;
+	/** What some recipients received, spent and gave on themselves in the same months. */
+	downstream?: { slug: string; received: number; spent: number; transfers: AccountMonth[] }[];
 }): { nodes: FlowNode[]; links: FlowLink[] } {
 	const nodes: FlowNode[] = [{ id: 'collective', name, side: 'collective', kind: 'collective' }];
 	const links: FlowLink[] = [];
-	const add = (node: FlowNode, value: number) => {
+	const add = (node: FlowNode, value: number, from = 'collective') => {
 		const rounded = Math.round(value);
 		if (rounded <= 0) return;
 		nodes.push(node);
 		links.push(
 			node.side === 'source'
-				? { source: node.id, target: 'collective', value: rounded }
-				: { source: 'collective', target: node.id, value: rounded }
+				? { source: node.id, target: from, value: rounded }
+				: { source: from, target: node.id, value: rounded }
 		);
 	};
 
@@ -354,6 +362,15 @@ export function flowGraph({
 			},
 			recipient.amount
 		);
+		const next = recipient.slug && downstream.find((d) => d.slug === recipient.slug);
+		if (
+			next &&
+			next.transfers.length > 0 &&
+			next.received > 0 &&
+			recipient.amount / next.received >= DOWNSTREAM_SHARE
+		) {
+			passOn(recipient, next);
+		}
 	}
 	const expenses = Math.max(0, spent - given);
 	add({ id: 'out:expenses', name: 'Expenses', side: 'target', kind: 'expenses' }, expenses);
@@ -363,7 +380,51 @@ export function flowGraph({
 	else add({ id: 'in:balance', name: 'Earlier balance', side: 'source', kind: 'kept' }, -left);
 
 	return { nodes, links };
+
+	/** What `recipient` gave on, spent and kept, as the collective's share of each. */
+	function passOn(
+		recipient: { slug: string; amount: number },
+		next: { received: number; spent: number; transfers: AccountMonth[] }
+	) {
+		const ranked = topAccounts({ rows: next.transfers, limit: DOWNSTREAM_NAMED });
+		const total = ranked.reduce((sum, r) => sum + r.amount, 0);
+		const spent = Math.max(next.spent, total);
+		// It may have spent more than it received, from what it held before.
+		const share = recipient.amount / Math.max(next.received, spent);
+		const from = `out:${recipient.slug}`;
+		let passed = 0;
+		for (const onward of ranked) {
+			passed += Math.round(onward.amount * share);
+			add(
+				{
+					id: `${from}>${onward.slug || 'others'}`,
+					name: onward.name,
+					slug: onward.slug || undefined,
+					side: 'target',
+					kind: onward.slug ? 'recipient' : 'other'
+				},
+				onward.amount * share,
+				from
+			);
+		}
+		const expenses = Math.round((spent - total) * share);
+		add(
+			{ id: `${from}>expenses`, name: 'Expenses', side: 'target', kind: 'expenses' },
+			expenses,
+			from
+		);
+		add(
+			{ id: `${from}>kept`, name: 'Kept', side: 'target', kind: 'kept' },
+			recipient.amount - passed - expenses,
+			from
+		);
+	}
 }
+
+/** From this share of a recipient's income on, it counts as passing on the collective's money. */
+const DOWNSTREAM_SHARE = 0.5;
+/** Onward recipients named; the rest share a node. */
+const DOWNSTREAM_NAMED = 4;
 
 /** Contributions per month: what recurring and one-off contributions brought in. */
 export interface ContributionMonth {
@@ -448,6 +509,18 @@ export function toContributions(
 		months: [...months.values()].sort((a, b) => a.month.localeCompare(b.month)),
 		backers: [...backers.values()]
 	};
+}
+
+/** What contributions brought in each day, oldest first. */
+export function contributionsByDay(nodes: ContributionNode[]): { day: string; amount: number }[] {
+	const days = new Map<string, number>();
+	for (const node of nodes) {
+		const day = node.createdAt.slice(0, 10);
+		days.set(day, (days.get(day) ?? 0) + node.netAmount.value);
+	}
+	return [...days]
+		.map(([day, amount]) => ({ day, amount }))
+		.sort((a, b) => a.day.localeCompare(b.day));
 }
 
 /** One-off contributions over some months: what they added up to, and the biggest. */
@@ -735,7 +808,7 @@ export function topAccounts({
 		...sorted.slice(0, limit),
 		{
 			slug: '',
-			name: `${rest.length} others`,
+			name: `${rest.length} ${rest.length === 1 ? 'other' : 'others'}`,
 			amount: rest.reduce((sum, payee) => sum + payee.amount, 0)
 		}
 	];
