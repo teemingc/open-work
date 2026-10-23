@@ -5,7 +5,15 @@
 		"sourceMap": true,
 		"strict": true,
 		"checkJs": true,
-		"types": ["$app/types", "./worker-configuration.d.ts"]
+		"paths": { "#lib/*": ["./src/lib/*"] },
+		"types": ["$app/types"]
 	},
-	"include": ["src", "vite.config.ts", "playwright.config.ts", "eslint.config.js"]
+	"include": [
+		"src",
+		"scripts",
+		"worker-configuration.d.ts",
+		"vite.config.ts",
+		"playwright.config.ts",
+		"eslint.config.js"
+	]
 }
