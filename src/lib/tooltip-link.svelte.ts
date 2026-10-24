@@ -7,8 +7,9 @@ import { on } from 'svelte/events';
  * Pass `click` as the chart's `onTooltipClick`, `locked` to its tooltip context and `href` to its
  * tooltip.
  *
- * The link is in the tooltip from the moment a tap shows it, not only once the tap pins it: the
- * tooltip shows as the finger touches, but the click that pins it waits for the finger to lift.
+ * The link is in the tooltip only once a tap pins it. The tooltip shows as the finger touches, under
+ * it on a narrow screen, so a link there already would take the click from lifting the finger and
+ * open the page on the first tap instead of pinning the tooltip.
  */
 export class TooltipLink<T> {
 	/** A point's page, or nothing for one with nothing to link to. */
@@ -28,8 +29,11 @@ export class TooltipLink<T> {
 		this.#onpin = onpin;
 	}
 
-	/** The link in the tooltip for a point: none with a mouse, which opens it with a click instead. */
-	href = (data: T) => (matchMedia('(hover: hover)').matches ? undefined : this.url(data));
+	/**
+	 * The link in the tooltip for a point, once it's pinned: none with a mouse, which opens it with a
+	 * click instead and never pins.
+	 */
+	href = (data: T) => (this.locked ? this.url(data) : undefined);
 
 	click = (event: MouseEvent, { data }: { data: T }) => {
 		// On band charts LayerChart calls `onTooltipClick` from the bar and again as the click bubbles

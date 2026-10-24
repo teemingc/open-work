@@ -116,8 +116,6 @@
 		return `${first}, ${second} and ${rest.length} more`;
 	};
 
-	// Each link is only in its tooltip once a tap pins it. A tooltip shown as the finger touches can
-	// open under it, and its link would take the click that lifting the finger makes.
 	const pastLink = new TooltipLink(({ date }: Step) =>
 		transactionsUrl({ slug, month: date.toISOString().slice(0, 7), kinds: ['CONTRIBUTION'] })
 	);
@@ -305,7 +303,7 @@
 						{@const step = context.tooltip.data as Step | null}
 						<Chart.Tooltip
 							labelFormatter={(d: Date) => dayMonthYear.format(d)}
-							href={(step: Step) => (pastLink.locked ? pastLink.href(step) : undefined)}
+							href={pastLink.href}
 						>
 							<!--
 								Only what happened that day, so the tooltip stays small enough to see the chart past;
@@ -429,7 +427,7 @@
 						{#snippet tooltip()}
 							<Chart.Tooltip
 								labelFormatter={(d: Date) => monthYear.format(d)}
-								href={(point: AheadPoint) => (aheadLink.locked ? aheadLink.href(point) : undefined)}
+								href={aheadLink.href}
 							>
 								{#snippet formatter({ value, name, item })}
 									{#if item.key === 'given' && typeof value === 'number'}

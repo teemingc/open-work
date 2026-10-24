@@ -38,6 +38,7 @@ describe('TooltipLink', () => {
 	it('pins the tapped point with touch', () => {
 		const link = new TooltipLink(url);
 		const january = { month: '2026-01' };
+		expect(link.href(january)).toBeUndefined();
 		click(link, january);
 		expect(link.locked).toBe(true);
 		expect(link.href(january)).toBe('https://example.com/2026-01');

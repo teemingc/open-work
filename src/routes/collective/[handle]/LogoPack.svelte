@@ -247,11 +247,7 @@
 					</Layer>
 					{@const slot = context.tooltip.data as Slot | null}
 					{@const href = slot ? link.href(slot) : undefined}
-					<!--
-						Only clickable once pinned: shown as the finger touches, it can open under the finger, and
-						its link would take the click that lifting the finger makes.
-					-->
-					<TooltipRoot variant="none" pointerEvents={link.locked && href !== undefined}>
+					<TooltipRoot variant="none" pointerEvents={href !== undefined}>
 						{#if slot}
 							<div
 								class="grid max-w-64 min-w-40 gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl"
