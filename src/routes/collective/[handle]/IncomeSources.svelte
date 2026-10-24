@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { TooltipLink } from '#lib/tooltip-link.svelte.js';
 	import { chartPadding, TICK_LENGTH, X_TICK_OCCLUSION, Y_TICK_LABEL } from '#lib/chart-padding.js';
-	import { Badge } from '#lib/components/ui/badge/index.js';
+	import { Badge, badgeVariants } from '#lib/components/ui/badge/index.js';
+	import { cn } from '#lib/utils.js';
 	import * as Card from '#lib/components/ui/card/index.js';
+	import * as Popover from '#lib/components/ui/popover/index.js';
 	import type { ChartConfig } from '#lib/components/ui/chart/chart-utils.js';
 	import { scaleBand, scalePoint } from 'd3-scale';
-	import { ExternalLink } from '@lucide/svelte';
+	import { Asterisk, ExternalLink, Users } from '@lucide/svelte';
 	import {
 		bandTickLabel,
 		bandTicks,
@@ -14,10 +16,11 @@
 		moneyFormat,
 		periodPhrase
 	} from './chart-format';
-	import { backerStatus, transactionsUrl } from './financials';
+	import { backerStatus, transactionsUrl, type Backer, type SizeTier } from './financials';
 	import BackerWaffle from './BackerWaffle.svelte';
+	import LogoMark from './LogoMark.svelte';
 	import MoneyRow from './MoneyRow.svelte';
-	import type { IncomeSources } from './stats.remote';
+	import { getGivingNow, type IncomeSources } from './stats.remote';
 
 	let {
 		income,
@@ -50,7 +53,20 @@
 
 	const CONTRIBUTION_KINDS = ['CONTRIBUTION', 'ADDED_FUNDS', 'BALANCE_TRANSFER'];
 	/** Gave the most, then less, then least: fading shades of the income colour. */
-	const TIER_SHADES = ['bg-chart-income', 'bg-chart-income/60', 'bg-chart-income/30'];
+	/** The others' size tiers as recurring and one-off giving, recurring first, each with its totals. */
+	function givingGroups(tiers: SizeTier[]) {
+		return [true, false]
+			.map((recurring) => {
+				const group = tiers.filter((tier) => tier.recurring === recurring);
+				return {
+					recurring,
+					tiers: group,
+					count: group.reduce((sum, tier) => sum + tier.count, 0),
+					amount: group.reduce((sum, tier) => sum + tier.amount, 0)
+				};
+			})
+			.filter((group) => group.tiers.length);
+	}
 
 	const money = $derived(moneyFormat(currency));
 	const compact = $derived(compactFormat(currency));
@@ -81,7 +97,25 @@
 	const transferred = $derived(inRange.reduce((sum, m) => sum + m.transferred, 0));
 	const total = $derived(inRange.reduce((sum, m) => sum + m.recurring + m.oneOff, 0));
 
-	const backers = $derived(income.backers[range]);
+	/**
+	 * The top backers, with everyone else as two rows rather than one: the others who gave regularly
+	 * and those who gave once or now and then, each in its place by size, so neither hides in a tooltip.
+	 */
+	const backers = $derived(
+		income.backers[range]
+			.flatMap((backer) =>
+				backer.slug || !backer.tiers?.length
+					? [{ ...backer, recurring: undefined as boolean | undefined }]
+					: givingGroups(backer.tiers).map((group) => ({
+							...backer,
+							name: `${group.count} other ${group.recurring ? 'recurring' : 'one-off'} ${group.count === 1 ? 'backer' : 'backers'}`,
+							amount: group.amount,
+							tiers: group.tiers,
+							recurring: group.recurring
+						}))
+			)
+			.sort((a, b) => b.amount - a.amount)
+	);
 	/** Each bar is that backer's share of everything contributed in the range. */
 	const share = (amount: number) => (total ? (amount / total) * 100 : 0);
 	/** Rounded, but never down to a misleading 0%. */
@@ -94,7 +128,9 @@
 			return starts;
 		}, [])
 	);
-	const topShare = $derived(total && backers[0]?.slug ? backers[0].amount / total : 0);
+	/** The biggest single backer: not the others together, nor a platform passing on many gifts. */
+	const biggest = $derived(backers.find((backer) => backer.slug && !backer.channel));
+	const topShare = $derived(total && biggest ? biggest.amount / total : 0);
 
 	const contributionsUrl = ({ month }: { month: string }) =>
 		transactionsUrl({ slug, month, kinds: CONTRIBUTION_KINDS });
@@ -125,12 +161,76 @@
 				month,
 				started: found?.started ?? 0,
 				stopped: found?.stopped ?? 0,
+				startedBy: found?.startedBy ?? [],
+				stoppedBy: found?.stoppedBy ?? [],
 				active: activeAt(month),
 				yearBefore: earlier >= income.recurring[0].month ? activeAt(earlier) : undefined
 			};
 		})
 	);
 	const compared = (d: { yearBefore?: number }) => d.yearBefore !== undefined;
+	/** The top backers' logos on the line: this big, and stacked this far apart in a busy month. */
+	const MARK_RADIUS = 7;
+	const MARK_STEP = 2 * MARK_RADIUS + 5;
+	/** The top backers shown below, the ones whose starts and stops are marked on the line. */
+	const topSlugs = $derived(
+		new Set(backers.filter((backer) => backer.slug && !backer.channel).map((backer) => backer.slug))
+	);
+	/**
+	 * When a top backer started or stopped giving regularly, with the count that month to place it
+	 * by. `index` stacks a month's starts above the line, and its stops below, one after another.
+	 */
+	const topChanges = $derived(
+		changes.flatMap((change) =>
+			(['started', 'stopped'] as const).flatMap((kind) =>
+				change[kind === 'started' ? 'startedBy' : 'stoppedBy']
+					.filter((backer) => topSlugs.has(backer.slug))
+					.map((backer, index) => ({
+						month: change.month,
+						active: change.active,
+						kind,
+						backer,
+						index
+					}))
+			)
+		)
+	);
+	/** The top backers who stopped giving regularly, listed or marked on the line. */
+	const stoppedTop = $derived(
+		[
+			...new Set([
+				...backers
+					.filter(
+						(backer) =>
+							backer.slug &&
+							!backer.channel &&
+							backer.history &&
+							backerStatus({ ...backer.history, now }) === 'Stopped'
+					)
+					.map((backer) => backer.slug),
+				...topChanges
+					.filter((change) => change.kind === 'stopped')
+					.map((change) => change.backer.slug)
+			])
+		].sort()
+	);
+	/** Where each of them still gives regularly, asked of Open Collective once they are known. */
+	const givingNow = $derived(stoppedTop.length ? getGivingNow(stoppedTop) : undefined);
+	/**
+	 * Whether a backer who stopped giving here stopped all their regular giving on Open Collective,
+	 * or still gives elsewhere: a budget cut reads differently from leaving this collective alone.
+	 * Nothing until known.
+	 */
+	function stoppedWhere(backer: string): 'everywhere' | 'here' | undefined {
+		const elsewhere = givingNow?.current?.[backer]?.filter((other) => other !== slug);
+		if (!elsewhere) return undefined;
+		return elsewhere.length ? 'here' : 'everywhere';
+	}
+	/** What the asterisk on a Stopped badge means. */
+	const STOPPED_EVERYWHERE =
+		'It stopped all its regular giving on Open Collective, not only to this collective.';
+	/** How many who started or stopped a tooltip names, before saying how many more. */
+	const NAMED_BACKERS = 4;
 	const started = $derived(changes.reduce((sum, row) => sum + row.started, 0));
 	const stopped = $derived(changes.reduce((sum, row) => sum + row.stopped, 0));
 	const activeNow = $derived(income.recurring.at(-1)?.active ?? 0);
@@ -146,6 +246,35 @@
 	} satisfies ChartConfig;
 	import LazyChart from '#lib/components/LazyChart.svelte';
 </script>
+
+<!--
+	Who started or stopped: each with their logo, a few by name, then how many more. A top backer who
+	stopped all their regular giving, not only here, says "everywhere".
+-->
+{#snippet backerList(backers: Backer[], stopped = false)}
+	<ul class="grid max-w-56 gap-1 pl-4.5">
+		{#each backers.slice(0, NAMED_BACKERS) as backer, index (index)}
+			<li class="flex min-w-0 items-center gap-1.5">
+				{#if backer.imageUrl}
+					<img
+						src={backer.imageUrl}
+						alt=""
+						class="size-4 shrink-0 rounded-full border bg-card object-cover"
+					/>
+				{:else}
+					<span class="size-4 shrink-0 rounded-full border bg-muted"></span>
+				{/if}
+				<span class="truncate text-muted-foreground">{backer.name}</span>
+				{#if stopped && topSlugs.has(backer.slug) && stoppedWhere(backer.slug) === 'everywhere'}
+					<span class="shrink-0 text-muted-foreground/70">everywhere</span>
+				{/if}
+			</li>
+		{/each}
+		{#if backers.length > NAMED_BACKERS}
+			<li class="text-muted-foreground">and {backers.length - NAMED_BACKERS} more</li>
+		{/if}
+	</ul>
+{/snippet}
 
 {#snippet row({ value, name, item }: { value: unknown; name: string; item: { color?: string } })}
 	{#if typeof value === 'number'}
@@ -259,7 +388,7 @@
 								{/if}
 								<!-- How to read the chart, on its own line apart from what the figures say. -->
 								<span class="block"
-									>Green when there are more than a year earlier, red when fewer.</span
+									>Green when it was more than a year before it, red when fewer.</span
 								>
 							</Card.Description>
 						</Card.Header>
@@ -271,8 +400,9 @@
 										class="aspect-auto h-56 w-full cursor-pointer"
 									>
 										<!--
-									Starts and stops are in the tooltip, not on the chart: the line is what they add up to.
-									Each month's point sits where the bars above centre theirs.
+									Every start and stop is in the tooltip; the line is what they add up to. Only the top
+									backers' are marked on it, by their logos: starts above the line, stops below. Each
+									month's point sits where the bars above centre theirs.
 								-->
 										<AreaChart
 											padding={chartPadding()}
@@ -333,6 +463,35 @@
 												/>
 												<Area seriesKey="active" fill="none" line={{ strokeWidth: 2 }} />
 											{/snippet}
+											{#snippet aboveMarks({ context })}
+												{#each topChanges as change (change.month + change.kind + change.backer.slug)}
+													{const x = $derived(context.xScale(change.month) ?? 0)}
+													{const y = $derived(context.yScale(change.active) ?? 0)}
+													{const offset = $derived((change.index + 1) * MARK_STEP)}
+													<g
+														class="pointer-events-none"
+														aria-label="{change.backer.name} {change.kind} giving regularly"
+													>
+														<LogoMark
+															{x}
+															y={change.kind === 'started' ? y - offset : y + offset}
+															r={MARK_RADIUS}
+															name={change.backer.name}
+															imageUrl={change.backer.imageUrl}
+															recurring={false}
+														/>
+														<circle
+															cx={x}
+															cy={change.kind === 'started' ? y - offset : y + offset}
+															r={MARK_RADIUS + 1.5}
+															class="fill-none {change.kind === 'started'
+																? 'stroke-chart-income'
+																: 'stroke-chart-expenses'}"
+															stroke-width="1.5"
+														/>
+													</g>
+												{/each}
+											{/snippet}
 											{#snippet tooltip({ context })}
 												{@const hovered = context.tooltip.data as (typeof changes)[number] | null}
 												<Chart.Tooltip
@@ -362,12 +521,18 @@
 																	color={changeConfig.started.color}
 																	money={whole}
 																/>
+																{#if hovered.startedBy.length}
+																	{@render backerList(hovered.startedBy)}
+																{/if}
 																<MoneyRow
 																	value={hovered.stopped}
 																	name={changeConfig.stopped.label}
 																	color={changeConfig.stopped.color}
 																	money={whole}
 																/>
+																{#if hovered.stoppedBy.length}
+																	{@render backerList(hovered.stoppedBy, true)}
+																{/if}
 															</div>
 														{/if}
 													{/snippet}
@@ -387,18 +552,16 @@
 			<Card.Header>
 				<Card.Title>Top backers</Card.Title>
 				<Card.Description>
+					<!-- Says the period first, as every figure below, the others' split included, covers it. -->
+					What each backer gave {periodPhrase(months)}.
 					{#if topShare}
-						The biggest backer gave {percent.format(topShare)} of contributions {periodPhrase(
-							months
-						)}.
-					{:else}
-						Contributions {periodPhrase(months)}, by backer.
+						The biggest gave {percent.format(topShare)} of all contributions.
 					{/if}
 				</Card.Description>
 			</Card.Header>
 			<Card.Content>
 				<ol class="flex flex-col gap-4 text-sm">
-					{#each backers as backer, index (backer.slug)}
+					{#each backers as backer, index (backer.slug || backer.name)}
 						<li class="flex items-start gap-3">
 							<!--
 							The share leads each row, so the column of figures reads as the breakdown. Nudged
@@ -421,8 +584,19 @@
 											})}
 											target="_blank"
 											rel="noreferrer"
-											class="flex min-w-0 items-center gap-1.5 font-medium hover:underline"
+											class="flex min-w-0 items-center gap-2 font-medium hover:underline"
 										>
+											<!-- Their avatar or logo, as in "Who was paid", or a blank disc without one. -->
+											{#if backer.imageUrl}
+												<img
+													src={backer.imageUrl}
+													alt=""
+													class="size-5 shrink-0 rounded-full border bg-card object-cover"
+													loading="lazy"
+												/>
+											{:else}
+												<span class="size-5 shrink-0 rounded-full border bg-muted"></span>
+											{/if}
 											<span class="truncate">{backer.name}</span>
 											<ExternalLink size={12} class="shrink-0 text-muted-foreground" />
 											<span class="sr-only">(opens in a new tab)</span>
@@ -439,8 +613,13 @@
 											})}
 											target="_blank"
 											rel="noreferrer"
-											class="flex min-w-0 items-center gap-1.5 font-medium text-muted-foreground hover:text-foreground hover:underline"
+											class="flex min-w-0 items-center gap-2 font-medium text-muted-foreground hover:text-foreground hover:underline"
 										>
+											<span
+												class="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
+											>
+												<Users class="size-3" aria-hidden="true" />
+											</span>
 											{backer.name}
 											<ExternalLink size={12} class="shrink-0" />
 											<span class="sr-only">(opens in a new tab)</span>
@@ -460,52 +639,40 @@
 										class="absolute inset-y-0 left-0 bg-chart-income-muted/45"
 										style:width="{offsets[index]}%"
 									></div>
-									{#if backer.tiers?.length}
-										<!--
-										The others, split by how much each gave, biggest givers first. Rounded at its
-										ends like a single backer's bar, with straight joins between the tiers.
-									-->
-										<div
-											class="absolute inset-y-0 flex gap-px overflow-hidden rounded-full"
-											style:left="{offsets[index]}%"
-											style:width="{share(backer.amount)}%"
-										>
-											{#each backer.tiers as tier, tierIndex (tier.min)}
-												<div
-													class="h-full {TIER_SHADES[tierIndex]}"
-													style:width="{(tier.amount / backer.amount) * 100}%"
-												></div>
-											{/each}
-										</div>
-									{:else}
-										<div
-											class="absolute inset-y-0 rounded-full bg-chart-income"
-											style:left="{offsets[index]}%"
-											style:width="max({share(backer.amount)}%, 0.25rem)"
-										></div>
-									{/if}
+									<!-- The others who gave once or now and then are paler, as one-off giving is in the chart above. -->
+									<div
+										class="absolute inset-y-0 rounded-full {backer.recurring === false
+											? 'bg-chart-income-muted'
+											: 'bg-chart-income'}"
+										style:left="{offsets[index]}%"
+										style:width="max({share(backer.amount)}%, 0.25rem)"
+									></div>
 								</div>
 								{#if backer.tiers?.length}
-									<ul class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-										{#each backer.tiers as tier, index (tier.min)}
-											<li class="flex items-center gap-1.5">
-												<span class="size-2 rounded-[2px] {TIER_SHADES[index]}" aria-hidden="true"
-												></span>
-												<!-- One backer's range says no more than what they gave, so it is left out. -->
-												{#if tier.count === 1}
-													1 gave <span class="tabular-nums">{money.format(tier.amount)}</span>
-												{:else}
-													{tier.count}
-													{tier.max === null
-														? `gave ${money.format(tier.min)}+`
-														: tier.min === 0
-															? `gave under ${money.format(tier.max)}`
-															: `gave ${money.format(tier.min)}–${money.format(tier.max - 1)}`}:
-													<span class="tabular-nums">{money.format(tier.amount)}</span>
-												{/if}
-											</li>
-										{/each}
-									</ul>
+									<!-- How many gave how much, and for those who give regularly, what that averages a month. -->
+									<div
+										class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"
+									>
+										<span>
+											{backer.tiers
+												.map(
+													(tier) =>
+														`${tier.count} ${
+															tier.max === null
+																? `gave ${money.format(tier.min)}+`
+																: tier.min === 0
+																	? `gave under ${money.format(tier.max)}`
+																	: `gave ${money.format(tier.min)}–${money.format(tier.max - 1)}`
+														}`
+												)
+												.join(', ')}
+										</span>
+										{#if backer.recurring}
+											<Badge variant="secondary"
+												>{money.format(backer.amount / months.length)}/month avg</Badge
+											>
+										{/if}
+									</div>
 								{/if}
 								{#if backer.history}
 									{@const status = backerStatus({ ...backer.history, now })}
@@ -545,7 +712,28 @@
 													>
 												{/if}
 											{:else if status === 'Stopped'}
-												<Badge variant="outline">Stopped</Badge>
+												<!--
+													An asterisk when it stopped all its regular giving on Open Collective, not only
+													here, which hovering with a mouse or a tap on a phone explains. A plain "Stopped"
+													already means here.
+												-->
+												{#if stoppedWhere(backer.slug) === 'everywhere'}
+													<Popover.Root>
+														<Popover.Trigger
+															openOnHover
+															openDelay={200}
+															class={cn(badgeVariants({ variant: 'outline' }), 'hover:bg-muted')}
+														>
+															Stopped<Asterisk class="-ml-0.5 size-2.5!" aria-hidden="true" />
+															<span class="sr-only">: {STOPPED_EVERYWHERE}</span>
+														</Popover.Trigger>
+														<Popover.Content class="w-64 p-3 text-sm" align="start">
+															{STOPPED_EVERYWHERE}
+														</Popover.Content>
+													</Popover.Root>
+												{:else}
+													<Badge variant="outline">Stopped</Badge>
+												{/if}
 												{#if per}
 													<span>was {money.format(backer.history.lastAmount)}/{per}</span>
 												{/if}
@@ -570,7 +758,7 @@
 
 		<!-- What share each backer, platform and everyone else gives. A fund's few backers are clear without it. -->
 		{#if !backersOnly}
-			<BackerWaffle {backers} {money} period={periodPhrase(months)} />
+			<BackerWaffle backers={income.backers[range]} {money} period={periodPhrase(months)} />
 		{/if}
 	</div>
 {/if}

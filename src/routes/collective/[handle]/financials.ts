@@ -48,7 +48,7 @@ export interface ContributionNode {
 	createdAt: string;
 	/** After host and payment processor fees. */
 	netAmount: { value: number };
-	fromAccount: { slug: string; name: string } | null;
+	fromAccount: { slug: string; name: string; imageUrl?: string | null } | null;
 	order: { frequency: string | null } | null;
 	/** CONTRIBUTION, ADDED_FUNDS or BALANCE_TRANSFER. */
 	kind: string;
@@ -347,6 +347,8 @@ export interface BackerHistory {
 	lastAmount: number;
 	/** Whether the latest contribution was moved from the backer's balance on Open Collective. */
 	lastTransfer: boolean;
+	/** Whether any contribution was monthly or yearly, so the backer gave on a schedule at some point. */
+	recurring: boolean;
 }
 
 export function backerHistory(nodes: ContributionNode[]): Map<string, BackerHistory> {
@@ -363,11 +365,13 @@ export function backerHistory(nodes: ContributionNode[]): Map<string, BackerHist
 				contributions: 1,
 				frequency: recurring,
 				lastAmount: node.netAmount.value,
-				lastTransfer: isTransfer(node)
+				lastTransfer: isTransfer(node),
+				recurring: recurring !== null
 			});
 			continue;
 		}
 		backer.contributions++;
+		if (recurring) backer.recurring = true;
 		if (node.createdAt < backer.first) backer.first = node.createdAt;
 		if (node.createdAt > backer.last) {
 			backer.last = node.createdAt;
@@ -396,11 +400,21 @@ export function backerStatus({
 }
 
 /** How many backers started or stopped recurring contributions in one month. */
+/** A backer as a tooltip names them: their name, and their avatar or logo if they have one. */
+export interface Backer {
+	slug: string;
+	name: string;
+	imageUrl: string | null;
+}
+
 export interface RecurringChange {
 	/** YYYY-MM */
 	month: string;
 	started: number;
 	stopped: number;
+	/** Who started and who stopped, in the order they did. */
+	startedBy: Backer[];
+	stoppedBy: Backer[];
 	/** Recurring backers at the end of the month, or now for the current month. */
 	active: number;
 }
@@ -419,33 +433,59 @@ export function recurringChanges({
 	now: Date;
 	skip: Set<string>;
 }): RecurringChange[] {
-	const byBacker = new Map<string, { at: number; frequency: 'MONTHLY' | 'YEARLY' }[]>();
+	const byBacker = new Map<
+		string,
+		{ backer: Backer; payments: { at: number; frequency: 'MONTHLY' | 'YEARLY' }[] }
+	>();
 	for (const node of nodes) {
 		const slug = node.fromAccount?.slug;
 		const frequency = node.order?.frequency;
 		if (!slug || skip.has(slug) || (frequency !== 'MONTHLY' && frequency !== 'YEARLY')) continue;
-		const list = byBacker.get(slug) ?? [];
-		list.push({ at: Date.parse(node.createdAt), frequency });
-		byBacker.set(slug, list);
+		const entry = byBacker.get(slug) ?? {
+			backer: {
+				slug,
+				name: accountName(node.fromAccount),
+				imageUrl: node.fromAccount?.imageUrl ?? null
+			},
+			payments: []
+		};
+		entry.payments.push({ at: Date.parse(node.createdAt), frequency });
+		byBacker.set(slug, entry);
 	}
 
 	const months = new Map<string, RecurringChange>();
-	const count = (at: number, key: 'started' | 'stopped') => {
+	const count = (at: number, key: 'started' | 'stopped', backer: Backer) => {
 		const month = new Date(at).toISOString().slice(0, 7);
-		const row = months.get(month) ?? { month, started: 0, stopped: 0, active: 0 };
-		row[key]++;
+		const row = months.get(month) ?? {
+			month,
+			started: 0,
+			stopped: 0,
+			startedBy: [],
+			stoppedBy: [],
+			active: 0
+		};
+		// Stopping and starting again in the same month changes nothing, so the two cancel out.
+		const other = key === 'started' ? 'stoppedBy' : 'startedBy';
+		const undone = row[other].indexOf(backer);
+		if (undone !== -1) {
+			row[other].splice(undone, 1);
+			row[key === 'started' ? 'stopped' : 'started']--;
+		} else {
+			row[key]++;
+			row[key === 'started' ? 'startedBy' : 'stoppedBy'].push(backer);
+		}
 		months.set(month, row);
 	};
-	for (const payments of byBacker.values()) {
+	for (const { backer, payments } of byBacker.values()) {
 		payments.sort((a, b) => a.at - b.at);
-		count(payments[0].at, 'started');
+		count(payments[0].at, 'started', backer);
 		for (const [index, payment] of payments.entries()) {
 			const due = payment.at + GRACE_DAYS[payment.frequency] * DAY_MS;
 			const next = payments[index + 1];
 			if (next && next.at <= due) continue;
 			if (due > now.getTime()) continue;
-			count(due, 'stopped');
-			if (next) count(next.at, 'started');
+			count(due, 'stopped', backer);
+			if (next) count(next.at, 'started', backer);
 		}
 	}
 	// Every start is followed by a stop unless the backer still gives, so the running difference
@@ -651,6 +691,8 @@ export function waffleCells(values: number[], cells = 100): number[] {
 }
 
 export interface SizeTier {
+	/** Whether the tier holds backers who gave on a schedule, rather than once or now and then. */
+	recurring: boolean;
 	/** The smallest total in the tier. */
 	min: number;
 	/** Where the next tier up starts, or null for the top tier. */
@@ -662,26 +704,34 @@ export interface SizeTier {
 const TIER_MINIMUMS = [1000, 100, 0];
 
 /**
- * The accounts outside the top `limit`, grouped by how much each gave in total, so the "others"
- * row can show its make-up without sending every account to the page.
+ * The accounts outside the top `limit`, grouped by whether they gave on a schedule and by how much
+ * each gave in total, recurring backers first, so the "others" row can show its make-up without
+ * sending every account to the page.
  */
 export function othersBySize({
 	rows,
 	months,
-	limit
+	limit,
+	recurring
 }: {
 	rows: AccountMonth[];
 	months?: string[];
 	limit: number;
+	/** Whether the account gave on a schedule. */
+	recurring: (slug: string) => boolean;
 }): SizeTier[] {
-	const tiers = TIER_MINIMUMS.map((min, index) => ({
-		min,
-		max: index === 0 ? null : TIER_MINIMUMS[index - 1],
-		count: 0,
-		amount: 0
-	}));
+	const tiers = [true, false].flatMap((isRecurring) =>
+		TIER_MINIMUMS.map((min, index) => ({
+			recurring: isRecurring,
+			min,
+			max: index === 0 ? null : TIER_MINIMUMS[index - 1],
+			count: 0,
+			amount: 0
+		}))
+	);
 	for (const account of accountTotals({ rows, months }).slice(limit)) {
-		const tier = tiers.find((t) => account.amount >= t.min) ?? tiers[tiers.length - 1];
+		const isRecurring = recurring(account.slug);
+		const tier = tiers.find((t) => t.recurring === isRecurring && account.amount >= t.min)!;
 		tier.count++;
 		tier.amount += account.amount;
 	}

@@ -405,6 +405,7 @@ const CONTRIBUTIONS_QUERY = /* GraphQL */ `
 				fromAccount {
 					slug
 					name
+					imageUrl(height: 64)
 				}
 				order {
 					frequency
@@ -491,7 +492,7 @@ async function fetchContributions({
  * asks only for the contributions since the newest one, which is a single request.
  */
 const loadContributions = perKey({
-	cacheKey: (slug) => `contributions:v4:${slug}`,
+	cacheKey: (slug) => `contributions:v5:${slug}`,
 	maxAgeMs: CACHE_MS,
 	load: async (slug, ask, previous): Promise<ContributionNode[]> => {
 		try {
@@ -502,7 +503,7 @@ const loadContributions = perKey({
 			}
 			// Only what was fetched the shared way is saved, as a visitor's token may see more.
 			if (ask !== askPublicly) return await fetchContributions({ slug, ask });
-			const progress = kvStore<Progress>(`contributions-progress:v4:${slug}`);
+			const progress = kvStore<Progress>(`contributions-progress:v5:${slug}`);
 			return await fetchContributions({
 				slug,
 				ask,
@@ -523,6 +524,14 @@ function incomeSources(nodes: ContributionNode[]) {
 	const now = new Date();
 	const { months, backers } = toContributions(nodes, CHANNELS);
 	const history = backerHistory(nodes);
+	/** Each backer's avatar or logo, for those Open Collective has one for. */
+	const images = new Map(
+		nodes.flatMap((node) =>
+			node.fromAccount?.imageUrl
+				? [[node.fromAccount.slug, node.fromAccount.imageUrl] as const]
+				: []
+		)
+	);
 	// Payment platforms pass on money from many people, so they are shown apart from the
 	// people and companies that back the collective directly.
 	const people = backers.filter((row) => !CHANNELS.has(row.slug));
@@ -532,9 +541,17 @@ function incomeSources(nodes: ContributionNode[]) {
 		(backer: { slug: string; name: string; amount: number }) => ({
 			...backer,
 			channel,
+			imageUrl: images.get(backer.slug) ?? null,
 			history: (backer.slug && history.get(backer.slug)) || null,
 			// Only the "others" row: a few totals, not every backer.
-			tiers: backer.slug ? null : othersBySize({ rows: people, months, limit: TOP_BACKERS })
+			tiers: backer.slug
+				? null
+				: othersBySize({
+						rows: people,
+						months,
+						limit: TOP_BACKERS,
+						recurring: (slug) => history.get(slug)?.recurring ?? false
+					})
 		});
 	const top = (months?: string[]) => {
 		const ranked = topAccounts({ rows: people, months, limit: TOP_BACKERS }).map(
@@ -544,9 +561,9 @@ function incomeSources(nodes: ContributionNode[]) {
 		const via = topAccounts({ rows: channels, months, limit: Infinity })
 			.filter((channel) => channel.amount > 0)
 			.map(describe(months, true));
-		// The groups after the ranked backers go biggest first too, so a platform that passes on
-		// less than everyone else together sits below them.
-		return [...ranked, ...[...via, ...others].sort((a, b) => b.amount - a.amount)];
+		// Biggest first throughout, the others together and platforms included, so the shares read in
+		// order and the others' row sits where its size puts it.
+		return [...ranked, ...via, ...others].sort((a, b) => b.amount - a.amount);
 	};
 	return {
 		months,
@@ -578,6 +595,56 @@ export const getCachedIncomeSources = query(Slug, async (handle) => {
 	const nodes = await loadContributions.peek(slug(handle));
 	return nodes ? incomeSources(nodes) : null;
 });
+
+/** Where a backer still gives regularly, as Open Collective's public profile shows it. */
+const givingNow = perKey({
+	cacheKey: (backer) => `giving:v1:${backer}`,
+	// Changes rarely, and is asked about for a handful of backers on each visit.
+	maxAgeMs: 24 * CACHE_MS,
+	load: async (backer, ask): Promise<string[]> => {
+		try {
+			const result = await ask<{
+				account: { orders: { nodes: { toAccount: { slug: string } | null }[] } } | null;
+			}>({
+				query: /* GraphQL */ `
+					query GivingNow($slug: String!) {
+						account(slug: $slug, throwIfMissing: false) {
+							orders(filter: OUTGOING, status: [ACTIVE], limit: 100) {
+								nodes {
+									toAccount {
+										slug
+									}
+								}
+							}
+						}
+					}
+				`,
+				variables: { slug: backer }
+			});
+			return [
+				...new Set(
+					(result.account?.orders.nodes ?? []).flatMap((order) =>
+						order.toAccount ? [order.toAccount.slug] : []
+					)
+				)
+			];
+		} catch (err) {
+			toHttpError(err);
+		}
+	}
+});
+
+/**
+ * The collectives each backer still gives to regularly, for backers who stopped giving to this one:
+ * none says they stopped all their regular giving, rather than this collective alone.
+ */
+export const getGivingNow = query(v.pipe(v.array(Slug), v.maxLength(20)), async (backers) =>
+	Object.fromEntries(
+		await Promise.all(
+			backers.map(async (backer) => [backer, await givingNow(slug(backer))] as const)
+		)
+	)
+);
 
 export type CollectiveStats = Awaited<ReturnType<typeof getCollectiveStats>>;
 

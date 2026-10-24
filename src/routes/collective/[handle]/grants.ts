@@ -83,14 +83,18 @@ export function toCommitments(nodes: CommitmentNode[]): Commitment[] {
 		.sort((a, b) => b.monthly - a.monthly);
 }
 
+/** The share of its spending a collective must pass on to count as a fund. */
+const FUND_SHARE = 0.9;
+
 /**
- * Whether the collective mostly passes its money on. Only when contributions to others are at least
- * half of everything it has spent, so a collective that backs a few friends keeps its usual page.
+ * Whether the collective passes on almost all its money. Only when contributions to others are at
+ * least nine tenths of everything it has spent: a project that also funds others, like Solid, which
+ * passes on most but not all of it, keeps its usual page.
  */
 export function isFund({ grants, months }: { grants: Grant[]; months: Month[] }): boolean {
 	const granted = grants.reduce((sum, grant) => sum + grant.amount, 0);
 	const spent = months.reduce((sum, month) => sum + month.expenses, 0);
-	return granted > 0 && granted >= spent / 2;
+	return granted > 0 && granted >= spent * FUND_SHARE;
 }
 
 /** What one account was given, in total and split by kind. */

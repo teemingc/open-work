@@ -96,9 +96,24 @@
 	import LazyChart from '#lib/components/LazyChart.svelte';
 </script>
 
-{#snippet row({ value, name, item }: { value: unknown; name: string; item: { color?: string } })}
+{#snippet row({
+	value,
+	name,
+	item,
+	index,
+	payload
+}: {
+	value: unknown;
+	name: string;
+	item: { color?: string };
+	index: number;
+	payload: { value?: unknown }[];
+})}
 	{#if typeof value === 'number' && value !== 0}
 		<MoneyRow {value} {name} color={item.color} {money} />
+	{:else if index === payload.length - 1 && payload.every((entry) => !entry.value)}
+		<!-- A month with no expenses says so, rather than showing the month alone. -->
+		<span class="text-muted-foreground">No expenses paid</span>
 	{/if}
 {/snippet}
 

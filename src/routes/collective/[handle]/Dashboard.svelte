@@ -161,7 +161,8 @@
 	const soleBacker = $derived.by(() => {
 		if (!fund || !income) return false;
 		const total = income.backers.all.reduce((sum, backer) => sum + backer.amount, 0);
-		const top = income.backers.all[0]?.amount ?? 0;
+		// The biggest single backer, not the others together or a platform passing on many people's gifts.
+		const top = income.backers.all.find((backer) => backer.slug && !backer.channel)?.amount ?? 0;
 		return total > 0 && top / total >= 0.9;
 	});
 
@@ -536,6 +537,16 @@
 		}
 	} satisfies ChartConfig);
 
+	/**
+	 * Glides the hover bands and ring from one dot to the next, rather than jumping, so moving along
+	 * a row reads as one motion. Short, so it keeps up with the pointer.
+	 */
+	const hoverMotion = {
+		type: 'tween',
+		duration: () => (prefersReducedMotion.current ? 0 : 120),
+		easing: cubicInOut
+	} as const;
+
 	const payeeOverviewConfig = {
 		amount: { label: 'Paid out', color: 'var(--color-chart-expenses)' }
 	} satisfies ChartConfig;
@@ -865,6 +876,7 @@
 			width={step}
 			height={context.height}
 			class="pointer-events-none fill-muted"
+			motion={hoverMotion}
 		/>
 	{/if}
 	{#if row !== undefined && context.yScale(row) !== undefined}
@@ -874,6 +886,7 @@
 			width={context.width}
 			height={context.yScale.bandwidth?.() ?? 0}
 			class="pointer-events-none fill-muted"
+			motion={hoverMotion}
 		/>
 	{/if}
 {/snippet}
@@ -1553,7 +1566,9 @@
 													props={{
 														points: { strokeWidth: 0, fillOpacity: 0.85 },
 														grid: { x: false, y: true, bandAlign: 'between' },
-														tooltip: { context: { mode: 'band', locked: payeeLink.locked } }
+														// The nearest dot, wherever the pointer is: hovering only the cells with a dot left gaps
+														// between them, so moving along a row dropped the highlight and brought it back.
+														tooltip: { context: { mode: 'voronoi', locked: payeeLink.locked } }
 													}}
 												>
 													{#snippet belowMarks({ context })}
@@ -1583,6 +1598,7 @@
 																cy={context.yGet(cell) + (context.yScale.bandwidth?.() ?? 0) / 2}
 																r={context.rGet(cell) + 3}
 																class="pointer-events-none fill-none stroke-primary"
+																motion={hoverMotion}
 																strokeWidth={1.5}
 															/>
 														{/if}
@@ -1769,6 +1785,10 @@
 																						name="{paid.rest.count} more"
 																						{money}
 																					/>
+																				{/if}
+																				{#if !paid.shown.length}
+																					<span class="text-muted-foreground">Nothing paid out</span
+																					>
 																				{/if}
 																			</div>
 																		{/if}

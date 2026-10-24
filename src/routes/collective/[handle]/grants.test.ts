@@ -84,11 +84,13 @@ describe('toCommitments', () => {
 describe('isFund', () => {
 	const grants = toGrants([grant('2026-10-08', 'vite', 600)]);
 
-	it('is a fund when contributions to others are at least half of its spending', () => {
-		expect(isFund({ grants, months: [month('2026-10', 2000, 1000)] })).toBe(true);
+	it('is a fund when contributions to others are at least nine tenths of its spending', () => {
+		expect(isFund({ grants, months: [month('2026-10', 2000, 650)] })).toBe(true);
 	});
 
-	it('is not when it mostly pays expenses', () => {
+	it('is not when it also pays its own expenses', () => {
+		// Most of it given away, as Solid does, is still not a fund.
+		expect(isFund({ grants, months: [month('2026-10', 2000, 700)] })).toBe(false);
 		expect(isFund({ grants, months: [month('2026-10', 2000, 1300)] })).toBe(false);
 		expect(isFund({ grants: [], months: [month('2026-10', 2000, 0)] })).toBe(false);
 	});

@@ -252,7 +252,7 @@ describe('waffleCells', () => {
 });
 
 describe('othersBySize', () => {
-	it('groups everyone outside the top accounts by how much they gave', () => {
+	it('groups everyone outside the top accounts by whether they gave on a schedule and how much', () => {
 		const backer = (slug: string, amount: number, month = '2026-09') => ({
 			month,
 			slug,
@@ -271,12 +271,14 @@ describe('othersBySize', () => {
 					backer('old', 5000, '2025-01')
 				],
 				months: ['2026-09'],
-				limit: 1
+				limit: 1,
+				recurring: (slug) => slug === 'b' || slug === 'd'
 			})
 		).toEqual([
-			{ min: 1000, max: null, count: 2, amount: 2700 },
-			{ min: 100, max: 1000, count: 1, amount: 250 },
-			{ min: 0, max: 100, count: 1, amount: 20 }
+			{ recurring: true, min: 1000, max: null, count: 1, amount: 1200 },
+			{ recurring: true, min: 0, max: 100, count: 1, amount: 20 },
+			{ recurring: false, min: 1000, max: null, count: 1, amount: 1500 },
+			{ recurring: false, min: 100, max: 1000, count: 1, amount: 250 }
 		]);
 	});
 });
@@ -482,11 +484,19 @@ describe('backerHistory', () => {
 			contributions: 3,
 			frequency: 'MONTHLY',
 			lastAmount: 190,
-			lastTransfer: false
+			lastTransfer: false,
+			recurring: true
 		});
-		expect(backerHistory([node('2026-10-01T00:00:00Z', null, 300)]).get('a')?.lastTransfer).toBe(
-			true
-		);
+		const once = backerHistory([node('2026-10-01T00:00:00Z', null, 300)]).get('a');
+		expect(once?.lastTransfer).toBe(true);
+		expect(once?.recurring).toBe(false);
+		// Recurring once is recurring, even when the latest gift was a one-off.
+		expect(
+			backerHistory([
+				node('2025-01-01T00:00:00Z', 'MONTHLY'),
+				node('2026-10-01T00:00:00Z', 'ONETIME')
+			]).get('a')?.recurring
+		).toBe(true);
 	});
 });
 
@@ -560,7 +570,11 @@ describe('recurringChanges', () => {
 		kind: 'CONTRIBUTION'
 	});
 
-	it('counts starts, stops once a payment is overdue, and restarts', () => {
+	const a = { slug: 'a', name: 'a', imageUrl: null };
+	const b = { slug: 'b', name: 'b', imageUrl: null };
+	const d = { slug: 'd', name: 'd', imageUrl: null };
+
+	it('counts and names starts, stops once a payment is overdue, and restarts', () => {
 		const months = recurringChanges({
 			nodes: [
 				// Gives monthly, misses April and May, then resumes in June.
@@ -571,6 +585,9 @@ describe('recurringChanges', () => {
 				node('a', '2026-07-10T00:00:00Z'),
 				// Still within a year of its yearly payment.
 				node('b', '2026-02-01T00:00:00Z', 'YEARLY'),
+				// Stops in mid-May and starts again before May is out, which cancels out.
+				node('d', '2026-03-31T00:00:00Z'),
+				node('d', '2026-05-30T00:00:00Z'),
 				// One-off and skipped backers are left out.
 				node('c', '2026-03-01T00:00:00Z', null),
 				node('github-sponsors', '2026-03-01T00:00:00Z')
@@ -579,11 +596,14 @@ describe('recurringChanges', () => {
 			skip: new Set(['github-sponsors'])
 		});
 		expect(months).toEqual([
-			{ month: '2026-01', started: 1, stopped: 0, active: 1 },
-			{ month: '2026-02', started: 1, stopped: 0, active: 2 },
-			{ month: '2026-04', started: 0, stopped: 1, active: 1 },
-			{ month: '2026-06', started: 1, stopped: 0, active: 2 },
-			{ month: '2026-08', started: 0, stopped: 1, active: 1 }
+			{ month: '2026-01', started: 1, stopped: 0, startedBy: [a], stoppedBy: [], active: 1 },
+			{ month: '2026-02', started: 1, stopped: 0, startedBy: [b], stoppedBy: [], active: 2 },
+			{ month: '2026-03', started: 1, stopped: 0, startedBy: [d], stoppedBy: [], active: 3 },
+			{ month: '2026-04', started: 0, stopped: 1, startedBy: [], stoppedBy: [a], active: 2 },
+			{ month: '2026-05', started: 0, stopped: 0, startedBy: [], stoppedBy: [], active: 2 },
+			{ month: '2026-06', started: 1, stopped: 0, startedBy: [a], stoppedBy: [], active: 3 },
+			{ month: '2026-07', started: 0, stopped: 1, startedBy: [], stoppedBy: [d], active: 2 },
+			{ month: '2026-08', started: 0, stopped: 1, startedBy: [], stoppedBy: [a], active: 1 }
 		]);
 	});
 });

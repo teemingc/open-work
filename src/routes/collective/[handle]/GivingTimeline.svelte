@@ -128,6 +128,19 @@
 	const risers = $derived(steps.filter((step) => step.round));
 	/** A few days of giving are marked by their own dates rather than evenly spaced ones. */
 	const dayTicks = $derived(short && risers.length <= 4 ? risers.map((step) => step.date) : 2);
+	/** Room a dot needs after the one before it, in pixels, so a busy stretch is not a row of dots. */
+	const DOT_ROOM = 16;
+	/** The giving days that get a dot: each at least {@link DOT_ROOM} after the last one marked. */
+	function spaced(x: (date: Date) => number) {
+		let last = -Infinity;
+		return new Set(
+			risers.filter((step) => {
+				if (x(step.date) - last < DOT_ROOM) return false;
+				last = x(step.date);
+				return true;
+			})
+		);
+	}
 	/** Room a round's label needs after the one before it, or the axis, in pixels. */
 	const LABEL_ROOM = 44;
 	const given = $derived(days.at(-1)?.given ?? 0);
@@ -245,18 +258,24 @@
 						<Area seriesKey="given" fill="none" line={{ strokeWidth: 2 }} />
 					{/snippet}
 					{#snippet aboveMarks({ context })}
-						<!-- Each day it gave, with what it gave where there is room to say. -->
+						<!--
+							The days it gave, where there is room for a dot, with what it gave where there is room to
+							say. The step line shows every rise; the dots only pick out the ones that stand apart.
+						-->
+						{const dotted = $derived(spaced(context.xScale))}
 						{#each risers as step, index (step.date.getTime())}
 							{@const x = context.xScale(step.date)}
 							{@const y = context.yScale(step.given)}
 							{@const before = risers[index - 1]}
-							<circle
-								cx={x}
-								cy={y}
-								r="3.5"
-								class="pointer-events-none fill-chart-expenses stroke-card"
-								stroke-width="1.5"
-							/>
+							{#if dotted.has(step)}
+								<circle
+									cx={x}
+									cy={y}
+									r="3.5"
+									class="pointer-events-none fill-chart-expenses stroke-card"
+									stroke-width="1.5"
+								/>
+							{/if}
 							{#if step.round && x - (before ? context.xScale(before.date) : 0) >= LABEL_ROOM}
 								<text
 									x={x - 5}
