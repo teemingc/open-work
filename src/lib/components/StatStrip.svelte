@@ -71,8 +71,10 @@
 					label wraps beside the badge rather than running under it, and labels sit at the top so a
 					one-line label lines up with a neighbour that wraps.
 				-->
-				<dt class="flex min-h-5.5 items-start justify-between gap-2 text-sm text-muted-foreground">
-					<span class="min-w-0 leading-5.5">{stat.label}</span>
+				<dt
+					class="flex min-h-5.5 flex-wrap items-start justify-between gap-x-2 gap-y-1 text-sm text-muted-foreground"
+				>
+					<span class="leading-5.5 whitespace-nowrap">{stat.label}</span>
 					{#if stat.badge}
 						{@const Icon = stat.badge.icon && ICONS[stat.badge.icon]}
 						{#if stat.badge.detail}

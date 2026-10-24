@@ -27,6 +27,7 @@ import {
 	type TimeSeriesNode,
 	type Unpaid
 } from './financials';
+import { toCommitments, toGrants, type CommitmentNode, type GrantNode } from './grants';
 
 /**
  * The collective in the address, like "svelte". Any text is let through and checked with `slug`, so
@@ -159,6 +160,45 @@ const PAYOUTS_QUERY = /* GraphQL */ `
 	}
 `;
 
+const GRANT_NODES = /* GraphQL */ `
+	nodes {
+		createdAt
+		netAmount {
+			value
+		}
+		oppositeAccount {
+			slug
+			name
+			imageUrl(height: 96)
+			currency
+			stats {
+				totalAmountReceived(periodInMonths: 12) {
+					value
+				}
+			}
+		}
+		order {
+			frequency
+		}
+	}
+`;
+
+/** Contributions the collective made to other accounts, as a fund that passes its money on does. */
+const GRANTS_QUERY = /* GraphQL */ `
+	query Grants($slug: String!, $from: DateTime!, $limit: Int!, $offset: Int!) {
+		transactions(
+			account: [{ slug: $slug }]
+			type: DEBIT
+			kind: [CONTRIBUTION]
+			dateFrom: $from
+			limit: $limit
+			offset: $offset
+		) {
+			${GRANT_NODES}
+		}
+	}
+`;
+
 // `net: true` takes fees out of what was received and adds payment processor fees to what was
 // spent, so each month's balance change is exactly income minus expenses.
 /** Stops with a not-found page that names the collective asked for. */
@@ -172,6 +212,18 @@ const STATS_QUERY = /* GraphQL */ `
 			name
 			imageUrl(height: 128)
 			currency
+			commitments: orders(filter: OUTGOING, status: [ACTIVE], limit: 1000) {
+				nodes {
+					frequency
+					amount {
+						value
+					}
+					toAccount {
+						slug
+						name
+					}
+				}
+			}
 			stats {
 				balance: balanceTimeSeries(timeUnit: MONTH, dateFrom: $from) {
 					nodes {
@@ -209,6 +261,16 @@ const STATS_QUERY = /* GraphQL */ `
 			totalCount
 			${PAYOUT_NODES}
 		}
+		grants: transactions(
+			account: [{ slug: $slug }]
+			type: DEBIT
+			kind: [CONTRIBUTION]
+			dateFrom: $from
+			limit: $limit
+		) {
+			totalCount
+			${GRANT_NODES}
+		}
 		unpaid: expenses(
 			account: { slug: $slug }
 			status: [PENDING, APPROVED, SCHEDULED_FOR_PAYMENT, PROCESSING]
@@ -232,6 +294,7 @@ interface StatsResult {
 		name: string;
 		imageUrl: string | null;
 		currency: string;
+		commitments: { nodes: CommitmentNode[] };
 		stats: {
 			balance: { nodes: TimeSeriesNode[] };
 			received: { nodes: TimeSeriesNode[] };
@@ -239,17 +302,19 @@ interface StatsResult {
 		};
 	} | null;
 	payouts: { totalCount: number; nodes: PayoutNode[] };
+	grants: { totalCount: number; nodes: GrantNode[] };
 	unpaid: { nodes: { status: string; amount: { value: number }; payee: { slug: string } }[] };
 }
 
 /** Monthly balance, income and spending for the collective, from Open Collective's public stats. */
 const loadStats = perKey({
-	cacheKey: (slug) => `stats:v3:${slug}`,
+	cacheKey: (slug) => `stats:v8:${slug}`,
 	maxAgeMs: CACHE_MS,
 	load: async (slug, ask) => {
 		const from = '2016-01-01T00:00:00Z';
 		let result: StatsResult;
 		let payouts: PayoutNode[];
+		let grants: GrantNode[];
 		try {
 			result = await ask<StatsResult>({
 				query: STATS_QUERY,
@@ -262,6 +327,19 @@ const loadStats = perKey({
 					fetchPage: async (offset) => {
 						const page = await ask<{ transactions: { nodes: PayoutNode[] } }>({
 							query: PAYOUTS_QUERY,
+							variables: { slug, from, limit: PAGE_SIZE, offset }
+						});
+						return page.transactions.nodes;
+					}
+				}))
+			];
+			grants = [
+				...result.grants.nodes,
+				...(await remainingPages({
+					total: result.grants.totalCount,
+					fetchPage: async (offset) => {
+						const page = await ask<{ transactions: { nodes: GrantNode[] } }>({
+							query: GRANTS_QUERY,
 							variables: { slug, from, limit: PAGE_SIZE, offset }
 						});
 						return page.transactions.nodes;
@@ -290,6 +368,8 @@ const loadStats = perKey({
 				now
 			}),
 			payouts: toPayouts(payouts),
+			grants: toGrants(grants),
+			commitments: toCommitments(account.commitments.nodes),
 			unpaid: result.unpaid.nodes.map((expense): Unpaid => ({
 				slug: expense.payee.slug,
 				amount: expense.amount.value,

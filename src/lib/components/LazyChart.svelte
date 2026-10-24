@@ -37,12 +37,17 @@
 					AreaChart,
 					Axis,
 					BarChart,
+					Chart: LayerChart,
 					Circle,
 					ClipPath,
+					Layer,
 					LinearGradient,
 					LineChart,
+					Pack,
+					Pattern,
 					ScatterChart,
-					Threshold
+					Threshold,
+					Tooltip
 				}) => ({
 					Area,
 					AreaChart,
@@ -50,10 +55,15 @@
 					BarChart,
 					Circle,
 					ClipPath,
+					Layer,
+					LayerChart,
 					LinearGradient,
 					LineChart,
+					Pack,
+					Pattern,
 					ScatterChart,
-					Threshold
+					Threshold,
+					TooltipRoot: Tooltip.Root
 				})
 			),
 			import('./SeriesLegend.svelte').then(({ default: Legend, legendMotion }) => ({

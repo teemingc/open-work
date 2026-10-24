@@ -27,7 +27,8 @@
 		months,
 		partialKey,
 		range,
-		now
+		now,
+		backersOnly = false
 	}: {
 		/**
 		 * Passed in rather than awaited here: values derived after a top-level `await` stop caching
@@ -43,6 +44,8 @@
 		partialKey?: string;
 		range: '1y' | '2y' | 'all';
 		now: Date;
+		/** Only who gives, for a fund, which passes on one or two big gifts rather than living on them. */
+		backersOnly?: boolean;
 	} = $props();
 
 	const CONTRIBUTION_KINDS = ['CONTRIBUTION', 'ADDED_FUNDS', 'BALANCE_TRANSFER'];
@@ -164,120 +167,53 @@
 	</Card.Root>
 {:else}
 	<!-- Cards may shrink below their longest name, which truncates instead of widening the page. -->
-	<div class="grid animate-in gap-4 duration-300 fade-in *:min-w-0 lg:grid-cols-2">
+	<div
+		class={[
+			'grid animate-in gap-4 duration-300 fade-in *:min-w-0',
+			!backersOnly && 'lg:grid-cols-2'
+		]}
+	>
 		<!-- Two charts stacked beside the backers list, the first growing to match its height. -->
-		<div class="flex flex-col gap-4">
-			<Card.Root class="flex-1">
-				<Card.Header>
-					<Card.Title>Recurring and one-off contributions</Card.Title>
-					<Card.Description>
-						{money.format(total)} contributed {periodPhrase(months)}, {percent.format(
-							total ? recurring / total : 0
-						)} of it from recurring contributions.
-						{#if transferred}
-							{total - transferred < 0.005 ? 'All of it' : money.format(transferred)} was moved from other
-							accounts' balances on Open Collective, not paid in.
-						{/if}
-					</Card.Description>
-				</Card.Header>
-				<!--
+		{#if !backersOnly}
+			<div class="flex flex-col gap-4">
+				<Card.Root class="flex-1">
+					<Card.Header>
+						<Card.Title>Recurring and one-off contributions</Card.Title>
+						<Card.Description>
+							{money.format(total)} contributed {periodPhrase(months)}, {percent.format(
+								total ? recurring / total : 0
+							)} of it from recurring contributions.
+							{#if transferred}
+								{total - transferred < 0.005 ? 'All of it' : money.format(transferred)} was moved from
+								other accounts' balances on Open Collective, not paid in.
+							{/if}
+						</Card.Description>
+					</Card.Header>
+					<!--
 			Grows to the height of the backers list beside it instead of leaving a gap. At least as tall
 			as the chart while it waits, since growing from nothing leaves it no height of its own.
 		-->
-				<Card.Content class="flex flex-1 flex-col">
-					<LazyChart class="mb-3 min-h-64 flex-1">
-						{#snippet children({ BarChart, Chart, Legend, legendMotion })}
-							<Chart.Container {config} class="aspect-auto h-full min-h-64 w-full cursor-pointer">
-								<BarChart
-									padding={chartPadding({ legend: true })}
-									data={rows}
-									x="month"
-									xScale={scaleBand().padding(0.2)}
-									seriesLayout="stack"
-									onTooltipClick={contributionsLink.click}
-									series={[
-										{
-											key: 'recurring',
-											label: config.recurring.label,
-											color: config.recurring.color
-										},
-										{ key: 'oneOff', label: config.oneOff.label, color: config.oneOff.color }
-									]}
-									props={{
-										bars: { radius: 2, strokeWidth: 0, motion: legendMotion },
-										xAxis: {
-											tickLength: TICK_LENGTH,
-											tickOcclusion: X_TICK_OCCLUSION,
-											ticks: bandTicks(months),
-											format: bandTickLabel
-										},
-										yAxis: {
-											tickLength: TICK_LENGTH,
-											tickLabelProps: Y_TICK_LABEL,
-											format: (v: number) => compact.format(v)
-										},
-										tooltip: { context: { locked: contributionsLink.locked } }
-									}}
-								>
-									{#snippet tooltip()}
-										<Chart.Tooltip
-											labelFormatter={(key: string) => monthLabel({ key, partialKey })}
-											formatter={row}
-											href={contributionsLink.href}
-										/>
-									{/snippet}
-									{#snippet legend({ context })}
-										<Legend {context} placement="bottom" />
-									{/snippet}
-								</BarChart>
-							</Chart.Container>
-						{/snippet}
-					</LazyChart>
-				</Card.Content>
-			</Card.Root>
-
-			{#if income.recurring.length}
-				<Card.Root>
-					<Card.Header>
-						<Card.Title>Recurring backers</Card.Title>
-						<Card.Description>
-							{backerCount(activeNow)}
-							{activeNow === 1 ? 'gives' : 'give'} regularly now.
-							{#if started || stopped}
-								{started} started and {stopped} stopped {periodPhrase(months)}.
-							{:else}
-								None started or stopped {periodPhrase(months)}.
-							{/if}
-							Green when there are more than a year earlier, red when fewer.
-						</Card.Description>
-					</Card.Header>
-					<Card.Content>
-						<LazyChart class="h-56">
-							{#snippet children({ Area, AreaChart, Chart, Threshold })}
-								<Chart.Container
-									config={changeConfig}
-									class="aspect-auto h-56 w-full cursor-pointer"
-								>
-									<!--
-									Starts and stops are in the tooltip, not on the chart: the line is what they add up to.
-									Each month's point sits where the bars above centre theirs.
-								-->
-									<AreaChart
-										padding={chartPadding()}
-										data={changes}
+					<Card.Content class="flex flex-1 flex-col">
+						<LazyChart class="mb-3 min-h-64 flex-1">
+							{#snippet children({ BarChart, Chart, Legend, legendMotion })}
+								<Chart.Container {config} class="aspect-auto h-full min-h-64 w-full cursor-pointer">
+									<BarChart
+										padding={chartPadding({ legend: true })}
+										data={rows}
 										x="month"
-										xScale={scalePoint().padding(0.6)}
-										y={['active', 'yearBefore']}
-										yNice
-										onTooltipClick={backersLink.click}
+										xScale={scaleBand().padding(0.2)}
+										seriesLayout="stack"
+										onTooltipClick={contributionsLink.click}
 										series={[
 											{
-												key: 'active',
-												label: changeConfig.active.label,
-												color: changeConfig.active.color
-											}
+												key: 'recurring',
+												label: config.recurring.label,
+												color: config.recurring.color
+											},
+											{ key: 'oneOff', label: config.oneOff.label, color: config.oneOff.color }
 										]}
 										props={{
+											bars: { radius: 2, strokeWidth: 0, motion: legendMotion },
 											xAxis: {
 												tickLength: TICK_LENGTH,
 												tickOcclusion: X_TICK_OCCLUSION,
@@ -287,88 +223,162 @@
 											yAxis: {
 												tickLength: TICK_LENGTH,
 												tickLabelProps: Y_TICK_LABEL,
-												format: (v: number) => whole.format(v)
+												format: (v: number) => compact.format(v)
 											},
-											tooltip: { context: { locked: backersLink.locked } }
+											tooltip: { context: { locked: contributionsLink.locked } }
 										}}
 									>
-										{#snippet marks()}
-											<!-- Shaded between the count and the year before, like the balance chart. -->
-											<Threshold defined={compared}>
-												{#snippet above({ defined })}
-													<Area
-														y0="active"
-														y1="yearBefore"
-														{defined}
-														fill="color-mix(in oklab, var(--color-status-paid) 22%, transparent)"
-													/>
-												{/snippet}
-												{#snippet below({ defined })}
-													<Area
-														y0="active"
-														y1="yearBefore"
-														{defined}
-														fill="color-mix(in oklab, var(--color-destructive) 22%, transparent)"
-													/>
-												{/snippet}
-											</Threshold>
-											<Area
-												y0="yearBefore"
-												y1="yearBefore"
-												defined={compared}
-												fill="none"
-												line={{ class: 'stroke-muted-foreground', 'stroke-dasharray': '2 3' }}
-											/>
-											<Area seriesKey="active" fill="none" line={{ strokeWidth: 2 }} />
-										{/snippet}
-										{#snippet tooltip({ context })}
-											{@const hovered = context.tooltip.data as (typeof changes)[number] | null}
+										{#snippet tooltip()}
 											<Chart.Tooltip
 												labelFormatter={(key: string) => monthLabel({ key, partialKey })}
-												href={backersLink.href}
-											>
-												{#snippet formatter()}
-													{#if hovered}
-														<div class="flex w-full flex-col gap-1.5">
-															<MoneyRow
-																value={hovered.active}
-																name={changeConfig.active.label}
-																color={changeConfig.active.color}
-																money={whole}
-															/>
-															{#if hovered.yearBefore !== undefined}
-																<MoneyRow
-																	value={hovered.yearBefore}
-																	name={changeConfig.yearBefore.label}
-																	color={changeConfig.yearBefore.color}
-																	money={whole}
-																/>
-															{/if}
-															<MoneyRow
-																value={hovered.started}
-																name={changeConfig.started.label}
-																color={changeConfig.started.color}
-																money={whole}
-															/>
-															<MoneyRow
-																value={hovered.stopped}
-																name={changeConfig.stopped.label}
-																color={changeConfig.stopped.color}
-																money={whole}
-															/>
-														</div>
-													{/if}
-												{/snippet}
-											</Chart.Tooltip>
+												formatter={row}
+												href={contributionsLink.href}
+											/>
 										{/snippet}
-									</AreaChart>
+										{#snippet legend({ context })}
+											<Legend {context} placement="bottom" />
+										{/snippet}
+									</BarChart>
 								</Chart.Container>
 							{/snippet}
 						</LazyChart>
 					</Card.Content>
 				</Card.Root>
-			{/if}
-		</div>
+
+				{#if income.recurring.length}
+					<Card.Root>
+						<Card.Header>
+							<Card.Title>Recurring backers</Card.Title>
+							<Card.Description>
+								{backerCount(activeNow)}
+								{activeNow === 1 ? 'gives' : 'give'} regularly now.
+								{#if started || stopped}
+									{started} started and {stopped} stopped {periodPhrase(months)}.
+								{:else}
+									None started or stopped {periodPhrase(months)}.
+								{/if}
+								Green when there are more than a year earlier, red when fewer.
+							</Card.Description>
+						</Card.Header>
+						<Card.Content>
+							<LazyChart class="h-56">
+								{#snippet children({ Area, AreaChart, Chart, Threshold })}
+									<Chart.Container
+										config={changeConfig}
+										class="aspect-auto h-56 w-full cursor-pointer"
+									>
+										<!--
+									Starts and stops are in the tooltip, not on the chart: the line is what they add up to.
+									Each month's point sits where the bars above centre theirs.
+								-->
+										<AreaChart
+											padding={chartPadding()}
+											data={changes}
+											x="month"
+											xScale={scalePoint().padding(0.6)}
+											y={['active', 'yearBefore']}
+											yNice
+											onTooltipClick={backersLink.click}
+											series={[
+												{
+													key: 'active',
+													label: changeConfig.active.label,
+													color: changeConfig.active.color
+												}
+											]}
+											props={{
+												xAxis: {
+													tickLength: TICK_LENGTH,
+													tickOcclusion: X_TICK_OCCLUSION,
+													ticks: bandTicks(months),
+													format: bandTickLabel
+												},
+												yAxis: {
+													tickLength: TICK_LENGTH,
+													tickLabelProps: Y_TICK_LABEL,
+													format: (v: number) => whole.format(v)
+												},
+												tooltip: { context: { locked: backersLink.locked } }
+											}}
+										>
+											{#snippet marks()}
+												<!-- Shaded between the count and the year before, like the balance chart. -->
+												<Threshold defined={compared}>
+													{#snippet above({ defined })}
+														<Area
+															y0="active"
+															y1="yearBefore"
+															{defined}
+															fill="color-mix(in oklab, var(--color-status-paid) 22%, transparent)"
+														/>
+													{/snippet}
+													{#snippet below({ defined })}
+														<Area
+															y0="active"
+															y1="yearBefore"
+															{defined}
+															fill="color-mix(in oklab, var(--color-destructive) 22%, transparent)"
+														/>
+													{/snippet}
+												</Threshold>
+												<Area
+													y0="yearBefore"
+													y1="yearBefore"
+													defined={compared}
+													fill="none"
+													line={{ class: 'stroke-muted-foreground', 'stroke-dasharray': '2 3' }}
+												/>
+												<Area seriesKey="active" fill="none" line={{ strokeWidth: 2 }} />
+											{/snippet}
+											{#snippet tooltip({ context })}
+												{@const hovered = context.tooltip.data as (typeof changes)[number] | null}
+												<Chart.Tooltip
+													labelFormatter={(key: string) => monthLabel({ key, partialKey })}
+													href={backersLink.href}
+												>
+													{#snippet formatter()}
+														{#if hovered}
+															<div class="flex w-full flex-col gap-1.5">
+																<MoneyRow
+																	value={hovered.active}
+																	name={changeConfig.active.label}
+																	color={changeConfig.active.color}
+																	money={whole}
+																/>
+																{#if hovered.yearBefore !== undefined}
+																	<MoneyRow
+																		value={hovered.yearBefore}
+																		name={changeConfig.yearBefore.label}
+																		color={changeConfig.yearBefore.color}
+																		money={whole}
+																	/>
+																{/if}
+																<MoneyRow
+																	value={hovered.started}
+																	name={changeConfig.started.label}
+																	color={changeConfig.started.color}
+																	money={whole}
+																/>
+																<MoneyRow
+																	value={hovered.stopped}
+																	name={changeConfig.stopped.label}
+																	color={changeConfig.stopped.color}
+																	money={whole}
+																/>
+															</div>
+														{/if}
+													{/snippet}
+												</Chart.Tooltip>
+											{/snippet}
+										</AreaChart>
+									</Chart.Container>
+								{/snippet}
+							</LazyChart>
+						</Card.Content>
+					</Card.Root>
+				{/if}
+			</div>
+		{/if}
 
 		<Card.Root>
 			<Card.Header>
@@ -550,7 +560,9 @@
 			</Card.Content>
 		</Card.Root>
 
-		<!-- What share each backer, platform and everyone else gives. -->
-		<BackerWaffle {backers} {money} period={periodPhrase(months)} />
+		<!-- What share each backer, platform and everyone else gives. A fund's few backers are clear without it. -->
+		{#if !backersOnly}
+			<BackerWaffle {backers} {money} period={periodPhrase(months)} />
+		{/if}
 	</div>
 {/if}

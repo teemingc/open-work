@@ -51,6 +51,8 @@
 	import CollectiveSearch from '#lib/components/CollectiveSearch.svelte';
 	import IncomeSources from './IncomeSources.svelte';
 	import MoneyRow from './MoneyRow.svelte';
+	import FundView from './FundView.svelte';
+	import { isFund } from './grants';
 	import { rememberCollective } from '#lib/recent-collectives.js';
 	import { rememberDashboardSearch, type Search } from '#lib/dashboard-search.svelte.js';
 	import {
@@ -144,6 +146,18 @@
 	/** This month so far, which a collective too new to forecast has alone. */
 	const thisMonth = $derived(data.months.find((m) => m.partial));
 	const balance = $derived(data.months.at(-1)?.balance ?? 0);
+	/** A collective that passes its money on to others, which a forecast of its spending would misread. */
+	const fund = $derived(isFund({ grants: data.grants, months: data.months }));
+	/**
+	 * A fund with one backer that gave nearly everything, which its own view already names, so a
+	 * card with a single bar would only repeat it.
+	 */
+	const soleBacker = $derived.by(() => {
+		if (!fund || !income) return false;
+		const total = income.backers.all.reduce((sum, backer) => sum + backer.amount, 0);
+		const top = income.backers.all[0]?.amount ?? 0;
+		return total > 0 && top / total >= 0.9;
+	});
 
 	// Approved expenses will be paid soon, so they are taken out before forecasting.
 	const committed = $derived(
@@ -215,6 +229,7 @@
 	);
 	/** Everything that came in and went out in the months shown, this month included. */
 	const shownIncome = $derived(shown.reduce((sum, m) => sum + m.income, 0));
+	const allIncome = $derived(data.months.reduce((sum, m) => sum + m.income, 0));
 	const shownExpenses = $derived(shown.reduce((sum, m) => sum + m.expenses, 0));
 
 	const money = $derived(moneyFormat(data.currency));
@@ -719,7 +734,7 @@
 			href={`https://opencollective.com/${data.slug}`}
 			target="_blank"
 			rel="noreferrer"
-			class="group flex min-w-0 items-center gap-4 rounded-xl"
+			class="group flex min-w-0 flex-col items-start gap-3 rounded-xl sm:flex-row sm:items-center sm:gap-4"
 		>
 			{#if data.imageUrl}
 				<!--
@@ -776,7 +791,9 @@
 			<Alert.Description>This collective has no contributions or expenses yet.</Alert.Description>
 		</Alert.Root>
 	{:else}
-		{#if tooNew}
+		{#if fund}
+			<FundView {data} {income} {now} />
+		{:else if tooNew}
 			<Alert.Root>
 				<CalendarClock />
 				<Alert.Title>Too new to forecast</Alert.Title>
@@ -819,9 +836,11 @@
 			One compact strip, so the balance chart is on screen when the page opens. Averages of no months
 			say nothing, so only what is available shows until there are some.
 		-->
-		<StatStrip stats={tooNew ? stats.slice(0, 1) : stats} />
+		{#if !fund}
+			<StatStrip stats={tooNew ? stats.slice(0, 1) : stats} />
+		{/if}
 
-		{#if !tooNew}
+		{#if !tooNew && !fund}
 			<!--
 				Each label above its buttons, which leaves the buttons the full width on phones. One row from
 				tablets up, and labels beside their buttons on wide screens.
@@ -1054,71 +1073,76 @@
 			</Card.Root>
 		{/if}
 
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>Expenses and contributions</Card.Title>
-				<Card.Description>
-					{#if tooNew && thisMonth}
-						Contributions of {money.format(thisMonth.income)} and expenses of {money.format(
-							thisMonth.expenses
-						)} so far this month.
-					{:else}
-						Contributions of {money.format(totals.income)} and expenses of {money.format(
-							totals.expenses
-						)} over {totals.months} months{#if me}. {money.format(totals.mine)}
-							({percent.format(totals.expenses ? totals.mine / totals.expenses : 0)}) of expenses
-							went to you{/if}.
-					{/if}
-				</Card.Description>
-			</Card.Header>
-			<Card.Content>
-				<LazyChart class="mb-3 h-64">
-					{#snippet children({ BarChart, Chart, Legend, legendMotion })}
-						<div bind:clientWidth={flowWidth}>
-							<Chart.Container config={flowConfig} class="aspect-auto h-64 w-full cursor-pointer">
-								<BarChart
-									padding={flowPadding}
-									data={monthly}
-									x="month"
-									xScale={scaleBand().padding(0.2)}
-									seriesLayout="overlap"
-									onTooltipClick={monthLink.click}
-									series={flowSeries}
-									props={{
-										bars: { radius: 2, strokeWidth: 0, motion: legendMotion },
-										xAxis: {
-											tickLength: TICK_LENGTH,
-											tickOcclusion: X_TICK_OCCLUSION,
-											ticks,
-											format: bandTickLabel
-										},
-										yAxis: {
-											tickLength: TICK_LENGTH,
-											tickLabelProps: Y_TICK_LABEL,
-											format: (v: number) => compact.format(v)
-										},
-										tooltip: { context: { locked: monthLink.locked } }
-									}}
-								>
-									{#snippet tooltip()}
-										<Chart.Tooltip
-											labelFormatter={labelMonth}
-											formatter={moneyRow}
-											href={monthLink.href}
-										/>
-									{/snippet}
-									{#snippet legend({ context })}
-										<Legend {context} placement="bottom" />
-									{/snippet}
-								</BarChart>
-							</Chart.Container>
-						</div>
-					{/snippet}
-				</LazyChart>
-			</Card.Content>
-		</Card.Root>
-
 		<!--
+			A fund passes on one or two big gifts, so a month's money in and out, its figures and its
+			expense categories only repeat what its own view says, or are empty.
+		-->
+		{#if !fund}
+			<Card.Root>
+				<Card.Header>
+					<Card.Title>Expenses and contributions</Card.Title>
+					<Card.Description>
+						{#if tooNew && thisMonth}
+							Contributions of {money.format(thisMonth.income)} and expenses of {money.format(
+								thisMonth.expenses
+							)} so far this month.
+						{:else}
+							Contributions of {money.format(totals.income)} and expenses of {money.format(
+								totals.expenses
+							)} over {totals.months} months{#if me}. {money.format(totals.mine)}
+								({percent.format(totals.expenses ? totals.mine / totals.expenses : 0)}) of expenses
+								went to you{/if}.
+						{/if}
+					</Card.Description>
+				</Card.Header>
+				<Card.Content>
+					<LazyChart class="mb-3 h-64">
+						{#snippet children({ BarChart, Chart, Legend, legendMotion })}
+							<div bind:clientWidth={flowWidth}>
+								<Chart.Container config={flowConfig} class="aspect-auto h-64 w-full cursor-pointer">
+									<BarChart
+										padding={flowPadding}
+										data={monthly}
+										x="month"
+										xScale={scaleBand().padding(0.2)}
+										seriesLayout="overlap"
+										onTooltipClick={monthLink.click}
+										series={flowSeries}
+										props={{
+											bars: { radius: 2, strokeWidth: 0, motion: legendMotion },
+											xAxis: {
+												tickLength: TICK_LENGTH,
+												tickOcclusion: X_TICK_OCCLUSION,
+												ticks,
+												format: bandTickLabel
+											},
+											yAxis: {
+												tickLength: TICK_LENGTH,
+												tickLabelProps: Y_TICK_LABEL,
+												format: (v: number) => compact.format(v)
+											},
+											tooltip: { context: { locked: monthLink.locked } }
+										}}
+									>
+										{#snippet tooltip()}
+											<Chart.Tooltip
+												labelFormatter={labelMonth}
+												formatter={moneyRow}
+												href={monthLink.href}
+											/>
+										{/snippet}
+										{#snippet legend({ context })}
+											<Legend {context} placement="bottom" />
+										{/snippet}
+									</BarChart>
+								</Chart.Container>
+							</div>
+						{/snippet}
+					</LazyChart>
+				</Card.Content>
+			</Card.Root>
+
+			<!--
 			The charts above as figures, for screen readers and keyboards: each month opens its transactions.
 			On phones the gain or loss, which is income less expenses, makes way for the rest, and the
 			month and the contributions heading shorten, so the table fits without scrolling sideways. On
@@ -1126,58 +1150,59 @@
 			month still in progress is ruled off with its figures in italics, as a ledger marks an entry not
 			yet closed, and says how far its figures go.
 		-->
-		<details class="rounded-xl border bg-card text-sm">
-			<summary class="cursor-pointer px-4 py-3 font-medium">Monthly figures</summary>
-			<div class="overflow-x-auto border-t">
-				<table class="ledger">
-					<caption class="sr-only">Contributions, expenses and balance by month</caption>
-					<thead class="text-xs">
-						<tr>
-							<th class="py-2 pr-1.5 pl-3 sm:px-4">Month</th>
-							<th class="px-1.5 py-2 text-right sm:px-4">
-								<span class="sm:hidden">Income</span>
-								<span class="hidden sm:inline">Contributions</span>
-							</th>
-							<th class="px-1.5 py-2 text-right sm:px-4">Expenses</th>
-							<th class="hidden px-4 py-2 text-right sm:table-cell">Gained or lost</th>
-							<th class="py-2 pr-3 pl-1.5 text-right sm:px-4">Balance</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each shown as month (month.key)}
-							{@const partial = month.key === partialKey}
-							<tr class={partial ? 'border-t border-dashed border-rule/40 [&>td]:italic' : ''}>
-								<th scope="row" class="py-2 pr-1.5 pl-3 font-normal whitespace-nowrap sm:px-4">
-									<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
-									<a
-										href={transactionsUrl({ slug: data.slug, month: month.key })}
-										target="_blank"
-										rel="noreferrer"
-										class="hover:underline"
-									>
-										<span class="sm:hidden">{bandTickLabel(month.key)}</span>
-										<span class="hidden sm:inline">{monthLabel({ key: month.key })}</span>
-										{#if partial}
-											<span class="block text-xs text-muted-foreground italic">
-												to {dayMonth.format(now)}
-											</span>
-										{/if}
-										<span class="sr-only">(opens in a new tab)</span>
-									</a>
-									<!-- eslint-enable svelte/no-navigation-without-resolve -->
+			<details class="rounded-xl border bg-card text-sm">
+				<summary class="cursor-pointer px-4 py-3 font-medium">Monthly figures</summary>
+				<div class="overflow-x-auto border-t">
+					<table class="ledger">
+						<caption class="sr-only">Contributions, expenses and balance by month</caption>
+						<thead class="text-xs">
+							<tr>
+								<th class="py-2 pr-1.5 pl-3 sm:px-4">Month</th>
+								<th class="px-1.5 py-2 text-right sm:px-4">
+									<span class="sm:hidden">Income</span>
+									<span class="hidden sm:inline">Contributions</span>
 								</th>
-								<td class="px-1.5 py-2 text-right sm:px-4">{money.format(month.income)}</td>
-								<td class="px-1.5 py-2 text-right sm:px-4">{money.format(month.expenses)}</td>
-								<td class="hidden px-4 py-2 text-right sm:table-cell"
-									>{signed(Math.round(month.net))}</td
-								>
-								<td class="py-2 pr-3 pl-1.5 text-right sm:px-4">{money.format(month.balance)}</td>
+								<th class="px-1.5 py-2 text-right sm:px-4">Expenses</th>
+								<th class="hidden px-4 py-2 text-right sm:table-cell">Gained or lost</th>
+								<th class="py-2 pr-3 pl-1.5 text-right sm:px-4">Balance</th>
 							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-		</details>
+						</thead>
+						<tbody>
+							{#each shown as month (month.key)}
+								{@const partial = month.key === partialKey}
+								<tr class={partial ? 'border-t border-dashed border-rule/40 [&>td]:italic' : ''}>
+									<th scope="row" class="py-2 pr-1.5 pl-3 font-normal whitespace-nowrap sm:px-4">
+										<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
+										<a
+											href={transactionsUrl({ slug: data.slug, month: month.key })}
+											target="_blank"
+											rel="noreferrer"
+											class="hover:underline"
+										>
+											<span class="sm:hidden">{bandTickLabel(month.key)}</span>
+											<span class="hidden sm:inline">{monthLabel({ key: month.key })}</span>
+											{#if partial}
+												<span class="block text-xs text-muted-foreground italic">
+													to {dayMonth.format(now)}
+												</span>
+											{/if}
+											<span class="sr-only">(opens in a new tab)</span>
+										</a>
+										<!-- eslint-enable svelte/no-navigation-without-resolve -->
+									</th>
+									<td class="px-1.5 py-2 text-right sm:px-4">{money.format(month.income)}</td>
+									<td class="px-1.5 py-2 text-right sm:px-4">{money.format(month.expenses)}</td>
+									<td class="hidden px-4 py-2 text-right sm:table-cell"
+										>{signed(Math.round(month.net))}</td
+									>
+									<td class="py-2 pr-3 pl-1.5 text-right sm:px-4">{money.format(month.balance)}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			</details>
+		{/if}
 
 		<!-- Left out when it has neither card, so it adds no gap of its own. -->
 		{#if me || payees.cells.length > 0}
@@ -1312,25 +1337,31 @@
 			</div>
 		{/if}
 
-		<ExpenseCategories
-			slug={data.slug}
-			currency={data.currency}
-			months={shownKeys}
-			{partialKey}
-			payouts={data.payouts}
-			spent={shownExpenses}
-		/>
-
-		{#if income}
-			<IncomeSources
-				{income}
-				received={shownIncome}
+		{#if !fund}
+			<ExpenseCategories
 				slug={data.slug}
 				currency={data.currency}
 				months={shownKeys}
 				{partialKey}
-				{range}
+				payouts={data.payouts}
+				spent={shownExpenses}
+			/>
+		{/if}
+
+		{#if soleBacker}
+			<!-- Named in the fund's own view. -->
+		{:else if income}
+			<!-- A fund's page has no range to pick, so its backers are all time, like its banner. -->
+			<IncomeSources
+				{income}
+				received={fund ? allIncome : shownIncome}
+				slug={data.slug}
+				currency={data.currency}
+				months={fund ? data.months.map((m) => m.key) : shownKeys}
+				{partialKey}
+				range={fund ? 'all' : range}
 				{now}
+				backersOnly={fund}
 			/>
 		{:else if incomeQuery?.error}
 			<Alert.Root variant="destructive">
