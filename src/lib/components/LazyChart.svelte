@@ -45,7 +45,9 @@
 					LineChart,
 					Pack,
 					Pattern,
+					Rect,
 					ScatterChart,
+					Text,
 					Threshold,
 					Tooltip
 				}) => ({
@@ -61,7 +63,9 @@
 					LineChart,
 					Pack,
 					Pattern,
+					Rect,
 					ScatterChart,
+					Text,
 					Threshold,
 					TooltipRoot: Tooltip.Root
 				})

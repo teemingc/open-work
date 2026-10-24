@@ -257,7 +257,10 @@
 								{:else}
 									None started or stopped {periodPhrase(months)}.
 								{/if}
-								Green when there are more than a year earlier, red when fewer.
+								<!-- How to read the chart, on its own line apart from what the figures say. -->
+								<span class="block"
+									>Green when there are more than a year earlier, red when fewer.</span
+								>
 							</Card.Description>
 						</Card.Header>
 						<Card.Content>
@@ -488,13 +491,18 @@
 											<li class="flex items-center gap-1.5">
 												<span class="size-2 rounded-[2px] {TIER_SHADES[index]}" aria-hidden="true"
 												></span>
-												{tier.count}
-												{tier.max === null
-													? `gave ${money.format(tier.min)}+`
-													: tier.min === 0
-														? `gave under ${money.format(tier.max)}`
-														: `gave ${money.format(tier.min)}–${money.format(tier.max - 1)}`}:
-												<span class="tabular-nums">{money.format(tier.amount)}</span>
+												<!-- One backer's range says no more than what they gave, so it is left out. -->
+												{#if tier.count === 1}
+													1 gave <span class="tabular-nums">{money.format(tier.amount)}</span>
+												{:else}
+													{tier.count}
+													{tier.max === null
+														? `gave ${money.format(tier.min)}+`
+														: tier.min === 0
+															? `gave under ${money.format(tier.max)}`
+															: `gave ${money.format(tier.min)}–${money.format(tier.max - 1)}`}:
+													<span class="tabular-nums">{money.format(tier.amount)}</span>
+												{/if}
 											</li>
 										{/each}
 									</ul>

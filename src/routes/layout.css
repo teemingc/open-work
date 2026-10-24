@@ -143,12 +143,16 @@
 	--chart-expenses: #e0577d;
 	--chart-expenses-muted: #f6c3d1;
 	--chart-income-muted: #bcd3fb;
-	/* Series colours differ in lightness as well as hue, so they stay apart with colour blindness,
-	   and each reaches 3:1 against a card. */
+	/* Categories are shades of the two hues the charts already use, told apart by lightness: blue
+	   for money coming in and for anything else, pink for expenses. Other is slate. */
 	--chart-1: #1869f5;
-	--chart-2: #e0577d;
-	--chart-3: #00684f;
-	--chart-4: #c27c00;
+	--chart-2: #0c2764;
+	--chart-3: #7ba7f7;
+	--chart-4: #bcd3fb;
+	--chart-expenses-1: #e0577d;
+	--chart-expenses-2: #8c2347;
+	--chart-expenses-3: #ee93ac;
+	--chart-expenses-4: #f6c3d1;
 	--chart-other: #8794a8;
 	--chart-balance: #0c2764;
 }
@@ -189,9 +193,13 @@
 	--chart-expenses-muted: #5a2a3a;
 	--chart-income-muted: #23386e;
 	--chart-1: #5b95ff;
-	--chart-2: #e8648a;
-	--chart-3: #7ee0c9;
-	--chart-4: #f3b544;
+	--chart-2: #c9dbff;
+	--chart-3: #3365d1;
+	--chart-4: #23386e;
+	--chart-expenses-1: #f28ba6;
+	--chart-expenses-2: #fbd3de;
+	--chart-expenses-3: #c4486e;
+	--chart-expenses-4: #5a2a3a;
 	--chart-other: #5f6e98;
 	--chart-balance: #8fb4ff;
 }
@@ -239,6 +247,10 @@
 	--color-chart-2: var(--chart-2);
 	--color-chart-3: var(--chart-3);
 	--color-chart-4: var(--chart-4);
+	--color-chart-expenses-1: var(--chart-expenses-1);
+	--color-chart-expenses-2: var(--chart-expenses-2);
+	--color-chart-expenses-3: var(--chart-expenses-3);
+	--color-chart-expenses-4: var(--chart-expenses-4);
 	--color-chart-other: var(--chart-other);
 	--color-chart-balance: var(--chart-balance);
 }

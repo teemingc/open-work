@@ -10,6 +10,7 @@ const stats = {
 	fetchedAt: '2026-10-22T08:00:00.000Z',
 	months: [{ key: '2026-10', balance: 1000, received: 200, spent: 100 }],
 	payouts: [],
+	payeeImages: {},
 	unpaid: []
 } as unknown as CollectiveStats;
 

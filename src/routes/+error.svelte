@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import RetryableError from '#lib/components/RetryableError.svelte';
@@ -25,6 +25,15 @@
 			? { message: 'Trying again usually fixes it. If not, give it a few minutes.' }
 			: page.error
 	);
+
+	/**
+	 * Loads the page again rather than only its data. Re-running the loads alone left a page that
+	 * failed while drawing on this error, so the button flashed its spinner and nothing changed.
+	 */
+	function retry() {
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the address already open
+		return goto(page.url.href, { invalidateAll: true, replaceState: true });
+	}
 
 	const destinations = [
 		{
@@ -60,7 +69,7 @@
 	leaves the rest of the app a click away.
 -->
 <div
-	class="mx-auto grid max-w-md gap-8 pt-10 sm:pt-16 lg:min-h-[calc(100svh-17rem)] lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:content-center lg:items-center lg:gap-20 lg:pt-0"
+	class="mx-auto grid max-w-md gap-8 pt-10 sm:pt-16 lg:min-h-[calc(100svh-17rem)] lg:max-w-4xl lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:content-center lg:items-center lg:gap-12 lg:pt-0"
 >
 	<div class="space-y-3 text-center lg:space-y-5 lg:text-left">
 		<h1 class="lg:text-[clamp(3rem,1.5rem+3vw,4.5rem)] lg:leading-[1.05]">{heading}</h1>
@@ -76,7 +85,7 @@
 			</p>
 		{:else}
 			<div class="text-muted-foreground lg:max-w-[34ch] lg:text-lg">
-				<RetryableError {error} onretry={() => invalidateAll()} prominent />
+				<RetryableError {error} onretry={retry} prominent />
 			</div>
 			{#if page.status >= 500}
 				<p class="pt-2 text-sm text-muted-foreground">
@@ -97,11 +106,6 @@
 	</div>
 
 	<nav aria-label="Pages">
-		{#if !notFound}
-			<p class="mb-3 text-center text-sm text-muted-foreground lg:text-left">
-				Other pages may still load.
-			</p>
-		{/if}
 		<div class="overflow-hidden rounded-xl border bg-card">
 			<ul class="divide-y">
 				{#each destinations as { href, icon: Icon, name, about } (href)}

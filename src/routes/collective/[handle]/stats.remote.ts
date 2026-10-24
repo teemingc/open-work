@@ -22,6 +22,7 @@ import {
 	othersBySize,
 	topAccounts,
 	toPayouts,
+	accountImages,
 	type ContributionNode,
 	type PayoutNode,
 	type TimeSeriesNode,
@@ -135,6 +136,7 @@ const PAYOUT_NODES = /* GraphQL */ `
 		oppositeAccount {
 			slug
 			name
+			imageUrl(height: 64)
 		}
 		expense {
 			type
@@ -308,7 +310,7 @@ interface StatsResult {
 
 /** Monthly balance, income and spending for the collective, from Open Collective's public stats. */
 const loadStats = perKey({
-	cacheKey: (slug) => `stats:v8:${slug}`,
+	cacheKey: (slug) => `stats:v9:${slug}`,
 	maxAgeMs: CACHE_MS,
 	load: async (slug, ask) => {
 		const from = '2016-01-01T00:00:00Z';
@@ -370,6 +372,7 @@ const loadStats = perKey({
 			payouts: toPayouts(payouts),
 			grants: toGrants(grants),
 			commitments: toCommitments(account.commitments.nodes),
+			payeeImages: accountImages(payouts),
 			unpaid: result.unpaid.nodes.map((expense): Unpaid => ({
 				slug: expense.payee.slug,
 				amount: expense.amount.value,

@@ -34,6 +34,7 @@ export function netDetail({
 	now,
 	before,
 	change,
+	swing,
 	more,
 	windows
 }: {
@@ -43,15 +44,18 @@ export function netDetail({
 	before: { amount: string; falling: boolean };
 	/** How much more or less it moves by when both windows go the same way, like "$1,334". */
 	change: string;
+	/** How far it swung when the windows go opposite ways: from decreasing $500 to increasing $300 is "$800". */
+	swing: string;
 	/** Whether it moves by more than before. */
 	more: boolean;
 	windows: Windows;
 }): string {
 	const direction = (falling: boolean) => (falling ? 'decreasing' : 'increasing');
 	const lead = direction(now.falling).replace(/^./, (letter) => letter.toUpperCase());
-	// Going the other way to before, "more" or "less" would compare unlike things, so it names both.
+	// Going the other way to before, "more" or "less" than its amount would compare unlike things,
+	// so it says how far it swung and what it did before.
 	if (now.falling !== before.falling) {
-		return `${lead} by ${now.amount} compared to ${direction(before.falling)} by ${before.amount} in ${windows.earlier}.`;
+		return `It has ${now.falling ? 'shrunk' : 'grown'} by ${swing} more compared to ${windows.earlier}, where it was ${direction(before.falling)} by ${before.amount}.`;
 	}
 	return `${lead} by ${change} ${more ? 'more' : 'less'} compared to ${before.amount} in ${windows.earlier}.`;
 }

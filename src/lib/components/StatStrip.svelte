@@ -11,8 +11,8 @@
 			icon?: 'up' | 'down' | 'hourglass';
 			tone?: string;
 			/**
-			 * What the badge means, opened by tapping or clicking it, since a hover title never shows on
-			 * touch. An aside, like what a forecast leaves out, goes after it in a paragraph of its own.
+			 * What the badge means, opened by hovering with a mouse, or by tapping it on a touch screen,
+			 * where there is no hover. An aside, like what a forecast leaves out, goes after it in a paragraph of its own.
 			 */
 			detail?: string;
 			aside?: string;
@@ -79,7 +79,7 @@
 						{@const Icon = stat.badge.icon && ICONS[stat.badge.icon]}
 						{#if stat.badge.detail}
 							<Popover.Root>
-								<Popover.Trigger>
+								<Popover.Trigger openOnHover openDelay={200}>
 									{#snippet child({ props })}
 										<button
 											{...props}

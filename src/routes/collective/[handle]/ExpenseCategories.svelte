@@ -33,23 +33,54 @@
 		spent: number;
 	} = $props();
 
+	/** Shades of the expenses pink, so the categories read as expenses like everywhere else on the page. */
 	const COLORS = [
-		'var(--color-chart-1)',
-		'var(--color-chart-2)',
-		'var(--color-chart-3)',
-		'var(--color-chart-4)'
+		'var(--color-chart-expenses-1)',
+		'var(--color-chart-expenses-2)',
+		'var(--color-chart-expenses-3)',
+		'var(--color-chart-expenses-4)'
 	];
 
 	const money = $derived(moneyFormat(currency));
 	const compact = $derived(compactFormat(currency));
 	const byCategory = $derived(categoriesByMonth({ payouts, months, limit: 4 }));
+	/**
+	 * The categories past the top four, which share the last band, with what each was paid, biggest
+	 * first. Empty when every category has a band of its own.
+	 */
+	const lumped = $derived.by(() => {
+		if (byCategory.categories.at(-1) !== 'Other') return [];
+		const top = new Set(byCategory.categories.slice(0, -1));
+		const keys = new Set(months);
+		const totals = payouts
+			.filter((payout) => keys.has(payout.month) && !top.has(payout.category))
+			.reduce(
+				(totals, payout) =>
+					totals.set(payout.category, (totals.get(payout.category) ?? 0) + payout.amount),
+				new Map<string, number>()
+			);
+		return [...totals].sort(([, a], [, b]) => b - a);
+	});
+	/** The last band is named by how many categories it holds, or by its one category. */
+	const lumpedLabel = $derived(lumped.length === 1 ? lumped[0][0] : `${lumped.length} more`);
 	const series = $derived(
 		byCategory.categories.map((category, i) => ({
 			key: `c${i}`,
-			label: category,
+			label: category === 'Other' && lumped.length ? lumpedLabel : category,
 			color: category === 'Other' ? 'var(--color-chart-other)' : COLORS[i]
 		}))
 	);
+	/** What each band adds up to over the months shown, by its series key. */
+	const bandTotals = $derived(
+		new Map(
+			series.map((s) => [
+				s.key,
+				byCategory.rows.reduce((sum, row) => sum + (row[s.key] as number), 0)
+			])
+		)
+	);
+	const paidOut = $derived([...bandTotals.values()].reduce((sum, total) => sum + total, 0));
+	const percent = new Intl.NumberFormat('en-US', { style: 'percent' });
 	const config = $derived(
 		Object.fromEntries(
 			series.map((s) => [s.key, { label: s.label, color: s.color }])
@@ -68,6 +99,35 @@
 {#snippet row({ value, name, item }: { value: unknown; name: string; item: { color?: string } })}
 	{#if typeof value === 'number' && value !== 0}
 		<MoneyRow {value} {name} color={item.color} {money} />
+	{/if}
+{/snippet}
+
+<!--
+	What a category's band adds up to over the months shown, and its share of expenses. The last band,
+	when it holds several categories, lists them.
+-->
+{#snippet categoryDetails(key: string)}
+	{@const total = bandTotals.get(key) ?? 0}
+	{@const share = paidOut ? total / paidOut : 0}
+	<div class="flex justify-between gap-3 p-1 text-xs">
+		<span class="min-w-0 font-medium">{config[key]?.label}</span>
+		<span class="shrink-0 tabular-nums">{money.format(total)}</span>
+	</div>
+	<p class="px-1 text-xs text-muted-foreground">
+		<!-- Rounded to a whole percent, a small share read as none at all. -->
+		{share > 0 && share < 0.01 ? 'Less than 1%' : percent.format(share)} of expenses {periodPhrase(
+			months
+		)}
+	</p>
+	{#if key === series.at(-1)?.key && lumped.length > 1}
+		<ul class="mt-2 max-h-56 space-y-1 overflow-y-auto border-t pt-2 text-xs">
+			{#each lumped as [category, amount] (category)}
+				<li class="flex justify-between gap-3 px-1">
+					<span class="min-w-0 text-muted-foreground">{category}</span>
+					<span class="shrink-0 tabular-nums">{money.format(amount)}</span>
+				</li>
+			{/each}
+		</ul>
 	{/if}
 {/snippet}
 
@@ -125,6 +185,7 @@
 									<Legend
 										{context}
 										classes={{ root: 'w-full', items: '-mx-2 flex-wrap sm:justify-center' }}
+										details={categoryDetails}
 									/>
 								</div>
 							{/snippet}

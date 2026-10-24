@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	accountImages,
 	accountName,
 	accountsByMonth,
 	byQuarter,
@@ -173,6 +174,24 @@ describe('toPayouts', () => {
 			{ month: '2026-09', slug: 'host', name: 'HOST', category: 'Development', amount: 30 },
 			{ month: '2026-10', slug: 'me', name: 'ME', category: 'Development', amount: 10 }
 		]);
+	});
+});
+
+describe('accountImages', () => {
+	it("keeps each payee's first avatar and skips those without one", () => {
+		const payout = (slug: string, imageUrl: string | null) => ({
+			createdAt: '2026-09-01T10:00:00Z',
+			netAmount: { value: -10 },
+			oppositeAccount: { slug, name: slug, imageUrl },
+			expense: null
+		});
+		expect(
+			accountImages([
+				payout('me', 'https://a/me.png'),
+				payout('me', 'https://a/me-later.png'),
+				payout('host', null)
+			])
+		).toEqual({ me: 'https://a/me.png' });
 	});
 });
 

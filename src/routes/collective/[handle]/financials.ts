@@ -24,7 +24,7 @@ export interface PayoutNode {
 	createdAt: string;
 	/** Negative, and includes payment processor fees. */
 	netAmount: { value: number };
-	oppositeAccount: { slug: string; name: string } | null;
+	oppositeAccount: { slug: string; name: string; imageUrl?: string | null } | null;
 	expense: { type: string; accountingCategory: { name: string } | null } | null;
 }
 
@@ -160,6 +160,15 @@ const TYPE_CATEGORIES: Record<string, string> = {
 export function accountName(account: { slug: string; name: string } | null): string {
 	if (account?.name) return account.name;
 	return account?.slug.startsWith('guest-') ? 'Anonymous' : 'Unknown';
+}
+
+/** Each payee's avatar by slug, for the accounts Open Collective has one for. */
+export function accountImages(nodes: PayoutNode[]): Record<string, string> {
+	const images: Record<string, string> = {};
+	for (const { oppositeAccount: account } of nodes) {
+		if (account?.slug && account.imageUrl) images[account.slug] ??= account.imageUrl;
+	}
+	return images;
 }
 
 /** A short category name, such as "Hosting & Subscriptions" from "Expenses - Hosting & Subscriptions". */
@@ -526,7 +535,7 @@ export function paidTo({
  * Everyone past `limit` is summed into one row with an empty slug.
  */
 /** Each account's total in the given months, biggest first. */
-function accountTotals({
+export function accountTotals({
 	rows,
 	months
 }: {

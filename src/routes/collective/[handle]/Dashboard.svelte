@@ -10,16 +10,20 @@
 	import { chartPadding, TICK_LENGTH, X_TICK_OCCLUSION, Y_TICK_LABEL } from '#lib/chart-padding.js';
 	import * as Alert from '#lib/components/ui/alert/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
+	import * as Popover from '#lib/components/ui/popover/index.js';
 	import type { ChartConfig } from '#lib/components/ui/chart/chart-utils.js';
 	import * as ToggleGroup from '#lib/components/ui/toggle-group/index.js';
 	import { scaleBand, scaleTime } from 'd3-scale';
-	import type { TextProps } from 'layerchart';
+	import type { BrushState, TextProps } from 'layerchart';
+	import type { Rect as RectMark } from 'layerchart/svg';
 	import {
 		ArrowRight,
 		CalendarClock,
 		ExternalLink,
 		TrendingDown,
-		TrendingUp
+		TrendingUp,
+		User,
+		Users
 	} from '@lucide/svelte';
 	import RetryableError from '#lib/components/RetryableError.svelte';
 	import StatStrip, { type Stat } from '#lib/components/StatStrip.svelte';
@@ -34,6 +38,7 @@
 	} from './chart-format';
 	import ExpenseCategories from './ExpenseCategories.svelte';
 	import * as details from './stat-details';
+	import { dataBackground } from './data-background';
 	import {
 		change,
 		forecast,
@@ -43,6 +48,7 @@
 		paidTo,
 		previousAverages,
 		accountsByMonth,
+		accountTotals,
 		byQuarter,
 		quarterStart,
 		transactionsUrl,
@@ -301,13 +307,20 @@
 
 	const paidToMe = $derived(paidTo({ payouts: data.payouts, slug: me, months: data.months }));
 
+	// Expenses are negative so they hang below contributions on the same axis.
 	const monthly = $derived(
-		shown.map((m) => ({
-			month: m.key,
-			income: Math.round(m.income),
-			expenses: Math.round(m.expenses),
-			you: Math.round(paidToMe.get(m.key) ?? 0)
-		}))
+		shown.map((m) => {
+			const mine = paidToMe.get(m.key) ?? 0;
+			return {
+				month: m.key,
+				income: Math.round(m.income),
+				expenses: -Math.round(m.expenses),
+				you: -Math.round(mine),
+				others: -Math.round(m.expenses - mine),
+				gained: m.net >= 0 ? Math.round(m.net) : null,
+				spent: m.net < 0 ? Math.round(m.net) : null
+			};
+		})
 	);
 
 	const totals = $derived.by(() => {
@@ -318,34 +331,65 @@
 		return { months: complete.length, income, expenses, mine, net: income - expenses };
 	});
 
-	/** The payee chart's width, for sizing its dots. */
+	/** The payee charts' width, totals included, for sizing their dots. */
 	let payeeWidth = $state(0);
 	/**
 	 * On phones, full names and totals left the dots so little room that they all looked the same
 	 * size, so names are cut shorter and totals are rounded, like "$54K".
 	 */
 	const payeeNarrow = $derived(payeeWidth > 0 && payeeWidth < 400);
-	/** How wide a payee's name may be beside the "Who was paid" chart. */
-	const payeeLabelWidth = $derived(payeeNarrow ? 72 : 110);
-	/** Room for a payee's total, like "$12,300", on the other side. */
-	const payeeTotalWidth = $derived(payeeNarrow ? 40 : 60);
+	/** The column of avatars and names beside the "Who was paid" chart, cut short on phones. */
+	const payeeNameWidth = $derived(payeeNarrow ? 100 : 150);
+	/**
+	 * The totals column beside the charts. On wider screens a bar sits beside each figure, like
+	 * "$12,300". On phones, with no room for both, it sits behind a rounded one, like "$54K".
+	 */
+	const PAYEE_BAR_WIDTH = 48;
+	const payeeTotalWidth = $derived(payeeNarrow ? 56 : PAYEE_BAR_WIDTH + 72);
 	const payeeTotalFormat = $derived(payeeNarrow ? compact : money);
+	/** Room under the rows of dots, which leave their months' labels to the overview below. */
+	const PAYEE_ROWS_BOTTOM = 4;
+	const PAYEE_OVERVIEW_TOP = 4;
+	/** Shared by the dots and the overview under them, so their columns line up. */
+	const payeePadding = chartPadding({ left: 2 });
 	/** The width the payee chart's dots are drawn across, between the names and the totals. */
 	const payeePlot = $derived(
-		payeeWidth - (payeeLabelWidth + TICK_LENGTH + 6) - (payeeTotalWidth + TICK_LENGTH)
+		payeeWidth - payeeNameWidth - payeeTotalWidth - payeePadding.left - payeePadding.right
 	);
+
 	/** Narrower than this a month, as on phones, dots barely differ in size, so quarters are shown. */
 	const MIN_MONTH_WIDTH = 12;
 	const payeeQuarterly = $derived(
 		payeeWidth > 0 && payeePlot / Math.max(1, shownKeys.length) < MIN_MONTH_WIDTH
 	);
-	/** The columns of the payee chart: the months shown, or the first month of each quarter. */
+	/** The columns of the payee charts: the months shown, or the first month of each quarter. */
 	const payeeKeys = $derived(
 		payeeQuarterly ? [...new Set(shownKeys.map(quarterStart))] : shownKeys
 	);
-	/** The months shown that a column covers: one, or up to three for a quarter. */
+	/** The months shown that a column holds: one, or up to three for a quarter. */
 	const payeeMonths = (key: string) =>
 		payeeQuarterly ? shownKeys.filter((month) => quarterStart(month) === key) : [key];
+
+	/**
+	 * The columns picked by brushing the overview under the payee chart. Kept with the columns they
+	 * were picked from, since the overview starts afresh when the range or the columns change.
+	 */
+	const payeeColumnsId = $derived(`${range} ${payeeQuarterly}`);
+	let payeeBrush = $state<{ id: string; keys: string[] } | null>(null);
+	/** The columns picked, or none when every column counts. */
+	const payeePicked = $derived(
+		payeeBrush?.id === payeeColumnsId && payeeBrush.keys.length ? payeeBrush.keys : null
+	);
+	function brushPayees({ brush }: { brush: BrushState }) {
+		const [from, to] = brush.x.map((key) => payeeKeys.indexOf(key as string));
+		payeeBrush =
+			brush.active && from >= 0 && to >= 0
+				? { id: payeeColumnsId, keys: payeeKeys.slice(from, to + 1) }
+				: null;
+	}
+	/** The months the totals add up: those in the columns picked, or every month shown. */
+	const payeeWindow = $derived(payeePicked ? payeePicked.flatMap(payeeMonths) : shownKeys);
+
 	/**
 	 * The biggest dot: under half a column's width, so dots in neighbouring columns never overlap and
 	 * each is its own target, but no bigger than 11px however wide the chart.
@@ -353,27 +397,79 @@
 	const payeeMaxRadius = $derived(
 		Math.max(1.5, Math.min(11, (payeePlot / Math.max(1, payeeKeys.length)) * 0.45))
 	);
-	/** The axis labels' size, for measuring them. */
-	const LABEL_STYLE = { fontSize: '12px' } as CSSStyleDeclaration;
+	/** The rows come from every month shown, so picking some months never reorders them. */
 	const payees = $derived(accountsByMonth({ rows: data.payouts, months: shownKeys, limit: 7 }));
-	const payeeName = $derived(
-		new Map(payees.accounts.map((account) => [account.slug, account.name]))
+	/** What each payee was paid over the months picked, for the column beside the chart. */
+	const payeeTotals = $derived.by(() => {
+		const months = new Set(payeeWindow);
+		return payees.cells
+			.filter((cell) => months.has(cell.month))
+			.reduce(
+				(totals, cell) => totals.set(cell.slug, (totals.get(cell.slug) ?? 0) + cell.amount),
+				new Map<string, number>()
+			);
+	});
+	/** Every expense in the months picked, on Open Collective, for the payees too many to list. */
+	const payeeExpensesUrl = $derived(
+		transactionsUrl({
+			slug: data.slug,
+			between: { from: payeeWindow[0], to: payeeWindow.at(-1)! },
+			kinds: ['EXPENSE']
+		})
 	);
-	/** What each payee was paid over the months shown, for the column beside the chart. */
-	const payeeTotals = $derived(
-		payees.cells.reduce(
-			(totals, cell) => totals.set(cell.slug, (totals.get(cell.slug) ?? 0) + cell.amount),
+	/** Who was paid in a column of the overview, by name: the biggest few, and how many more. */
+	function paidInColumn(key: string | undefined) {
+		const paid = key ? accountTotals({ rows: data.payouts, months: payeeMonths(key) }) : [];
+		const rest = paid.slice(PAYEES_IN_TOOLTIP);
+		return {
+			shown: paid.slice(0, PAYEES_IN_TOOLTIP),
+			rest: { count: rest.length, amount: rest.reduce((sum, account) => sum + account.amount, 0) }
+		};
+	}
+	const PAYEES_IN_TOOLTIP = 6;
+	/** What one payee was paid each month picked, or each quarter when there are more than six. */
+	function payeePeriods(slug: string): { label: string; amount: number }[] {
+		const byQuarter = payeeWindow.length > 6;
+		const parts = data.payouts
+			.filter((row) => row.slug === slug && payeeWindow.includes(row.month))
+			.reduce((parts, row) => {
+				const key = byQuarter ? quarterStart(row.month) : row.month;
+				return parts.set(key, (parts.get(key) ?? 0) + row.amount);
+			}, new Map<string, number>());
+		return [...parts]
+			.sort(([a], [b]) => a.localeCompare(b))
+			.map(([key, amount]) => ({
+				label: byQuarter
+					? periodLabel(payeeWindow.filter((month) => quarterStart(month) === key))
+					: labelMonth(key),
+				amount
+			}));
+	}
+	const payeeTotalMax = $derived(Math.max(1, ...payeeTotals.values()));
+	const payeeWindowTotal = $derived([...payeeTotals.values()].reduce((sum, t) => sum + t, 0));
+	const payeeCells = $derived(payeeQuarterly ? byQuarter(payees.cells) : payees.cells);
+	/** Everything paid out in each column, for the overview under the payee chart. */
+	const paidByColumn = $derived.by(() => {
+		const paid = payeeCells.reduce(
+			(paid, cell) => paid.set(cell.month, (paid.get(cell.month) ?? 0) + cell.amount),
 			new Map<string, number>()
-		)
+		);
+		return payeeKeys.map((month) => ({ month, amount: Math.round(paid.get(month) ?? 0) }));
+	});
+	/** The months the totals add up, in words, as the description says them. */
+	const payeePeriod = $derived(
+		payeePicked
+			? payeePicked.length === 1
+				? `in ${payeeColumnLabel(payeePicked[0])}`
+				: `from ${labelMonth(payeeWindow[0])} to ${labelMonth(payeeWindow.at(-1)!)}`
+			: periodPhrase(shownKeys)
 	);
 	const payeeSeries = $derived(
 		(['you', 'others'] as const).map((key) => ({
 			key,
 			label: payeeConfig[key].label,
 			color: payeeConfig[key].color,
-			data: (payeeQuarterly ? byQuarter(payees.cells) : payees.cells).filter(
-				(cell) => (cell.slug === me) === (key === 'you')
-			)
+			data: payeeCells.filter((cell) => (cell.slug === me) === (key === 'you'))
 		}))
 	);
 
@@ -403,45 +499,33 @@
 		forecast: { label: 'Forecast', color: 'var(--color-chart-balance)' }
 	} satisfies ChartConfig;
 
-	const flowConfig = $derived({
+	const flowConfig = {
 		income: { label: 'Contributions', color: 'var(--color-chart-income)' },
-		// When "Paid to you" sits on top of it, what shows of expenses is what went to others.
-		expenses: {
-			label: 'Expenses',
-			color: me ? 'var(--color-chart-expenses-muted)' : 'var(--color-chart-expenses)'
-		},
-		you: { label: 'Paid to you', color: 'var(--color-chart-expenses)' }
-	} satisfies ChartConfig);
-
-	const flowPadding = chartPadding({ legend: true });
-	/** The income chart's width, for sizing its bars. */
-	let flowWidth = $state(0);
-	/**
-	 * Expenses sit inside the income bar, a fifth of a month's width in from each side. Worked out
-	 * from the width rather than the chart's own scale, which depends on these series.
-	 */
-	const flowInset = $derived(
-		scaleBand()
-			.domain(shownKeys)
-			.range([0, Math.max(0, flowWidth - flowPadding.left - flowPadding.right)])
-			.padding(0.2)
-			.bandwidth() / 5
-	);
+		expenses: { label: 'Expenses', color: 'var(--color-chart-expenses)' },
+		you: { label: 'Paid to you', color: 'var(--color-chart-expenses)' },
+		others: { label: 'Paid to others', color: 'var(--color-chart-expenses-muted)' }
+	} satisfies ChartConfig;
 
 	/**
-	 * Overlapped rather than stacked, so each month's income and expenses start from zero and compare
-	 * by height. Paid to you, a part of expenses, overlaps them in turn, so it reads as their base.
+	 * Contributions above the axis and expenses below it, rather than side by side or one inside the
+	 * other, which stayed readable however many months are shown and however narrow the screen.
 	 */
 	const flowSeries = $derived(
-		(me ? (['income', 'expenses', 'you'] as const) : (['income', 'expenses'] as const)).map(
-			(key) => ({
-				key,
-				label: flowConfig[key].label,
-				color: flowConfig[key].color,
-				props: key === 'income' ? undefined : { insets: { x: flowInset } }
-			})
+		(me ? (['income', 'you', 'others'] as const) : (['income', 'expenses'] as const)).map(
+			(key) => ({ key, label: flowConfig[key].label, color: flowConfig[key].color })
 		)
 	);
+
+	/** In the chart above's colours: a gain as contributions, money spent from the balance as expenses. */
+	const netConfig = {
+		gained: { label: 'Gained', color: 'var(--color-chart-income)' },
+		spent: { label: 'Spent', color: 'var(--color-chart-expenses)' }
+	} satisfies ChartConfig;
+	const netSeries = (['gained', 'spent'] as const).map((key) => ({
+		key,
+		label: netConfig[key].label,
+		color: netConfig[key].color
+	}));
 
 	// Matches the bars: others are muted only when they sit beside what was paid to you.
 	const payeeConfig = $derived({
@@ -451,6 +535,10 @@
 			color: me ? 'var(--color-chart-expenses-muted)' : 'var(--color-chart-expenses)'
 		}
 	} satisfies ChartConfig);
+
+	const payeeOverviewConfig = {
+		amount: { label: 'Paid out', color: 'var(--color-chart-expenses)' }
+	} satisfies ChartConfig;
 
 	/** Changes smaller than this are noise, so their badges stay uncoloured. */
 	const STEADY = 0.05;
@@ -520,6 +608,7 @@
 			now: signed(result.avgNet),
 			before: signed(before),
 			change: money.format(Math.abs(Math.abs(result.avgNet) - Math.abs(before))),
+			swing: money.format(Math.abs(result.avgNet - before)),
 			more: Math.abs(result.avgNet) > Math.abs(before),
 			windows
 		});
@@ -662,11 +751,14 @@
 	});
 
 	const shortMonth = new Intl.DateTimeFormat('en', { month: 'short', timeZone: 'UTC' });
-	/** A payee chart column in words: "Oct 2026", or "Jul–Sep 2026" for a quarter. */
-	function payeeColumnLabel(key: string): string {
-		const months = payeeMonths(key);
+	/** Months in words: "Oct 2026", or "Jul–Sep 2026" for a quarter. */
+	function periodLabel(months: string[]): string {
 		const last = labelMonth(months.at(-1)!);
 		return months.length > 1 ? `${shortMonth.format(monthEnd(months[0]))}–${last}` : last;
+	}
+	/** A payee chart column in words. */
+	function payeeColumnLabel(key: string): string {
+		return periodLabel(payeeMonths(key));
 	}
 	/** A quarter on the axis, like "Q3 26". */
 	const quarterTick = (key: string) => `Q${(Number(key.slice(5, 7)) + 2) / 3} ${key.slice(2, 4)}`;
@@ -697,19 +789,133 @@
 	</g>
 {/snippet}
 
-<!-- On two lines, which keeps it inside the forecast range on a phone. -->
+<!--
+	On two lines, which keeps it inside the forecast range on a phone. Outlined in the card's colour, so
+	it reads over the hatching and the gridlines behind it.
+-->
 {#snippet runsOutLabel({ props }: { props: TextProps })}
 	{@const date = runsOutDate ?? runsOutX}
 	{#if date}
 		<text
 			transform="translate({props.x} {props.y})"
 			text-anchor="end"
-			class="pointer-events-none fill-destructive text-xs font-medium"
+			class="pointer-events-none fill-destructive stroke-card! [stroke-width:4px] text-xs font-medium [paint-order:stroke] [stroke-linejoin:round]"
 		>
 			<tspan x="0" dy="0.9em">Runs out</tspan>
 			<tspan x="0" dy="1.25em">{monthYear.format(date)}</tspan>
 		</text>
 	{/if}
+{/snippet}
+
+{#snippet payeeFade({
+	context,
+	Rect
+}: {
+	context: {
+		xScale: ((key: string) => number | undefined) & {
+			bandwidth?: () => number;
+			step?: () => number;
+		};
+		height: number;
+	};
+	Rect: typeof RectMark;
+})}
+	<!-- Fades the columns left out of the pick, so the ones picked stand out where they are. -->
+	{#if payeePicked}
+		{@const step = context.xScale.step?.() ?? 0}
+		{@const gap = step - (context.xScale.bandwidth?.() ?? 0)}
+		{#each payeeKeys.filter((key) => !payeePicked.includes(key)) as key (key)}
+			<Rect
+				x={(context.xScale(key) ?? 0) - gap / 2}
+				y={0}
+				width={step}
+				height={context.height}
+				class="pointer-events-none fill-card opacity-75"
+			/>
+		{/each}
+	{/if}
+{/snippet}
+
+{#snippet payeeBands({
+	context,
+	Rect,
+	column,
+	row
+}: {
+	context: {
+		xScale: ((key: string) => number | undefined) & {
+			bandwidth?: () => number;
+			step?: () => number;
+		};
+		yScale: ((key: string) => number | undefined) & { bandwidth?: () => number };
+		width: number;
+		height: number;
+	};
+	Rect: typeof RectMark;
+	column?: string;
+	row?: string;
+})}
+	<!-- Shades the column and row under the pointer, behind the marks, as a punchcard does. -->
+	{#if column !== undefined && context.xScale(column) !== undefined}
+		{@const step = context.xScale.step?.() ?? 0}
+		{@const gap = step - (context.xScale.bandwidth?.() ?? 0)}
+		<Rect
+			x={(context.xScale(column) ?? 0) - gap / 2}
+			y={0}
+			width={step}
+			height={context.height}
+			class="pointer-events-none fill-muted"
+		/>
+	{/if}
+	{#if row !== undefined && context.yScale(row) !== undefined}
+		<Rect
+			x={0}
+			y={context.yScale(row) ?? 0}
+			width={context.width}
+			height={context.yScale.bandwidth?.() ?? 0}
+			class="pointer-events-none fill-muted"
+		/>
+	{/if}
+{/snippet}
+
+<!-- A payee's avatar and name, cut short to fit. Others share a group icon; a payee without an avatar, a person. -->
+{#snippet payeeLabel({ slug, name }: { slug: string; name: string })}
+	{@const image = data.payeeImages[slug]}
+	{#if image}
+		<img
+			src={image}
+			alt=""
+			class="size-5 shrink-0 rounded-full border bg-card object-cover"
+			loading="lazy"
+		/>
+	{:else}
+		<span
+			class="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
+		>
+			{#if slug}
+				<User class="size-3" aria-hidden="true" />
+			{:else}
+				<Users class="size-3" aria-hidden="true" />
+			{/if}
+		</span>
+	{/if}
+	<span class="truncate text-muted-foreground">{name}</span>
+{/snippet}
+
+<!--
+	What makes up a total: each month picked, or each quarter when there are more than six; for the
+	others row, each payee in it instead.
+-->
+{#snippet payeeBreakdown({ slug, name }: { slug: string; name: string })}
+	<p class="truncate px-1 pb-1 text-xs font-medium">{name}</p>
+	<ul class="max-h-56 space-y-0.5 overflow-y-auto text-xs">
+		{#each payeePeriods(slug) as part (part.label)}
+			<li class="flex justify-between gap-3 px-1">
+				<span class="min-w-0 truncate text-muted-foreground">{part.label}</span>
+				<span class="shrink-0 tabular-nums">{money.format(part.amount)}</span>
+			</li>
+		{/each}
+	</ul>
 {/snippet}
 
 {#snippet moneyRow({
@@ -1098,45 +1304,94 @@
 				<Card.Content>
 					<LazyChart class="mb-3 h-64">
 						{#snippet children({ BarChart, Chart, Legend, legendMotion })}
-							<div bind:clientWidth={flowWidth}>
-								<Chart.Container config={flowConfig} class="aspect-auto h-64 w-full cursor-pointer">
-									<BarChart
-										padding={flowPadding}
-										data={monthly}
-										x="month"
-										xScale={scaleBand().padding(0.2)}
-										seriesLayout="overlap"
-										onTooltipClick={monthLink.click}
-										series={flowSeries}
-										props={{
-											bars: { radius: 2, strokeWidth: 0, motion: legendMotion },
-											xAxis: {
-												tickLength: TICK_LENGTH,
-												tickOcclusion: X_TICK_OCCLUSION,
-												ticks,
-												format: bandTickLabel
-											},
-											yAxis: {
-												tickLength: TICK_LENGTH,
-												tickLabelProps: Y_TICK_LABEL,
-												format: (v: number) => compact.format(v)
-											},
-											tooltip: { context: { locked: monthLink.locked } }
-										}}
-									>
-										{#snippet tooltip()}
-											<Chart.Tooltip
-												labelFormatter={labelMonth}
-												formatter={moneyRow}
-												href={monthLink.href}
-											/>
-										{/snippet}
-										{#snippet legend({ context })}
-											<Legend {context} placement="bottom" />
-										{/snippet}
-									</BarChart>
-								</Chart.Container>
-							</div>
+							<Chart.Container config={flowConfig} class="aspect-auto h-64 w-full cursor-pointer">
+								<BarChart
+									padding={chartPadding({ legend: true })}
+									data={monthly}
+									x="month"
+									xScale={scaleBand().padding(0.2)}
+									seriesLayout="stackDiverging"
+									onTooltipClick={monthLink.click}
+									series={flowSeries}
+									props={{
+										bars: { radius: 2, strokeWidth: 0, motion: legendMotion },
+										xAxis: {
+											tickLength: TICK_LENGTH,
+											tickOcclusion: X_TICK_OCCLUSION,
+											ticks,
+											format: bandTickLabel
+										},
+										yAxis: {
+											tickLength: TICK_LENGTH,
+											tickLabelProps: Y_TICK_LABEL,
+											format: (v: number) => compact.format(Math.abs(v))
+										},
+										tooltip: { context: { locked: monthLink.locked } }
+									}}
+								>
+									{#snippet tooltip()}
+										<Chart.Tooltip
+											labelFormatter={labelMonth}
+											formatter={moneyRow}
+											href={monthLink.href}
+										/>
+									{/snippet}
+									{#snippet legend({ context })}
+										<Legend {context} placement="bottom" />
+									{/snippet}
+								</BarChart>
+							</Chart.Container>
+						{/snippet}
+					</LazyChart>
+					<!--
+						What each month left behind, contributions less expenses, under the months it comes from.
+						Its own scale, so a small gain still shows beside months of large flows.
+					-->
+					<h3 class="mt-6 text-sm font-medium">Gained or spent</h3>
+					<p class="text-sm text-muted-foreground">
+						{#if tooNew && thisMonth}
+							{signed(Math.round(thisMonth.net))} so far this month.
+						{:else}
+							{signed(Math.round(totals.net))} over {totals.months} months.
+						{/if}
+					</p>
+					<LazyChart class="mt-2 h-36">
+						{#snippet children({ BarChart, Chart })}
+							<Chart.Container config={netConfig} class="aspect-auto h-36 w-full cursor-pointer">
+								<BarChart
+									padding={chartPadding()}
+									data={monthly}
+									x="month"
+									xScale={scaleBand().padding(0.2)}
+									seriesLayout="stackDiverging"
+									series={netSeries}
+									onTooltipClick={monthLink.click}
+									props={{
+										bars: { radius: 2, strokeWidth: 0 },
+										xAxis: {
+											tickLength: TICK_LENGTH,
+											tickOcclusion: X_TICK_OCCLUSION,
+											ticks,
+											format: bandTickLabel
+										},
+										yAxis: {
+											tickLength: TICK_LENGTH,
+											tickLabelProps: Y_TICK_LABEL,
+											ticks: 3,
+											format: (v: number) => compact.format(v)
+										},
+										tooltip: { context: { locked: monthLink.locked } }
+									}}
+								>
+									{#snippet tooltip()}
+										<Chart.Tooltip
+											labelFormatter={labelMonth}
+											formatter={moneyRow}
+											href={monthLink.href}
+										/>
+									{/snippet}
+								</BarChart>
+							</Chart.Container>
 						{/snippet}
 					</LazyChart>
 				</Card.Content>
@@ -1163,7 +1418,7 @@
 									<span class="hidden sm:inline">Contributions</span>
 								</th>
 								<th class="px-1.5 py-2 text-right sm:px-4">Expenses</th>
-								<th class="hidden px-4 py-2 text-right sm:table-cell">Gained or lost</th>
+								<th class="hidden px-4 py-2 text-right sm:table-cell">Gained or spent</th>
 								<th class="py-2 pr-3 pl-1.5 text-right sm:px-4">Balance</th>
 							</tr>
 						</thead>
@@ -1224,110 +1479,315 @@
 						<Card.Header>
 							<Card.Title>Who was paid</Card.Title>
 							<Card.Description>
-								Expenses paid out each {payeeQuarterly ? 'quarter' : 'month'}. The bigger the dot,
-								the more was paid. The total amount paid out {periodPhrase(shownKeys)} is on the right.
+								Expenses paid out each {payeeQuarterly ? 'quarter' : 'month'}, with totals {payeePeriod}.
 							</Card.Description>
 						</Card.Header>
 						<Card.Content>
+							<!--
+								Names, dots and totals side by side, the overview of what was paid under the dots, so
+								a month lines up in both and a row runs straight across. Hovering a dot shades its
+								row and column among the dots.
+							-->
 							<div bind:clientWidth={payeeWidth}>
-								<LazyChart class="h-72">
-									{#snippet children({ Axis, Chart, Circle, ScatterChart })}
-										<Chart.Container
-											config={payeeConfig}
-											class="aspect-auto h-72 w-full cursor-pointer"
+								<LazyChart class="h-84">
+									{#snippet children({ BarChart, Chart, Circle, Rect, ScatterChart })}
+										<div
+											class="grid text-xs"
+											style:grid-template-columns="{payeeNameWidth}px minmax(0, 1fr) {payeeTotalWidth}px"
 										>
-											<ScatterChart
-												series={payeeSeries}
-												onTooltipClick={payeeLink.click}
-												x="month"
-												xScale={scaleBand()}
-												xDomain={payeeKeys}
-												y="slug"
-												yScale={scaleBand()}
-												yDomain={payees.accounts.map((account) => account.slug)}
-												r="amount"
-												rRange={[Math.min(2, payeeMaxRadius), payeeMaxRadius]}
-												padding={chartPadding({
-													left: payeeLabelWidth + TICK_LENGTH,
-													right: payeeTotalWidth + TICK_LENGTH
-												})}
-												props={{
-													points: { strokeWidth: 0, fillOpacity: 0.85 },
-													grid: { x: false, y: true, bandAlign: 'between' },
-													xAxis: {
-														tickLength: TICK_LENGTH,
-														tickOcclusion: X_TICK_OCCLUSION,
-														ticks: payeeTicks,
-														format: payeeQuarterly ? quarterTick : bandTickLabel
-													},
-													yAxis: {
-														tickLength: TICK_LENGTH,
-														// Rows, not values: each label sits beside its row of dots. Cut to the room the
-														// padding leaves, measured, since names of the same length differ in width.
-														// Measured at the labels' own size; LayerChart would use the page's 16px.
-														tickLabelProps: {
-															verticalAnchor: 'middle',
-															truncate: { maxWidth: payeeLabelWidth, style: LABEL_STYLE }
-														},
-														format: (slug: string) => payeeName.get(slug) ?? ''
-													},
-													tooltip: { context: { mode: 'band', locked: payeeLink.locked } }
-												}}
+											<div
+												class="flex flex-col"
+												style:padding-top="{payeePadding.top}px"
+												style:padding-bottom="{PAYEE_ROWS_BOTTOM}px"
 											>
-												<!--
-										Rings the hovered dot. Replaces the built-in highlight, which drew its point at the
-										start of the row, where it looked like another payment.
-									-->
-												<!-- Each payee's total at the end of their row, like a ledger's totals column. -->
-												{#snippet aboveMarks()}
-													<Axis
-														placement="right"
-														tickLength={TICK_LENGTH}
-														rule={false}
-														grid={false}
-														format={(slug: string) =>
-															payeeTotalFormat.format(payeeTotals.get(slug) ?? 0)}
-														tickLabelProps={{
-															verticalAnchor: 'middle',
-															// Right-aligned in their column, so the figures line up by digit.
-															textAnchor: 'end',
-															dx: payeeTotalWidth,
-															class: 'tabular-nums'
-														}}
-													/>
-												{/snippet}
-												{#snippet highlight({ context })}
-													{@const cell = context.tooltip.data}
-													{#if cell}
-														<Circle
-															cx={context.xGet(cell) + (context.xScale.bandwidth?.() ?? 0) / 2}
-															cy={context.yGet(cell) + (context.yScale.bandwidth?.() ?? 0) / 2}
-															r={context.rGet(cell) + 3}
-															class="pointer-events-none fill-none stroke-primary"
-															strokeWidth={1.5}
-														/>
-													{/if}
-												{/snippet}
-												{#snippet tooltip({ context })}
-													{@const cell = context.tooltip.data as {
-														name: string;
-														month: string;
-														amount: number;
-													} | null}
-													<Chart.Tooltip
-														hideIndicator
-														labelFormatter={() => (cell ? payeeColumnLabel(cell.month) : '')}
-														href={payeeLink.href}
-													>
-														{#snippet formatter()}
-															{#if cell}
-																<MoneyRow value={cell.amount} name={cell.name} {money} />
+												{#each payees.accounts as account (account.slug)}
+													<div class="flex min-h-0 flex-1 items-center pr-2">
+														{#if account.slug}
+															<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
+															<a
+																href="https://opencollective.com/{account.slug}"
+																target="_blank"
+																rel="noreferrer"
+																class="flex min-w-0 items-center gap-2 rounded-sm pl-1 hover:underline"
+															>
+																{@render payeeLabel(account)}
+																<span class="sr-only">on Open Collective (opens in a new tab)</span>
+															</a>
+															<!-- eslint-enable svelte/no-navigation-without-resolve -->
+														{:else}
+															<!-- Too many to list here, so the others open every expense in the months picked. -->
+															<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
+															<a
+																href={payeeExpensesUrl}
+																target="_blank"
+																rel="noreferrer"
+																class="flex min-w-0 items-center gap-2 rounded-sm pl-1 hover:underline"
+															>
+																{@render payeeLabel(account)}
+																<span class="sr-only"
+																	>: their expenses on Open Collective (opens in a new tab)</span
+																>
+															</a>
+															<!-- eslint-enable svelte/no-navigation-without-resolve -->
+														{/if}
+													</div>
+												{/each}
+											</div>
+											<Chart.Container
+												config={payeeConfig}
+												class="aspect-auto h-64 w-full cursor-pointer"
+											>
+												<ScatterChart
+													series={payeeSeries}
+													onTooltipClick={payeeLink.click}
+													x="month"
+													xScale={scaleBand()}
+													xDomain={payeeKeys}
+													y="slug"
+													yScale={scaleBand()}
+													yDomain={payees.accounts.map((account) => account.slug)}
+													r="amount"
+													rRange={[Math.min(2, payeeMaxRadius), payeeMaxRadius]}
+													padding={{ ...payeePadding, bottom: PAYEE_ROWS_BOTTOM }}
+													axis={false}
+													props={{
+														points: { strokeWidth: 0, fillOpacity: 0.85 },
+														grid: { x: false, y: true, bandAlign: 'between' },
+														tooltip: { context: { mode: 'band', locked: payeeLink.locked } }
+													}}
+												>
+													{#snippet belowMarks({ context })}
+														{@const cell = context.tooltip.data as {
+															month: string;
+															slug: string;
+														} | null}
+														{@render payeeBands({
+															context,
+															Rect,
+															column: cell?.month,
+															row: cell?.slug
+														})}
+													{/snippet}
+													{#snippet aboveMarks({ context })}
+														{@render payeeFade({ context, Rect })}
+													{/snippet}
+													<!--
+																Rings the hovered dot. Replaces the built-in highlight, which drew its point at
+																the start of the row, where it looked like another payment.
+															-->
+													{#snippet highlight({ context })}
+														{@const cell = context.tooltip.data}
+														{#if cell}
+															<Circle
+																cx={context.xGet(cell) + (context.xScale.bandwidth?.() ?? 0) / 2}
+																cy={context.yGet(cell) + (context.yScale.bandwidth?.() ?? 0) / 2}
+																r={context.rGet(cell) + 3}
+																class="pointer-events-none fill-none stroke-primary"
+																strokeWidth={1.5}
+															/>
+														{/if}
+													{/snippet}
+													{#snippet tooltip({ context })}
+														{@const cell = context.tooltip.data as {
+															name: string;
+															month: string;
+															amount: number;
+														} | null}
+														<Chart.Tooltip
+															hideIndicator
+															labelFormatter={() => (cell ? payeeColumnLabel(cell.month) : '')}
+															href={payeeLink.href}
+														>
+															{#snippet formatter()}
+																{#if cell}
+																	<MoneyRow value={cell.amount} name={cell.name} {money} />
+																{/if}
+															{/snippet}
+														</Chart.Tooltip>
+													{/snippet}
+												</ScatterChart>
+											</Chart.Container>
+											<!--
+														Each payee's total at the end of their row, like a ledger's totals column, with a
+														bar to compare them by: beside the figure on wider screens, behind it on phones,
+														where there is no room for both. Right-aligned, so the figures line up by digit.
+													-->
+											<div
+												class="relative flex flex-col tabular-nums"
+												style:padding-top="{payeePadding.top}px"
+												style:padding-bottom="{PAYEE_ROWS_BOTTOM}px"
+											>
+												<span class="absolute top-0 right-0 text-muted-foreground">Total</span>
+												{#each payees.accounts as account (account.slug)}
+													{@const total = payeeTotals.get(account.slug) ?? 0}
+													{@const color =
+														account.slug && account.slug === me
+															? payeeConfig.you.color
+															: payeeConfig.others.color}
+													{#if account.slug}
+														<!-- What the total is made of, on hover with a mouse or a tap on a touch screen. -->
+														<Popover.Root>
+															<Popover.Trigger
+																openOnHover
+																openDelay={200}
+																class="flex min-h-0 w-full flex-1 items-center justify-end gap-2 rounded-sm pl-1 hover:bg-muted"
+															>
+																{#if payeeNarrow}
+																	<span
+																		class="w-full rounded-sm py-0.5 pr-1 text-right"
+																		{@attach dataBackground({
+																			value: total,
+																			max: payeeTotalMax,
+																			color: `color-mix(in oklab, ${color} 30%, transparent)`
+																		})}
+																	>
+																		{payeeTotalFormat.format(total)}
+																	</span>
+																{:else}
+																	<span
+																		class="h-3.5 shrink-0"
+																		style:width="{PAYEE_BAR_WIDTH}px"
+																		{@attach dataBackground({
+																			value: total,
+																			max: payeeTotalMax,
+																			color
+																		})}
+																	></span>
+																	<span class="flex-1 pr-1 text-right"
+																		>{payeeTotalFormat.format(total)}</span
+																	>
+																{/if}
+															</Popover.Trigger>
+															<Popover.Content class="w-56 p-2" align="end">
+																{@render payeeBreakdown(account)}
+															</Popover.Content>
+														</Popover.Root>
+													{:else}
+														<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
+														<a
+															href={payeeExpensesUrl}
+															target="_blank"
+															rel="noreferrer"
+															class="flex min-h-0 w-full flex-1 items-center justify-end gap-2 rounded-sm pl-1 hover:bg-muted"
+														>
+															{#if payeeNarrow}
+																<span
+																	class="w-full rounded-sm py-0.5 pr-1 text-right"
+																	{@attach dataBackground({
+																		value: total,
+																		max: payeeTotalMax,
+																		color: `color-mix(in oklab, ${color} 30%, transparent)`
+																	})}
+																>
+																	{payeeTotalFormat.format(total)}
+																</span>
+															{:else}
+																<span
+																	class="h-3.5 shrink-0"
+																	style:width="{PAYEE_BAR_WIDTH}px"
+																	{@attach dataBackground({
+																		value: total,
+																		max: payeeTotalMax,
+																		color
+																	})}
+																></span>
+																<span class="flex-1 pr-1 text-right"
+																	>{payeeTotalFormat.format(total)}</span
+																>
 															{/if}
-														{/snippet}
-													</Chart.Tooltip>
-												{/snippet}
-											</ScatterChart>
-										</Chart.Container>
+															<span class="sr-only"
+																>: their expenses on Open Collective (opens in a new tab)</span
+															>
+														</a>
+														<!-- eslint-enable svelte/no-navigation-without-resolve -->
+													{/if}
+												{/each}
+											</div>
+											<span></span>
+											<!--
+														Everything paid out in each column, under the dots. Dragging across it picks the
+														columns the totals add up, and fades the rest in both charts; a tap outside the
+														pick brings every column back. Starts afresh when the columns change. Swiping up
+														or down over it still scrolls the page on a phone; only a sideways drag picks.
+													-->
+											<div
+												class="h-20 [&_.lc-brush-context]:touch-pan-y [&_.lc-brush-handle]:touch-pan-y [&_.lc-brush-range]:touch-pan-y"
+											>
+												{#key payeeColumnsId}
+													<Chart.Container
+														config={payeeOverviewConfig}
+														class="aspect-auto h-20 w-full"
+													>
+														<BarChart
+															data={paidByColumn}
+															x="month"
+															y="amount"
+															xScale={scaleBand().padding(0.15)}
+															padding={{ ...payeePadding, top: PAYEE_OVERVIEW_TOP }}
+															brush={{ zoomOnBrush: false, onChange: brushPayees }}
+															axis="x"
+															grid={false}
+															series={[
+																{
+																	key: 'amount',
+																	label: payeeOverviewConfig.amount.label,
+																	color: payeeOverviewConfig.amount.color
+																}
+															]}
+															props={{
+																bars: { radius: 1, strokeWidth: 0 },
+																xAxis: {
+																	tickLength: TICK_LENGTH,
+																	tickOcclusion: X_TICK_OCCLUSION,
+																	ticks: payeeTicks,
+																	format: payeeQuarterly ? quarterTick : bandTickLabel
+																}
+															}}
+														>
+															{#snippet aboveMarks({ context })}
+																{@render payeeFade({ context, Rect })}
+															{/snippet}
+															{#snippet tooltip({ context })}
+																<!-- Who was paid in the column, each by name, biggest first. -->
+																<Chart.Tooltip labelFormatter={payeeColumnLabel}>
+																	{#snippet formatter({ index, payload })}
+																		{#if index === payload.length - 1}
+																			{@const paid = paidInColumn(
+																				(context.tooltip.data as { month: string } | null)?.month
+																			)}
+																			<div class="grid gap-1.5">
+																				{#each paid.shown as account (account.slug)}
+																					<MoneyRow
+																						value={account.amount}
+																						name={account.name}
+																						{money}
+																					/>
+																				{/each}
+																				{#if paid.rest.count}
+																					<MoneyRow
+																						value={paid.rest.amount}
+																						name="{paid.rest.count} more"
+																						{money}
+																					/>
+																				{/if}
+																			</div>
+																		{/if}
+																	{/snippet}
+																</Chart.Tooltip>
+															{/snippet}
+														</BarChart>
+													</Chart.Container>
+												{/key}
+											</div>
+											<!-- What was paid out over the columns picked, level with the overview's bars. -->
+											<div
+												class="flex items-center justify-end pr-1 font-medium tabular-nums"
+												style:padding-top="{PAYEE_OVERVIEW_TOP}px"
+												style:padding-bottom="{payeePadding.bottom}px"
+											>
+												{payeeTotalFormat.format(payeeWindowTotal)}
+											</div>
+										</div>
 									{/snippet}
 								</LazyChart>
 							</div>
