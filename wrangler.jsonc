@@ -22,6 +22,9 @@
 			"id": "8045022794264a459303e9455b39ba04"
 		}
 	],
+	"secrets": {
+		"required": ["OC_CLIENT_ID", "OC_CLIENT_SECRET"]
+	},
 	"observability": {
 		"enabled": true
 	}
