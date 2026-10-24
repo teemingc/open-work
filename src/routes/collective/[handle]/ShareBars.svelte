@@ -224,10 +224,10 @@
 										<p class="text-muted-foreground">
 											{#if row.recent >= row.contributions}
 												All {money.format(row.contributions)}
-												{row.name} received in contributions in the past year came from this fund.
+												{row.name} received in the past year came from this fund.
 											{:else}
 												{money.format(row.recent)} of the {money.format(row.contributions)}
-												{row.name} received in contributions in the past year came from this fund.
+												{row.name} received in the past year came from this fund.
 											{/if}
 										</p>
 									{/if}

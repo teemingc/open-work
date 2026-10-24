@@ -187,6 +187,7 @@ export function toRecipients({
 export interface RoundGift {
 	slug: string;
 	name: string;
+	imageUrl: string | null;
 	amount: number;
 	/** Any of it was a recurring contribution. */
 	recurring: boolean;
@@ -214,7 +215,13 @@ export function toRounds(grants: Grant[]): Round[] {
 		round.total += grant.amount;
 		let gift = round.gifts.find((g) => g.slug === grant.slug);
 		if (!gift) {
-			gift = { slug: grant.slug, name: grant.name, amount: 0, recurring: false };
+			gift = {
+				slug: grant.slug,
+				name: grant.name,
+				imageUrl: grant.imageUrl,
+				amount: 0,
+				recurring: false
+			};
 			round.gifts.push(gift);
 		}
 		gift.amount += grant.amount;

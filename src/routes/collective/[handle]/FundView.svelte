@@ -74,7 +74,7 @@
 			note: `To ${recipients.length} project${recipients.length === 1 ? '' : 's'}`
 		},
 		{
-			label: 'Still to give',
+			label: 'Balance',
 			tone: 'text-chart-balance',
 			value: money.format(balance),
 			note: 'Yet to be passed on'
@@ -179,6 +179,7 @@
 			{ahead}
 			{capped}
 			rounds={toRounds(data.grants)}
+			monthly={recipients.filter((r) => r.monthly > 0)}
 			quietSince={quiet && lastGrant ? new Date(lastGrant) : undefined}
 			slug={data.slug}
 			currency={data.currency}

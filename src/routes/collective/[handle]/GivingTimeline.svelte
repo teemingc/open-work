@@ -6,7 +6,7 @@
 	import { scaleLinear, scaleTime } from 'd3-scale';
 	import { compactFormat, moneyFormat } from './chart-format';
 	import { monthsBetween, transactionsUrl } from './financials';
-	import type { AheadPoint, HistoryPoint, Round } from './grants';
+	import type { AheadPoint, HistoryPoint, Recipient, Round } from './grants';
 	import MoneyRow from './MoneyRow.svelte';
 
 	let {
@@ -14,6 +14,7 @@
 		ahead,
 		capped,
 		rounds,
+		monthly,
 		quietSince,
 		slug,
 		currency,
@@ -27,6 +28,8 @@
 		capped: boolean;
 		/** Every day it gave on, to say in a tooltip what a step was. */
 		rounds: Round[];
+		/** Who it gives to every month, and how much, which is what the line ahead climbs by. */
+		monthly: Recipient[];
 		/** When it last gave, if it has not given for a while, so the quiet stretch is marked. */
 		quietSince: Date | undefined;
 		/** The fund's own slug, for links to its transactions. */
@@ -97,6 +100,12 @@
 		})
 	);
 	const end = $derived(ahead.at(-1)?.date);
+	const perMonth = $derived(monthly.reduce((sum, r) => sum + r.monthly, 0));
+
+	/** Up to this many projects in a round are named; past it, how many, with their logos below. */
+	const NAMED = 3;
+	/** Past this many, a round's logos end in a count, so the tooltip stays one row. */
+	const LOGOS = 16;
 
 	/** Who a round went to, the most given first, in a line short enough for a tooltip. */
 	const names = (round: Round) => {
@@ -137,6 +146,31 @@
 		return ticks;
 	});
 </script>
+
+{#snippet logos(items: { slug: string; imageUrl: string | null; ringed: boolean }[])}
+	<!-- Ringed in pink where the gift is monthly, as in the pack. -->
+	<ul class="flex max-w-[min(26rem,80vw)] flex-wrap gap-1.5 p-0.5" aria-hidden="true">
+		{#each items.slice(0, LOGOS) as item (item.slug)}
+			<li
+				class={[
+					'size-4 shrink-0 overflow-hidden rounded-full bg-card',
+					item.ringed
+						? 'ring-2 ring-chart-expenses ring-offset-1 ring-offset-background'
+						: 'ring-1 ring-border'
+				]}
+			>
+				{#if item.imageUrl}
+					<img src={item.imageUrl} alt="" class="size-full object-cover" />
+				{/if}
+			</li>
+		{/each}
+		{#if items.length > LOGOS}
+			<li class="flex h-4 items-center rounded-full bg-muted px-1.5 text-[10px] font-medium">
+				+{items.length - LOGOS}
+			</li>
+		{/if}
+	</ul>
+{/snippet}
 
 <div class="flex h-64">
 	<LazyChart class="h-full flex-1 {ahead.length ? 'sm:flex-2' : ''}">
@@ -280,12 +314,15 @@
 							{#snippet formatter({ value, item })}
 								{#if item.key === 'given' && typeof value === 'number'}
 									{#if step?.round}
-										<p class="max-w-80 text-pretty text-muted-foreground">
-											Gave <span class="font-medium text-foreground tabular-nums"
-												>{money.format(step.round.total)}</span
-											>
-											to {names(step.round)}
-										</p>
+										{@const gifts = step.round.gifts}
+										{@const amount = money.format(step.round.total)}
+										<div class="grid gap-2">
+											<p class="max-w-80 text-pretty text-muted-foreground">
+												Gave <span class="font-medium text-foreground tabular-nums">{amount}</span>
+												to {gifts.length <= NAMED ? names(step.round) : `${gifts.length} projects`}
+											</p>
+											{@render logos(gifts.map((gift) => ({ ...gift, ringed: gift.recurring })))}
+										</div>
 									{:else}
 										<MoneyRow {value} name="Given so far" {money} />
 									{/if}
@@ -323,7 +360,7 @@
 								color: config.received.color,
 								value: () => received
 							},
-							{ key: 'given', label: 'Given away by then', color: config.ahead.color }
+							{ key: 'given', label: 'Total given away by then', color: config.ahead.color }
 						]}
 						annotations={[
 							{
@@ -396,7 +433,18 @@
 							>
 								{#snippet formatter({ value, name, item })}
 									{#if item.key === 'given' && typeof value === 'number'}
-										<MoneyRow {value} {name} {money} />
+										<!-- Why the line climbs: the monthly gifts, and who they go to. -->
+										<div class="grid w-full gap-2">
+											<p class="text-muted-foreground">
+												Gives <span class="font-medium text-foreground tabular-nums"
+													>{money.format(perMonth)}</span
+												>
+												to {monthly.length}
+												{monthly.length === 1 ? 'project' : 'projects'} every month
+											</p>
+											{@render logos(monthly.map((r) => ({ ...r, ringed: false })))}
+											<MoneyRow {value} {name} {money} />
+										</div>
 									{/if}
 								{/snippet}
 							</Chart.Tooltip>
