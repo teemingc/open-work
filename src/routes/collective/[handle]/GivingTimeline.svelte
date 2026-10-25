@@ -70,10 +70,13 @@
 	 * card does, so there is no line of what it received nor anything still to give.
 	 */
 	const ownMoney = $derived(received <= 0);
-	/** One money scale for both sides, so the lines run on across today. */
+	/**
+	 * One money scale for both sides, so the lines run on across today. With no line of what it
+	 * received above it, the top of what it gave is given room for the label of a quiet stretch.
+	 */
 	const yMax = $derived(
 		scaleLinear()
-			.domain([0, Math.max(received, given)])
+			.domain([0, ownMoney ? given * 1.15 : received])
 			.nice()
 			.domain()[1]
 	);
@@ -223,7 +226,8 @@
 									type: 'range',
 									x: [quietSince, now],
 									label: `Nothing given since ${dayMonthYear.format(quietSince)}`,
-									labelPlacement: 'top-left',
+									// Ending at the chart's right edge, so a short stretch still has room for it.
+									labelPlacement: 'top-right',
 									labelYOffset: -6,
 									pattern: {
 										size: 8,
