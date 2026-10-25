@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { rankMatches, searchTerms, slugFor, type SearchMatch } from './collective-search';
 
-const match = (slug: string, name = slug, backers = 0): SearchMatch => ({
+const match = (slug: string, name = slug, backers = 0, movedCents = 0): SearchMatch => ({
 	slug,
 	name,
 	imageUrl: null,
-	backers
+	backers,
+	movedCents
 });
 
 describe('searchTerms', () => {
@@ -65,6 +66,11 @@ describe('rankMatches', () => {
 		expect(rankMatches('web', [match('web3'), match('webpack')])[0].slug).toBe('webpack');
 	});
 
+	it('puts a slug that starts with the term before a name that does', () => {
+		const matches = [match('nuxwelcome', 'Vercel'), match('vercel', 'Vercel')];
+		expect(rankMatches('verc', matches).map((m) => m.slug)).toEqual(['vercel', 'nuxwelcome']);
+	});
+
 	it('puts the more popular first among those that match the term', () => {
 		const matches = [
 			match('vue'),
@@ -80,6 +86,21 @@ describe('rankMatches', () => {
 			'vue-gl',
 			'easy-vue'
 		]);
+	});
+
+	it('counts money moved as well as backers as popularity', () => {
+		const matches = [
+			match('clarabel14', 'Thanks'),
+			match('thanks-dev', 'THANKS.DEV', 0, 17_263_604),
+			match('node-republikk', 'Node Republik'),
+			match('nodejs', 'Node.js', 17, 1_265_028)
+		];
+		expect(rankMatches('thank', matches)[0].slug).toBe('thanks-dev');
+		expect(rankMatches('node', matches)[0].slug).toBe('nodejs');
+		// A few dollars does not outweigh a closer match.
+		expect(
+			rankMatches('thank', [match('thanks'), match('thanksgiving', 'x', 0, 50_000)])[0].slug
+		).toBe('thanks');
 	});
 
 	it('puts a slug that is the term before a name that is the term', () => {

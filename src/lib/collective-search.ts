@@ -11,10 +11,14 @@ const FUNDED_TYPES = new Set(['COLLECTIVE', 'PROJECT', 'FUND']);
 
 /**
  * Whether an account looked up by its exact slug has money of its own to show. Some projects, like
- * Node.js and Bombshell, are organizations that hold their own funds rather than collectives.
+ * Node.js and Bombshell, are organizations that hold their own funds rather than collectives, and
+ * sponsors like Vercel are organizations that have given to projects.
  */
-export function isFunded(account: { type: string; isHost: boolean }): boolean {
-	return FUNDED_TYPES.has(account.type) || (account.type === 'ORGANIZATION' && account.isHost);
+export function isFunded(account: { type: string; isHost: boolean; gives: boolean }): boolean {
+	return (
+		FUNDED_TYPES.has(account.type) ||
+		(account.type === 'ORGANIZATION' && (account.isHost || account.gives))
+	);
 }
 
 /** The slug a term would be, like "nodejs" for "Node.js", or null if it cannot be one. */
@@ -43,17 +47,26 @@ function squash(text: string): string {
 	return text.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-/** A match to rank, with how many backers it has. */
+/**
+ * A match to rank, with how many backers it has and how much money has moved through it: the more
+ * of what it has received and what it has given away.
+ */
 export interface SearchMatch extends CollectiveMatch {
 	backers: number;
+	movedCents: number;
 }
 
 /**
- * How popular a match is, by the order of magnitude of its backers: 0 under ten, 1 in the tens, 2
- * in the hundreds and so on. Rough on purpose, so a backer or two does not outweigh a closer match.
+ * How popular a match is, by the order of magnitude of its backers or of the money moved through
+ * it, whichever is higher: 0 under ten backers or $1,000, 1 in the tens or the thousands, 2 in the
+ * hundreds or the tens of thousands and so on. Money counts too, because sponsors like THANKS.DEV
+ * have given a lot but have no backers. Rough on purpose, so a little does not outweigh a closer
+ * match.
  */
-function popularity(backers: number): number {
-	return backers < 10 ? 0 : Math.floor(Math.log10(backers));
+function popularity({ backers, movedCents }: SearchMatch): number {
+	const magnitude = (count: number) => (count < 10 ? 0 : Math.floor(Math.log10(count)));
+	// $1,000 is 100,000 cents, which counts as ten.
+	return Math.max(magnitude(backers), magnitude(movedCents / 10_000));
 }
 
 /**
@@ -62,8 +75,11 @@ function popularity(backers: number): number {
  * then the rest. So "node js" puts Node.js (nodejs) before a collective only named "NODE JS".
  * Those that start with the term go without numbers after it first, then shortest first, as the
  * closest to it: "bomb" puts Bombshell before Bombastictranz, and "node" puts Node.js before
- * node9. Among all that match or start with the term, the more popular go first, so "vue" puts
- * Vue (vuejs, hundreds of backers) before vue-rx. Otherwise the order given is kept.
+ * node9. Then a slug that starts with it goes before a name that does, so "verc" puts Vercel
+ * (vercel) before a collective only named "Vercel". Among all that match or start with the term,
+ * the more popular go first, so "vue" puts Vue (vuejs, hundreds of backers) before vue-rx and
+ * "thank" puts THANKS.DEV (hundreds of thousands given) before a collective only named "Thanks".
+ * Otherwise the order given is kept.
  */
 export function rankMatches(term: string, matches: SearchMatch[]): SearchMatch[] {
 	const start = squash(term);
@@ -76,14 +92,15 @@ export function rankMatches(term: string, matches: SearchMatch[]): SearchMatch[]
 		if (slug === start) return [0];
 		if (name === start) return [1];
 		const closest = [slug, name]
-			.filter((text) => text.startsWith(start))
-			.map((text) => [/\d/.test(text.slice(start.length)) ? 1 : 0, text.length])
+			.map((text, isName) => ({ text, isName }))
+			.filter(({ text }) => text.startsWith(start))
+			.map(({ text, isName }) => [/\d/.test(text.slice(start.length)) ? 1 : 0, text.length, isName])
 			.sort(compare)[0];
 		return closest ? [2, ...closest] : null;
 	};
 	const rank = (match: SearchMatch): number[] => {
 		const close = closeness(match);
-		return close ? [0, -popularity(match.backers), ...close] : [1];
+		return close ? [0, -popularity(match), ...close] : [1];
 	};
 	const ranks = new Map(unique.map((match) => [match, rank(match)]));
 	// Array sort is stable, so matches that rank the same keep their order.

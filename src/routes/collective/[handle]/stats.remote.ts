@@ -651,9 +651,18 @@ export type CollectiveStats = Awaited<ReturnType<typeof getCollectiveStats>>;
 export type IncomeSources = ReturnType<typeof incomeSources>;
 
 const ACCOUNT_FIELDS =
-	'slug name imageUrl(height: 64) backers: members(role: BACKER, limit: 0) { totalCount }';
+	'slug name imageUrl(height: 64) backers: members(role: BACKER, limit: 0) { totalCount } stats { totalAmountReceived { valueInCents } totalAmountSpent { valueInCents } }';
 
-/** One search of collectives and one of fund-holding organizations for each term, in one request. */
+/**
+ * How many of each kind of account to fetch. Far more than are shown, because Open Collective's
+ * order is not by popularity: it puts Node.js 36th for "node".
+ */
+const SEARCH_LIMIT = 50;
+
+/**
+ * One search of collectives, one of fund-holding organizations and one of all organizations, to
+ * find those that give like Vercel, for each term, in one request.
+ */
 function searchQuery(count: number): string {
 	const terms = Array.from({ length: count }, (_, i) => i);
 	return /* GraphQL */ `
@@ -666,8 +675,9 @@ function searchQuery(count: number): string {
 			${terms
 				.map(
 					(i) => `
-			collectives${i}: accounts(searchTerm: $term${i}, type: [COLLECTIVE, PROJECT, FUND], limit: 8) { nodes { ${ACCOUNT_FIELDS} } }
-			hosts${i}: accounts(searchTerm: $term${i}, type: [ORGANIZATION], isHost: true, limit: 8) { nodes { ${ACCOUNT_FIELDS} } }`
+			collectives${i}: accounts(searchTerm: $term${i}, type: [COLLECTIVE, PROJECT, FUND], limit: ${SEARCH_LIMIT}) { nodes { ${ACCOUNT_FIELDS} } }
+			hosts${i}: accounts(searchTerm: $term${i}, type: [ORGANIZATION], isHost: true, limit: ${SEARCH_LIMIT}) { nodes { ${ACCOUNT_FIELDS} } }
+			givers${i}: accounts(searchTerm: $term${i}, type: [ORGANIZATION], limit: ${SEARCH_LIMIT}) { nodes { ${ACCOUNT_FIELDS} } }`
 				)
 				.join('')}
 		}
@@ -675,19 +685,42 @@ function searchQuery(count: number): string {
 }
 
 /** An account as the search returns it. */
-type FoundAccount = CollectiveMatch & { backers: { totalCount: number } };
+type FoundAccount = CollectiveMatch & {
+	backers: { totalCount: number };
+	stats: {
+		totalAmountReceived: { valueInCents: number };
+		totalAmountSpent: { valueInCents: number };
+	};
+};
 
 type SearchResult = {
 	exact?: (FoundAccount & { type: string; isHost: boolean }) | null;
-} & Record<`collectives${number}` | `hosts${number}`, { nodes: FoundAccount[] }>;
+} & Record<
+	`collectives${number}` | `hosts${number}` | `givers${number}`,
+	{ nodes: FoundAccount[] }
+>;
 
-function searchMatch({ slug, name, imageUrl, backers }: FoundAccount): SearchMatch {
-	return { slug, name, imageUrl, backers: backers.totalCount };
+/** Whether an account has given anything away; the amount it has spent is below zero. */
+function gives(account: FoundAccount): boolean {
+	return account.stats.totalAmountSpent.valueInCents !== 0;
+}
+
+function searchMatch({ slug, name, imageUrl, backers, stats }: FoundAccount): SearchMatch {
+	return {
+		slug,
+		name,
+		imageUrl,
+		backers: backers.totalCount,
+		movedCents: Math.max(
+			stats.totalAmountReceived.valueInCents,
+			-stats.totalAmountSpent.valueInCents
+		)
+	};
 }
 
 const SEARCH_CACHE_MS = 24 * 60 * 60 * 1000;
 const searches = perKey({
-	cacheKey: (term) => `search:v9:${term}`,
+	cacheKey: (term) => `search:v12:${term}`,
 	maxAgeMs: SEARCH_CACHE_MS,
 	// One per term typed is too many writes for KV, and a search is one request to redo.
 	store: 'edge',
@@ -695,7 +728,8 @@ const searches = perKey({
 		let result: SearchResult;
 		// The search is fuzzy; looking the term up as a slug too puts an exact match first. Open
 		// Collective errors on a lookup with no slug, so it is left out when the term cannot be one.
-		// Organizations that hold their own funds, like Bombshell, are searched as well as collectives.
+		// Organizations that hold their own funds, like Bombshell, are searched as well as collectives,
+		// and so are organizations that have given, like Vercel. Most organizations have done neither.
 		const slug = slugFor(term);
 		const terms = searchTerms(term);
 		const variables = Object.fromEntries(terms.map((t, i) => [`term${i}`, t]));
@@ -710,10 +744,13 @@ const searches = perKey({
 		return rankMatches(
 			term,
 			[
-				...(result.exact && isFunded(result.exact) ? [result.exact] : []),
+				...(result.exact && isFunded({ ...result.exact, gives: gives(result.exact) })
+					? [result.exact]
+					: []),
 				...terms.flatMap((_, i) => [
 					...result[`collectives${i}`].nodes,
-					...result[`hosts${i}`].nodes
+					...result[`hosts${i}`].nodes,
+					...result[`givers${i}`].nodes.filter(gives)
 				])
 			].map(searchMatch)
 		).map(({ slug, name, imageUrl }) => ({ slug, name, imageUrl }));
