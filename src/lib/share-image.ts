@@ -6,14 +6,24 @@
 import type { CollectiveStats } from '../routes/collective/[handle]/stats.remote';
 
 /** Bump when the cards change, so sharing sites fetch them again instead of using their copy. */
-export const OG_IMAGE_VERSION = '2';
+export const OG_IMAGE_VERSION = '3';
 
 /**
  * Changes whenever a collective's card may: when Open Collective reports new figures, and at the
  * start of each month, as the forecast moves along even when nothing new comes in.
  */
 export function collectiveImageVersion(stats: CollectiveStats): string {
-	const figures = [stats.name, stats.imageUrl, stats.currency, stats.months, stats.unpaid];
+	// What a fund has given, and to whom, for a fund's card.
+	const given = stats.grants?.map((grant) => [grant.slug, grant.amount]);
+	const figures = [
+		stats.name,
+		stats.imageUrl,
+		stats.currency,
+		stats.months,
+		stats.unpaid,
+		given,
+		stats.commitments
+	];
 	return `${OG_IMAGE_VERSION}-${stats.fetchedAt.slice(0, 7)}-${hash(JSON.stringify(figures))}`;
 }
 

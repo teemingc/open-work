@@ -1,7 +1,7 @@
 /**
  * The picture shown when a page is shared: `/og` followed by the page's path, like
- * `/og/collective/svelte`. A collective's says in a sentence how long it is funded for; every other
- * page shows its title and what it is for.
+ * `/og/collective/svelte`. A collective's says in a sentence how long it is funded for, and a
+ * fund's what it has given; every other page shows its title and what it is for.
  */
 import { read } from '$app/server';
 import { env, waitUntil } from 'cloudflare:workers';
@@ -16,6 +16,7 @@ import {
 	monthsBetween,
 	type Forecast
 } from '../../collective/[handle]/financials';
+import { isFund, toRecipients, type Recipient } from '../../collective/[handle]/grants';
 import { getCollectiveStats, type CollectiveStats } from '../../collective/[handle]/stats.remote';
 import logoSvg from '#lib/assets/favicon.svg?raw';
 import type { RequestHandler } from './$types';
@@ -36,6 +37,8 @@ const NAVY = '#0c2764';
 const SLATE = '#475569';
 const BORDER = '#e2e8f0';
 const MUTED = '#5d6b80';
+/** The dashboard's colour for giving, which rings a project given to every month. */
+const GIVING = '#e0577d';
 /** The dashboard's colours for a balance lower and higher than a year before. */
 const DESTRUCTIVE = '#c42a4f';
 const PAID = '#0a7b4d';
@@ -430,6 +433,133 @@ function collectiveCard(stats: CollectiveStats, image: string | undefined): VNod
 	);
 }
 
+/** A project the fund gave to, with its logo as a data URL if Open Collective has one. */
+type Given = Recipient & { image: string | undefined };
+
+/**
+ * The most a fund's card shows along the bottom, more than fit so the row runs off both ends.
+ * Each logo is fetched while the card is drawn, so this also bounds the wait.
+ */
+const MOST_GIVEN = 16;
+/** The largest and smallest logo along a fund's card, across. */
+const LARGEST = 112;
+const SMALLEST = 56;
+/** The space between logos, and below them. */
+const LOGO_GAP = 14;
+
+/** The projects a fund gave most to, each with its logo, to draw along its card. */
+async function given(stats: CollectiveStats): Promise<Given[]> {
+	const recipients = toRecipients({
+		grants: stats.grants,
+		commitments: stats.commitments,
+		currency: stats.currency,
+		now: new Date(stats.fetchedAt)
+	}).slice(0, MOST_GIVEN);
+	const images = await Promise.all(recipients.map((r) => logo(r.slug)));
+	return recipients.map((r, i) => ({ ...r, image: images[i] }));
+}
+
+/**
+ * The card of a fund, which passes its money on, so how long it is funded for says nothing of it.
+ * It says what the fund has given and to how many, over the logos of those it gave most to.
+ */
+function fundCard(stats: CollectiveStats, image: string | undefined, recipients: Given[]): VNode {
+	const granted = stats.grants.reduce((sum, grant) => sum + grant.amount, 0);
+	const count = new Set(stats.grants.map((grant) => grant.slug)).size;
+	return h(
+		'div',
+		{
+			style: {
+				display: 'flex',
+				flexDirection: 'column',
+				justifyContent: 'center',
+				gap: 24,
+				width: '100%',
+				height: '100%',
+				padding: `36px ${MARGIN}px ${BAND + GAP}px`,
+				backgroundColor: 'white',
+				fontFamily: 'Source Serif 4'
+			}
+		},
+		[
+			...givenRow(recipients),
+			...logoImage(image),
+			sentence([
+				{ text: shorten(stats.name, 40), strong: true },
+				{ text: ' has given ' },
+				{
+					text: formatMoney(Math.round(granted), stats.currency)
+						.replace(/\.00$/, '')
+						.replaceAll(' ', '\u00a0'),
+					strong: true
+				},
+				{ text: ' to ' },
+				{ text: `${count}\u00a0project${count === 1 ? '' : 's'}`, strong: true },
+				{ text: '.' }
+			])
+		]
+	);
+}
+
+/**
+ * The logos of those a fund gave most to, in a row along the bottom where a collective's chart
+ * goes: each sized by what it was given, as on the dashboard, in the order the fund first gave to
+ * them, and ringed when it still gives every month. A row too long for the card runs off both ends
+ * and fades there, as the chart does.
+ */
+function givenRow(recipients: Given[]): VNode[] {
+	if (!recipients.length) return [];
+	const most = recipients[0].total;
+	// By area, so a project given four times as much looks four times as big, not sixteen.
+	const sized = recipients
+		.map((r) => ({ ...r, size: Math.max(SMALLEST, Math.sqrt(r.total / most) * LARGEST) }))
+		.sort((a, b) => a.first.localeCompare(b.first));
+	const length = sized.reduce((sum, r) => sum + r.size, 0) + LOGO_GAP * (sized.length - 1);
+	// A short row lines up with the text; a long one sits in the middle and runs off both ends.
+	let x = length <= WIDTH - 2 * MARGIN ? MARGIN : (WIDTH - length) / 2;
+	return sized.map((r) => {
+		const left = x;
+		x += r.size + LOGO_GAP;
+		const middle = left + r.size / 2;
+		const ring = r.monthly > 0;
+		return h(
+			'div',
+			{
+				style: {
+					position: 'absolute',
+					left,
+					bottom: LOGO_GAP * 2,
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'center',
+					width: r.size,
+					height: r.size,
+					borderRadius: '50%',
+					// The ring sits inside the disc, so a ringed logo takes no more room than the rest.
+					border: ring ? `3px solid ${GIVING}` : `2px solid ${BORDER}`,
+					padding: ring ? 3 : 0,
+					backgroundColor: 'white',
+					opacity: Math.min(1, Math.max(0, Math.min(middle, WIDTH - middle) / FADE))
+				}
+			},
+			[
+				r.image
+					? h('img', {
+							src: r.image,
+							width: r.size - (ring ? 12 : 4),
+							height: r.size - (ring ? 12 : 4),
+							style: { borderRadius: '50%', objectFit: 'cover' }
+						})
+					: h(
+							'div',
+							{ style: { fontSize: r.size * 0.45, fontWeight: 600, color: MUTED } },
+							r.name.slice(0, 1).toUpperCase()
+						)
+			]
+		);
+	});
+}
+
 /** How many months of history the chart shows and how far ahead, as on the dashboard by default. */
 const HISTORY = 24;
 const AHEAD = 24;
@@ -664,7 +794,13 @@ export const GET: RequestHandler = async ({ params, url }) => {
 		? await Promise.all([getCollectiveStats(slug).catch(() => undefined), logo(slug)])
 		: [];
 	const page = PAGES[path];
-	const element = stats ? collectiveCard(stats, image) : page ? pageCard(page) : homeCard();
+	const element = !stats
+		? page
+			? pageCard(page)
+			: homeCard()
+		: isFund(stats)
+			? fundCard(stats, image, await given(stats))
+			: collectiveCard(stats, image);
 
 	const svg = await satori(element, { width: WIDTH, height: HEIGHT, fonts: await loadFonts() });
 	const png = (await Resvg.async(svg)).render().asPng() as Uint8Array<ArrayBuffer>;
