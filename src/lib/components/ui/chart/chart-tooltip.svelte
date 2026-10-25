@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { ExternalLink } from '@lucide/svelte';
 	import { getChartContext, Tooltip as TooltipPrimitive } from 'layerchart';
+	import type { TooltipLink } from '#lib/tooltip-link.svelte.js';
 	import { cn, type WithElementRef, type WithoutChildren } from '#lib/utils.js';
 	import { getPayloadConfigFromPayload, useChart, type TooltipPayload } from './chart-utils.js';
 	import type { Snippet } from 'svelte';
@@ -24,7 +25,7 @@
 		formatter,
 		nameKey,
 		color,
-		href,
+		link,
 		...restProps
 	}: WithoutChildren<WithElementRef<HTMLAttributes<HTMLDivElement>>> & {
 		hideLabel?: boolean;
@@ -36,7 +37,7 @@
 		labelClassName?: string;
 		/** A point's transactions on Open Collective, for the tooltip to link to. */
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		href?: (data: any) => string | undefined;
+		link?: TooltipLink<any>;
 		labelFormatter?:
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			((value: any, payload: TooltipPayload[]) => string | number | Snippet) | null;
@@ -93,7 +94,9 @@
 		return labelFormatter(value, visibleSeries);
 	});
 
-	const link = $derived(chartCtx.tooltip.data == null ? undefined : href?.(chartCtx.tooltip.data));
+	const href = $derived(
+		chartCtx.tooltip.data == null ? undefined : link?.href(chartCtx.tooltip.data)
+	);
 
 	const nestLabel = $derived(visibleSeries.length === 1 && indicator !== 'dot');
 </script>
@@ -110,7 +113,7 @@
 	{/if}
 {/snippet}
 
-<TooltipPrimitive.Root variant="none" pointerEvents={link !== undefined}>
+<TooltipPrimitive.Root variant="none" pointerEvents={link?.locked && href !== undefined}>
 	<div
 		bind:this={ref}
 		class={cn(
@@ -185,10 +188,10 @@
 				</div>
 			{/each}
 		</div>
-		{#if link}
+		{#if href}
 			<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
 			<a
-				href={link}
+				{href}
 				target="_blank"
 				rel="noreferrer"
 				class="flex items-center gap-1 border-t border-border/50 pt-1.5 font-medium underline-offset-4 hover:underline"

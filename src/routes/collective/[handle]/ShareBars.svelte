@@ -182,7 +182,7 @@
 					{#snippet tooltip({ context })}
 						{@const row = context.tooltip.data as Row | Rest | null}
 						{@const href = row ? link.href(row) : undefined}
-						<TooltipRoot variant="none" pointerEvents={href !== undefined}>
+						<TooltipRoot variant="none" pointerEvents={link.locked && href !== undefined}>
 							{#if row}
 								<div
 									class="grid max-w-60 min-w-40 gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl"

@@ -12,12 +12,18 @@ function click(link: TooltipLink<{ month: string }>, data: { month: string }) {
 	link.click(event, { data });
 }
 
+/** A finger touching down somewhere, in the tooltip or not. The document stands in for its target. */
+function touch(inTooltip: boolean) {
+	Object.assign(document, { closest: () => (inTooltip ? {} : null) });
+	document.dispatchEvent(new Event('pointerover'));
+}
+
 const url = ({ month }: { month: string }) => `https://example.com/${month}`;
 
 describe('TooltipLink', () => {
 	beforeEach(() => {
 		vi.stubGlobal('document', new EventTarget());
-		vi.stubGlobal('window', { open: vi.fn() });
+		vi.stubGlobal('window', Object.assign(new EventTarget(), { open: vi.fn() }));
 		pointer(false);
 	});
 	afterEach(() => vi.unstubAllGlobals());
@@ -35,13 +41,19 @@ describe('TooltipLink', () => {
 		expect(link.href({ month: '2026-01' })).toBeUndefined();
 	});
 
-	it('pins the tapped point with touch', () => {
+	it('shows the link with touch before it pins', () => {
 		const link = new TooltipLink(url);
+		expect(link.href({ month: '2026-01' })).toBe('https://example.com/2026-01');
+		expect(link.locked).toBe(false);
+	});
+
+	it('pins the tapped point with touch', () => {
+		const onpin = vi.fn();
+		const link = new TooltipLink(url, onpin);
 		const january = { month: '2026-01' };
-		expect(link.href(january)).toBeUndefined();
 		click(link, january);
 		expect(link.locked).toBe(true);
-		expect(link.href(january)).toBe('https://example.com/2026-01');
+		expect(onpin).toHaveBeenCalledWith(january);
 		expect(window.open).not.toHaveBeenCalled();
 	});
 
@@ -51,10 +63,33 @@ describe('TooltipLink', () => {
 		expect(link.locked).toBe(false);
 	});
 
-	it('lets go on the next tap', () => {
+	it('moves to the next tapped point', () => {
+		const onpin = vi.fn();
+		const link = new TooltipLink(url, onpin);
+		const february = { month: '2026-02' };
+		click(link, { month: '2026-01' });
+		click(link, february);
+		expect(link.locked).toBe(true);
+		expect(onpin).toHaveBeenLastCalledWith(february);
+	});
+
+	it('lets go when a finger touches anywhere but the tooltip', async () => {
+		const onpin = vi.fn();
+		const link = new TooltipLink(url, onpin);
+		click(link, { month: '2026-01' });
+		// Svelte listens for pointer events a microtask later.
+		await Promise.resolve();
+		touch(true);
+		expect(link.locked).toBe(true);
+		touch(false);
+		expect(link.locked).toBe(false);
+		expect(onpin).toHaveBeenLastCalledWith(undefined);
+	});
+
+	it('lets go when the page scrolls', () => {
 		const link = new TooltipLink(url);
 		click(link, { month: '2026-01' });
-		click(link, { month: '2026-02' });
+		window.dispatchEvent(new Event('scroll'));
 		expect(link.locked).toBe(false);
 	});
 

@@ -320,10 +320,7 @@
 					{/snippet}
 					{#snippet tooltip({ context })}
 						{@const step = context.tooltip.data as Step | null}
-						<Chart.Tooltip
-							labelFormatter={(d: Date) => dayMonthYear.format(d)}
-							href={pastLink.href}
-						>
+						<Chart.Tooltip labelFormatter={(d: Date) => dayMonthYear.format(d)} link={pastLink}>
 							<!--
 								Only what happened that day, so the tooltip stays small enough to see the chart past;
 								what it received is on the chart and in the figures above.
@@ -444,10 +441,7 @@
 							>
 						{/snippet}
 						{#snippet tooltip()}
-							<Chart.Tooltip
-								labelFormatter={(d: Date) => monthYear.format(d)}
-								href={aheadLink.href}
-							>
+							<Chart.Tooltip labelFormatter={(d: Date) => monthYear.format(d)} link={aheadLink}>
 								{#snippet formatter({ value, name, item })}
 									{#if item.key === 'given' && typeof value === 'number'}
 										<!-- Why the line climbs: the monthly gifts, and who they go to. -->

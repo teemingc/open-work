@@ -2,19 +2,20 @@ import { on } from 'svelte/events';
 
 /**
  * Links a chart's points to a page on Open Collective. With a mouse, clicking a point opens it in a
- * new tab. On touch screens, where there's no hover, a tap pins the point's tooltip with the link in
- * it instead; the next tap on the chart, one anywhere else but the tooltip, or Escape lets it go.
- * Pass `click` as the chart's `onTooltipClick`, `locked` to its tooltip context and `href` to its
- * tooltip.
+ * new tab. On touch screens, where there's no hover, the tooltip carries the link instead: it shows
+ * from the moment a finger touches the chart, and the tooltip it's in pins once the finger lifts, a
+ * tap's or a scrub's, so the link can be tapped. Touching the chart again unpins it, so the finger
+ * scrubs to another point, which pins in turn; a tap anywhere else, the page scrolling or Escape lets
+ * it go. Pass `click` as the chart's `onTooltipClick`, `locked` to its tooltip context and the link
+ * to its tooltip.
  *
- * The link is in the tooltip only once a tap pins it. The tooltip shows as the finger touches, under
- * it on a narrow screen, so a link there already would take the click from lifting the finger and
- * open the page on the first tap instead of pinning the tooltip.
+ * The chart's container clicks the point a finger lifts from, and drops the click that follows,
+ * which could otherwise land on the tooltip once it pins and open the page on the first tap.
  */
 export class TooltipLink<T> {
 	/** A point's page, or nothing for one with nothing to link to. */
 	readonly url: (data: T) => string | undefined;
-	/** Whether the tooltip is pinned. */
+	/** Whether the tooltip is pinned, and its link can be tapped. */
 	locked = $state(false);
 	#handled: Event | undefined;
 	#stopListening: (() => void) | undefined;
@@ -29,42 +30,42 @@ export class TooltipLink<T> {
 		this.#onpin = onpin;
 	}
 
-	/**
-	 * The link in the tooltip for a point, once it's pinned: none with a mouse, which opens it with a
-	 * click instead and never pins.
-	 */
-	href = (data: T) => (this.locked ? this.url(data) : undefined);
+	/** The link in the tooltip for a point: none with a mouse, which opens it with a click instead. */
+	href = (data: T) => (matchMedia('(hover: hover)').matches ? undefined : this.url(data));
 
 	click = (event: MouseEvent, { data }: { data: T }) => {
 		// On band charts LayerChart calls `onTooltipClick` from the bar and again as the click bubbles
 		// to the chart, so one click would act twice without this.
 		if (event === this.#handled) return;
 		this.#handled = event;
-		if (this.locked) {
-			this.unpin();
+		const url = this.url(data);
+		if (matchMedia('(hover: hover)').matches) {
+			if (url) window.open(url, '_blank', 'noopener');
 			return;
 		}
-		const url = this.url(data);
-		if (!url) return;
-		if (matchMedia('(hover: hover)').matches) {
-			window.open(url, '_blank', 'noopener');
+		if (!url) {
+			this.unpin();
 			return;
 		}
 		this.locked = true;
 		this.#onpin?.(data);
-		const chart = (event.target as Element).closest('[data-slot="chart"]');
+		this.#stopListening ??= this.#listen();
+	};
+
+	#listen() {
 		const offs = [
-			on(document, 'pointerdown', (event) => {
-				const target = event.target as Element;
-				// A tap on the chart already unpins through `click`.
-				if (!chart?.contains(target) && !target.closest('.lc-tooltip-root')) this.unpin();
+			// Before LayerChart sees the touch, which it would ignore while pinned. Touching the chart
+			// again unpins too, so the finger scrubs, until it lifts from wherever it got to.
+			on(document, 'pointerover', (event) => {
+				if (!(event.target as Element).closest('.lc-tooltip-root')) this.unpin();
 			}),
+			on(window, 'scroll', () => this.unpin()),
 			on(document, 'keydown', (event) => {
 				if (event.key === 'Escape') this.unpin();
 			})
 		];
-		this.#stopListening = () => offs.forEach((off) => off());
-	};
+		return () => offs.forEach((off) => off());
+	}
 
 	unpin() {
 		if (this.locked) this.#onpin?.(undefined);

@@ -247,7 +247,7 @@
 					</Layer>
 					{@const slot = context.tooltip.data as Slot | null}
 					{@const href = slot ? link.href(slot) : undefined}
-					<TooltipRoot variant="none" pointerEvents={href !== undefined}>
+					<TooltipRoot variant="none" pointerEvents={link.locked && href !== undefined}>
 						{#if slot}
 							<div
 								class="grid max-w-64 min-w-40 gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl"
