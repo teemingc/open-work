@@ -34,13 +34,28 @@
 			target.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
 		held = [];
 	}
+
+	/** Whether a finger lifting from the chart already clicked it, so the click after it is dropped. */
+	let lifted = false;
 </script>
 
 <!-- A tooltip a tap left up would otherwise stay over the page as it scrolls, or after tapping elsewhere. -->
-<svelte:window onscroll={release} />
+<svelte:window
+	onscroll={release}
+	onclickcapture={(event) => {
+		if (!lifted) return;
+		lifted = false;
+		// Shown under the finger and pinned by the lift, the tooltip's link could otherwise take it
+		event.preventDefault();
+		event.stopPropagation();
+	}}
+/>
 <svelte:document
 	onpointerdown={(event) => {
-		if (!ref?.contains(event.target as Node)) release();
+		lifted = false;
+		// Shown over the page rather than in the chart, a tooltip has to stay up for its link to be tapped
+		const target = event.target as Element;
+		if (!ref?.contains(target) && !target.closest('.lc-tooltip-root')) release();
 	}}
 />
 
@@ -101,6 +116,19 @@
 			event.stopPropagation();
 			held.push(event.target);
 		}
+	}}
+	onpointerup={(event) => {
+		// A finger lifting after scrubbing across the chart makes no click, and a tap's comes only
+		// after a delay, so click the point it lifts from now: a tooltip with a link pins.
+		// Not with a mouse at hand, where a click opens the page, which a made-up click can't do.
+		const target = event.target as Element;
+		if (event.pointerType === 'mouse' || matchMedia('(hover: hover)').matches) return;
+		if (!target.closest('.lc-tooltip-context')) return;
+		const { clientX, clientY } = event;
+		target.dispatchEvent(
+			new MouseEvent('click', { bubbles: true, cancelable: true, clientX, clientY })
+		);
+		lifted = true;
 	}}
 	{...restProps}
 >

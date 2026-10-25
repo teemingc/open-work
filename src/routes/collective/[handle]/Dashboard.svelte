@@ -1268,7 +1268,7 @@
 										{@const yearBefore = point ? balanceYearBefore(point.date) : undefined}
 										<Chart.Tooltip
 											labelFormatter={(d: Date) => dayMonthYear.format(d)}
-											href={balanceLink.href}
+											link={balanceLink}
 										>
 											{#snippet formatter({ value, name, item, index, payload })}
 												{@render moneyRow({ value, name, item })}
@@ -1346,7 +1346,7 @@
 										<Chart.Tooltip
 											labelFormatter={labelMonth}
 											formatter={moneyRow}
-											href={monthLink.href}
+											link={monthLink}
 										/>
 									{/snippet}
 									{#snippet legend({ context })}
@@ -1400,7 +1400,7 @@
 										<Chart.Tooltip
 											labelFormatter={labelMonth}
 											formatter={moneyRow}
-											href={monthLink.href}
+											link={monthLink}
 										/>
 									{/snippet}
 								</BarChart>
@@ -1612,7 +1612,7 @@
 														<Chart.Tooltip
 															hideIndicator
 															labelFormatter={() => (cell ? payeeColumnLabel(cell.month) : '')}
-															href={payeeLink.href}
+															link={payeeLink}
 														>
 															{#snippet formatter()}
 																{#if cell}

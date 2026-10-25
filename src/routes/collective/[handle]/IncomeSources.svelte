@@ -361,7 +361,7 @@
 											<Chart.Tooltip
 												labelFormatter={(key: string) => monthLabel({ key, partialKey })}
 												formatter={row}
-												href={contributionsLink.href}
+												link={contributionsLink}
 											/>
 										{/snippet}
 										{#snippet legend({ context })}
@@ -496,7 +496,7 @@
 												{@const hovered = context.tooltip.data as (typeof changes)[number] | null}
 												<Chart.Tooltip
 													labelFormatter={(key: string) => monthLabel({ key, partialKey })}
-													href={backersLink.href}
+													link={backersLink}
 												>
 													{#snippet formatter()}
 														{#if hovered}

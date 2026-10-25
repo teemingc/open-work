@@ -208,7 +208,7 @@
 								<Chart.Tooltip
 									labelFormatter={(key: string) => monthLabel({ key, partialKey })}
 									formatter={row}
-									href={link.href}
+									{link}
 								/>
 							{/snippet}
 						</BarChart>

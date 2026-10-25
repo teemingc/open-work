@@ -44,6 +44,8 @@
 					? 'sm:grid-cols-2'
 					: ''
 	);
+	/** A lone figure leads, larger and with its note beside it, rather than sitting in an empty strip. */
+	const lone = $derived(stats.length === 1);
 </script>
 
 <!-- One compact strip of figures. Gaps over a border-coloured background draw even dividers. -->
@@ -57,7 +59,10 @@
 			-->
 			<div
 				class={[
-					'row-span-3 grid min-w-0 grid-rows-subgrid gap-y-1 bg-card px-4 py-3',
+					'min-w-0 bg-card',
+					lone
+						? 'flex flex-wrap items-baseline gap-x-3 gap-y-1 px-5 py-4'
+						: 'row-span-3 grid grid-rows-subgrid gap-y-1 px-4 py-3',
 					stats.length === 5 &&
 						(index === 0
 							? 'sm:col-span-2 lg:col-span-3'
@@ -72,7 +77,10 @@
 					one-line label lines up with a neighbour that wraps.
 				-->
 				<dt
-					class="flex min-h-5.5 flex-wrap items-start justify-between gap-x-2 gap-y-1 text-sm text-muted-foreground"
+					class={[
+						'flex min-h-5.5 flex-wrap items-start justify-between gap-x-2 gap-y-1 text-sm text-muted-foreground',
+						lone && 'basis-full'
+					]}
 				>
 					<span class="leading-5.5 whitespace-nowrap">{stat.label}</span>
 					{#if stat.badge}
@@ -109,10 +117,16 @@
 						{/if}
 					{/if}
 				</dt>
-				<dd class="font-display text-2xl font-medium tabular-nums {stat.tone ?? ''}">
+				<dd
+					class={[
+						'font-display font-medium tabular-nums',
+						lone ? 'text-4xl leading-tight' : 'text-2xl',
+						stat.tone
+					]}
+				>
 					{stat.value}
 				</dd>
-				<dd class="text-xs text-muted-foreground">{stat.note}</dd>
+				<dd class={['text-muted-foreground', lone ? 'text-sm' : 'text-xs']}>{stat.note}</dd>
 			</div>
 		{/each}
 	</dl>
