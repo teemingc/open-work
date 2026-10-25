@@ -64,8 +64,19 @@
 	} satisfies ChartConfig;
 
 	const received = $derived(points.at(-1)?.received ?? 0);
+	const given = $derived(points.at(-1)?.given ?? 0);
+	/**
+	 * It gives from its own pocket rather than passing on what it receives, as a company paying by
+	 * card does, so there is no line of what it received nor anything still to give.
+	 */
+	const ownMoney = $derived(received <= 0);
 	/** One money scale for both sides, so the lines run on across today. */
-	const yMax = $derived(scaleLinear().domain([0, received]).nice().domain()[1]);
+	const yMax = $derived(
+		scaleLinear()
+			.domain([0, Math.max(received, given)])
+			.nice()
+			.domain()[1]
+	);
 	const start = $derived(points[0]?.date ?? now);
 	/** Under a few months, days tell the steps apart better than months. */
 	const short = $derived(monthsBetween(start, now) < 3);
@@ -143,7 +154,6 @@
 	}
 	/** Room a round's label needs after the one before it, or the axis, in pixels. */
 	const LABEL_ROOM = 44;
-	const given = $derived(days.at(-1)?.given ?? 0);
 	/** The new years ahead, which mark the months ahead with the fewest labels. */
 	const years = $derived.by(() => {
 		if (!end) return [];
@@ -202,7 +212,9 @@
 						points: { class: 'pointer-events-none' }
 					}}
 					series={[
-						{ key: 'received', label: config.received.label, color: config.received.color },
+						...(ownMoney
+							? []
+							: [{ key: 'received', label: config.received.label, color: config.received.color }]),
 						{ key: 'given', label: config.given.label, color: config.given.color }
 					]}
 					annotations={quietSince
@@ -235,14 +247,16 @@
 					}}
 				>
 					{#snippet marks()}
-						<Pattern
-							size={6}
-							lines={{ rotate: -45, color: 'var(--color-chart-balance)', opacity: 0.25 }}
-						>
-							{#snippet children({ pattern })}
-								<Area y0="given" y1="received" fill={pattern} />
-							{/snippet}
-						</Pattern>
+						{#if !ownMoney}
+							<Pattern
+								size={6}
+								lines={{ rotate: -45, color: 'var(--color-chart-balance)', opacity: 0.25 }}
+							>
+								{#snippet children({ pattern })}
+									<Area y0="given" y1="received" fill={pattern} />
+								{/snippet}
+							</Pattern>
+						{/if}
 						<LinearGradient
 							vertical
 							stops={[
@@ -254,7 +268,9 @@
 								<Area y0={() => 0} y1="given" fill={gradient} />
 							{/snippet}
 						</LinearGradient>
-						<Area seriesKey="received" fill="none" line={{ strokeWidth: 2 }} />
+						{#if !ownMoney}
+							<Area seriesKey="received" fill="none" line={{ strokeWidth: 2 }} />
+						{/if}
 						<Area seriesKey="given" fill="none" line={{ strokeWidth: 2 }} />
 					{/snippet}
 					{#snippet aboveMarks({ context })}
@@ -288,14 +304,16 @@
 								>
 							{/if}
 						{/each}
-						<text
-							x={4}
-							y={context.yScale(received) - 6}
-							paint-order="stroke"
-							stroke-width="4"
-							class="pointer-events-none fill-chart-income stroke-card! font-medium"
-							>{config.received.label}</text
-						>
+						{#if !ownMoney}
+							<text
+								x={4}
+								y={context.yScale(received) - 6}
+								paint-order="stroke"
+								stroke-width="4"
+								class="pointer-events-none fill-chart-income stroke-card! font-medium"
+								>{config.received.label}</text
+							>
+						{/if}
 						<text
 							x={context.width - 6}
 							y={context.yScale(0) - 8}
@@ -305,7 +323,7 @@
 							class="pointer-events-none fill-chart-expenses stroke-card! font-medium"
 							>{config.given.label}</text
 						>
-						{#if !ahead.length}
+						{#if !ahead.length && !ownMoney}
 							<text
 								x={context.width - 6}
 								y={(context.yScale(given) + context.yScale(received)) / 2}

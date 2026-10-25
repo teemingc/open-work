@@ -43,6 +43,11 @@
 		})
 	);
 	const received = $derived(data.months.reduce((sum, month) => sum + month.income, 0));
+	/**
+	 * It gives from its own pocket rather than passing on what it receives, as a company paying by
+	 * card does, so it has nothing received to show nor a balance left to pass on.
+	 */
+	const ownMoney = $derived(received <= 0);
 	const granted = $derived(data.grants.reduce((sum, grant) => sum + grant.amount, 0));
 	const monthly = $derived(data.commitments.reduce((sum, c) => sum + c.monthly, 0));
 	const lastGrant = $derived(data.grants.at(-1)?.date);
@@ -61,24 +66,32 @@
 
 	/** Each figure in the colour of its line in the chart of giving over time, so the strip is its key. */
 	const stats = $derived<Stat[]>([
-		{
-			label: 'Received',
-			tone: 'text-chart-income',
-			value: money.format(received),
-			note: mainSource ? `Most of it from ${mainSource.name}` : 'From everyone who backs it'
-		},
+		...(ownMoney
+			? []
+			: [
+					{
+						label: 'Received',
+						tone: 'text-chart-income',
+						value: money.format(received),
+						note: mainSource ? `Most of it from ${mainSource.name}` : 'From everyone who backs it'
+					}
+				]),
 		{
 			label: 'Given away',
 			tone: 'text-chart-expenses',
 			value: money.format(granted),
 			note: `To ${recipients.length} project${recipients.length === 1 ? '' : 's'}`
 		},
-		{
-			label: 'Balance',
-			tone: 'text-chart-balance',
-			value: money.format(balance),
-			note: 'Yet to be passed on'
-		},
+		...(ownMoney
+			? []
+			: [
+					{
+						label: 'Balance',
+						tone: 'text-chart-balance',
+						value: money.format(balance),
+						note: 'Yet to be passed on'
+					}
+				]),
 		...(monthly > 0
 			? [
 					{
@@ -102,7 +115,7 @@
 	const AHEAD_LIMIT = 60;
 	const history = $derived(givingHistory({ grants: data.grants, months: data.months, now }));
 	const ahead = $derived(
-		quiet
+		quiet || ownMoney
 			? []
 			: givingAhead({
 					given: granted,
@@ -119,11 +132,16 @@
 	class="border-status-paid/30 bg-status-paid/5 text-status-paid *:data-[slot=alert-description]:text-status-paid/80"
 >
 	<HandCoins />
-	<Alert.Title>Passes its funds on to other projects</Alert.Title>
+	<Alert.Title>
+		{ownMoney ? 'Funds other projects with its own money' : 'Passes its funds on to other projects'}
+	</Alert.Title>
 	<Alert.Description>
 		<p>
-			It passes what it receives on to other projects on Open Collective{#if quiet && lastGrant},
-				and last gave {runwayLength(sinceLast)} ago, on {dayMonthYear.format(
+			{#if ownMoney}
+				It pays other projects on Open Collective directly, rather than passing on money it is given
+			{:else}
+				It passes what it receives on to other projects on Open Collective
+			{/if}{#if quiet && lastGrant}, and last gave {runwayLength(sinceLast)} ago, on {dayMonthYear.format(
 					new Date(lastGrant)
 				)}{/if}.
 		</p>
@@ -132,12 +150,8 @@
 
 <StatStrip {stats} />
 
-<!--
-	Each card as tall as its own chart, so opening the rest of the bars leaves no empty card beside
-	them, and the pack stays in view below the sticky header while the list scrolls past.
--->
-<div class="grid gap-4 lg:grid-cols-2 lg:items-start">
-	<Card.Root class="lg:sticky lg:top-20">
+<div class="grid gap-4 lg:grid-cols-2">
+	<Card.Root>
 		<Card.Header>
 			<Card.Title>Who it funds</Card.Title>
 			<Card.Description>Each project it funds, sized by the amount funded.</Card.Description>
@@ -168,6 +182,8 @@
 		<Card.Description>
 			{#if ahead.length}
 				What it has given so far, and the monthly gifts it already has the money for.
+			{:else if ownMoney}
+				What it has given away so far.
 			{:else}
 				What it has received and given away so far.
 			{/if}
