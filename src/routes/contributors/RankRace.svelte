@@ -37,6 +37,8 @@
 	const TOP = 40;
 	/** The lowest place drawn. A line below it leaves the chart until it climbs back. */
 	const MAX_PLACE = 20;
+	/** Rows a line dips as it fades out of the ranking, or rises as it fades in. */
+	const DIP = 2;
 	/** Years shown on phones, so each still has room. */
 	const PHONE_YEARS = 5;
 
@@ -72,8 +74,19 @@
 		points: Point[];
 		/** A smooth step between each pair of years both ranked, broken over years with nothing. */
 		steps: { from: Point; to: Point }[];
-		/** Its last point: beside the last year when ranked then. */
+		/** Where it joins the ranking after a year without a place, rising in from below. */
+		entries: Point[];
+		/** Where it leaves the ranking before a year without a place, falling out below. */
+		exits: Point[];
+		/** Its last point: on the last year when ranked then. */
 		end: Point | undefined;
+		/** Ranked last year and not yet this year, so dashed on to its name as the year runs on. */
+		trails: boolean;
+		/**
+		 * Where its name sits on the last year when unranked then: the free row nearest its place in the
+		 * table, so every name lines up in the one column.
+		 */
+		rest: Point | undefined;
 		current: boolean;
 	}
 
@@ -101,19 +114,30 @@
 						? []
 						: [{ from: { x: x(i - 1), rank: before }, to: { x: x(i), rank } }];
 				});
-				const end = points.at(-1);
+				// A year without a place before this one; this year still has time to give.
+				const entries = all.flatMap((rank, i) =>
+					rank !== null && all[i - 1] === null ? [{ x: x(i), rank }] : []
+				);
+				const exits = all.flatMap((rank, i) =>
+					rank !== null && all[i + 1] === null && i + 1 < all.length - 1 ? [{ x: x(i), rank }] : []
+				);
+				const current = all.at(-1) !== null && all.at(-1) !== undefined;
 				return {
 					contributor,
 					color: tint(index),
 					weight: weight(index),
 					points,
 					steps,
-					end,
-					current: all.at(-1) !== null && all.at(-1) !== undefined
+					entries,
+					exits,
+					end: points.at(-1),
+					trails: !current && all.length > 1 && all.at(-2) !== null,
+					rest: undefined,
+					current
 				};
 			})
 			.filter((line) => line.points.length);
-		const rows = Math.max(
+		let rows = Math.max(
 			1,
 			...[...contributors, ...roomFor].flatMap((contributor) =>
 				(ranks.get(contributor.slug)?.slice(shown) ?? []).filter(
@@ -121,6 +145,20 @@
 				)
 			)
 		);
+		const last = x(visible.length - 1);
+		const taken = lines.filter((line) => line.current).map((line) => line.end?.rank);
+		for (const line of lines) {
+			if (line.current || !line.end) continue;
+			// Below before above at the same distance, as those ranked this year come first.
+			const place = contributors.indexOf(line.contributor) + 1;
+			let rank = place;
+			for (let d = 1; taken.includes(rank); d++) {
+				rank = [place + d, place - d].find((r) => r >= 1 && !taken.includes(r)) ?? rank;
+			}
+			taken.push(rank);
+			line.rest = { x: last, rank };
+			rows = Math.max(rows, rank);
+		}
 		return { name, years: visible, x, rows, height: TOP + rows * ROW + 8, lines };
 	}
 
@@ -201,6 +239,41 @@
 						if (event.target === event.currentTarget) intro = false;
 					}}
 				>
+					{const half = (x(1) - x(0)) / 2}
+					<!--
+						Where a line leaves or joins the ranking: a short way below its place, as all the way to
+						the bottom would be a spike between two years.
+					-->
+					{const below = (rank: number) => Math.min(y(rank) + DIP * ROW, height - 8)}
+					<!-- Stretched across the gap between two years; the stroke keeps its width. -->
+					{#snippet curve({
+						from,
+						to,
+						paint,
+						dashed = false
+					}: {
+						from: [number, number];
+						to: [number, number];
+						paint?: string;
+						dashed?: boolean;
+					})}
+						<svg
+							x="{from[0]}%"
+							width="{to[0] - from[0]}%"
+							{height}
+							viewBox="0 0 1 {height}"
+							preserveAspectRatio="none"
+							overflow="visible"
+						>
+							{#each ['hit', 'stroke'] as kind (kind)}
+								<path
+									d="M0,{from[1]} C0.5,{from[1]} 0.5,{to[1]} 1,{to[1]}"
+									class={[kind, { trail: dashed && kind === 'stroke' }]}
+									style:stroke={kind === 'stroke' ? paint : undefined}
+								/>
+							{/each}
+						</svg>
+					{/snippet}
 					{#each shownYears as year, i (year)}
 						<line x1="{x(i)}%" x2="{x(i)}%" y1={TOP - 4} y2={height - 8} class="grid" />
 					{/each}
@@ -215,24 +288,40 @@
 							onpointerenter={(event) => follow(event, slug)}
 							onpointerleave={unfollow}
 						>
-							{#each line.steps as { from, to } (from.x)}
-								<!-- Stretched across the gap between two years; the stroke keeps its width. -->
-								<svg
-									x="{from.x}%"
-									width="{to.x - from.x}%"
-									{height}
-									viewBox="0 0 1 {height}"
-									preserveAspectRatio="none"
-									overflow="visible"
+							<defs>
+								<linearGradient id="{name}-{slug}-in"
+									><stop offset="0" stop-opacity="0" /><stop offset="1" /></linearGradient
 								>
-									{#each ['hit', 'stroke'] as kind (kind)}
-										<path
-											d="M0,{y(from.rank)} C0.5,{y(from.rank)} 0.5,{y(to.rank)} 1,{y(to.rank)}"
-											class={kind}
-										/>
-									{/each}
-								</svg>
+								<linearGradient id="{name}-{slug}-out"
+									><stop offset="0" /><stop offset="1" stop-opacity="0" /></linearGradient
+								>
+							</defs>
+							{#each line.steps as { from, to } (from.x)}
+								{@render curve({ from: [from.x, y(from.rank)], to: [to.x, y(to.rank)] })}
 							{/each}
+							<!-- Halfway to the year either side, as LayerChart's bump charts do. -->
+							{#each line.entries as point (point.x)}
+								{@render curve({
+									from: [point.x - half, below(point.rank)],
+									to: [point.x, y(point.rank)],
+									paint: `url(#${name}-${slug}-in)`
+								})}
+							{/each}
+							{#each line.exits as point (point.x)}
+								{@render curve({
+									from: [point.x, y(point.rank)],
+									to: [point.x + half, below(point.rank)],
+									paint: `url(#${name}-${slug}-out)`
+								})}
+							{/each}
+							{#if line.trails && line.end && line.rest}
+								<!-- Dashed on to its name, as it has no place yet this year. -->
+								{@render curve({
+									from: [line.end.x, y(line.end.rank)],
+									to: [line.rest.x, y(line.rest.rank)],
+									dashed: true
+								})}
+							{/if}
 							{#each line.points as point (point.x)}
 								<circle cx="{point.x}%" cy={y(point.rank)} class="dot" />
 								<text
@@ -249,7 +338,8 @@
 
 				{#each lines as line (line.contributor.slug)}
 					{const slug = line.contributor.slug}
-					{#if line.end}
+					{const at = line.rest ?? line.end}
+					{#if at}
 						<span
 							in:join={'name'}
 							role="presentation"
@@ -261,22 +351,19 @@
 									faded: highlighted !== null && highlighted !== slug
 								}
 							]}
-							style:left="{line.end.x}%"
-							style:top="{y(line.end.rank)}px"
-							style:--room="{x(1) - x(0)}%"
+							style:left="{at.x}%"
+							style:top="{y(at.rank)}px"
 							style:--tint={line.color}
 							title={line.contributor.name}
 							onpointerenter={(event) => follow(event, slug)}
 							onpointerleave={unfollow}
 						>
-							{#if line.current}
-								<!-- Its logo where the line reaches this year, a disc in its colour without one. -->
-								<span class="logo">
-									{#if line.contributor.imageUrl}
-										<img src={line.contributor.imageUrl} alt="" loading="lazy" />
-									{/if}
-								</span>
-							{/if}
+							<!-- Its logo where the line reaches this year, a disc in its colour without one. -->
+							<span class="logo">
+								{#if line.contributor.imageUrl}
+									<img src={line.contributor.imageUrl} alt="" loading="lazy" />
+								{/if}
+							</span>
 							<span class="name">{line.contributor.name}</span>
 						</span>
 					{/if}
@@ -411,15 +498,36 @@
 		opacity: 1;
 	}
 
+	/* Fades in from, and out to, nothing where a line joins or leaves the ranking. */
+	stop {
+		stop-color: var(--tint);
+	}
+
+	/* Its line dashed on from its last place, fainter than a line still ranked. */
+	.trail {
+		stroke-width: 1.5;
+		stroke-dasharray: 3 4;
+		stroke-opacity: 0.6;
+	}
+	.following .line:not(.followed) .trail {
+		stroke-opacity: 0.15;
+	}
+	.followed .trail {
+		stroke-width: 2;
+		stroke-opacity: 1;
+	}
+
 	/*
-	 * A name sits beside its line's last point; one ranked this year also has its logo on the point,
-	 * and one that ended in an earlier year is muted, as it is no longer in the race.
+	 * Every name sits in the column beside the last year, its logo on the point. One unranked this year
+	 * is muted, as it has no place in the race yet.
 	 */
 	.label {
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		translate: 14px -50%;
+		/* Centres the logo on the point, and lets the name run into the room kept for it. */
+		translate: -10.5px -50%;
+		max-width: calc(var(--names) + 22px);
 		font-size: 12px;
 		color: var(--muted-foreground);
 	}
@@ -427,14 +535,12 @@
 	.label.followed {
 		color: var(--foreground);
 	}
-	/* One that ended in an earlier year stops short of the next year's points. */
-	.label:not(.current) {
-		max-width: calc(var(--room) - 34px);
+	.label:not(.current) .logo {
+		border-style: dashed;
 	}
-	.label.current {
-		/* Centres the logo on the point, and lets the name run into the room kept for it. */
-		translate: -10.5px -50%;
-		max-width: calc(var(--names) + 22px);
+	.label:not(.current):not(.followed) .logo img {
+		opacity: 0.5;
+		filter: grayscale(1);
 	}
 	.label.followed {
 		max-width: none;
