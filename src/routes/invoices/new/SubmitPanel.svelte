@@ -101,7 +101,7 @@
 
 	<Button
 		size="lg"
-		class="w-full active:scale-[0.98]"
+		class="w-full motion-safe:active:scale-[0.98]"
 		disabled={problems.length > 0}
 		onclick={() => (confirmOpen = true)}><Send />Submit to Open Collective</Button
 	>

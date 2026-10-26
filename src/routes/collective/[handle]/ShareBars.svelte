@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import LazyChart from '#lib/components/LazyChart.svelte';
 	import { TooltipLink } from '#lib/tooltip-link.svelte.js';
-	import { ExternalLink } from '@lucide/svelte';
+	import { dashboardSearch } from '#lib/dashboard-search.svelte.js';
+	import { ArrowRight, ExternalLink } from '@lucide/svelte';
 	import { moneyFormat } from './chart-format';
 	import { transactionsUrl } from './financials';
 	import type { Recipient } from './grants';
@@ -73,12 +75,12 @@
 			? percent(share)
 			: `${percent(low).replace('%', '')}–${percent(share)}`;
 
-	/** The project's own page, where its contributions are, or what the fund gave the rest. */
+	/** The project's own dashboard here, or what the fund gave the rest on Open Collective. */
 	const link = new TooltipLink(
 		(row: Row | Rest) =>
 			'rest' in row
 				? transactionsUrl({ slug, kinds: ['CONTRIBUTION'] })
-				: `https://opencollective.com/${row.slug}`,
+				: resolve(`/collective/[handle]${dashboardSearch()}`, { handle: row.slug }),
 		(row) => linked.pin('bars', row && !('rest' in row) ? row.slug : undefined)
 	);
 
@@ -145,7 +147,7 @@
 								height={ROW - 2}
 								rx="6"
 								class={[
-									'fill-primary/6 transition-opacity duration-150',
+									'fill-primary/6',
 									picked || shown === row.slug ? 'opacity-100' : 'opacity-0'
 								]}
 							/>
@@ -298,7 +300,7 @@
 											{/if}
 										</p>
 									{/if}
-									{#if href}
+									{#if href && 'rest' in row}
 										<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
 										<a
 											{href}
@@ -308,6 +310,16 @@
 										>
 											View on Open Collective
 											<ExternalLink class="size-3 text-muted-foreground" aria-hidden="true" />
+										</a>
+										<!-- eslint-enable svelte/no-navigation-without-resolve -->
+									{:else if href}
+										<!-- eslint-disable svelte/no-navigation-without-resolve -- resolved with the URL above -->
+										<a
+											{href}
+											class="flex items-center gap-1 border-t border-border/50 pt-1.5 font-medium underline-offset-4 hover:underline"
+										>
+											View its dashboard
+											<ArrowRight class="size-3 text-muted-foreground" aria-hidden="true" />
 										</a>
 										<!-- eslint-enable svelte/no-navigation-without-resolve -->
 									{/if}

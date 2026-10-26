@@ -198,7 +198,10 @@
 					<summary
 						class="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden"
 					>
-						<ChevronRight size={15} class="transition-transform group-open:rotate-90" />
+						<ChevronRight
+							size={15}
+							class="transition-transform group-open:rotate-90 motion-reduce:transition-none"
+						/>
 						Rate changes
 					</summary>
 					<div class="mt-3 space-y-3">

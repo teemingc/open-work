@@ -1,8 +1,10 @@
+import { goto } from '$app/navigation';
 import { on } from 'svelte/events';
 
 /**
- * Links a chart's points to a page on Open Collective. With a mouse, clicking a point opens it in a
- * new tab. On touch screens, where there's no hover, the tooltip carries the link instead: it shows
+ * Links a chart's points to a page on Open Collective, or to one of this site's own pages for a URL
+ * that starts with "/". With a mouse, clicking a point opens Open Collective in a new tab, and this
+ * site's pages in this one. On touch screens, where there's no hover, the tooltip carries the link instead: it shows
  * from the moment a finger touches the chart, and the tooltip it's in pins once the finger lifts, a
  * tap's or a scrub's, so the link can be tapped. Touching the chart again unpins it, so the finger
  * scrubs to another point, which pins in turn; a tap anywhere else, the page scrolling or Escape lets
@@ -40,7 +42,9 @@ export class TooltipLink<T> {
 		this.#handled = event;
 		const url = this.url(data);
 		if (matchMedia('(hover: hover)').matches) {
-			if (url) window.open(url, '_blank', 'noopener');
+			// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved by whoever made it
+			if (url?.startsWith('/')) void goto(url);
+			else if (url) window.open(url, '_blank', 'noopener');
 			return;
 		}
 		if (!url) {

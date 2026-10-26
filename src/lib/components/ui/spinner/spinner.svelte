@@ -5,4 +5,8 @@
 	let { class: className }: { class?: string } = $props();
 </script>
 
-<LoaderCircle role="status" aria-label="Loading" class={cn('size-4 animate-spin', className)} />
+<LoaderCircle
+	role="status"
+	aria-label="Loading"
+	class={cn('size-4 animate-spin motion-reduce:animate-none', className)}
+/>

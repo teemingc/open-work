@@ -120,7 +120,7 @@
 								<span class="block text-sm text-muted-foreground">{about}</span>
 							</span>
 							<ChevronRight
-								class="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+								class="size-4 shrink-0 text-muted-foreground transition-transform motion-safe:group-hover:translate-x-0.5"
 								aria-hidden="true"
 							/>
 						</a>
