@@ -53,10 +53,11 @@
 	const received = $derived(data.months.reduce((sum, month) => sum + month.income, 0));
 	/**
 	 * It gives from its own pocket rather than passing on what it receives, as a company paying by
-	 * card does, so it has nothing received to show nor a balance left to pass on.
+	 * card does, so it has nothing received to show nor a balance left to pass on. Known by having
+	 * given more than it received, as a few stray donations to such a company are not what it gives.
 	 */
-	const ownMoney = $derived(received <= 0);
 	const granted = $derived(data.grants.reduce((sum, grant) => sum + grant.amount, 0));
+	const ownMoney = $derived(received < granted);
 	const monthly = $derived(data.commitments.reduce((sum, c) => sum + c.monthly, 0));
 	const firstGrant = $derived(data.grants[0]?.date);
 	const lastGrant = $derived(data.grants.at(-1)?.date);

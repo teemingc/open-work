@@ -21,11 +21,19 @@
 	const ranked = $derived(table.filter((row) => row.rank));
 	const sum = $derived(ranked.reduce((total, row) => total + row.contributor[by], 0));
 	/**
-	 * The past year, whichever ranking is shown, so the sentence above the toggle keeps its length and
-	 * the toggle stays put.
+	 * What those with anything to rank by gave, in either ranking. The sentence for each takes the same
+	 * room, so the toggle below it stays under the pointer.
 	 */
-	const givingNow = $derived(contributors.filter((c) => c.recent > 0));
-	const givenNow = $derived(givingNow.reduce((total, c) => total + c.recent, 0));
+	const summaries = $derived(
+		(['recent', 'total'] as const).map((either) => {
+			const giving = contributors.filter((c) => c[either] > 0);
+			return {
+				by: either,
+				count: giving.length,
+				sum: giving.reduce((total, c) => total + c[either], 0)
+			};
+		})
+	);
 	const most = $derived(ranked[0]?.contributor[by] ?? 0);
 
 	/** The chart follows the top of the table; any more lines and none could be told apart. */
@@ -69,17 +77,27 @@
 
 <article>
 	<!--
-		The ranking is chosen above the chart, as it changes both. Nothing above the toggle changes
-		with it, so it stays under the pointer while the chart and table below change height.
+		The ranking is chosen above the chart, as it changes both. The sentence above the toggle keeps
+		the room of its longer version, so the toggle stays under the pointer while the chart and table
+		below change height.
 	-->
 	<header class="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
 		<div class="max-w-3xl">
-			<h1>Top contributors on Open Collective</h1>
+			<h1>Top contributors</h1>
 			{#if result}
-				<p class="mt-3 max-w-2xl text-pretty text-muted-foreground">
-					These {givingNow.length} companies and people contributed {money.format(givenNow)} to projects
-					in the past 12 months.
-				</p>
+				<!-- Both sentences share one cell, the other one hidden, so the taller sets its height. -->
+				<div class="mt-3 grid max-w-2xl text-pretty text-muted-foreground">
+					{#each summaries as summary (summary.by)}
+						<p class={['col-start-1 row-start-1', { invisible: summary.by !== by }]}>
+							These {summary.count} contributors have contributed a total of {money.format(
+								summary.sum
+							)}
+							to other collectives {summary.by === 'recent'
+								? 'in the past 12 months'
+								: 'since joining Open Collective'}.
+						</p>
+					{/each}
+				</div>
 			{:else}
 				<p class="mt-3 max-w-2xl text-pretty text-muted-foreground">
 					The standings are being gathered from Open Collective. Check back shortly.
