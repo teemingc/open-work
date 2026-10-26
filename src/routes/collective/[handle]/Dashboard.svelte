@@ -946,60 +946,69 @@
 {/snippet}
 
 <div class="flex animate-in flex-col gap-8 duration-300 fade-in">
-	<div class="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+	<!-- A name too long to sit beside the search takes the whole line and puts the search under it. -->
+	<div
+		class="flex flex-col gap-6 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-8 sm:gap-y-6"
+	>
 		<!-- The logo and name open the collective on Open Collective; the icon says it leaves the app. -->
-		<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
-		<a
-			href={`https://opencollective.com/${data.slug}`}
-			target="_blank"
-			rel="noreferrer"
-			class="group flex min-w-0 flex-col items-start gap-3 rounded-xl sm:flex-row sm:items-center sm:gap-4"
-		>
-			{#if data.imageUrl}
-				<!--
+		<!--
+			The name takes all the room it can, so the search keeps its width beside it, and the search
+			fills its own line once a long name puts it there.
+		-->
+		<div class="flex min-w-0 sm:flex-[999_1_auto]">
+			<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
+			<a
+				href={`https://opencollective.com/${data.slug}`}
+				target="_blank"
+				rel="noreferrer"
+				class="group flex min-w-0 flex-col items-start gap-3 rounded-xl min-[30rem]:flex-row min-[30rem]:items-center min-[30rem]:gap-4"
+			>
+				{#if data.imageUrl}
+					<!--
 					Centred on the line, level with the middle of the capitals. Centred on the lowercase letters
 					instead, it sat below a name that starts with a capital. A new image for each collective,
 					so the last one's logo does not show while this one's loads.
 				-->
-				{#key data.imageUrl}
-					<img
-						src={data.imageUrl}
-						alt=""
-						class="size-16 shrink-0 rounded-xl border bg-card object-contain"
-					/>
-				{/key}
-			{/if}
-			<!--
+					{#key data.imageUrl}
+						<img
+							src={data.imageUrl}
+							alt=""
+							class="size-16 shrink-0 rounded-xl border bg-card object-contain"
+						/>
+					{/key}
+				{/if}
+				<!--
 				A long name wraps rather than being cut off. The icon stays with the last word, so it is
 				never left alone on a line. Sized and spaced in ems to keep its look as the heading scales,
 				and lowered a little, since its drawing leaves a margin inside its box.
 			-->
-			<div class="flex min-w-0 flex-col gap-1">
-				<h1
-					class="leading-tight text-balance decoration-1 underline-offset-6 group-hover:underline"
-				>
-					{nameStart}<span class="whitespace-nowrap"
-						>{nameEnd}<ExternalLink
-							class="ml-[0.3em] inline-block size-[0.6em] align-[-0.05em] text-muted-foreground group-hover:text-foreground"
-							aria-hidden="true"
-						/></span
+				<div class="flex min-w-0 flex-col gap-1">
+					<h1
+						class="leading-tight text-balance decoration-1 underline-offset-6 group-hover:underline"
 					>
-				</h1>
-				<span class="sr-only">on Open Collective (opens in a new tab)</span>
-				{#if data.months[0]}
-					<!-- The first month with contributions or expenses, which is where all time starts. -->
-					<span class="text-sm text-muted-foreground">
-						Since {monthLabel({ key: data.months[0].key })}
-					</span>
-				{/if}
-			</div>
-		</a>
-		<!-- eslint-enable svelte/no-navigation-without-resolve -->
+						{nameStart}<span class="whitespace-nowrap"
+							>{nameEnd}<ExternalLink
+								class="ml-[0.3em] inline-block size-[0.6em] align-[-0.05em] text-muted-foreground group-hover:text-foreground"
+								aria-hidden="true"
+							/></span
+						>
+					</h1>
+					<span class="sr-only">on Open Collective (opens in a new tab)</span>
+					{#if data.months[0]}
+						<!-- The first month with contributions or expenses, which is where all time starts. -->
+						<span class="text-sm text-muted-foreground">
+							Since {monthLabel({ key: data.months[0].key })}
+						</span>
+					{/if}
+				</div>
+			</a>
+			<!-- eslint-enable svelte/no-navigation-without-resolve -->
+		</div>
 		<!--
 			On phones the search comes first, as a tool for the whole page, so the collective's name leads
 			straight into what is shown about it. Beside the name on wider screens.
 		-->
-		<div class="order-first sm:order-none">
+		<div class="order-first sm:order-none sm:flex-[1_1_16rem]">
 			<CollectiveSearch name="Find another collective" slug={data.slug} />
 		</div>
 	</div>
