@@ -475,6 +475,8 @@
 	);
 
 	const runwayMonths = $derived(result.zeroDate ? monthsBetween(now, result.zeroDate) : null);
+	/** Under a year of money left is worth a warning; years of it is a balance spent as planned. */
+	const runningLow = $derived(runwayMonths !== null && runwayMonths < 12);
 
 	/** When the money runs out within the years forecast, as the projection then ends there. */
 	const runsOutDate = $derived(
@@ -683,7 +685,9 @@
 					: {
 							text: `${runwayLength(runwayMonths)} left`,
 							icon: 'hourglass',
-							tone: 'border-destructive/30 text-destructive hover:bg-destructive/10',
+							tone: runningLow
+								? 'border-destructive/30 text-destructive hover:bg-destructive/10'
+								: undefined,
 							detail: runwayDetail,
 							aside: details.runwayAside(income?.oneOffs.count)
 						}
@@ -1034,7 +1038,7 @@
 			</Alert.Root>
 		{:else}
 			<Alert.Root
-				variant={result.zeroDate ? 'destructive' : 'default'}
+				variant={runningLow ? 'destructive' : 'default'}
 				class={result.avgNet >= 0
 					? 'border-status-paid/30 bg-status-paid/5 text-status-paid *:data-[slot=alert-description]:text-status-paid/80'
 					: undefined}
@@ -1045,8 +1049,10 @@
 					<TrendingUp />
 				{/if}
 				<Alert.Title>
-					{#if result.zeroDate}
+					{#if result.zeroDate && runningLow}
 						Balance may run out before {longMonthYear.format(result.zeroDate)}
+					{:else if result.zeroDate}
+						Funded until {longMonthYear.format(result.zeroDate)}
 					{:else if result.avgNet < 0}
 						Shrinking, but no end in sight
 					{:else}
