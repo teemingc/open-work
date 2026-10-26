@@ -239,12 +239,12 @@
 						if (event.target === event.currentTarget) intro = false;
 					}}
 				>
-					{const half = (x(1) - x(0)) / 2}
+					{const half = $derived((x(1) - x(0)) / 2)}
 					<!--
 						Where a line leaves or joins the ranking: a short way below its place, as all the way to
 						the bottom would be a spike between two years.
 					-->
-					{const below = (rank: number) => Math.min(y(rank) + DIP * ROW, height - 8)}
+					{const below = $derived((rank: number) => Math.min(y(rank) + DIP * ROW, height - 8))}
 					<!-- Stretched across the gap between two years; the stroke keeps its width. -->
 					{#snippet curve({
 						from,
@@ -338,7 +338,7 @@
 
 				{#each lines as line (line.contributor.slug)}
 					{const slug = line.contributor.slug}
-					{const at = line.rest ?? line.end}
+					{const at = $derived(line.rest ?? line.end)}
 					{#if at}
 						<span
 							in:join={'name'}

@@ -168,8 +168,8 @@
 					<tbody>
 						<!-- Rows slide to their new places when the ranking changes, so you can see who moved. -->
 						{#each table as { contributor, rank, moved } (contributor.slug)}
-							{const amount = contributor[by]}
-							{const other = by === 'recent' ? contributor.total : contributor.recent}
+							{const amount = $derived(contributor[by])}
+							{const other = $derived(by === 'recent' ? contributor.total : contributor.recent)}
 							<tr
 								animate:flip={{
 									duration: prefersReducedMotion.current ? 0 : 250,
