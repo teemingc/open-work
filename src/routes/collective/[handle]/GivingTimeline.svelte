@@ -3,7 +3,7 @@
 	import type { ChartConfig } from '#lib/components/ui/chart/chart-utils.js';
 	import LazyChart from '#lib/components/LazyChart.svelte';
 	import { TooltipLink } from '#lib/tooltip-link.svelte.js';
-	import { scaleLinear, scaleTime } from 'd3-scale';
+	import { scaleLinear, scaleUtc } from 'd3-scale';
 	import { compactFormat, moneyFormat } from './chart-format';
 	import { monthsBetween, transactionsUrl } from './financials';
 	import type { AheadPoint, HistoryPoint, Recipient, Round, RoundGift } from './grants';
@@ -247,7 +247,7 @@
 					padding={chartPadding({ left: 36, right: ahead.length ? 0 : 8 })}
 					onTooltipClick={pastLink.click}
 					x="date"
-					xScale={scaleTime()}
+					xScale={scaleUtc()}
 					xDomain={[start, now]}
 					yDomain={[0, yMax]}
 					seriesLayout="overlap"
@@ -440,7 +440,7 @@
 						padding={{ ...chartPadding({ left: 0 }), left: 0 }}
 						onTooltipClick={aheadLink.click}
 						x="date"
-						xScale={scaleTime()}
+						xScale={scaleUtc()}
 						xDomain={[now, end]}
 						yDomain={[0, yMax]}
 						axis="x"
