@@ -17,9 +17,9 @@
 		slug,
 		currency
 	}: {
-		/** Only those whose contributions are known, in the order to show them. */
-		recipients: (Recipient & { contributions: number; share: number })[];
-		/** The fund has stopped giving, so each share is what it would be if it still gave. */
+		/** Only those whose spending is known, in the order to show them. */
+		recipients: (Recipient & { spending: number; share: number })[];
+		/** The fund has stopped giving, so each share is what it would cover if it still gave. */
 		stopped: boolean;
 		/** The project picked here or in the pack, highlighted in both. */
 		linked: LinkedProject;
@@ -51,29 +51,39 @@
 
 	const money = $derived(moneyFormat(currency));
 
-	/** Each row: the name on one line, the bar under it with its percentage at the end. */
+	/** Room right of the months for how long they last, more for the rest's "up to 10 months". */
+	const label = $derived(rows.some((row) => 'rest' in row) ? 108 : 88);
+
+	/** Each row: the name on one line, the months under it with how long they last at the end. */
 	const ROW = 40;
-	/** Room left of the name and bar for the logo. */
+	/** Room left of the name and months for the logo. */
 	const INSET = 24;
-	/** Room right of the bar for its percentage, or for what the fund would add once it has stopped. */
-	const label = $derived(stopped ? 64 : 44);
-	/** The gap between what a project receives now and the fund's part after it. */
+	/** A year of a project's average spending, one cell a month. */
+	const MONTHS = 12;
+	/** The gap between one month's cell and the next. */
 	const GAP = 2;
 	/** The hatching of the fund's part once it has stopped, as the timeline hatches what has not happened. */
 	const hatch = $props.id();
-	/** What the fund gave a project in its last year of giving, set against what it receives now. */
-	const ofReceived = (row: Row) => percent(row.recent / (row.contributions - row.recent));
-	/** What the fund would add to all of the rest together. */
-	const added = (row: Rest) => row.rest.reduce((sum, other) => sum + other.recent, 0);
 
-	/** Rounded down near the top, so 99.6% is not shown as all of it. */
-	const percent = (share: number) =>
-		share < 0.005 ? '<1%' : share < 1 ? `${Math.min(99, Math.round(share * 100))}%` : '100%';
-	/** From the least to the most any of the rest got, like "<1–8%". */
-	const range = ({ low, share }: Rest) =>
-		percent(low) === percent(share)
-			? percent(share)
-			: `${percent(low).replace('%', '')}–${percent(share)}`;
+	/** The months of a project's average spending a share of its year pays for. */
+	const months = (share: number) => share * MONTHS;
+	/** How much of the month at `index` that many months fill, from 0 to 1. */
+	const part = (count: number, index: number) => Math.min(1, Math.max(0, count - index));
+
+	/**
+	 * How long a gift keeps a project going at its average spending: weeks under a month, then whole
+	 * months rounded down, so 11.9 is not shown as the whole year.
+	 */
+	function fundedLength(share: number) {
+		const count = months(share);
+		if (count >= MONTHS) return 'all year';
+		if (count >= 1) {
+			const whole = Math.floor(count);
+			return `${whole} month${whole === 1 ? '' : 's'}`;
+		}
+		const weeks = Math.round((count * 52) / MONTHS);
+		return weeks < 1 ? 'under a week' : `${weeks} week${weeks === 1 ? '' : 's'}`;
+	}
 
 	/** The project's own dashboard here, or what the fund gave the rest on Open Collective. */
 	const link = new TooltipLink(
@@ -117,7 +127,7 @@
 					props={{ tooltip: { context: { locked: link.locked } } }}
 				>
 					{#snippet marks({ context })}
-						{@const width = context.width - INSET - label}
+						{@const cell = (context.width - INSET - label - GAP * (MONTHS - 1)) / MONTHS}
 						{@const shown = (context.tooltip.data as Row | Rest | null)?.slug}
 						{#if stopped}
 							<defs>
@@ -151,32 +161,50 @@
 									picked || shown === row.slug ? 'opacity-100' : 'opacity-0'
 								]}
 							/>
-							{#if stopped}
-								<!--
-									The project's whole year if the fund gave again: what it receives now, then the fund's
-									part, hatched as what is not there.
-								-->
-								<rect
-									x={INSET}
-									y={top + 24}
-									width={Math.max(0, width * (1 - row.share) - GAP)}
-									height="8"
-									rx="4"
-									class="fill-chart-income-muted"
-								/>
-								<rect
-									x={INSET + width * (1 - row.share)}
-									y={top + 24}
-									width={Math.max(4, width * row.share)}
-									height="8"
-									rx="4"
-									fill="url(#{hatch})"
-									class="stroke-chart-expenses"
-									stroke-width="1"
-								/>
-							{:else}
-								<rect x={INSET} y={top + 24} {width} height="8" rx="4" class="fill-muted" />
-							{/if}
+							{@const most = months(row.share)}
+							{@const least = 'rest' in row ? months(row.low) : most}
+							<!--
+								A year of the project's average spending, a cell a month, filled for the months the fund
+								pays for. The rest fill to the least any of them got, then paler to the most.
+							-->
+							{#each { length: MONTHS }, index (index)}
+								{@const x = INSET + index * (cell + GAP)}
+								<rect {x} y={top + 24} width={cell} height="8" rx="2" class="fill-muted" />
+								{#if stopped && (index === 0 || part(most, index) > 0)}
+									<!-- Hatched as what is not there, the months it would pay for if it gave again. -->
+									<rect
+										{x}
+										y={top + 24}
+										width={index === 0
+											? Math.max(3, cell * part(most, index))
+											: cell * part(most, index)}
+										height="8"
+										rx="2"
+										fill="url(#{hatch})"
+										class="stroke-chart-expenses"
+										stroke-width="1"
+									/>
+								{:else if !stopped}
+									<rect
+										{x}
+										y={top + 24}
+										width={cell * part(most, index)}
+										height="8"
+										rx="2"
+										class="fill-chart-expenses-muted"
+									/>
+									<rect
+										{x}
+										y={top + 24}
+										width={index === 0
+											? Math.max(3, cell * part(least, index))
+											: cell * part(least, index)}
+										height="8"
+										rx="2"
+										class="fill-chart-expenses"
+									/>
+								{/if}
+							{/each}
 							{#if 'rest' in row}
 								<!-- One mark in the logo column like every other row; the tooltip shows their logos. -->
 								<LogoMark
@@ -191,25 +219,6 @@
 								<text x={INSET} y={top + 17} font-size="13" class="fill-foreground"
 									>{row.rest.length} other collectives</text
 								>
-								{#if !stopped}
-									<!-- From the least to the most any of them got from this fund. -->
-									<rect
-										x={INSET + width * row.low}
-										y={top + 24}
-										width={Math.max(4, width * (row.share - row.low))}
-										height="8"
-										rx="4"
-										class="fill-chart-expenses-muted"
-									/>
-								{/if}
-								<text
-									x={context.width}
-									y={top + 32}
-									font-size="13"
-									text-anchor="end"
-									class="fill-foreground font-medium tabular-nums"
-									>{stopped ? `+${money.format(added(row))}` : range(row)}</text
-								>
 							{:else}
 								<LogoMark
 									x={8}
@@ -221,25 +230,17 @@
 								/>
 								<text x={INSET} y={top + 17} font-size="13" class="fill-foreground">{row.name}</text
 								>
-								{#if !stopped}
-									<rect
-										x={INSET}
-										y={top + 24}
-										width={Math.max(4, width * row.share)}
-										height="8"
-										rx="4"
-										class="fill-chart-expenses"
-									/>
-								{/if}
-								<text
-									x={context.width}
-									y={top + 32}
-									font-size="13"
-									text-anchor="end"
-									class="fill-foreground font-medium tabular-nums"
-									>{stopped ? `+${money.format(row.recent)}` : percent(row.share)}</text
-								>
 							{/if}
+							<text
+								x={context.width}
+								y={top + 32}
+								font-size="13"
+								text-anchor="end"
+								class="fill-foreground font-medium tabular-nums"
+								>{'rest' in row
+									? `up to ${fundedLength(row.share)}`
+									: fundedLength(row.share)}</text
+							>
 						{/each}
 					{/snippet}
 					{#snippet tooltip({ context })}
@@ -276,7 +277,7 @@
 														{/if}
 													</span>
 													<span class="flex-1 text-muted-foreground">{other.name}</span>
-													<span class="font-medium tabular-nums">{percent(other.share)}</span>
+													<span class="font-medium tabular-nums">{fundedLength(other.share)}</span>
 												</li>
 											{/each}
 										</ul>
@@ -286,18 +287,10 @@
 									{:else}
 										<div class="font-medium">{row.name}</div>
 										<p class="text-muted-foreground">
-											{#if stopped}
-												{money.format(row.recent)} a year would add {ofReceived(row)} to the {money.format(
-													row.contributions - row.recent
-												)}
-												{row.name} received last year.
-											{:else if row.recent >= row.contributions}
-												All {money.format(row.contributions)}
-												{row.name} received in the past year came from this fund.
-											{:else}
-												{money.format(row.recent)} of the {money.format(row.contributions)}
-												{row.name} received in the past year came from this fund.
-											{/if}
+											{money.format(row.recent)}
+											{stopped ? 'a year would pay for' : 'in the past year pays for'}
+											{row.share >= 1 ? 'a whole year' : fundedLength(row.share)} of what {row.name}
+											spends, about {money.format(row.spending / MONTHS)} a month.
 										</p>
 									{/if}
 									{#if href && 'rest' in row}
@@ -337,15 +330,11 @@
 <ul class="sr-only">
 	{#each recipients as row (row.slug)}
 		<li>
-			{#if stopped}
-				{row.name}: {money.format(row.recent)} a year would add {ofReceived(row)} to the {money.format(
-					row.contributions - row.recent
-				)} it received last year
-			{:else}
-				{row.name}: {percent(row.share)} of its contributions in the past year, {money.format(
-					row.recent
-				)} of {money.format(row.contributions)}
-			{/if}
+			{row.name}: {money.format(row.recent)}
+			{stopped ? 'a year would pay for' : 'in the past year pays for'}
+			{row.share >= 1 ? 'a whole year' : fundedLength(row.share)} of what it spends, about {money.format(
+				row.spending / MONTHS
+			)} a month
 		</li>
 	{/each}
 </ul>
