@@ -6,7 +6,7 @@
 import type { CollectiveStats } from '../routes/collective/[handle]/stats.remote';
 
 /** Bump when the cards change, so sharing sites fetch them again instead of using their copy. */
-export const OG_IMAGE_VERSION = '3';
+export const OG_IMAGE_VERSION = '4';
 
 /**
  * Changes whenever a collective's card may: when Open Collective reports new figures, and at the

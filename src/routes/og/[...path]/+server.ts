@@ -16,7 +16,7 @@ import {
 	monthsBetween,
 	type Forecast
 } from '../../collective/[handle]/financials';
-import { isFund, toRecipients, type Recipient } from '../../collective/[handle]/grants';
+import { givingYear, isFund, toRecipients, type Recipient } from '../../collective/[handle]/grants';
 import { getCollectiveStats, type CollectiveStats } from '../../collective/[handle]/stats.remote';
 import logoSvg from '#lib/assets/favicon.svg?raw';
 import type { RequestHandler } from './$types';
@@ -453,7 +453,7 @@ async function given(stats: CollectiveStats): Promise<Given[]> {
 		grants: stats.grants,
 		commitments: stats.commitments,
 		currency: stats.currency,
-		now: new Date(stats.fetchedAt)
+		year: givingYear({ grants: stats.grants, now: new Date(stats.fetchedAt) })
 	}).slice(0, MOST_GIVEN);
 	const images = await Promise.all(recipients.map((r) => logo(r.slug)));
 	return recipients.map((r, i) => ({ ...r, image: images[i] }));
@@ -486,7 +486,7 @@ function fundCard(stats: CollectiveStats, image: string | undefined, recipients:
 			...logoImage(image),
 			sentence([
 				{ text: shorten(stats.name, 40), strong: true },
-				{ text: ' has given ' },
+				{ text: ' has contributed ' },
 				{
 					text: formatMoney(Math.round(granted), stats.currency)
 						.replace(/\.00$/, '')

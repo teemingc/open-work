@@ -6,7 +6,7 @@
 	import { scaleLinear, scaleTime } from 'd3-scale';
 	import { compactFormat, moneyFormat } from './chart-format';
 	import { monthsBetween, transactionsUrl } from './financials';
-	import type { AheadPoint, HistoryPoint, Recipient, Round } from './grants';
+	import type { AheadPoint, HistoryPoint, Recipient, Round, RoundGift } from './grants';
 	import MoneyRow from './MoneyRow.svelte';
 
 	let {
@@ -59,8 +59,8 @@
 
 	const config = {
 		received: { label: 'Received', color: 'var(--color-chart-income)' },
-		given: { label: 'Given away', color: 'var(--color-chart-expenses)' },
-		ahead: { label: 'Monthly gifts ahead', color: 'var(--color-chart-expenses)' }
+		given: { label: 'Contributed', color: 'var(--color-chart-expenses)' },
+		ahead: { label: 'Monthly contributions ahead', color: 'var(--color-chart-expenses)' }
 	} satisfies ChartConfig;
 
 	const received = $derived(points.at(-1)?.received ?? 0);
@@ -121,14 +121,38 @@
 	/** Past this many, a round's logos end in a count, so the tooltip stays one row. */
 	const LOGOS = 16;
 
-	/** Who a round went to, the most given first, in a line short enough for a tooltip. */
-	const names = (round: Round) => {
-		const [first, second, ...rest] = round.gifts.map((gift) => gift.name);
+	/** Who the gifts went to, the most given first, in a line short enough for a tooltip. */
+	const names = (gifts: RoundGift[]) => {
+		const [first, second, ...rest] = gifts.map((gift) => gift.name);
 		if (!second) return first;
 		if (!rest.length) return `${first} and ${second}`;
 		if (rest.length === 1) return `${first}, ${second} and ${rest[0]}`;
 		return `${first}, ${second} and ${rest.length} more`;
 	};
+
+	/** Everyone it had contributed to by the end of each day it gave on, the most given first. */
+	const tallies = $derived.by(() => {
+		const totals: Record<string, RoundGift> = {};
+		let total = 0;
+		return rounds.map((round) => {
+			total += round.total;
+			for (const gift of round.gifts) {
+				const before = totals[gift.slug];
+				totals[gift.slug] = {
+					...gift,
+					amount: (before?.amount ?? 0) + gift.amount,
+					recurring: !!before?.recurring || gift.recurring
+				};
+			}
+			return { total, gifts: Object.values(totals).sort((a, b) => b.amount - a.amount) };
+		});
+	});
+	/**
+	 * Everyone it had contributed to once it had given `given` in all. Matched by the total rather
+	 * than the date, as the flat stretch before a step is drawn on the day of the step.
+	 */
+	const contributedTo = (given: number) =>
+		tallies.findLast((tally) => tally.total <= given + 0.005)?.gifts ?? [];
 
 	const pastLink = new TooltipLink(({ date }: Step) =>
 		transactionsUrl({ slug, month: date.toISOString().slice(0, 7), kinds: ['CONTRIBUTION'] })
@@ -142,6 +166,24 @@
 	const risers = $derived(steps.filter((step) => step.round));
 	/** A few days of giving are marked by their own dates rather than evenly spaced ones. */
 	const dayTicks = $derived(short && risers.length <= 4 ? risers.map((step) => step.date) : 2);
+	/** How wide the charts are, so the label of a quiet stretch can be shortened to fit. */
+	let width = $state(0);
+	/** Roughly how wide a character of a chart label is, in pixels. */
+	const CHAR_WIDTH = 6.5;
+	/** The room left of the plot for the money axis, which a label should not run over. */
+	const AXIS_ROOM = 48;
+	/** Whether a label fits in so many pixels on one line, or should break onto two. */
+	const fits = (label: string, room: number) => label.length * CHAR_WIDTH <= room;
+	/** The longest way of saying it has not contributed since then that fits across the chart. */
+	const quietLabel = $derived.by(() => {
+		if (!quietSince) return '';
+		const labels = [
+			`No contributions since ${dayMonthYear.format(quietSince)}`,
+			`None since ${monthYear.format(quietSince)}`,
+			`Since ${monthYear.format(quietSince)}`
+		];
+		return labels.find((label) => label.length * CHAR_WIDTH <= width - AXIS_ROOM) ?? labels.at(-1)!;
+	});
 	/** Room a dot needs after the one before it, in pixels, so a busy stretch is not a row of dots. */
 	const DOT_ROOM = 16;
 	/** The giving days that get a dot: each at least {@link DOT_ROOM} after the last one marked. */
@@ -196,7 +238,7 @@
 	</ul>
 {/snippet}
 
-<div class="flex h-64">
+<div class="flex h-64" bind:clientWidth={width}>
 	<LazyChart class="h-full flex-1 {ahead.length ? 'sm:flex-2' : ''}">
 		{#snippet children({ Area, AreaChart, Chart, LinearGradient, Pattern })}
 			<Chart.Container {config} class="aspect-auto size-full cursor-pointer">
@@ -225,7 +267,7 @@
 								{
 									type: 'range',
 									x: [quietSince, now],
-									label: `Nothing given since ${dayMonthYear.format(quietSince)}`,
+									label: quietLabel,
 									// Ending at the chart's right edge, so a short stretch still has room for it.
 									labelPlacement: 'top-right',
 									labelYOffset: -6,
@@ -336,7 +378,7 @@
 								paint-order="stroke"
 								stroke-width="4"
 								class="pointer-events-none fill-chart-balance stroke-card! font-medium"
-								>Still to give</text
+								>Still to contribute</text
 							>
 						{/if}
 					{/snippet}
@@ -354,13 +396,32 @@
 										{@const amount = money.format(step.round.total)}
 										<div class="grid gap-2">
 											<p class="max-w-80 text-pretty text-muted-foreground">
-												Gave <span class="font-medium text-foreground tabular-nums">{amount}</span>
-												to {gifts.length <= NAMED ? names(step.round) : `${gifts.length} projects`}
+												Contributed <span class="font-medium text-foreground tabular-nums"
+													>{amount}</span
+												>
+												to {gifts.length <= NAMED ? names(gifts) : `${gifts.length} projects`}
 											</p>
 											{@render logos(gifts.map((gift) => ({ ...gift, ringed: gift.recurring })))}
 										</div>
 									{:else}
-										<MoneyRow {value} name="Given so far" {money} />
+										{const projects = $derived(contributedTo(value))}
+										{#if projects.length}
+											<div class="grid gap-2">
+												<p class="max-w-80 text-pretty text-muted-foreground">
+													Contributed <span class="font-medium text-foreground tabular-nums"
+														>{money.format(value)}</span
+													>
+													so far to {projects.length <= NAMED
+														? names(projects)
+														: `${projects.length} projects`}
+												</p>
+												{@render logos(
+													projects.map((project) => ({ ...project, ringed: project.recurring }))
+												)}
+											</div>
+										{:else}
+											<MoneyRow {value} name="Contributed so far" {money} />
+										{/if}
 									{/if}
 								{/if}
 							{/snippet}
@@ -396,7 +457,7 @@
 								color: config.received.color,
 								value: () => received
 							},
-							{ key: 'given', label: 'Total given away by then', color: config.ahead.color }
+							{ key: 'given', label: 'Total contributed by then', color: config.ahead.color }
 						]}
 						annotations={[
 							{
@@ -409,13 +470,7 @@
 								x: end,
 								y: ahead.at(-1)?.given ?? 0,
 								r: 4,
-								label: `Funded ${capped ? 'past' : 'to'} ${monthYear.format(end)}`,
-								labelPlacement: 'top-left',
-								labelYOffset: 10,
-								props: {
-									circle: { class: 'fill-chart-expenses stroke-card' },
-									label: { class: 'fill-chart-expenses font-medium' }
-								}
+								props: { circle: { class: 'fill-chart-expenses stroke-card' } }
 							}
 						]}
 						props={{
@@ -443,6 +498,28 @@
 							/>
 						{/snippet}
 						{#snippet aboveMarks({ context })}
+							<!--
+								Under the dashed line, where the chart is empty, as above it the line of what it received
+								and what it still holds run close. Each label breaks onto two lines where the chart ahead
+								is too narrow for one.
+							-->
+							{const funded = $derived(`Funded ${capped ? 'past' : 'to'} ${monthYear.format(end)}`)}
+							{const fundedX = $derived(context.width - 8)}
+							<text
+								x={fundedX}
+								y={context.yScale(ahead.at(-1)?.given ?? 0) + 20}
+								text-anchor="end"
+								paint-order="stroke"
+								stroke-width="4"
+								class="pointer-events-none fill-chart-expenses stroke-card! font-medium"
+							>
+								{#if fits(funded, context.width - 16)}
+									{funded}
+								{:else}
+									<tspan x={fundedX}>Funded {capped ? 'past' : 'to'}</tspan>
+									<tspan x={fundedX} dy="1.2em">{monthYear.format(end)}</tspan>
+								{/if}
+							</text>
 							<text
 								x={8}
 								y={context.yScale(given + (received - given) * 0.7)}
@@ -450,8 +527,14 @@
 								paint-order="stroke"
 								stroke-width="4"
 								class="pointer-events-none fill-chart-balance stroke-card! font-medium"
-								>Still to give</text
 							>
+								{#if fits('Still to contribute', context.width - 16)}
+									Still to contribute
+								{:else}
+									<tspan x={8} dy="-0.6em">Still to</tspan>
+									<tspan x={8} dy="1.2em">contribute</tspan>
+								{/if}
+							</text>
 							<!-- On the same line as "Given away" across today. -->
 							<text
 								x={6}
@@ -469,7 +552,7 @@
 										<!-- Why the line climbs: the monthly gifts, and who they go to. -->
 										<div class="grid w-full gap-2">
 											<p class="text-muted-foreground">
-												Gives <span class="font-medium text-foreground tabular-nums"
+												Contributes <span class="font-medium text-foreground tabular-nums"
 													>{money.format(perMonth)}</span
 												>
 												to {monthly.length}

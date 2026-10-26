@@ -33,16 +33,19 @@
 
 	/**
 	 * Columns for the number of figures, so a short strip leaves no empty cell showing the divider colour.
-	 * Five in one row squeezes the labels onto two lines, so five sit on six columns as two over three.
+	 * Three sit in one row, as two columns would leave the fourth cell empty. Five in one row squeezes
+	 * the labels onto two lines, so five sit on six columns as two over three.
 	 */
 	const columns = $derived(
 		stats.length >= 5
 			? 'sm:grid-cols-2 lg:grid-cols-6'
 			: stats.length === 4
 				? 'sm:grid-cols-2 xl:grid-cols-4'
-				: stats.length > 1
-					? 'sm:grid-cols-2'
-					: ''
+				: stats.length === 3
+					? 'sm:grid-cols-3'
+					: stats.length === 2
+						? 'sm:grid-cols-2'
+						: ''
 	);
 	/** A lone figure leads, larger and with its note beside it, rather than sitting in an empty strip. */
 	const lone = $derived(stats.length === 1);

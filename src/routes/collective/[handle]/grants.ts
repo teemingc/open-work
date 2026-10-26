@@ -111,18 +111,44 @@ export interface Recipient {
 	last: string;
 	/** What it is still given each month, if it has a recurring contribution. */
 	monthly: number;
-	/** What the collective gave it in the past 12 months. */
+	/** What the collective gave it in its giving year. */
 	recent: number;
 	/**
-	 * All the account received in the past 12 months, from anyone. Unknown when its own figures are
-	 * in another currency.
+	 * All the account received in the past 12 months, from anyone, with what the collective gave it
+	 * in its giving year added once it has stopped. Unknown when its own figures are in another
+	 * currency.
 	 */
 	contributions: number | null;
 	/**
-	 * How much of `contributions` came from the collective, from 0 to 1. Unknown with `contributions`,
-	 * or when the collective gave it nothing in that time.
+	 * How much of `contributions` came, or would come, from the collective, from 0 to 1. Unknown with
+	 * `contributions`, or when the collective gave it nothing in its giving year.
 	 */
 	share: number | null;
+}
+
+/** The 12 months over which a fund's share of each project's contributions is worked out. */
+export interface GivingYear {
+	/** ISO date the 12 months start on. */
+	from: string;
+	/** ISO date and time they end on: now, or the last time it gave once it has stopped. */
+	to: string;
+	/**
+	 * It gave nothing in the past 12 months, so the year is its last one of giving, set against what
+	 * the projects receive now, as the share it would have if it still gave as it did.
+	 */
+	stopped: boolean;
+}
+
+/** The past 12 months, or the 12 months up to the last time it gave when it has since stopped. */
+export function givingYear({ grants, now }: { grants: Grant[]; now: Date }): GivingYear {
+	const yearBefore = (date: Date) =>
+		new Date(
+			Date.UTC(date.getUTCFullYear() - 1, date.getUTCMonth(), date.getUTCDate())
+		).toISOString();
+	const from = yearBefore(now);
+	const last = grants.at(-1)?.date;
+	if (!last || last >= from) return { from, to: now.toISOString(), stopped: false };
+	return { from: yearBefore(new Date(last)), to: last, stopped: true };
 }
 
 /** Everyone the collective gave to, the most given first. */
@@ -130,18 +156,15 @@ export function toRecipients({
 	grants,
 	commitments,
 	currency,
-	now
+	year
 }: {
 	grants: Grant[];
 	commitments: Commitment[];
 	/** The collective's own currency, which an account's income must be in to compare. */
 	currency: string;
-	/** The end of the 12 months its share is worked out over. */
-	now: Date;
+	/** The 12 months its share is worked out over. */
+	year: GivingYear;
 }): Recipient[] {
-	const yearAgo = new Date(
-		Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), now.getUTCDate())
-	).toISOString();
 	const incomes = new Map<string, number | null>();
 	const bySlug = new Map<string, Recipient>();
 	for (const grant of grants) {
@@ -167,7 +190,7 @@ export function toRecipients({
 			);
 		recipient[grant.recurring ? 'recurring' : 'oneOff'] += grant.amount;
 		recipient.total += grant.amount;
-		if (grant.date >= yearAgo) recipient.recent += grant.amount;
+		if (grant.date >= year.from) recipient.recent += grant.amount;
 		recipient.count += 1;
 		if (grant.date < recipient.first) recipient.first = grant.date;
 		if (grant.date > recipient.last) recipient.last = grant.date;
@@ -180,8 +203,12 @@ export function toRecipients({
 	for (const recipient of bySlug.values()) {
 		const income = incomes.get(recipient.slug);
 		if (!income || income <= 0 || !recipient.recent) continue;
-		// Its stats can lag behind gifts made since they were last worked out, so never under them.
-		recipient.contributions = Math.max(income, recipient.recent);
+		// Once it has stopped, what they receive now has nothing from it, so its gifts come on top.
+		// Otherwise their stats can lag behind gifts made since they were last worked out, so never
+		// under them.
+		recipient.contributions = year.stopped
+			? income + recipient.recent
+			: Math.max(income, recipient.recent);
 		recipient.share = recipient.recent / recipient.contributions;
 	}
 	return [...bySlug.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
