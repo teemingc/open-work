@@ -13,7 +13,7 @@
 	import * as Popover from '#lib/components/ui/popover/index.js';
 	import type { ChartConfig } from '#lib/components/ui/chart/chart-utils.js';
 	import * as ToggleGroup from '#lib/components/ui/toggle-group/index.js';
-	import { scaleBand, scaleTime } from 'd3-scale';
+	import { scaleBand, scaleUtc } from 'd3-scale';
 	import type { BrushState, TextProps } from 'layerchart';
 	import type { Rect as RectMark } from 'layerchart/svg';
 	import {
@@ -1152,7 +1152,7 @@
 									onTooltipClick={balanceLink.click}
 									x="date"
 									y="balance"
-									xScale={scaleTime()}
+									xScale={scaleUtc()}
 									xDomain={[history[0]?.date ?? now, forecastSpan.at(-1) ?? now]}
 									yDomain={[0, balanceMax]}
 									yNice
