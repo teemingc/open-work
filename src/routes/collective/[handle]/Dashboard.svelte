@@ -20,6 +20,7 @@
 		ArrowRight,
 		CalendarClock,
 		ExternalLink,
+		ShieldCheck,
 		TrendingDown,
 		TrendingUp,
 		User,
@@ -558,13 +559,20 @@
 
 	/**
 	 * A relative change as a trend badge, or nothing without an earlier window to compare. Coloured
-	 * by whether the change is good for the collective, so rising expenses read as bad news.
+	 * by whether the change is good for the collective, so rising expenses read as bad news. Without
+	 * `warn`, bad news stays uncoloured: spending more is no worry while years of money are left.
 	 */
-	function trendBadge(
-		change: number | undefined,
-		goodWhen: 'up' | 'down',
-		detail: string
-	): Stat['badge'] {
+	function trendBadge({
+		change,
+		goodWhen,
+		detail,
+		warn = true
+	}: {
+		change: number | undefined;
+		goodWhen: 'up' | 'down';
+		detail: string;
+		warn?: boolean;
+	}): Stat['badge'] {
 		if (change === undefined) return undefined;
 		const good = goodWhen === 'up' ? change > 0 : change < 0;
 		return {
@@ -575,7 +583,9 @@
 					? undefined
 					: good
 						? 'border-status-paid/30 text-status-paid hover:bg-status-paid/10'
-						: 'border-destructive/30 text-destructive hover:bg-destructive/10',
+						: warn
+							? 'border-destructive/30 text-destructive hover:bg-destructive/10'
+							: undefined,
 			detail
 		};
 	}
@@ -696,33 +706,43 @@
 			// A minus sign when the balance shrinks; growing is the plain case, so it has no plus.
 			label: 'Monthly change',
 			value: money.format(result.avgNet),
-			tone: result.avgNet < 0 ? 'text-destructive' : 'text-status-paid',
+			// Red only while the money is running low; years of it make a shrinking balance a plan.
+			tone: result.avgNet >= 0 ? 'text-status-paid' : runningLow ? 'text-destructive' : undefined,
 			// With nothing spent, a share of expenses says nothing, so it says that instead.
 			note: result.avgExpenses
 				? `${income ? 'Average recurring contributions cover' : 'Average contributions cover'} ${percent.format(result.avgIncome / result.avgExpenses)} of expenses`
 				: `No expenses over the last ${result.basis} months`,
-			badge: trendBadge(trends.net, 'up', netDetail)
+			badge: trendBadge({
+				change: trends.net,
+				goodWhen: 'up',
+				detail: netDetail,
+				warn: runningLow
+			})
 		},
 		{
 			label: income ? 'Recurring contributions' : 'Contributions',
 			value: money.format(result.avgIncome),
 			note: `Average over the last ${result.basis} months`,
-			badge: trendBadge(
-				trends.income,
-				'up',
-				averageDetail({
+			badge: trendBadge({
+				change: trends.income,
+				goodWhen: 'up',
+				detail: averageDetail({
 					what: income ? 'recurring contributions' : 'contributions',
 					now: result.avgIncome,
 					before: previous?.avgIncome
 				})
-			)
+			})
 		},
 		{
 			label: 'One-off contributions',
 			value: income ? money.format(income.oneOffs.total) : '–',
 			note: oneOffNote,
 			badge: income
-				? trendBadge(change(income.oneOffsBefore.total, income.oneOffs.total), 'up', oneOffDetail)
+				? trendBadge({
+						change: change(income.oneOffsBefore.total, income.oneOffs.total),
+						goodWhen: 'up',
+						detail: oneOffDetail
+					})
 				: undefined
 		},
 		{
@@ -731,15 +751,16 @@
 			note: awaitingApproval
 				? `${money.format(awaitingApproval)} more awaits approval`
 				: `Average over the last ${result.basis} months`,
-			badge: trendBadge(
-				trends.expenses,
-				'down',
-				averageDetail({
+			badge: trendBadge({
+				change: trends.expenses,
+				goodWhen: 'down',
+				detail: averageDetail({
 					what: 'expenses',
 					now: result.avgExpenses,
 					before: previous?.avgExpenses
-				})
-			)
+				}),
+				warn: runningLow
+			})
 		}
 	]);
 
@@ -814,9 +835,13 @@
 		<text
 			transform="translate({props.x} {props.y})"
 			text-anchor="end"
-			class="pointer-events-none fill-destructive stroke-card! [stroke-width:4px] text-xs font-medium [paint-order:stroke] [stroke-linejoin:round]"
+			class={[
+				'pointer-events-none stroke-card! [stroke-width:4px] text-xs font-medium [paint-order:stroke] [stroke-linejoin:round]',
+				runningLow ? 'fill-destructive' : 'fill-muted-foreground'
+			]}
 		>
-			<tspan x="0" dy="0.9em">Runs out</tspan>
+			<!-- The banner's words, so a long runway never reads as a warning. -->
+			<tspan x="0" dy="0.9em">{runningLow ? 'Runs out' : 'Funded until'}</tspan>
 			<tspan x="0" dy="1.25em">{monthYear.format(date)}</tspan>
 		</text>
 	{/if}
@@ -1043,8 +1068,11 @@
 					? 'border-status-paid/30 bg-status-paid/5 text-status-paid *:data-[slot=alert-description]:text-status-paid/80'
 					: undefined}
 			>
-				{#if result.avgNet < 0}
+				<!-- A falling arrow only when it's a warning; a shrinking balance with years left is safe. -->
+				{#if runningLow}
 					<TrendingDown />
+				{:else if result.avgNet < 0}
+					<ShieldCheck />
 				{:else}
 					<TrendingUp />
 				{/if}
@@ -1181,7 +1209,7 @@
 										{
 											type: 'range',
 											x: [now, forecastSpan.at(-1) ?? now],
-											// Above the plot, like a column heading, so it never meets "Runs out" inside it.
+											// Above the plot, like a column heading, so it never meets the end date inside it.
 											label: forecastLabel,
 											labelPlacement: 'top-left',
 											labelYOffset: -6,
@@ -1211,7 +1239,12 @@
 														labelXOffset: 6,
 														labelYOffset: 8,
 														props: {
-															line: { class: 'stroke-destructive!', dashArray: [2, 3] }
+															line: {
+																class: runningLow
+																	? 'stroke-destructive!'
+																	: 'stroke-muted-foreground!',
+																dashArray: [2, 3]
+															}
 														}
 													},
 													{
@@ -1219,7 +1252,13 @@
 														x: runsOutX,
 														y: 0,
 														r: 4,
-														props: { circle: { class: 'fill-destructive stroke-card' } }
+														props: {
+															circle: {
+																class: runningLow
+																	? 'fill-destructive stroke-card'
+																	: 'fill-muted-foreground stroke-card'
+															}
+														}
 													}
 												]
 											: [])
