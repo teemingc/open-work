@@ -85,7 +85,7 @@
 	</Command.Item>
 {/snippet}
 
-<div class={['relative', field ? 'w-full' : 'w-full sm:w-64']} onfocusout={leave}>
+<div class="relative w-full" onfocusout={leave}>
 	<Command.Root
 		shouldFilter={false}
 		label="Search Open Collective"

@@ -63,8 +63,6 @@
 	 *
 	 * The selection holds the categories on show, and an empty one shows them all, so the last
 	 * category left stays put rather than bringing every other one back.
-	 *
-	 * Returns `true` because the legend runs its own handler too whenever ours returns nothing.
 	 */
 	function hide(key: string) {
 		const selected = context.series.selectedKeys;
@@ -77,12 +75,18 @@
 		}
 		toggledAt = performance.now();
 		selected.current = shown.length === keys.length ? [] : shown;
-		return highlight(key);
 	}
 
-	/** Hovering a category picks it out from the rest, unless it is hidden. */
-	function highlight(key: string) {
-		context.series.highlightKey = context.series.isVisible(key) ? key : null;
+	/**
+	 * Hovering a category with a mouse picks it out from the rest, unless it is hidden. A finger
+	 * picks out nothing: no pointer ever leaves to undo it, and iOS takes a tap that changes the
+	 * page on hover as only a hover, so the first tap would pick the category out and the second
+	 * hide it.
+	 *
+	 * Returns `true` because the legend runs its own handler too whenever ours returns nothing.
+	 */
+	function highlight(e: MouseEvent, key: string) {
+		context.series.highlightKey = isMouse(e) && context.series.isVisible(key) ? key : null;
 		return true;
 	}
 </script>
@@ -105,7 +109,8 @@
 			detailsOpen = !same;
 			return true;
 		}
-		return hide(item.value);
+		hide(item.value);
+		return highlight(e, item.value);
 	}}
 	onpointerenter={(e, item) => {
 		if (details && isMouse(e)) {
@@ -114,7 +119,7 @@
 			tapped = false;
 			showDetails(true, 200);
 		}
-		return highlight(item.value);
+		return highlight(e, item.value);
 	}}
 	onpointerleave={(e) => {
 		if (details && isMouse(e)) showDetails(false, 200);

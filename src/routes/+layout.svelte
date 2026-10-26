@@ -1,7 +1,7 @@
 <script lang="ts">
 	import './layout.css';
 	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
+	import { navigating, page } from '$app/state';
 	import favicon from '#lib/assets/favicon.svg';
 	import { restoreSettings } from '#lib/settings.remote.js';
 	import { LEGACY_STORAGE_KEY, parseBackup } from '#lib/settings.js';
@@ -85,10 +85,12 @@
 <NavigationLoader />
 <Header />
 
+<!-- A page slow to arrive dims the one it replaces, so a click is seen to have been heard. -->
 <main
 	id="main"
 	tabindex="-1"
-	class="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-16 outline-none sm:px-6"
+	data-navigating={navigating.to ? '' : undefined}
+	class="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-16 transition-opacity duration-200 outline-none data-navigating:opacity-40 data-navigating:delay-700 data-navigating:duration-500 sm:px-6"
 >
 	{@render children()}
 </main>
