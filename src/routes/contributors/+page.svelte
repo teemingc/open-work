@@ -219,7 +219,12 @@
 										</span>
 									</div>
 								</td>
-								<th scope="row" class="px-3 py-2.5 font-normal">
+								<!--
+									Below md, takes the room the other columns leave and no more: otherwise the longest
+									name sets its width, as a table cell won't shrink to truncate, and the table overflows
+									a phone. Wider, the share column needs its quarter, and every name fits.
+								-->
+								<th scope="row" class="px-3 py-2.5 font-normal max-md:w-full max-md:max-w-0">
 									<div class="flex min-w-0 items-center gap-2">
 										<a
 											href={resolve('/collective/[handle]', { handle: contributor.slug })}
