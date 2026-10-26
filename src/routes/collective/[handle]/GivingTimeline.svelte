@@ -327,9 +327,9 @@
 						-->
 						{const dotted = $derived(spaced(context.xScale))}
 						{#each risers as step, index (step.date.getTime())}
-							{@const x = context.xScale(step.date)}
-							{@const y = context.yScale(step.given)}
-							{@const before = risers[index - 1]}
+							{const x = $derived(context.xScale(step.date))}
+							{const y = $derived(context.yScale(step.given))}
+							{const before = $derived(risers[index - 1])}
 							{#if dotted.has(step)}
 								<circle
 									cx={x}
@@ -384,7 +384,7 @@
 						{/if}
 					{/snippet}
 					{#snippet tooltip({ context })}
-						{@const step = context.tooltip.data as Step | null}
+						{const step = $derived(context.tooltip.data as Step | null)}
 						<Chart.Tooltip labelFormatter={(d: Date) => dayMonthYear.format(d)} link={pastLink}>
 							<!--
 								Only what happened that day, so the tooltip stays small enough to see the chart past;
@@ -393,8 +393,8 @@
 							{#snippet formatter({ value, item })}
 								{#if item.key === 'given' && typeof value === 'number'}
 									{#if step?.round}
-										{@const gifts = step.round.gifts}
-										{@const amount = money.format(step.round.total)}
+										{const gifts = $derived(step.round.gifts)}
+										{const amount = $derived(money.format(step.round.total))}
 										<div class="grid gap-2">
 											<p class="max-w-80 text-pretty text-muted-foreground">
 												Contributed <span class="font-medium text-foreground tabular-nums"

@@ -104,7 +104,7 @@
 					>
 						<span class="leading-5.5 whitespace-nowrap">{stat.label}</span>
 						{#if stat.badge}
-							{@const Icon = stat.badge.icon && ICONS[stat.badge.icon]}
+							{const Icon = $derived(stat.badge.icon && ICONS[stat.badge.icon])}
 							{#if stat.badge.detail}
 								<Popover.Root>
 									<Popover.Trigger openOnHover openDelay={200}>

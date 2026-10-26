@@ -144,7 +144,7 @@
 			{#if detailsKey !== undefined}
 				{@render details(detailsKey)}
 				{#if tapped}
-					{@const key = detailsKey}
+					{const key = $derived(detailsKey)}
 					<Button
 						variant="outline"
 						size="sm"

@@ -149,20 +149,21 @@
 				tooltipContext={{ locked: link.locked }}
 			>
 				{#snippet children({ context })}
-					{@const show = (event: PointerEvent, slot: Slot) => {
+					{const show = (event: PointerEvent, slot: Slot) => {
 						context.tooltip.show(event, slot);
 						linked.hover('pack', slot.kind === 'recipient' ? slot.recipient.slug : undefined);
 					}}
-					{@const nodes = layout(context.width, context.height)}
-					{@const others =
-						(context.tooltip.data as Slot | null)?.kind === 'others' ? 'others' : undefined}
+					{const nodes = $derived(layout(context.width, context.height))}
+					{const others = $derived(
+						(context.tooltip.data as Slot | null)?.kind === 'others' ? 'others' : undefined
+					)}
 					<!-- Picked here, in the bars, or by keyboard. -->
-					{@const active = nodes.find(
-						(node) => node.slot.key === (focused ?? linked.slug ?? others)
+					{const active = $derived(
+						nodes.find((node) => node.slot.key === (focused ?? linked.slug ?? others))
 					)}
 					<Layer>
 						{#each nodes as node (node.slot.key)}
-							{@const slot = node.slot}
+							{const slot = $derived(node.slot)}
 							<!--
 								A link, so it can be reached by keyboard and screen readers. A click opens it with a
 								mouse; a tap pins its tooltip, which holds the link, as there is no hover on touch.
@@ -245,15 +246,15 @@
 							/>
 						{/if}
 					</Layer>
-					{@const slot = context.tooltip.data as Slot | null}
-					{@const href = slot ? link.href(slot) : undefined}
+					{const slot = $derived(context.tooltip.data as Slot | null)}
+					{const href = $derived(slot ? link.href(slot) : undefined)}
 					<TooltipRoot variant="none" pointerEvents={link.locked && href !== undefined}>
 						{#if slot}
 							<div
 								class="grid max-w-64 min-w-40 gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl"
 							>
 								{#if slot.kind === 'recipient'}
-									{@const recipient = slot.recipient}
+									{const recipient = $derived(slot.recipient)}
 									<div class="font-medium">{recipient.name}</div>
 									<!-- Once, when all it has been given so far is its first monthly gift. -->
 									{#if recipient.total !== recipient.monthly}

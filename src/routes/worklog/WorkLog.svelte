@@ -207,6 +207,7 @@
 			{:else}
 				<Card.Root>
 					<Card.Content>
+						<!-- A fresh form for each month. It takes its date once, so a reused one kept the last month's. -->
 						{#key month}
 							<EntryForm
 								clients={store.data.clients}
