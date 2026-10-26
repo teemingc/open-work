@@ -115,6 +115,12 @@ export async function graphql<T>({
 }
 
 /**
+ * Queries the personal token was refused for, lacking a scope. Open Collective refuses them only
+ * after running them, so each is asked without it from then on rather than waiting twice.
+ */
+const unscopedForPersonalToken = new Set<string>();
+
+/**
  * Public data, asked for with your token when you are connected, then the server's personal
  * token, then anonymously: signed-in requests get a more generous rate limit. A token that is
  * rejected, lacks a scope or is rate-limited moves straight on to the next way of asking, so a stale connection or a
@@ -132,7 +138,7 @@ export async function publicGraphql<T>({
 	const personalToken = OC_PERSONAL_TOKEN || undefined;
 	const attempts: { token?: string; personalToken?: string }[] = [
 		...(token ? [{ token }] : []),
-		...(personalToken ? [{ personalToken }] : []),
+		...(personalToken && !unscopedForPersonalToken.has(query) ? [{ personalToken }] : []),
 		{}
 	];
 	for (const [index, attempt] of attempts.entries()) {
@@ -141,6 +147,9 @@ export async function publicGraphql<T>({
 			// `retried` skips the wait on a rate limit, since there is another way to ask.
 			return await graphql<T>({ ...attempt, query, variables, retried: !last });
 		} catch (err) {
+			if (attempt.personalToken && err instanceof OpenCollectiveError && err.status === 403) {
+				unscopedForPersonalToken.add(query);
+			}
 			const moveOn = err instanceof OpenCollectiveError && [401, 403, 429].includes(err.status);
 			if (last && !token && err instanceof OpenCollectiveError && err.status === 429) {
 				err.connect = true;

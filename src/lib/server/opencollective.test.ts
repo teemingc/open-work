@@ -124,11 +124,20 @@ describe('publicGraphql', () => {
 			}),
 			{ status: 200 }
 		);
-		const fetch = vi.fn().mockResolvedValueOnce(unscoped).mockResolvedValueOnce(ok());
+		const fetch = vi
+			.fn()
+			.mockResolvedValueOnce(unscoped)
+			.mockResolvedValueOnce(ok())
+			.mockResolvedValueOnce(ok());
 		vi.stubGlobal('fetch', fetch);
 
-		await expect(publicGraphql({ query: '{ ok }' })).resolves.toEqual({ ok: true });
+		await expect(publicGraphql({ query: '{ unscoped }' })).resolves.toEqual({ ok: true });
 		expect(fetch.mock.calls[1][1].headers['Personal-Token']).toBeUndefined();
+
+		// Refused once, the same query skips the personal token from then on.
+		await expect(publicGraphql({ query: '{ unscoped }' })).resolves.toEqual({ ok: true });
+		expect(fetch).toHaveBeenCalledTimes(3);
+		expect(fetch.mock.calls[2][1].headers['Personal-Token']).toBeUndefined();
 	});
 
 	it('waits out a rate limit only when there is no other way to ask', async () => {
