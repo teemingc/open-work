@@ -3,14 +3,17 @@
 	import { page } from '$app/state';
 	import * as Alert from '#lib/components/ui/alert/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
+	import * as Popover from '#lib/components/ui/popover/index.js';
+	import { RangeCalendar } from '#lib/components/ui/range-calendar/index.js';
 	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import { formatDMY, nextPeriod } from '#lib/format.js';
 	import { getSettings } from '#lib/settings.remote.js';
 	import { missingForSubmit } from '#lib/settings.js';
-	import { CircleAlert, RefreshCw, TriangleAlert } from '@lucide/svelte';
+	import { CalendarRange, CircleAlert, RefreshCw, TriangleAlert } from '@lucide/svelte';
+	import { MediaQuery } from 'svelte/reactivity';
+	import type { DateRange } from 'bits-ui';
 	import { getExpenses, getMe } from '#lib/opencollective.remote.js';
 	import { isHttpError } from '@sveltejs/kit';
 	import { lastInvoicedEnd } from './expenses';
@@ -48,9 +51,14 @@
 
 	const suggested = $derived(nextPeriod({ lastEnd: expenses && lastInvoicedEnd(expenses) }));
 
-	let customStart = $state('');
-	let customEnd = $state('');
-	const customValid = $derived(customStart !== '' && customEnd !== '' && customStart <= customEnd);
+	/** Open when you open it, or when there are no suggested dates to start from. */
+	let datesOpen = $state<boolean>();
+	/** Two months fit side by side from this width (see range-calendar-months.svelte). */
+	const twoMonths = new MediaQuery('min-width: 32rem');
+	let custom = $state<DateRange | undefined>();
+	let customOpen = $state(false);
+	const customStart = $derived(custom?.start?.toString() ?? '');
+	const customEnd = $derived(custom?.end?.toString() ?? '');
 </script>
 
 <svelte:head>
@@ -102,8 +110,8 @@
 				<Alert.Root variant="warning">
 					<TriangleAlert />
 					<!-- One line: the notice is short, and the link is the only thing to do about it. -->
-					<Alert.Title class="flex flex-wrap gap-x-3">
-						Finish setup to submit invoices
+					<Alert.Title>
+						Finish setup to submit invoices.
 						<a href={resolve('settings')} class="underline">Go to settings</a>
 					</Alert.Title>
 				</Alert.Root>
@@ -127,10 +135,10 @@
 								Could not check what you last invoiced, so choose the dates below.
 							</p>
 						{:else}
-							<p
-								class="mt-1 animate-in font-display text-2xl whitespace-nowrap duration-300 fade-in sm:text-3xl"
-							>
-								{formatDMY(suggested.startDate)} – {formatDMY(suggested.endDate)}
+							<p class="mt-1 animate-in font-display text-2xl duration-300 fade-in sm:text-3xl">
+								<!-- On a narrow screen the end date wraps onto its own line rather than overflowing. -->
+								<span class="whitespace-nowrap">{formatDMY(suggested.startDate)} –</span>
+								<span class="whitespace-nowrap">{formatDMY(suggested.endDate)}</span>
 							</p>
 						{/if}
 					</div>
@@ -139,7 +147,11 @@
 					>
 				</form>
 
-				<details class="group mt-5 border-t pt-4 text-sm" open={!!loadError}>
+				<!-- Bound rather than set, so picking dates (which re-renders the form) never closes it. -->
+				<details
+					class="group mt-5 border-t pt-4 text-sm"
+					bind:open={() => datesOpen ?? !!loadError, (open) => (datesOpen = open)}
+				>
 					<summary class="cursor-pointer text-muted-foreground hover:text-foreground">
 						Choose other dates
 					</summary>
@@ -148,27 +160,35 @@
 						action={resolve('invoices/new')}
 						class="mt-3 flex flex-wrap items-end gap-3"
 					>
-						<div class="space-y-1.5">
-							<Label for="custom-start">From</Label>
-							<Input
-								id="custom-start"
-								name="start"
-								type="date"
-								bind:value={customStart}
-								class="block w-44"
-							/>
+						<div class="w-64 max-w-full space-y-1.5">
+							<Label for="custom-range">Dates</Label>
+							<Popover.Root bind:open={customOpen}>
+								<Popover.Trigger id="custom-range">
+									{#snippet child({ props })}
+										<Button {...props} variant="outline" class="w-full justify-start font-normal">
+											<CalendarRange />
+											{#if customStart}
+												{formatDMY(customStart)} – {customEnd ? formatDMY(customEnd) : '…'}
+											{:else}
+												<span class="text-muted-foreground">Pick the first and last day</span>
+											{/if}
+										</Button>
+									{/snippet}
+								</Popover.Trigger>
+								<Popover.Content class="w-auto p-0" align="start">
+									<RangeCalendar
+										bind:value={custom}
+										numberOfMonths={twoMonths.current ? 2 : 1}
+										onValueChange={(next) => {
+											if (next?.start && next.end) customOpen = false;
+										}}
+									/>
+								</Popover.Content>
+							</Popover.Root>
 						</div>
-						<div class="space-y-1.5">
-							<Label for="custom-end">To</Label>
-							<Input
-								id="custom-end"
-								name="end"
-								type="date"
-								bind:value={customEnd}
-								class="block w-44"
-							/>
-						</div>
-						<Button type="submit" variant="outline" disabled={!customValid}>Start invoice</Button>
+						<input type="hidden" name="start" value={customStart} />
+						<input type="hidden" name="end" value={customEnd} />
+						<Button type="submit" variant="outline" disabled={!customEnd}>Start invoice</Button>
 					</form>
 				</details>
 			</section>
