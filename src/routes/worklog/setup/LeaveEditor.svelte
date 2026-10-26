@@ -9,6 +9,7 @@
 	import { groupDaysOff, weekdaysBetween, type DayOffRange } from '#lib/worklog.js';
 	import { parseDate } from '@internationalized/date';
 	import { CalendarRange, Plus, Trash2 } from '@lucide/svelte';
+	import { MediaQuery } from 'svelte/reactivity';
 	import type { DateRange } from 'bits-ui';
 
 	let { store, year }: { store: WorkLogStore; year: string } = $props();
@@ -34,6 +35,8 @@
 		return { from, to: range.end?.toString() ?? from };
 	}
 
+	/** Two months fit side by side from this width (see range-calendar-months.svelte). */
+	const twoMonths = new MediaQuery('min-width: 32rem');
 	let picked = $state<DateRange | undefined>();
 	let note = $state('');
 	let pickerOpen = $state(false);
@@ -149,7 +152,7 @@
 				<Popover.Content class="w-auto p-0" align="start">
 					<RangeCalendar
 						bind:value={picked}
-						numberOfMonths={2}
+						numberOfMonths={twoMonths.current ? 2 : 1}
 						onValueChange={(next) => {
 							if (next?.start && next.end) pickerOpen = false;
 						}}

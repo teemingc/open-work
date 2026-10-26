@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Popover from '#lib/components/ui/popover/index.js';
 	import WorkItem from '#lib/components/WorkItem.svelte';
 	import { formatHours, formatMoney, parseIsoDate } from '#lib/format.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
@@ -119,17 +120,32 @@
 										>
 											<Pencil size={14} />
 										</Button>
-										<Button
-											variant="ghost"
-											size="icon"
-											class="size-7"
-											aria-label="Delete entry"
-											onclick={() => {
-												if (confirm('Delete this entry?')) store.removeEntry(entry.id);
-											}}
-										>
-											<Trash2 size={14} />
-										</Button>
+										<!-- Asks in the page rather than with confirm(), which some browsers suppress. -->
+										<Popover.Root>
+											<Popover.Trigger>
+												{#snippet child({ props })}
+													<Button
+														{...props}
+														variant="ghost"
+														size="icon"
+														class="size-7"
+														aria-label="Delete entry"
+													>
+														<Trash2 size={14} />
+													</Button>
+												{/snippet}
+											</Popover.Trigger>
+											<Popover.Content class="w-auto space-y-2 p-3 text-sm" align="end">
+												<p>Delete this entry?</p>
+												<Button
+													variant="destructive"
+													size="sm"
+													onclick={() => store.removeEntry(entry.id)}
+												>
+													Delete
+												</Button>
+											</Popover.Content>
+										</Popover.Root>
 									</div>
 								</div>
 							{/if}

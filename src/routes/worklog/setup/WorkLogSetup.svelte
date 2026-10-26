@@ -3,6 +3,7 @@
 	import SettingsSection from '#lib/components/SettingsSection.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
+	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
 	import * as Select from '#lib/components/ui/select/index.js';
@@ -87,12 +88,17 @@
 		URL.revokeObjectURL(url);
 	}
 
-	async function restoreBackup(event: Event) {
+	/** The backup picked, waiting for you to confirm it replaces the log. */
+	let pendingBackup = $state<File | undefined>();
+
+	function pickBackup(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
-		const file = input.files?.[0];
+		pendingBackup = input.files?.[0];
 		input.value = '';
-		if (!file) return;
-		if (!confirm('Replace your whole work log with this backup?')) return;
+	}
+
+	async function restoreBackup(file: File) {
+		pendingBackup = undefined;
 		try {
 			store.importJson(await file.text());
 			backupMessage = {
@@ -511,9 +517,27 @@
 			class="sr-only"
 			aria-label="Backup file"
 			tabindex="-1"
-			onchange={restoreBackup}
+			onchange={pickBackup}
 		/>
 	</div>
+	<Dialog.Root
+		bind:open={() => pendingBackup !== undefined, (open) => !open && (pendingBackup = undefined)}
+	>
+		<Dialog.Content>
+			<Dialog.Header>
+				<Dialog.Title>Replace your work log?</Dialog.Title>
+				<Dialog.Description>
+					Everything in the work log is replaced with what is in {pendingBackup?.name}.
+				</Dialog.Description>
+			</Dialog.Header>
+			<Dialog.Footer>
+				<Button variant="outline" onclick={() => (pendingBackup = undefined)}>Keep my log</Button>
+				<Button variant="destructive" onclick={() => pendingBackup && restoreBackup(pendingBackup)}>
+					Replace
+				</Button>
+			</Dialog.Footer>
+		</Dialog.Content>
+	</Dialog.Root>
 	{#if backupMessage}
 		<p
 			role={backupMessage.tone === 'error' ? 'alert' : 'status'}

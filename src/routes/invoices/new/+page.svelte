@@ -4,6 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
@@ -82,6 +83,10 @@
 	});
 
 	let submitted = false;
+	/** Set once you choose to leave, so the navigation that follows is let through. */
+	let leaving = false;
+	/** Where you were going when the page stopped to ask. */
+	let leaveTo = $state<URL | undefined>();
 
 	// Keeps the draft through a reload, or when you go back to it, within this tab.
 	// The newer `snapshot()` helper from `$app/navigation` saves but never restores on
@@ -91,15 +96,22 @@
 		restore: (data) => draft.restore(data)
 	};
 
-	beforeNavigate(({ cancel, type, shallow }) => {
+	beforeNavigate(({ cancel, type, shallow, to }) => {
 		if (shallow && type === 'goto') return;
 
 		// Reloads and back/forward keep the draft through the snapshot.
-		if (submitted || !draft.hasWork || type === 'leave' || type === 'popstate') return;
-		if (!confirm('Leave this invoice unsubmitted? You can return to it with the Back button.')) {
-			cancel();
-		}
+		if (submitted || leaving || !draft.hasWork || type === 'leave' || type === 'popstate') return;
+		// Asks in the page rather than with confirm(), which some browsers suppress.
+		cancel();
+		leaveTo = to?.url;
 	});
+
+	function leave() {
+		if (!leaveTo) return;
+		leaving = true;
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the URL SvelteKit was navigating to
+		goto(leaveTo);
+	}
 
 	function onSubmitted(submittedUrl: string | undefined) {
 		submitted = true;
@@ -303,3 +315,16 @@
 		</aside>
 	</div>
 </div>
+
+<Dialog.Root bind:open={() => leaveTo !== undefined, (open) => !open && (leaveTo = undefined)}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Leave this invoice unsubmitted?</Dialog.Title>
+			<Dialog.Description>You can return to it with the Back button.</Dialog.Description>
+		</Dialog.Header>
+		<Dialog.Footer>
+			<Button variant="outline" onclick={() => (leaveTo = undefined)}>Stay</Button>
+			<Button onclick={leave}>Leave</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
