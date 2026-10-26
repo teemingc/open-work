@@ -117,13 +117,11 @@
 		const search: Search = params.size ? `?${params}` : '';
 		rememberDashboardSearch(search);
 		// Not shallow, which leaves `page.url` behind. The stats are not fetched again, and the page
-		// keeps its scroll and focus. The dashboard is also the home page, which has no handle.
-		goto(
-			page.params.handle
-				? resolve(`/collective/[handle]${search}`, { handle: page.params.handle })
-				: resolve(`/${search}`),
-			{ replace: true, reset: false }
-		);
+		// keeps its scroll and focus.
+		goto(resolve(`/collective/[handle]${search}`, { handle: data.slug }), {
+			replace: true,
+			reset: false
+		});
 	}
 
 	// Settings that arrived in the address, from a reload or a shared link, are the latest too.
