@@ -39,7 +39,7 @@
 	const loadError = $derived.by(() => {
 		const error = expensesQuery?.error;
 		if (!error) return '';
-		return isHttpError(error) ? error.body.message : 'Could not load your expenses.';
+		return isHttpError(error) ? error.body.message : 'Failed to load your expenses.';
 	});
 	/** The suggested dates come from the latest expense, so they wait for the list. */
 	const expensesPending = $derived(
@@ -141,7 +141,7 @@
 
 				<details class="group mt-5 border-t pt-4 text-sm" open={!!loadError}>
 					<summary class="cursor-pointer text-muted-foreground hover:text-foreground">
-						Use different dates
+						Choose other dates
 					</summary>
 					<form
 						method="GET"

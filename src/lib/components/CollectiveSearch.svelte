@@ -146,7 +146,7 @@
 								{/each}
 							</Command.Group>
 						{:else}
-							<Command.Group heading="Try one">
+							<Command.Group heading="Suggestions">
 								{#each SUGGESTED_COLLECTIVES as { slug, name } (slug)}
 									{@render item({ slug, name, imageUrl: collectiveLogo(slug) })}
 								{/each}

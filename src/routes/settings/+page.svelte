@@ -416,7 +416,7 @@
 						disabled={verifying || !values.githubToken?.trim()}
 					>
 						{#if verifying}<Spinner />{/if}
-						Check
+						Check token
 					</Button>
 				</div>
 				<p class="text-xs text-muted-foreground">
@@ -442,7 +442,7 @@
 					<Input id="github-username" {...fields.githubUsername.as('text')} />
 				</div>
 				<div class="space-y-1.5">
-					<Label for="organization">Organization</Label>
+					<Label for="organization">Organisation</Label>
 					<Input
 						id="organization"
 						{...fields.organization.as('text')}

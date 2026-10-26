@@ -340,7 +340,7 @@
 	 * size, so names are cut shorter and totals are rounded, like "$54K".
 	 */
 	const payeeNarrow = $derived(payeeWidth > 0 && payeeWidth < 400);
-	/** The column of avatars and names beside the "Who was paid" chart, cut short on phones. */
+	/** The column of avatars and names beside the "Expenses by recipient" chart, cut short on phones. */
 	const payeeNameWidth = $derived(payeeNarrow ? 100 : 150);
 	/**
 	 * The totals column beside the charts. On wider screens a bar sits beside each figure, like
@@ -651,7 +651,7 @@
 
 	/** How many one-off gifts came in, against the year before, which says more than the total when one gift is big. */
 	const oneOffNote = $derived.by(() => {
-		if (incomeQuery?.error && !income) return 'Could not load contributions';
+		if (incomeQuery?.error && !income) return 'Failed to load contributions';
 		if (!income) return 'Loading contributions';
 		const { count } = income.oneOffs;
 		const before = income.oneOffsBefore.count;
@@ -664,10 +664,10 @@
 	const forecastBasis = $derived.by(() => {
 		if (income && result.avgNet >= 0) {
 			return result.avgExpenses
-				? 'Recurring backers alone cover the expenses.'
+				? 'Recurring contributors alone cover the expenses.'
 				: 'With no recent expenses, every contribution adds to the balance.';
 		}
-		const basis = income ? 'current recurring backers' : `the last ${result.basis} months`;
+		const basis = income ? 'current recurring contributors' : `the last ${result.basis} months`;
 		return result.zeroDate
 			? `About ${runwayLength(runwayMonths ?? 0)} left based on ${basis}.`
 			: `Based on ${basis}.`;
@@ -1055,10 +1055,7 @@
 				<CalendarClock />
 				<Alert.Title>Too new to forecast</Alert.Title>
 				<Alert.Description>
-					<p>
-						Open Collective has no complete month for this collective yet. The averages and forecast
-						appear once {longMonthYear.format(now)} is over.
-					</p>
+					<p>There's not enough data from this collective yet.</p>
 				</Alert.Description>
 			</Alert.Root>
 		{:else}
@@ -1082,7 +1079,7 @@
 					{:else if result.zeroDate}
 						Funded until {longMonthYear.format(result.zeroDate)}
 					{:else if result.avgNet < 0}
-						Shrinking, but no end in sight
+						Slowly dwindling
 					{:else}
 						Balance is growing
 					{/if}
@@ -1127,7 +1124,7 @@
 					</ToggleGroup.Root>
 				</div>
 				<div class="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-3">
-					<span id="basis-label" class="text-muted-foreground">Average of last</span>
+					<span id="basis-label" class="text-muted-foreground">Average over</span>
 					<ToggleGroup.Root
 						type="single"
 						variant="outline"
@@ -1414,7 +1411,7 @@
 						What each month left behind, contributions less expenses, under the months it comes from.
 						Its own scale, so a small gain still shows beside months of large flows.
 					-->
-					<h3 class="mt-6 text-sm font-medium">Gained or spent</h3>
+					<h3 class="mt-6 text-sm font-medium">Net change</h3>
 					<p class="text-sm text-muted-foreground">
 						{#if tooNew && thisMonth}
 							{signed(Math.round(thisMonth.net))} so far this month.
@@ -1481,11 +1478,11 @@
 							<tr>
 								<th class="py-2 pr-1.5 pl-3 sm:px-4">Month</th>
 								<th class="px-1.5 py-2 text-right sm:px-4">
-									<span class="sm:hidden">Income</span>
+									<span class="sm:hidden">Gifts</span>
 									<span class="hidden sm:inline">Contributions</span>
 								</th>
 								<th class="px-1.5 py-2 text-right sm:px-4">Expenses</th>
-								<th class="hidden px-4 py-2 text-right sm:table-cell">Gained or spent</th>
+								<th class="hidden px-4 py-2 text-right sm:table-cell">Net change</th>
 								<th class="py-2 pr-3 pl-1.5 text-right sm:px-4">Balance</th>
 							</tr>
 						</thead>
@@ -1544,9 +1541,9 @@
 				{#if payees.cells.length > 0}
 					<Card.Root>
 						<Card.Header>
-							<Card.Title>Who was paid</Card.Title>
+							<Card.Title>Expenses by recipient</Card.Title>
 							<Card.Description>
-								Expenses paid out each {payeeQuarterly ? 'quarter' : 'month'}, with totals {payeePeriod}.
+								Who each {payeeQuarterly ? 'quarter' : 'month'}'s expenses went to, with totals {payeePeriod}.
 							</Card.Description>
 						</Card.Header>
 						<Card.Content>
@@ -1901,7 +1898,7 @@
 			/>
 		{:else if incomeQuery?.error}
 			<Alert.Root variant="destructive">
-				<Alert.Title>Could not load contributions</Alert.Title>
+				<Alert.Title>Failed to load contributions</Alert.Title>
 				<Alert.Description>
 					<RetryableError error={incomeQuery.error} onretry={() => incomeQuery?.refresh()} />
 				</Alert.Description>

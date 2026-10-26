@@ -40,7 +40,7 @@
 			href: resolve('/'),
 			icon: ChartLine,
 			name: 'Collective',
-			about: 'Balance, runway and backers'
+			about: 'Balance, runway and contributors'
 		},
 		{
 			href: resolve('/worklog'),
