@@ -152,12 +152,11 @@
 
 	/**
 	 * Fades in what joins the chart. A line fades through the opacity its marks inherit: opacity on
-	 * the group would have Chrome paint the stretched curves small and scale them up, blurred. A name
-	 * shown only while its line is followed appears at once, as the line's highlight does.
+	 * the group would have Chrome paint the stretched curves small and scale them up, blurred.
 	 */
-	function join(_node: Element, what: 'line' | 'name' | 'followed name'): TransitionConfig {
+	function join(_node: Element, what: 'line' | 'name'): TransitionConfig {
 		return {
-			duration: what === 'followed name' ? 0 : joinDuration,
+			duration: joinDuration,
 			easing: cubicOut,
 			css: (t) => (what === 'line' ? `stroke-opacity: ${t}; fill-opacity: ${t}` : `opacity: ${t}`)
 		};
@@ -250,9 +249,9 @@
 
 				{#each lines as line (line.contributor.slug)}
 					{const slug = line.contributor.slug}
-					{#if line.end && (line.current || highlighted === slug)}
+					{#if line.end}
 						<span
-							in:join={line.current ? 'name' : 'followed name'}
+							in:join={'name'}
 							role="presentation"
 							class={[
 								'label',
@@ -264,6 +263,7 @@
 							]}
 							style:left="{line.end.x}%"
 							style:top="{y(line.end.rank)}px"
+							style:--room="{x(1) - x(0)}%"
 							style:--tint={line.color}
 							title={line.contributor.name}
 							onpointerenter={(event) => follow(event, slug)}
@@ -411,14 +411,25 @@
 		opacity: 1;
 	}
 
-	/* A name sits beside its line's last point; one ranked this year also has its logo on the point. */
+	/*
+	 * A name sits beside its line's last point; one ranked this year also has its logo on the point,
+	 * and one that ended in an earlier year is muted, as it is no longer in the race.
+	 */
 	.label {
 		display: flex;
 		align-items: center;
 		gap: 8px;
 		translate: 14px -50%;
 		font-size: 12px;
+		color: var(--muted-foreground);
+	}
+	.label.current,
+	.label.followed {
 		color: var(--foreground);
+	}
+	/* One that ended in an earlier year stops short of the next year's points. */
+	.label:not(.current) {
+		max-width: calc(var(--room) - 34px);
 	}
 	.label.current {
 		/* Centres the logo on the point, and lets the name run into the room kept for it. */
@@ -426,6 +437,7 @@
 		max-width: calc(var(--names) + 22px);
 	}
 	.label.followed {
+		max-width: none;
 		font-weight: 600;
 	}
 	.label.faded {
@@ -465,7 +477,7 @@
 			/* Ease in and out, so the years pass at an even pace rather than rushing out and crawling in. */
 			animation: reveal 1200ms cubic-bezier(0.45, 0, 0.25, 1) both;
 		}
-		.intro .label.current {
+		.intro .label {
 			animation: appear 200ms cubic-bezier(0.19, 1, 0.22, 1) 850ms backwards;
 		}
 		.stroke,
