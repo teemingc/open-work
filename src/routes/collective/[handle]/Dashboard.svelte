@@ -117,13 +117,11 @@
 		const search: Search = params.size ? `?${params}` : '';
 		rememberDashboardSearch(search);
 		// Not shallow, which leaves `page.url` behind. The stats are not fetched again, and the page
-		// keeps its scroll and focus. The dashboard is also the home page, which has no handle.
-		goto(
-			page.params.handle
-				? resolve(`/collective/[handle]${search}`, { handle: page.params.handle })
-				: resolve(`/${search}`),
-			{ replace: true, reset: false }
-		);
+		// keeps its scroll and focus.
+		goto(resolve(`/collective/[handle]${search}`, { handle: data.slug }), {
+			replace: true,
+			reset: false
+		});
 	}
 
 	// Settings that arrived in the address, from a reload or a shared link, are the latest too.
@@ -830,7 +828,7 @@
 	it reads over the hatching and the gridlines behind it.
 -->
 {#snippet runsOutLabel({ props }: { props: TextProps })}
-	{@const date = runsOutDate ?? runsOutX}
+	{const date = $derived(runsOutDate ?? runsOutX)}
 	{#if date}
 		<text
 			transform="translate({props.x} {props.y})"
@@ -862,8 +860,8 @@
 })}
 	<!-- Fades the columns left out of the pick, so the ones picked stand out where they are. -->
 	{#if payeePicked}
-		{@const step = context.xScale.step?.() ?? 0}
-		{@const gap = step - (context.xScale.bandwidth?.() ?? 0)}
+		{const step = $derived(context.xScale.step?.() ?? 0)}
+		{const gap = $derived(step - (context.xScale.bandwidth?.() ?? 0))}
 		{#each payeeKeys.filter((key) => !payeePicked.includes(key)) as key (key)}
 			<Rect
 				x={(context.xScale(key) ?? 0) - gap / 2}
@@ -897,8 +895,8 @@
 })}
 	<!-- Shades the column and row under the pointer, behind the marks, as a punchcard does. -->
 	{#if column !== undefined && context.xScale(column) !== undefined}
-		{@const step = context.xScale.step?.() ?? 0}
-		{@const gap = step - (context.xScale.bandwidth?.() ?? 0)}
+		{const step = $derived(context.xScale.step?.() ?? 0)}
+		{const gap = $derived(step - (context.xScale.bandwidth?.() ?? 0))}
 		<Rect
 			x={(context.xScale(column) ?? 0) - gap / 2}
 			y={0}
@@ -922,7 +920,7 @@
 
 <!-- A payee's avatar and name, cut short to fit. Others share a group icon; a payee without an avatar, a person. -->
 {#snippet payeeLabel({ slug, name }: { slug: string; name: string })}
-	{@const image = data.payeeImages[slug]}
+	{const image = $derived(data.payeeImages[slug])}
 	{#if image}
 		<img
 			src={image}
@@ -992,16 +990,13 @@
 		{#if data.imageUrl}
 			<!--
 				Centred on the line, level with the middle of the capitals. Centred on the lowercase letters
-				instead, it sat below a name that starts with a capital. A new image for each collective,
-				so the last one's logo does not show while this one's loads.
+				instead, it sat below a name that starts with a capital.
 			-->
-			{#key data.imageUrl}
-				<img
-					src={data.imageUrl}
-					alt=""
-					class="size-16 shrink-0 rounded-xl border bg-card object-contain"
-				/>
-			{/key}
+			<img
+				src={data.imageUrl}
+				alt=""
+				class="size-16 shrink-0 rounded-xl border bg-card object-contain"
+			/>
 		{/if}
 		<!--
 			Beside the logo when the name fits there on one line, and under it when it does not, where a
@@ -1302,8 +1297,8 @@
 										<Area seriesKey="forecast" fill="none" line={{ strokeWidth: 2 }} />
 									{/snippet}
 									{#snippet tooltip({ context })}
-										{@const point = context.tooltip.data as { date: Date } | null}
-										{@const yearBefore = point ? balanceYearBefore(point.date) : undefined}
+										{const point = $derived(context.tooltip.data as { date: Date } | null)}
+										{const yearBefore = $derived(point ? balanceYearBefore(point.date) : undefined)}
 										<Chart.Tooltip
 											labelFormatter={(d: Date) => dayMonthYear.format(d)}
 											link={balanceLink}
@@ -1475,7 +1470,7 @@
 						</thead>
 						<tbody>
 							{#each shown as month (month.key)}
-								{@const partial = month.key === partialKey}
+								{const partial = $derived(month.key === partialKey)}
 								<tr class={partial ? 'border-t border-dashed border-rule/40 [&>td]:italic' : ''}>
 									<th scope="row" class="py-2 pr-1.5 pl-3 font-normal whitespace-nowrap sm:px-4">
 										<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
@@ -1610,10 +1605,12 @@
 													}}
 												>
 													{#snippet belowMarks({ context })}
-														{@const cell = context.tooltip.data as {
-															month: string;
-															slug: string;
-														} | null}
+														{const cell = $derived(
+															context.tooltip.data as {
+																month: string;
+																slug: string;
+															} | null
+														)}
 														{@render payeeBands({
 															context,
 															Rect,
@@ -1629,7 +1626,7 @@
 																the start of the row, where it looked like another payment.
 															-->
 													{#snippet highlight({ context })}
-														{@const cell = context.tooltip.data}
+														{const cell = $derived(context.tooltip.data)}
 														{#if cell}
 															<Circle
 																cx={context.xGet(cell) + (context.xScale.bandwidth?.() ?? 0) / 2}
@@ -1642,11 +1639,13 @@
 														{/if}
 													{/snippet}
 													{#snippet tooltip({ context })}
-														{@const cell = context.tooltip.data as {
-															name: string;
-															month: string;
-															amount: number;
-														} | null}
+														{const cell = $derived(
+															context.tooltip.data as {
+																name: string;
+																month: string;
+																amount: number;
+															} | null
+														)}
 														<Chart.Tooltip
 															hideIndicator
 															labelFormatter={() => (cell ? payeeColumnLabel(cell.month) : '')}
@@ -1673,11 +1672,12 @@
 											>
 												<span class="absolute top-0 right-0 text-muted-foreground">Total</span>
 												{#each payees.accounts as account (account.slug)}
-													{@const total = payeeTotals.get(account.slug) ?? 0}
-													{@const color =
+													{const total = $derived(payeeTotals.get(account.slug) ?? 0)}
+													{const color = $derived(
 														account.slug && account.slug === me
 															? payeeConfig.you.color
-															: payeeConfig.others.color}
+															: payeeConfig.others.color
+													)}
 													{#if account.slug}
 														<!-- What the total is made of, on hover with a mouse or a tap on a touch screen. -->
 														<Popover.Root>
@@ -1806,8 +1806,10 @@
 																<Chart.Tooltip labelFormatter={payeeColumnLabel}>
 																	{#snippet formatter({ index, payload })}
 																		{#if index === payload.length - 1}
-																			{@const paid = paidInColumn(
-																				(context.tooltip.data as { month: string } | null)?.month
+																			{const paid = $derived(
+																				paidInColumn(
+																					(context.tooltip.data as { month: string } | null)?.month
+																				)
 																			)}
 																			<div class="grid gap-1.5">
 																				{#each paid.shown as account (account.slug)}

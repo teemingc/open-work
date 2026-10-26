@@ -115,7 +115,7 @@
 				<li class="flex items-center justify-between gap-3">
 					<span class="text-muted-foreground">{field.label}</span>
 					<Button variant="outline" size="sm" onclick={() => copy(field)}>
-						{@const copied = copiedKey === field.key}
+						{const copied = $derived(copiedKey === field.key)}
 						{#if copied}<Check
 								class="animate-in duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] zoom-in-75 fade-in"
 							/>{:else}<Clipboard />{/if}

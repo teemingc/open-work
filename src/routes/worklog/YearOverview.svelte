@@ -146,7 +146,7 @@
 					</thead>
 					<tbody>
 						{#each months as { month, summary, inExchange } (month)}
-							{@const difference = summary.logged - summary.expected}
+							{const difference = $derived(summary.logged - summary.expected)}
 							<tr>
 								<td class="px-3 py-2">
 									<a href="{resolve('/worklog')}?month={month}" class="hover:underline">

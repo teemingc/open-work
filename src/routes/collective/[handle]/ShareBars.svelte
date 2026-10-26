@@ -127,8 +127,8 @@
 					props={{ tooltip: { context: { locked: link.locked } } }}
 				>
 					{#snippet marks({ context })}
-						{@const cell = (context.width - INSET - label - GAP * (MONTHS - 1)) / MONTHS}
-						{@const shown = (context.tooltip.data as Row | Rest | null)?.slug}
+						{const cell = $derived((context.width - INSET - label - GAP * (MONTHS - 1)) / MONTHS)}
+						{const shown = $derived((context.tooltip.data as Row | Rest | null)?.slug)}
 						{#if stopped}
 							<defs>
 								<pattern
@@ -144,11 +144,12 @@
 							</defs>
 						{/if}
 						{#each rows as row (row.slug)}
-							{@const top = context.yScale(row.slug) ?? 0}
-							{@const picked =
+							{const top = $derived(context.yScale(row.slug) ?? 0)}
+							{const picked = $derived(
 								'rest' in row
 									? row.rest.some((other) => other.slug === linked.slug)
-									: row.slug === linked.slug}
+									: row.slug === linked.slug
+							)}
 							<!-- The project picked here or in the pack. -->
 							<rect
 								x={-6}
@@ -161,14 +162,14 @@
 									picked || shown === row.slug ? 'opacity-100' : 'opacity-0'
 								]}
 							/>
-							{@const most = months(row.share)}
-							{@const least = 'rest' in row ? months(row.low) : most}
+							{const most = $derived(months(row.share))}
+							{const least = $derived('rest' in row ? months(row.low) : most)}
 							<!--
 								A year of the project's average spending, a cell a month, filled for the months the fund
 								pays for. The rest fill to the least any of them got, then paler to the most.
 							-->
 							{#each { length: MONTHS }, index (index)}
-								{@const x = INSET + index * (cell + GAP)}
+								{const x = $derived(INSET + index * (cell + GAP))}
 								<rect {x} y={top + 24} width={cell} height="8" rx="2" class="fill-muted" />
 								{#if stopped && (index === 0 || part(most, index) > 0)}
 									<!-- Hatched as what is not there, the months it would pay for if it gave again. -->
@@ -244,8 +245,8 @@
 						{/each}
 					{/snippet}
 					{#snippet tooltip({ context })}
-						{@const row = context.tooltip.data as Row | Rest | null}
-						{@const href = row ? link.href(row) : undefined}
+						{const row = $derived(context.tooltip.data as Row | Rest | null)}
+						{const href = $derived(row ? link.href(row) : undefined)}
 						<TooltipRoot variant="none" pointerEvents={link.locked && href !== undefined}>
 							{#if row}
 								<div

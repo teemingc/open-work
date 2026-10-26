@@ -507,7 +507,9 @@
 												{/each}
 											{/snippet}
 											{#snippet tooltip({ context })}
-												{@const hovered = context.tooltip.data as (typeof changes)[number] | null}
+												{const hovered = $derived(
+													context.tooltip.data as (typeof changes)[number] | null
+												)}
 												<Chart.Tooltip
 													labelFormatter={(key: string) => monthLabel({ key, partialKey })}
 													link={backersLink}
@@ -689,13 +691,14 @@
 									</div>
 								{/if}
 								{#if backer.history}
-									{@const status = backerStatus({ ...backer.history, now })}
-									{@const per =
+									{const status = $derived(backerStatus({ ...backer.history, now }))}
+									{const per = $derived(
 										backer.history.frequency === 'MONTHLY'
 											? 'month'
 											: backer.history.frequency === 'YEARLY'
 												? 'year'
-												: undefined}
+												: undefined
+									)}
 									<div
 										class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"
 									>
@@ -718,8 +721,8 @@
 										<!-- On phones the badge always takes its own line, rather than whichever line it fits on. -->
 										<span class="flex basis-full items-center gap-x-2 sm:basis-auto">
 											{#if backer.channel}
-												{@const first = backer.history.first.slice(0, 7)}
-												{@const active = months.filter((month) => month >= first).length}
+												{const first = $derived(backer.history.first.slice(0, 7))}
+												{const active = $derived(months.filter((month) => month >= first).length)}
 												{#if active}
 													<Badge variant="secondary"
 														>{money.format(backer.amount / active)} a month on average</Badge

@@ -122,8 +122,8 @@
 	when it holds several categories, lists them.
 -->
 {#snippet categoryDetails(key: string)}
-	{@const total = bandTotals.get(key) ?? 0}
-	{@const share = paidOut ? total / paidOut : 0}
+	{const total = $derived(bandTotals.get(key) ?? 0)}
+	{const share = $derived(paidOut ? total / paidOut : 0)}
 	<div class="flex justify-between gap-3 p-1 text-xs">
 		<span class="min-w-0 font-medium">{config[key]?.label}</span>
 		<span class="shrink-0 tabular-nums">{money.format(total)}</span>

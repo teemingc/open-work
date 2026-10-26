@@ -68,7 +68,7 @@
 
 				<ul class="space-y-2">
 					{#each day.entries as entry (entry.id)}
-						{@const client = store.client(entry.clientId)}
+						{const client = $derived(store.client(entry.clientId))}
 						<li>
 							{#if editing === entry.id}
 								<div class="rounded-lg border bg-muted/30 p-3">

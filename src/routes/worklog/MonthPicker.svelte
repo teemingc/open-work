@@ -89,7 +89,7 @@
 			</div>
 			<div class="grid grid-cols-3 gap-1">
 				{#each MONTHS as name, index (name)}
-					{@const value = key(year, index)}
+					{const value = $derived(key(year, index))}
 					<Button
 						variant={value === month ? 'default' : 'ghost'}
 						size="sm"

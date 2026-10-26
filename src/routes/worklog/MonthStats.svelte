@@ -95,7 +95,7 @@
 			</thead>
 			<tbody>
 				{#each summary.clients as { client, hours, amount, rate, mixedRates } (client.id)}
-					{@const local = converted({ data, amounts: { [client.currency]: amount } })}
+					{const local = $derived(converted({ data, amounts: { [client.currency]: amount } }))}
 					<tr>
 						<td class="px-3 py-2">{client.name}</td>
 						<td class="px-3 py-2 text-right">{formatHours(hours)}</td>
