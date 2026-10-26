@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { afterNavigate, beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { dashboardSearch } from '#lib/dashboard-search.svelte.js';
 	import { getMe } from '#lib/opencollective.remote.js';
@@ -21,10 +22,28 @@
 	const WORK_PATHS = ['/worklog', '/invoices', '/settings'] as const;
 	type WorkPath = (typeof WORK_PATHS)[number];
 
+	/**
+	 * The page being navigated to, from the moment the link is clicked. The Work row opens or closes
+	 * with the click, rather than a moment later when a slow page arrives and pushes it down.
+	 * `page.url` would only change once the new page has finished its `await`s, after its
+	 * skeletons have shown.
+	 */
+	let pathname = $state(page.url.pathname);
+
+	beforeNavigate(({ to, type, complete }) => {
+		if (type === 'leave' || !to?.route.id) return;
+		pathname = to.url.pathname;
+		// Back to where you are when the navigation is cancelled or fails.
+		complete.catch(() => (pathname = page.url.pathname));
+	});
+
+	// Where you ended up, after a redirect.
+	afterNavigate(({ to }) => {
+		if (to) pathname = to.url.pathname;
+	});
+
 	const inWork = $derived(
-		WORK_PATHS.some(
-			(path) => page.url.pathname === path || page.url.pathname.startsWith(`${path}/`)
-		)
+		WORK_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
 	);
 
 	/**
@@ -48,7 +67,6 @@
 	 * or to the search on the home page when none is set.
 	 */
 	function current(path: '/collective' | '/contributors' | WorkPath): 'page' | 'true' | undefined {
-		const { pathname } = page.url;
 		if (path === '/collective') {
 			if (pathname === (collectiveSlug ? `/collective/${collectiveSlug}` : '/')) return 'page';
 			if (pathname === '/') return 'true';
@@ -76,9 +94,14 @@
 			<span class="max-[359px]:sr-only">Open Work</span>
 		</a>
 
+		<!-- Over the Work row's thinner rule, the links are 2px shorter. As much padding above keeps
+			their icons and labels where they were. -->
 		<nav
 			aria-label="Main"
-			class={['flex items-stretch text-sm min-[560px]:gap-2', inWork ? '-mb-px' : '-mb-[3px]']}
+			class={[
+				'flex items-stretch text-sm min-[560px]:gap-2',
+				inWork ? '-mb-px pt-0.5' : '-mb-[3px]'
+			]}
 		>
 			<a
 				href={collectiveSlug
