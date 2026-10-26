@@ -104,8 +104,7 @@
 			{#each cells as group, index (index)}
 				<div
 					data-group={group}
-					class="rounded-[2px] transition-opacity {groups[group].swatch} {hovered !== undefined &&
-					hovered !== group
+					class="rounded-[2px] {groups[group].swatch} {hovered !== undefined && hovered !== group
 						? 'opacity-25'
 						: ''}"
 				></div>

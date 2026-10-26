@@ -115,7 +115,7 @@
 								height={ROW - 2}
 								rx="6"
 								class={[
-									'fill-primary/6 transition-opacity duration-150',
+									'fill-primary/6',
 									picked || shown === row.slug ? 'opacity-100' : 'opacity-0'
 								]}
 							/>

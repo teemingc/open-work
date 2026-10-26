@@ -186,7 +186,7 @@
 	{/if}
 {/snippet}
 
-<div class="animate-in duration-300 fade-in">
+<div>
 	<div class="mb-8 flex flex-wrap items-end justify-between gap-2">
 		<div>
 			<h1>Settings</h1>
@@ -200,7 +200,7 @@
 			{:else if justSaved}
 				<span
 					class="flex animate-in items-center gap-1.5 duration-150 fade-in"
-					out:fade={{ duration: 400 }}
+					out:fade={{ duration: 150 }}
 				>
 					<Check size={15} class="text-status-paid" /> Saved
 				</span>

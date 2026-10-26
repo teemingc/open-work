@@ -945,7 +945,7 @@
 	{/if}
 {/snippet}
 
-<div class="flex animate-in flex-col gap-8 duration-300 fade-in">
+<div class="flex flex-col gap-8">
 	<!-- A name too long to sit beside the search takes the whole line and puts the search under it. -->
 	<div
 		class="flex flex-col gap-6 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-8 sm:gap-y-6"
