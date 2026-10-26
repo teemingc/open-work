@@ -18,7 +18,7 @@ const grant = (
 	slug: string,
 	value: number,
 	frequency = 'ONETIME',
-	income?: { value: number; currency: string }
+	spent?: { value: number; currency: string }
 ): GrantNode => ({
 	createdAt: `${date}T10:00:00.000Z`,
 	netAmount: { value: -value },
@@ -26,8 +26,8 @@ const grant = (
 		slug,
 		name: slug.toUpperCase(),
 		imageUrl: null,
-		currency: income?.currency,
-		stats: income ? { totalAmountReceived: { value: income.value } } : null
+		currency: spent?.currency,
+		stats: spent ? { totalAmountSpent: { value: -spent.value } } : null
 	},
 	order: { frequency }
 });
@@ -53,7 +53,7 @@ describe('toGrants', () => {
 				imageUrl: null,
 				amount: 36000,
 				recurring: false,
-				theirIncome: null
+				theirSpending: null
 			},
 			{
 				date: '2026-10-22T10:00:00.000Z',
@@ -62,7 +62,7 @@ describe('toGrants', () => {
 				imageUrl: null,
 				amount: 500,
 				recurring: true,
-				theirIncome: null
+				theirSpending: null
 			}
 		]);
 	});
@@ -120,7 +120,7 @@ describe('toRecipients', () => {
 });
 
 describe('toRecipients share', () => {
-	it('is how much of its past year of contributions came from the collective, in the same currency only', () => {
+	it('is how much of their past year of spending the collective covers, in the same currency only', () => {
 		const recipients = toRecipients({
 			grants: toGrants([
 				grant('2026-10-08', 'oxc', 36000, 'ONETIME', { value: 40000, currency: 'USD' }),
@@ -135,9 +135,9 @@ describe('toRecipients share', () => {
 			currency: 'USD',
 			year: { from: '2025-10-24T00:00:00.000Z', to: '2026-10-24T00:00:00.000Z', stopped: false }
 		});
-		expect(recipients.map((r) => [r.slug, r.recent, r.contributions, r.share])).toEqual([
+		expect(recipients.map((r) => [r.slug, r.recent, r.spending, r.share])).toEqual([
 			['oxc', 36000, 40000, 0.9],
-			['vite-plus', 36000, 36000, 1],
+			['vite-plus', 36000, 30000, 1.2],
 			['babel', 0, null, null],
 			['vitest', 1000, 50000, 0.02],
 			['nuxt', 2000, null, null],
@@ -165,7 +165,7 @@ describe('givingYear', () => {
 		});
 	});
 
-	it('puts its last year of gifts on top of what each project receives now', () => {
+	it('sets its last year of gifts against what each project spends now', () => {
 		const recipients = toRecipients({
 			grants: toGrants([
 				grant('2024-01-01', 'babel', 9000, 'ONETIME', { value: 1000, currency: 'USD' }),
@@ -176,9 +176,9 @@ describe('givingYear', () => {
 			currency: 'USD',
 			year: { from: '2024-02-03T00:00:00.000Z', to: '2025-02-03T10:00:00.000Z', stopped: true }
 		});
-		expect(recipients.map((r) => [r.slug, r.recent, r.contributions, r.share])).toEqual([
+		expect(recipients.map((r) => [r.slug, r.recent, r.spending, r.share])).toEqual([
 			['babel', 0, null, null],
-			['vite', 4000, 13000, 4000 / 13000]
+			['vite', 4000, 9000, 4000 / 9000]
 		]);
 	});
 });

@@ -14,9 +14,9 @@ export interface GrantNode {
 		slug: string;
 		name: string;
 		imageUrl: string | null;
-		/** The account's own currency and all it received in the past 12 months, in that currency. */
+		/** The account's own currency and all it spent in the past 12 months, negative, in that currency. */
 		currency?: string;
-		stats?: { totalAmountReceived: { value: number } | null } | null;
+		stats?: { totalAmountSpent: { value: number } | null } | null;
 	} | null;
 	order: { frequency: string | null } | null;
 }
@@ -39,8 +39,8 @@ export interface Grant {
 	amount: number;
 	/** Part of a recurring contribution, rather than a one-off. */
 	recurring: boolean;
-	/** All the account received in the past 12 months, from anyone, if Open Collective said. */
-	theirIncome: { value: number; currency: string } | null;
+	/** All the account spent in the past 12 months, if Open Collective said. */
+	theirSpending: { value: number; currency: string } | null;
 }
 
 /** A recurring contribution, as what it costs a month. */
@@ -59,10 +59,10 @@ export function toGrants(nodes: GrantNode[]): Grant[] {
 			imageUrl: node.oppositeAccount?.imageUrl ?? null,
 			amount: -node.netAmount.value,
 			recurring: !!node.order?.frequency && node.order.frequency !== 'ONETIME',
-			theirIncome:
-				node.oppositeAccount?.currency && node.oppositeAccount.stats?.totalAmountReceived
+			theirSpending:
+				node.oppositeAccount?.currency && node.oppositeAccount.stats?.totalAmountSpent
 					? {
-							value: node.oppositeAccount.stats.totalAmountReceived.value,
+							value: -node.oppositeAccount.stats.totalAmountSpent.value,
 							currency: node.oppositeAccount.currency
 						}
 					: null
@@ -114,19 +114,19 @@ export interface Recipient {
 	/** What the collective gave it in its giving year. */
 	recent: number;
 	/**
-	 * All the account received in the past 12 months, from anyone, with what the collective gave it
-	 * in its giving year added once it has stopped. Unknown when its own figures are in another
-	 * currency.
+	 * All the account spent in the past 12 months, which is what it costs to keep going. Unknown when
+	 * its own figures are in another currency, or it spent nothing.
 	 */
-	contributions: number | null;
+	spending: number | null;
 	/**
-	 * How much of `contributions` came, or would come, from the collective, from 0 to 1. Unknown with
-	 * `contributions`, or when the collective gave it nothing in its giving year.
+	 * How much of `spending` what the collective gave it in its giving year covers, or would cover
+	 * once it has stopped. Over 1 when it gave more than the account spent. Unknown with `spending`,
+	 * or when the collective gave it nothing in its giving year.
 	 */
 	share: number | null;
 }
 
-/** The 12 months over which a fund's share of each project's contributions is worked out. */
+/** The 12 months of a fund's giving set against what each project spent. */
 export interface GivingYear {
 	/** ISO date the 12 months start on. */
 	from: string;
@@ -134,7 +134,7 @@ export interface GivingYear {
 	to: string;
 	/**
 	 * It gave nothing in the past 12 months, so the year is its last one of giving, set against what
-	 * the projects receive now, as the share it would have if it still gave as it did.
+	 * the projects spend now, as the share it would cover if it still gave as it did.
 	 */
 	stopped: boolean;
 }
@@ -203,12 +203,12 @@ export function toRecipients({
 }: {
 	grants: Grant[];
 	commitments: Commitment[];
-	/** The collective's own currency, which an account's income must be in to compare. */
+	/** The collective's own currency, which an account's spending must be in to compare. */
 	currency: string;
 	/** The 12 months its share is worked out over. */
 	year: GivingYear;
 }): Recipient[] {
-	const incomes = new Map<string, number | null>();
+	const spendings = new Map<string, number | null>();
 	const bySlug = new Map<string, Recipient>();
 	for (const grant of grants) {
 		const recipient = bySlug.get(grant.slug) ?? {
@@ -223,13 +223,13 @@ export function toRecipients({
 			last: grant.date,
 			monthly: 0,
 			recent: 0,
-			contributions: null,
+			spending: null,
 			share: null
 		};
-		if (grant.theirIncome)
-			incomes.set(
+		if (grant.theirSpending)
+			spendings.set(
 				grant.slug,
-				grant.theirIncome.currency === currency ? grant.theirIncome.value : null
+				grant.theirSpending.currency === currency ? grant.theirSpending.value : null
 			);
 		recipient[grant.recurring ? 'recurring' : 'oneOff'] += grant.amount;
 		recipient.total += grant.amount;
@@ -244,15 +244,10 @@ export function toRecipients({
 		if (recipient) recipient.monthly += commitment.monthly;
 	}
 	for (const recipient of bySlug.values()) {
-		const income = incomes.get(recipient.slug);
-		if (!income || income <= 0 || !recipient.recent) continue;
-		// Once it has stopped, what they receive now has nothing from it, so its gifts come on top.
-		// Otherwise their stats can lag behind gifts made since they were last worked out, so never
-		// under them.
-		recipient.contributions = year.stopped
-			? income + recipient.recent
-			: Math.max(income, recipient.recent);
-		recipient.share = recipient.recent / recipient.contributions;
+		const spending = spendings.get(recipient.slug);
+		if (!spending || spending <= 0 || !recipient.recent) continue;
+		recipient.spending = spending;
+		recipient.share = recipient.recent / spending;
 	}
 	return [...bySlug.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
 }
