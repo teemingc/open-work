@@ -52,7 +52,11 @@ export default defineConfig({
 					'frame-ancestors': ['none']
 				}
 			},
-			adapter: adapter()
+			// Built from its own config, as `wrangler.jsonc` deploys `worker.ts`, which wraps the build.
+			adapter: adapter({
+				config: 'wrangler.kit.jsonc',
+				platformProxy: { configPath: 'wrangler.jsonc' }
+			})
 		})
 	],
 	test: {

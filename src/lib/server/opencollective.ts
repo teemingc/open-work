@@ -34,6 +34,12 @@ export function retryAfterMs(header: string | null, now = Date.now()): number | 
 	return Number.isNaN(date) ? undefined : Math.max(0, date - now);
 }
 
+/**
+ * How long to wait on Open Collective before giving up. Without a limit, a request it never answers
+ * keeps the page waiting for good.
+ */
+const TIMEOUT_MS = 30_000;
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function graphql<T>({
@@ -61,9 +67,16 @@ export async function graphql<T>({
 		response = await fetch(ENDPOINT, {
 			method: 'POST',
 			headers,
-			body: JSON.stringify({ query, variables })
+			body: JSON.stringify({ query, variables }),
+			signal: AbortSignal.timeout(TIMEOUT_MS)
 		});
-	} catch {
+	} catch (err) {
+		if (err instanceof DOMException && err.name === 'TimeoutError') {
+			throw new OpenCollectiveError(
+				'Open Collective took too long to answer. Try again in a moment.',
+				504
+			);
+		}
 		throw new OpenCollectiveError('Could not reach Open Collective. Try again in a moment.');
 	}
 

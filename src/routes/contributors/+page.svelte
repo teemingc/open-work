@@ -12,7 +12,9 @@
 
 	const CHARTED = 10;
 
-	const { contributors, fetchedAt } = $derived(await getContributors());
+	/** `undefined` until the first scan is stored, which takes too long to wait on. */
+	const result = $derived(await getContributors());
+	const contributors = $derived(result?.contributors ?? []);
 
 	const by: RankBy = $derived(page.url.searchParams.get('by') === 'all-time' ? 'total' : 'recent');
 	const table = $derived(standings(contributors, by));
@@ -41,7 +43,7 @@
 		)
 	);
 
-	const thisYear = $derived(new Date(fetchedAt).getUTCFullYear());
+	const thisYear = $derived(new Date(result?.fetchedAt ?? Date.now()).getUTCFullYear());
 	const race = $derived(yearlyRanks(contributors, thisYear));
 
 	const money = moneyFormat('USD');
@@ -73,185 +75,196 @@
 	<header class="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
 		<div class="max-w-3xl">
 			<h1>Who funds open source on Open Collective</h1>
-			<p class="mt-3 max-w-2xl text-pretty text-muted-foreground">
-				These {givingNow.length} companies and people contributed {money.format(givenNow)} to projects
-				in the past 12 months. Here is where each has placed, year by year. Refreshed weekly.
-			</p>
+			{#if result}
+				<p class="mt-3 max-w-2xl text-pretty text-muted-foreground">
+					These {givingNow.length} companies and people contributed {money.format(givenNow)} to projects
+					in the past 12 months. Here is where each has placed, year by year. Refreshed weekly.
+				</p>
+			{:else}
+				<p class="mt-3 max-w-2xl text-pretty text-muted-foreground">
+					The standings are being gathered from Open Collective. Check back shortly.
+				</p>
+			{/if}
 		</div>
-		<nav aria-label="Rank by" class="flex shrink-0 rounded-md border bg-card p-0.5 text-sm">
-			{#each RANK_BY as option (option.by)}
-				<a
-					href={resolve(`/contributors${option.search}`)}
-					data-sveltekit-reset="false"
-					data-sveltekit-replacestate
-					aria-current={by === option.by ? 'page' : undefined}
-					class="rounded-[calc(var(--radius)-2px)] px-3 py-1 text-muted-foreground hover:text-foreground aria-[current]:bg-primary aria-[current]:text-primary-foreground"
-				>
-					{option.label}
-				</a>
-			{/each}
-		</nav>
+		{#if result}
+			<nav aria-label="Rank by" class="flex shrink-0 rounded-md border bg-card p-0.5 text-sm">
+				{#each RANK_BY as option (option.by)}
+					<a
+						href={resolve(`/contributors${option.search}`)}
+						data-sveltekit-reset="false"
+						data-sveltekit-replacestate
+						aria-current={by === option.by ? 'page' : undefined}
+						class="rounded-[calc(var(--radius)-2px)] px-3 py-1 text-muted-foreground hover:text-foreground aria-[current]:bg-primary aria-[current]:text-primary-foreground"
+					>
+						{option.label}
+					</a>
+				{/each}
+			</nav>
+		{/if}
 	</header>
 
-	<section
-		aria-labelledby="race-heading"
-		class="mt-8 rounded-xl border bg-card px-3 pt-4 pb-3 sm:px-6"
-	>
-		<h2 id="race-heading" class="sr-only">Place by year</h2>
-		<RankRace
-			contributors={charted}
-			roomFor={chartedEither}
-			years={race.years}
-			ranks={race.ranks}
-			partialYear={thisYear}
-			bind:highlighted
-		/>
-	</section>
-
-	<section aria-labelledby="standings-heading" class="mt-10">
-		<!-- The double rule closes the heading, like the masthead and a ledger's totals. -->
-		<h2
-			id="standings-heading"
-			class="border-b-[3px] border-double border-rule pb-3 font-display text-2xl font-semibold text-primary"
+	{#if result}
+		<section
+			aria-labelledby="race-heading"
+			class="mt-8 rounded-xl border bg-card px-3 pt-4 pb-3 sm:px-6"
 		>
-			Standings
-		</h2>
+			<h2 id="race-heading" class="sr-only">Place by year</h2>
+			<RankRace
+				contributors={charted}
+				roomFor={chartedEither}
+				years={race.years}
+				ranks={race.ranks}
+				partialYear={thisYear}
+				bind:highlighted
+			/>
+		</section>
 
-		<div class="mt-4 overflow-x-auto rounded-xl border bg-card text-sm">
-			<table class="ledger">
-				<caption class="sr-only">
-					Contributions by contributor, ranked by {by === 'recent'
-						? 'the past 12 months'
-						: 'all time'}, with places moved since a year ago
-				</caption>
-				<thead class="text-xs">
-					<tr>
-						<th class="py-2 pr-1 pl-3 sm:pl-4">Place</th>
-						<th class="px-3 py-2">Contributor</th>
-						<th class="px-3 py-2 text-right">{by === 'recent' ? 'Past 12 months' : 'All time'}</th>
-						<th class="hidden w-1/4 px-3 py-2 md:table-cell">Share</th>
-						<th class="hidden py-2 pr-4 pl-3 text-right sm:table-cell">
-							{by === 'recent' ? 'All time' : 'Past 12 months'}
-						</th>
-					</tr>
-				</thead>
-				<tbody>
-					<!-- Rows slide to their new places when the ranking changes, so you can see who moved. -->
-					{#each table as { contributor, rank, moved } (contributor.slug)}
-						{const amount = contributor[by]}
-						{const other = by === 'recent' ? contributor.total : contributor.recent}
-						<tr
-							animate:flip={{
-								duration: prefersReducedMotion.current ? 0 : 250,
-								easing: cubicOut
-							}}
-							class={{ followed: highlighted === contributor.slug }}
-							onpointerenter={(event) => {
-								if (event.pointerType !== 'touch') highlighted = contributor.slug;
-							}}
-							onpointerleave={(event) => {
-								if (event.pointerType !== 'touch') highlighted = null;
-							}}
-							onfocusin={() => (highlighted = contributor.slug)}
-							onfocusout={() => (highlighted = null)}
-						>
-							<!-- Places moved since a year ago sit beside the place, as in a league table. -->
-							<td class="py-2.5 pr-1 pl-3 sm:pl-4">
-								<div class="flex items-center gap-2">
-									<span class="w-6 text-right font-display text-xl text-primary">
-										{#if rank}
-											{rank}
-										{:else}
-											<span class="sr-only">Not placed</span>
-										{/if}
-									</span>
-									<span class="w-8 text-xs">
-										{#if moved === null}
-											<!-- New to the ranking: marked beside the name. -->
-										{:else if moved > 0}
-											<span class="inline-flex items-center gap-0.5 text-status-paid">
-												<ArrowUp size={12} aria-hidden="true" />
-												{moved}
-												<span class="sr-only">{moved === 1 ? 'place' : 'places'} up</span>
-											</span>
-										{:else if moved < 0}
-											<span class="inline-flex items-center gap-0.5 text-muted-foreground">
-												<ArrowDown size={12} aria-hidden="true" />
-												{-moved}
-												<span class="sr-only">{moved === -1 ? 'place' : 'places'} down</span>
-											</span>
-										{:else}
-											<span class="inline-flex items-center text-muted-foreground">
-												<Minus size={12} aria-hidden="true" />
-												<span class="sr-only">Same place as a year ago</span>
-											</span>
-										{/if}
-									</span>
-								</div>
-							</td>
-							<th scope="row" class="px-3 py-2.5 font-normal">
-								<div class="flex min-w-0 items-center gap-2">
-									<a
-										href={resolve('/collective/[handle]', { handle: contributor.slug })}
-										class="flex min-w-0 items-center gap-2.5 font-medium hover:underline"
-									>
-										{#if contributor.imageUrl}
-											<img
-												src={contributor.imageUrl}
-												alt=""
-												class="size-6 shrink-0 rounded-full border bg-card object-cover"
-												loading="lazy"
-											/>
-										{:else}
-											<span class="size-6 shrink-0 rounded-full border bg-muted"></span>
-										{/if}
-										<span class="truncate">{contributor.name}</span>
-									</a>
-									{#if rank && moved === null}
-										<span class="shrink-0 rounded-sm bg-accent px-1.5 text-xs text-primary"
-											>New</span
-										>
-									{/if}
-								</div>
-							</th>
-							<td
-								class={['px-3 py-2.5 text-right', rank ? 'font-medium' : 'text-muted-foreground']}
+		<section aria-labelledby="standings-heading" class="mt-10">
+			<!-- The double rule closes the heading, like the masthead and a ledger's totals. -->
+			<h2
+				id="standings-heading"
+				class="border-b-[3px] border-double border-rule pb-3 font-display text-2xl font-semibold text-primary"
+			>
+				Standings
+			</h2>
+
+			<div class="mt-4 overflow-x-auto rounded-xl border bg-card text-sm">
+				<table class="ledger">
+					<caption class="sr-only">
+						Contributions by contributor, ranked by {by === 'recent'
+							? 'the past 12 months'
+							: 'all time'}, with places moved since a year ago
+					</caption>
+					<thead class="text-xs">
+						<tr>
+							<th class="py-2 pr-1 pl-3 sm:pl-4">Place</th>
+							<th class="px-3 py-2">Contributor</th>
+							<th class="px-3 py-2 text-right">{by === 'recent' ? 'Past 12 months' : 'All time'}</th
 							>
-								{money.format(amount)}
-							</td>
-							<td class="hidden px-3 py-2.5 md:table-cell">
-								{#if rank}
+							<th class="hidden w-1/4 px-3 py-2 md:table-cell">Share</th>
+							<th class="hidden py-2 pr-4 pl-3 text-right sm:table-cell">
+								{by === 'recent' ? 'All time' : 'Past 12 months'}
+							</th>
+						</tr>
+					</thead>
+					<tbody>
+						<!-- Rows slide to their new places when the ranking changes, so you can see who moved. -->
+						{#each table as { contributor, rank, moved } (contributor.slug)}
+							{const amount = contributor[by]}
+							{const other = by === 'recent' ? contributor.total : contributor.recent}
+							<tr
+								animate:flip={{
+									duration: prefersReducedMotion.current ? 0 : 250,
+									easing: cubicOut
+								}}
+								class={{ followed: highlighted === contributor.slug }}
+								onpointerenter={(event) => {
+									if (event.pointerType !== 'touch') highlighted = contributor.slug;
+								}}
+								onpointerleave={(event) => {
+									if (event.pointerType !== 'touch') highlighted = null;
+								}}
+								onfocusin={() => (highlighted = contributor.slug)}
+								onfocusout={() => (highlighted = null)}
+							>
+								<!-- Places moved since a year ago sit beside the place, as in a league table. -->
+								<td class="py-2.5 pr-1 pl-3 sm:pl-4">
 									<div class="flex items-center gap-2">
-										<!-- As long as the leader's is full, so the gaps between places show. -->
-										<div class="h-1.5 flex-1">
-											<div
-												class="h-full rounded-full bg-primary"
-												style:width="{(amount / most) * 100}%"
-											></div>
-										</div>
-										<span class="w-9 text-right text-muted-foreground">
-											{percent.format(amount / sum)}
+										<span class="w-6 text-right font-display text-xl text-primary">
+											{#if rank}
+												{rank}
+											{:else}
+												<span class="sr-only">Not placed</span>
+											{/if}
+										</span>
+										<span class="w-8 text-xs">
+											{#if moved === null}
+												<!-- New to the ranking: marked beside the name. -->
+											{:else if moved > 0}
+												<span class="inline-flex items-center gap-0.5 text-status-paid">
+													<ArrowUp size={12} aria-hidden="true" />
+													{moved}
+													<span class="sr-only">{moved === 1 ? 'place' : 'places'} up</span>
+												</span>
+											{:else if moved < 0}
+												<span class="inline-flex items-center gap-0.5 text-muted-foreground">
+													<ArrowDown size={12} aria-hidden="true" />
+													{-moved}
+													<span class="sr-only">{moved === -1 ? 'place' : 'places'} down</span>
+												</span>
+											{:else}
+												<span class="inline-flex items-center text-muted-foreground">
+													<Minus size={12} aria-hidden="true" />
+													<span class="sr-only">Same place as a year ago</span>
+												</span>
+											{/if}
 										</span>
 									</div>
-								{/if}
-							</td>
-							<td class="hidden py-2.5 pr-4 pl-3 text-right text-muted-foreground sm:table-cell">
-								{money.format(other)}
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-		<p class="mt-3 max-w-2xl text-xs text-pretty text-muted-foreground">
-			Contributors are found from contributions of {money.format(MIN_CONTRIBUTION)} or more in the past
-			two years through Open Source Collective, Open Source Europe and NumFOCUS: the {contributors.length}
-			who gave the most. Collectives and giving platforms are left out, as they pass on money others gave,
-			which would count it twice; so are contributors who chose not to be named. Amounts include contributions
-			through any host, in US dollars. Places moved compare with the same ranking a year ago, among these
-			contributors.
-		</p>
-	</section>
+								</td>
+								<th scope="row" class="px-3 py-2.5 font-normal">
+									<div class="flex min-w-0 items-center gap-2">
+										<a
+											href={resolve('/collective/[handle]', { handle: contributor.slug })}
+											class="flex min-w-0 items-center gap-2.5 font-medium hover:underline"
+										>
+											{#if contributor.imageUrl}
+												<img
+													src={contributor.imageUrl}
+													alt=""
+													class="size-6 shrink-0 rounded-full border bg-card object-cover"
+													loading="lazy"
+												/>
+											{:else}
+												<span class="size-6 shrink-0 rounded-full border bg-muted"></span>
+											{/if}
+											<span class="truncate">{contributor.name}</span>
+										</a>
+										{#if rank && moved === null}
+											<span class="shrink-0 rounded-sm bg-accent px-1.5 text-xs text-primary"
+												>New</span
+											>
+										{/if}
+									</div>
+								</th>
+								<td
+									class={['px-3 py-2.5 text-right', rank ? 'font-medium' : 'text-muted-foreground']}
+								>
+									{money.format(amount)}
+								</td>
+								<td class="hidden px-3 py-2.5 md:table-cell">
+									{#if rank}
+										<div class="flex items-center gap-2">
+											<!-- As long as the leader's is full, so the gaps between places show. -->
+											<div class="h-1.5 flex-1">
+												<div
+													class="h-full rounded-full bg-primary"
+													style:width="{(amount / most) * 100}%"
+												></div>
+											</div>
+											<span class="w-9 text-right text-muted-foreground">
+												{percent.format(amount / sum)}
+											</span>
+										</div>
+									{/if}
+								</td>
+								<td class="hidden py-2.5 pr-4 pl-3 text-right text-muted-foreground sm:table-cell">
+									{money.format(other)}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+			<p class="mt-3 max-w-2xl text-xs text-pretty text-muted-foreground">
+				Contributors are found from contributions of {money.format(MIN_CONTRIBUTION)} or more in the past
+				two years through Open Source Collective, Open Source Europe and NumFOCUS: the {contributors.length}
+				who gave the most. Collectives and giving platforms are left out, as they pass on money others
+				gave, which would count it twice; so are contributors who chose not to be named. Amounts include
+				contributions through any host, in US dollars. Places moved compare with the same ranking a year
+				ago, among these contributors.
+			</p>
+		</section>
+	{/if}
 </article>
 
 <style>

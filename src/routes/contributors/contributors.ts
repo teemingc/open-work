@@ -1,7 +1,7 @@
 /**
  * The companies and people that contribute to open source projects on Open Collective, found
  * from the larger contributions through the main open source hosts, and ranked by what they
- * contributed in the past year or in all, with their place in each calendar year since 2018.
+ * contributed in the past year or in all, with their place in each of the past few calendar years.
  */
 
 /**
@@ -17,7 +17,7 @@ export const MIN_CONTRIBUTION = 1000;
 export const SCAN_PAGE = 1000;
 
 /** How many contributors are ranked: those that gave the most in the contributions scanned. */
-export const LIMIT = 50;
+export const LIMIT = 15;
 
 /**
  * Accounts of the kinds that hold money for projects, which contribute what others gave them. Funds
@@ -95,8 +95,14 @@ export function toCandidates(nodes: ScanNode[]): string[] {
  */
 export const BATCH_SIZE = 20;
 
-/** The first calendar year ranked. Before it, few of these contributed anything. */
-export const FIRST_YEAR = 2018;
+/**
+ * How many calendar years are ranked, this one included. Further back, few of those ranked had
+ * contributed anything, so places there say little.
+ */
+export const YEARS_RANKED = 6;
+
+/** The first calendar year ranked, given the last. */
+const firstYear = (lastYear: number) => lastYear - YEARS_RANKED + 1;
 
 /** One contributor's contributions in US dollars, as Open Collective's account stats report them. */
 export interface ContributorNode {
@@ -164,7 +170,7 @@ export function contributorsWindow(now: Date): {
 	return {
 		yearAgo: yearsBefore(1),
 		twoYearsAgo: yearsBefore(2),
-		firstYear: new Date(Date.UTC(FIRST_YEAR, 0, 1)).toISOString()
+		firstYear: new Date(Date.UTC(firstYear(now.getUTCFullYear()), 0, 1)).toISOString()
 	};
 }
 
@@ -250,14 +256,14 @@ export function standings(contributors: Contributor[], by: RankBy): Standing[] {
 }
 
 /**
- * Each contributor's place in each year from `FIRST_YEAR` to `lastYear`, `null` in years it
+ * Each contributor's place in each of the `YEARS_RANKED` years to `lastYear`, `null` in years it
  * contributed nothing.
  */
 export function yearlyRanks(
 	contributors: Contributor[],
 	lastYear: number
 ): { years: number[]; ranks: Map<string, (number | null)[]> } {
-	const years = Array.from({ length: lastYear - FIRST_YEAR + 1 }, (_, i) => FIRST_YEAR + i);
+	const years = Array.from({ length: YEARS_RANKED }, (_, i) => firstYear(lastYear) + i);
 	const byYear = years.map((year) => places(contributors, (c) => c.years[year] ?? 0));
 	return {
 		years,

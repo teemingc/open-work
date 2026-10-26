@@ -98,17 +98,17 @@ describe('standings', () => {
 });
 
 describe('yearlyRanks', () => {
-	it('places each year from the first ranked, leaving years with nothing empty', () => {
+	it('places each year ranked, leaving years with nothing empty and earlier years out', () => {
 		const { years, ranks } = yearlyRanks(
 			toContributors([
-				node({ slug: 'a', recent: 1, previous: 0, years: { 2018: 10, 2020: 5 } }),
-				node({ slug: 'b', recent: 1, previous: 0, years: { 2018: 20, 2019: 5, 2020: 1 } })
+				node({ slug: 'a', recent: 1, previous: 0, years: { 2020: 50, 2021: 10, 2023: 5 } }),
+				node({ slug: 'b', recent: 1, previous: 0, years: { 2021: 20, 2022: 5, 2026: 1 } })
 			]),
-			2020
+			2026
 		);
-		expect(years).toEqual([2018, 2019, 2020]);
-		expect(ranks.get('a')).toEqual([2, null, 1]);
-		expect(ranks.get('b')).toEqual([1, 1, 2]);
+		expect(years).toEqual([2021, 2022, 2023, 2024, 2025, 2026]);
+		expect(ranks.get('a')).toEqual([2, null, 1, null, null, null]);
+		expect(ranks.get('b')).toEqual([1, 1, null, null, null, 1]);
 	});
 });
 
@@ -125,7 +125,7 @@ describe('contributorsWindow', () => {
 		expect(contributorsWindow(new Date('2026-10-26T05:00:00Z'))).toEqual({
 			yearAgo: '2025-10-26T00:00:00.000Z',
 			twoYearsAgo: '2024-10-26T00:00:00.000Z',
-			firstYear: '2018-01-01T00:00:00.000Z'
+			firstYear: '2021-01-01T00:00:00.000Z'
 		});
 	});
 });

@@ -1,0 +1,12 @@
+// What the SvelteKit adapter builds from: its Worker goes to `main`, which `worker.ts` wraps with
+// a schedule. Deploys and bindings are in `wrangler.jsonc`.
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "open-work",
+	"compatibility_date": "2025-12-29",
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare"
+	}
+}

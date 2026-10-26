@@ -87,6 +87,11 @@ export interface Cached<T> {
 	(): Promise<T>;
 	/** The stored result, however old, without waiting on Open Collective. */
 	peek(): Promise<T | undefined>;
+	/**
+	 * Waits until a result no older than `maxAgeMs` is stored, fetching one only if there is none,
+	 * so calling it often asks Open Collective no more often than visitors would.
+	 */
+	warm(): Promise<void>;
 }
 
 /** Waits for `promise`, but gives up after `ms` and settles with `fallback()` instead. */
@@ -102,7 +107,8 @@ export function cached<T>({
 	key,
 	maxAgeMs,
 	load,
-	store = 'kv'
+	store = 'kv',
+	scheduled = false
 }: {
 	/** Unique per result, so the stores keep them apart. */
 	key: string;
@@ -112,6 +118,11 @@ export function cached<T>({
 	load: (previous: T | undefined) => Promise<T>;
 	/** Where the result outlives this instance: KV everywhere, or the Cache API, per data centre. */
 	store?: 'kv' | 'edge';
+	/**
+	 * Refreshed only by `warm()`, from a schedule, never by a read: for a fetch that outlasts the
+	 * time Cloudflare gives a request's work after its response.
+	 */
+	scheduled?: boolean;
 }): Cached<T> {
 	const shared = store === 'kv' ? kvStore<T>(key) : edgeStore<T>(key);
 	let memory: Entry<T> | undefined;
@@ -156,7 +167,7 @@ export function cached<T>({
 
 	/** Refreshes behind the scenes once the stored result is stale. */
 	function revalidate() {
-		if (!fresh(memory) && waitLeft() <= 0) void start().catch(() => {});
+		if (!scheduled && !fresh(memory) && waitLeft() <= 0) void start().catch(() => {});
 	}
 
 	async function stored(): Promise<Entry<T> | undefined> {
@@ -176,6 +187,9 @@ export function cached<T>({
 				const entry = await stored();
 				if (entry) revalidate();
 				return entry?.value;
+			},
+			async warm() {
+				if (!fresh(await stored())) await refresh();
 			}
 		}
 	);

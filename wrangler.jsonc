@@ -3,7 +3,7 @@
 	"name": "open-work",
 	"compatibility_date": "2025-12-29",
 	"compatibility_flags": ["nodejs_compat"],
-	"main": ".svelte-kit/cloudflare/_worker.js",
+	"main": "worker.ts",
 	"assets": {
 		"binding": "ASSETS",
 		"directory": ".svelte-kit/cloudflare"
@@ -24,6 +24,10 @@
 	],
 	"secrets": {
 		"required": ["OC_CLIENT_ID", "OC_CLIENT_SECRET"]
+	},
+	// Refreshes the leaderboard every Monday.
+	"triggers": {
+		"crons": ["0 3 * * 1"]
 	},
 	"observability": {
 		"enabled": true

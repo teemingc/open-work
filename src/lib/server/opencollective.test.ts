@@ -42,6 +42,23 @@ describe('graphql', () => {
 		expect(fetch).toHaveBeenCalledTimes(2);
 	});
 
+	it('gives up on a request Open Collective takes too long to answer', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn((_url: string, { signal }: RequestInit) =>
+				Promise.reject(signal?.aborted ? signal.reason : new Error('not aborted'))
+			)
+		);
+		vi.spyOn(AbortSignal, 'timeout').mockReturnValue(
+			AbortSignal.abort(new DOMException('timed out', 'TimeoutError'))
+		);
+		await expect(graphql({ query: '{ ok }' })).rejects.toMatchObject({
+			status: 504,
+			message: 'Open Collective took too long to answer. Try again in a moment.'
+		});
+		vi.mocked(AbortSignal.timeout).mockRestore();
+	});
+
 	it('gives up with a message when the wait is long or the retry is limited too', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(limited('60')));
 		await expect(graphql({ query: '{ ok }' })).rejects.toMatchObject({

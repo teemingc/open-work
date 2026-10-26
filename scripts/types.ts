@@ -1,11 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, renameSync } from 'node:fs';
 
-const entryPath = '.svelte-kit/cloudflare/_worker.js';
+const entryPath = 'worker.ts';
 const hiddenEntryPath = `${entryPath}.hidden`;
 
-// Wrangler adds `Cloudflare.GlobalProps.mainModule` whenever the `main` entry exists, which here is
-// the build output, and folds it into the hash `--check` compares. Importing it would pull built code
+// Wrangler adds `Cloudflare.GlobalProps.mainModule` whenever the `main` entry exists, which here
+// wraps the build output, and folds it into the hash `--check` compares. Importing it would pull built code
 // into type checking, and a deploy checks before it builds, so hide the entry while wrangler runs to
 // get the same types and hash whether or not a build has run.
 const entryExists = existsSync(entryPath);

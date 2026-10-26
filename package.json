@@ -7,8 +7,9 @@
 	"scripts": {
 		"dev": "vite dev",
 		"build": "pnpm types --check && vite build",
-		"preview": "wrangler dev .svelte-kit/cloudflare/_worker.js --port 4173",
-		"deploy": "pnpm run build && wrangler deploy",
+		"preview": "wrangler dev --port 4173",
+		"deploy": "pnpm run build && wrangler deploy && pnpm warm",
+		"warm": "node scripts/warm.ts",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "pnpm types --check && svelte-kit sync && svelte-check --tsgo --incremental --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsgo --tsconfig ./tsconfig.json --watch",

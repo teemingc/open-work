@@ -127,6 +127,39 @@ describe('cached', () => {
 		expect(await get.peek()).toBe('value');
 	});
 
+	it('leaves a scheduled result for warm() to refresh, however stale a read finds it', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		const load = vi.fn(async () => 'value');
+		const get = cached({ key: 'f', maxAgeMs: 1000, load, scheduled: true });
+
+		await get.warm();
+		vi.advanceTimersByTime(2000);
+		expect(await get.peek()).toBe('value');
+		expect(await get()).toBe('value');
+		await settle();
+		expect(load).toHaveBeenCalledTimes(1);
+
+		await get.warm();
+		expect(load).toHaveBeenCalledTimes(2);
+	});
+
+	it('warms only when nothing fresh is stored, waiting for the result', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		const load = vi.fn(async () => 'value');
+		const get = cached({ key: 'e', maxAgeMs: 1000, load });
+
+		await get.warm();
+		expect(load).toHaveBeenCalledTimes(1);
+		expect(await get.peek()).toBe('value');
+
+		await get.warm();
+		expect(load).toHaveBeenCalledTimes(1);
+
+		vi.advanceTimersByTime(2000);
+		await get.warm();
+		expect(load).toHaveBeenCalledTimes(2);
+	});
+
 	it('fails when there is nothing to fall back on', async () => {
 		const get = cached({
 			key: 'c',
