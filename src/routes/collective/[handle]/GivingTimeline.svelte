@@ -118,8 +118,8 @@
 
 	/** Up to this many projects in a round are named; past it, how many, with their logos below. */
 	const NAMED = 3;
-	/** Past this many, a round's logos end in a count, so the tooltip stays one row. */
-	const LOGOS = 16;
+	/** Past this many, a round's logos end in a count, so they stay one row as wide as the words. */
+	const LOGOS = 12;
 
 	/** Who the gifts went to, the most given first, in a line short enough for a tooltip. */
 	const names = (gifts: RoundGift[]) => {
@@ -215,7 +215,7 @@
 
 {#snippet logos(items: { slug: string; imageUrl: string | null; ringed: boolean }[])}
 	<!-- Ringed in pink where the gift is monthly, as in the pack. -->
-	<ul class="flex max-w-[min(26rem,80vw)] flex-wrap gap-1.5 p-0.5" aria-hidden="true">
+	<ul class="flex max-w-80 flex-wrap gap-1.5 p-0.5" aria-hidden="true">
 		{#each items.slice(0, LOGOS) as item (item.slug)}
 			<li
 				class={[
