@@ -34,11 +34,12 @@
 	/**
 	 * Columns for the number of figures, so a short strip leaves no empty cell showing the divider colour.
 	 * Three sit in one row, as two columns would leave the fourth cell empty. Five in one row squeezes
-	 * the labels onto two lines, so five sit on six columns as two over three.
+	 * the labels onto two lines, so five sit on six columns as two over three, from as soon as a third
+	 * fits. Narrower, the first takes a row of its own.
 	 */
 	const columns = $derived(
 		stats.length >= 5
-			? 'sm:grid-cols-2 lg:grid-cols-6'
+			? 'sm:grid-cols-2 md:grid-cols-6'
 			: stats.length === 4
 				? 'sm:grid-cols-2 xl:grid-cols-4'
 				: stats.length === 3
@@ -49,6 +50,14 @@
 	);
 	/** A lone figure leads, larger and with its note beside it, rather than sitting in an empty strip. */
 	const lone = $derived(stats.length === 1);
+
+	/**
+	 * Whether a figure has a row of its own between two and six columns. It is laid out like a lone
+	 * figure there, so the row is filled rather than stretched, and its badge stays in line with those below.
+	 */
+	function leads(index: number) {
+		return stats.length === 5 && index === 0;
+	}
 </script>
 
 <!-- One compact strip of figures. Gaps over a border-coloured background draw even dividers. -->
@@ -66,64 +75,74 @@
 					lone
 						? 'flex flex-wrap items-baseline gap-x-3 gap-y-1 px-5 py-4'
 						: 'row-span-3 grid grid-rows-subgrid gap-y-1 px-4 py-3',
+					leads(index) && 'sm:flex sm:flex-wrap sm:items-baseline sm:gap-x-3 md:grid md:gap-x-0',
 					stats.length === 5 &&
 						(index === 0
-							? 'sm:col-span-2 lg:col-span-3'
+							? 'sm:col-span-2 md:col-span-3'
 							: index === 1
-								? 'lg:col-span-3'
-								: 'lg:col-span-2')
+								? 'md:col-span-3'
+								: 'md:col-span-2')
 				]}
 			>
 				<!--
 					As tall as a badge with or without one, so a badge coming or going moves nothing. A long
 					label wraps beside the badge rather than running under it, and labels sit at the top so a
-					one-line label lines up with a neighbour that wraps.
+					one-line label lines up with a neighbour that wraps. In a cell too narrow for most labels and
+					badges side by side, every badge goes under its label, so one that fits never sits beside a
+					neighbour's that didn't. The label measures its own width rather than the cell's, as the grid
+					sizes its rows before a cell's width would apply.
 				-->
 				<dt
 					class={[
-						'flex min-h-5.5 flex-wrap items-start justify-between gap-x-2 gap-y-1 text-sm text-muted-foreground',
-						lone && 'basis-full'
+						'@container text-sm text-muted-foreground',
+						lone && 'basis-full',
+						leads(index) && 'sm:basis-full'
 					]}
 				>
-					<span class="leading-5.5 whitespace-nowrap">{stat.label}</span>
-					{#if stat.badge}
-						{@const Icon = stat.badge.icon && ICONS[stat.badge.icon]}
-						{#if stat.badge.detail}
-							<Popover.Root>
-								<Popover.Trigger openOnHover openDelay={200}>
-									{#snippet child({ props })}
-										<button
-											{...props}
-											class={cn(
-												badgeVariants({ variant: 'outline' }),
-												'hover:bg-muted',
-												stat.badge?.tone
-											)}
-										>
-											{#if Icon}<Icon aria-hidden="true" />{/if}
-											{stat.badge?.text}
-										</button>
-									{/snippet}
-								</Popover.Trigger>
-								<Popover.Content class="w-64 space-y-2 p-3 text-sm whitespace-normal" align="end">
-									<p>{stat.badge.detail}</p>
-									{#if stat.badge.aside}
-										<p class="text-muted-foreground">{stat.badge.aside}</p>
-									{/if}
-								</Popover.Content>
-							</Popover.Root>
-						{:else}
-							<Badge variant="outline" class={stat.badge.tone}>
-								{#if Icon}<Icon />{/if}
-								{stat.badge.text}
-							</Badge>
+					<div
+						class="flex min-h-5.5 flex-wrap items-start justify-between gap-x-2 gap-y-1 @max-[15rem]:flex-col @max-[15rem]:flex-nowrap"
+					>
+						<span class="leading-5.5 whitespace-nowrap">{stat.label}</span>
+						{#if stat.badge}
+							{@const Icon = stat.badge.icon && ICONS[stat.badge.icon]}
+							{#if stat.badge.detail}
+								<Popover.Root>
+									<Popover.Trigger openOnHover openDelay={200}>
+										{#snippet child({ props })}
+											<button
+												{...props}
+												class={cn(
+													badgeVariants({ variant: 'outline' }),
+													'hover:bg-muted',
+													stat.badge?.tone
+												)}
+											>
+												{#if Icon}<Icon aria-hidden="true" />{/if}
+												{stat.badge?.text}
+											</button>
+										{/snippet}
+									</Popover.Trigger>
+									<Popover.Content class="w-64 space-y-2 p-3 text-sm whitespace-normal" align="end">
+										<p>{stat.badge.detail}</p>
+										{#if stat.badge.aside}
+											<p class="text-muted-foreground">{stat.badge.aside}</p>
+										{/if}
+									</Popover.Content>
+								</Popover.Root>
+							{:else}
+								<Badge variant="outline" class={stat.badge.tone}>
+									{#if Icon}<Icon />{/if}
+									{stat.badge.text}
+								</Badge>
+							{/if}
 						{/if}
-					{/if}
+					</div>
 				</dt>
 				<dd
 					class={[
 						'font-display font-medium tabular-nums',
 						lone ? 'text-4xl leading-tight' : 'text-2xl',
+						leads(index) && 'sm:text-3xl md:text-2xl',
 						stat.tone
 					]}
 				>
