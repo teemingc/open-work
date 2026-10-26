@@ -178,23 +178,36 @@
 	);
 	/**
 	 * When a top backer started or stopped giving regularly, with the count that month to place it
-	 * by. `index` stacks a month's starts above the line, and its stops below, one after another.
+	 * by. `index` stacks a month's starts above the line, and its stops below, one after another. With
+	 * no one left there is no room below the line, so the stops stack above it after the starts
+	 * instead of landing on the month labels.
 	 */
 	const topChanges = $derived(
-		changes.flatMap((change) =>
-			(['started', 'stopped'] as const).flatMap((kind) =>
-				change[kind === 'started' ? 'startedBy' : 'stoppedBy']
-					.filter((backer) => topSlugs.has(backer.slug))
-					.map((backer, index) => ({
-						month: change.month,
-						active: change.active,
-						kind,
-						backer,
-						index
-					}))
-			)
-		)
+		changes.flatMap((change) => {
+			const starts = change.startedBy.filter((backer) => topSlugs.has(backer.slug));
+			const stops = change.stoppedBy.filter((backer) => topSlugs.has(backer.slug));
+			const place = { month: change.month, active: change.active };
+			return [
+				...starts.map((backer, index) => ({
+					...place,
+					kind: 'started' as const,
+					backer,
+					index,
+					below: false
+				})),
+				...stops.map((backer, index) => ({
+					...place,
+					kind: 'stopped' as const,
+					backer,
+					index: change.active ? index : starts.length + index,
+					below: change.active > 0
+				}))
+			];
+		})
 	);
+	/** Only whole backers on the axis, as a count of one would otherwise tick at 0.2, 0.4 and so on. */
+	const wholeTicks = (scale: { ticks?: () => number[] }) =>
+		scale.ticks?.().filter(Number.isInteger);
 	/** The top backers who stopped giving regularly, listed or marked on the line. */
 	const stoppedTop = $derived(
 		[
@@ -426,9 +439,11 @@
 													ticks: bandTicks(months),
 													format: bandTickLabel
 												},
+												grid: { yTicks: wholeTicks },
 												yAxis: {
 													tickLength: TICK_LENGTH,
 													tickLabelProps: Y_TICK_LABEL,
+													ticks: wholeTicks,
 													format: (v: number) => whole.format(v)
 												},
 												tooltip: { context: { locked: backersLink.locked } }
@@ -474,7 +489,7 @@
 													>
 														<LogoMark
 															{x}
-															y={change.kind === 'started' ? y - offset : y + offset}
+															y={change.below ? y + offset : y - offset}
 															r={MARK_RADIUS}
 															name={change.backer.name}
 															imageUrl={change.backer.imageUrl}
@@ -482,7 +497,7 @@
 														/>
 														<circle
 															cx={x}
-															cy={change.kind === 'started' ? y - offset : y + offset}
+															cy={change.below ? y + offset : y - offset}
 															r={MARK_RADIUS + 1.5}
 															class="fill-none {change.kind === 'started'
 																? 'stroke-chart-income'
