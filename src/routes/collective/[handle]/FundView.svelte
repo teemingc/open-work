@@ -59,6 +59,7 @@
 	const granted = $derived(data.grants.reduce((sum, grant) => sum + grant.amount, 0));
 	const ownMoney = $derived(received < granted);
 	const monthly = $derived(data.commitments.reduce((sum, c) => sum + c.monthly, 0));
+	const firstGrant = $derived(data.grants[0]?.date);
 	const lastGrant = $derived(data.grants.at(-1)?.date);
 	/** Full months since it last gave. */
 	const sinceLast = $derived(lastGrant ? monthsBetween(new Date(lastGrant), now) : 0);
@@ -186,13 +187,13 @@
 	<HandCoins />
 	<Alert.Title>
 		{#if !ownMoney}
-			Contributes to other projects
+			Contributes to other collectives
 		{:else if quiet}
 			Paused contributions
 		{:else if reduced}
 			Reduced contributions
 		{:else}
-			Contributes to other projects
+			Contributes to other collectives
 		{/if}
 	</Alert.Title>
 	<Alert.Description>
@@ -203,8 +204,7 @@
 				)}.
 			{:else}
 				{#if ownMoney}
-					It pays them from its own budget rather than passing on donations, so there is nothing
-					received or held here, only what it has contributed.
+					It directly contributes to other collectives from its own funds.
 				{:else}
 					Almost everything it receives goes on to other projects on Open Collective.
 				{/if}
@@ -274,10 +274,15 @@
 	<Card.Header>
 		<Card.Title>Contributions over time</Card.Title>
 		<Card.Description>
+			{const span = $derived(
+				firstGrant && lastGrant
+					? `All its contributions from ${dayMonthYear.format(new Date(firstGrant))} to ${dayMonthYear.format(new Date(lastGrant))}`
+					: 'What it has contributed so far'
+			)}
 			{#if ahead.length}
-				What it has contributed so far, and how long it can keep up its monthly contributions.
+				{span}, and how long it can keep up its monthly contributions.
 			{:else if ownMoney}
-				What it has contributed so far.
+				{span}.
 			{:else}
 				What it has received and contributed so far.
 			{/if}
