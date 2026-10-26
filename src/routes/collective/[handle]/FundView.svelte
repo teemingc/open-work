@@ -5,7 +5,14 @@
 	import { HandCoins } from '@lucide/svelte';
 	import { moneyFormat, runwayLength } from './chart-format';
 	import { monthsBetween } from './financials';
-	import { givingAhead, givingHistory, givingYear, toRecipients, toRounds } from './grants';
+	import {
+		givingAhead,
+		givingHistory,
+		givingYear,
+		reducedContributions,
+		toRecipients,
+		toRounds
+	} from './grants';
 	import GivingTimeline from './GivingTimeline.svelte';
 	import { LinkedProject } from './linked-project.svelte';
 	import LogoPack from './LogoPack.svelte';
@@ -56,6 +63,8 @@
 	const sinceLast = $derived(lastGrant ? monthsBetween(new Date(lastGrant), now) : 0);
 	/** It has not given for a while, which the totals alone would hide. */
 	const quiet = $derived(sinceLast >= 2);
+	/** It still contributes, but far less than the year before, which the totals alone would also hide. */
+	const reduced = $derived(quiet ? undefined : reducedContributions({ grants: data.grants, now }));
 
 	/** The backer that gave most, named when it gave most of the money. */
 	const mainSource = $derived.by(() => {
@@ -164,10 +173,10 @@
 	const capped = $derived(ahead.length > AHEAD_LIMIT && monthly * (AHEAD_LIMIT + 1) <= balance);
 </script>
 
-<!-- Yellow once it has paused all its contributions, green while it still contributes. -->
+<!-- Yellow once it has paused or cut back its contributions, green while it keeps them up. -->
 <Alert.Root
-	variant={quiet ? 'warning' : 'default'}
-	class={quiet
+	variant={quiet || reduced ? 'warning' : 'default'}
+	class={quiet || reduced
 		? undefined
 		: 'border-status-paid/30 bg-status-paid/5 text-status-paid *:data-[slot=alert-description]:text-status-paid/80'}
 >
@@ -177,6 +186,8 @@
 			Passes its funds on to other projects
 		{:else if quiet}
 			Paused direct contributions to other projects
+		{:else if reduced}
+			Reduced direct contributions to other projects
 		{:else}
 			Contributes to other projects directly
 		{/if}
@@ -198,6 +209,12 @@
 					Its last contribution was {runwayLength(sinceLast)} ago, on {dayMonthYear.format(
 						new Date(lastGrant)
 					)}.
+				{:else if reduced}
+					It contributed {money.format(reduced.recent)} in the past 12 months, after {money.format(
+						reduced.previous
+					)} in the 12 months before. Contributing at that level again would add {money.format(
+						reduced.previous - reduced.recent
+					)} a year to the projects it funds.
 				{/if}
 			{/if}
 		</p>
