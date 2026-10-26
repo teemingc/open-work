@@ -146,10 +146,10 @@
 			: [])
 	]);
 
-	/** Those it gave to in its giving year whose contributions are known, the most from this fund first. */
+	/** Those it gave to in its giving year whose spending is known, the most of it covered first. */
 	const shares = $derived(
 		recipients
-			.filter((r): r is typeof r & { contributions: number; share: number } => r.share !== null)
+			.filter((r): r is typeof r & { spending: number; share: number } => r.share !== null)
 			.sort((a, b) => b.share - a.share || b.total - a.total)
 	);
 
@@ -242,13 +242,15 @@
 				{#if year.stopped}
 					<Card.Title>Contribution impact</Card.Title>
 					<Card.Description>
-						Contributing as it did in the year to {dayMonthYear.format(new Date(year.to))} would add
-						{money.format(wouldAdd)} a year to these projects.
+						How long {money.format(wouldAdd)} a year, contributed as it did in the year to {dayMonthYear.format(
+							new Date(year.to)
+						)}, would keep each project going at what it spends a month.
 					</Card.Description>
 				{:else}
 					<Card.Title>Contribution impact</Card.Title>
 					<Card.Description>
-						How much of each project's contributions in the past year came from this fund.
+						How long a year of this fund's contributions keeps each project going at what it spends
+						a month.
 					</Card.Description>
 				{/if}
 			</Card.Header>

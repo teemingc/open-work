@@ -174,7 +174,7 @@ const GRANT_NODES = /* GraphQL */ `
 			imageUrl(height: 96)
 			currency
 			stats {
-				totalAmountReceived(periodInMonths: 12) {
+				totalAmountSpent(periodInMonths: 12) {
 					value
 				}
 			}
@@ -310,7 +310,7 @@ interface StatsResult {
 
 /** Monthly balance, income and spending for the collective, from Open Collective's public stats. */
 const loadStats = perKey({
-	cacheKey: (slug) => `stats:v9:${slug}`,
+	cacheKey: (slug) => `stats:v10:${slug}`,
 	maxAgeMs: CACHE_MS,
 	load: async (slug, ask) => {
 		const from = '2016-01-01T00:00:00Z';
