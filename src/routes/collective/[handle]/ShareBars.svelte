@@ -12,12 +12,15 @@
 
 	let {
 		recipients,
+		stopped,
 		linked,
 		slug,
 		currency
 	}: {
 		/** Only those whose contributions are known, in the order to show them. */
 		recipients: (Recipient & { contributions: number; share: number })[];
+		/** The fund has stopped giving, so each share is what it would be if it still gave. */
+		stopped: boolean;
 		/** The project picked here or in the pack, highlighted in both. */
 		linked: LinkedProject;
 		/** The fund's own slug, for a link to what it gave the rest. */
@@ -31,6 +34,11 @@
 
 	/** Past this many rows, the smallest share the last one, so the list stays a quick read. */
 	const LIMIT = 10;
+	/**
+	 * How many of the rest their tooltip names, the most from this fund first, so it stays small
+	 * enough to see the chart past. One more would only swap a name for "and 1 more".
+	 */
+	const REST_NAMED = 6;
 	const rows = $derived.by((): (Row | Rest)[] => {
 		if (recipients.length <= LIMIT) return recipients;
 		const rest = recipients.slice(LIMIT - 1);
@@ -47,8 +55,16 @@
 	const ROW = 40;
 	/** Room left of the name and bar for the logo. */
 	const INSET = 24;
-	/** Room right of the bar for its percentage. */
-	const LABEL = 44;
+	/** Room right of the bar for its percentage, or for what the fund would add once it has stopped. */
+	const label = $derived(stopped ? 64 : 44);
+	/** The gap between what a project receives now and the fund's part after it. */
+	const GAP = 2;
+	/** The hatching of the fund's part once it has stopped, as the timeline hatches what has not happened. */
+	const hatch = $props.id();
+	/** What the fund gave a project in its last year of giving, set against what it receives now. */
+	const ofReceived = (row: Row) => percent(row.recent / (row.contributions - row.recent));
+	/** What the fund would add to all of the rest together. */
+	const added = (row: Rest) => row.rest.reduce((sum, other) => sum + other.recent, 0);
 
 	/** Rounded down near the top, so 99.6% is not shown as all of it. */
 	const percent = (share: number) =>
@@ -101,8 +117,22 @@
 					props={{ tooltip: { context: { locked: link.locked } } }}
 				>
 					{#snippet marks({ context })}
-						{@const width = context.width - INSET - LABEL}
+						{@const width = context.width - INSET - label}
 						{@const shown = (context.tooltip.data as Row | Rest | null)?.slug}
+						{#if stopped}
+							<defs>
+								<pattern
+									id={hatch}
+									width="4"
+									height="4"
+									patternUnits="userSpaceOnUse"
+									patternTransform="rotate(45)"
+								>
+									<rect width="4" height="4" class="fill-chart-expenses-muted" />
+									<line y2="4" stroke-width="2" class="stroke-chart-expenses" />
+								</pattern>
+							</defs>
+						{/if}
 						{#each rows as row (row.slug)}
 							{@const top = context.yScale(row.slug) ?? 0}
 							{@const picked =
@@ -121,7 +151,32 @@
 									picked || shown === row.slug ? 'opacity-100' : 'opacity-0'
 								]}
 							/>
-							<rect x={INSET} y={top + 24} {width} height="8" rx="4" class="fill-muted" />
+							{#if stopped}
+								<!--
+									The project's whole year if the fund gave again: what it receives now, then the fund's
+									part, hatched as what is not there.
+								-->
+								<rect
+									x={INSET}
+									y={top + 24}
+									width={Math.max(0, width * (1 - row.share) - GAP)}
+									height="8"
+									rx="4"
+									class="fill-chart-income-muted"
+								/>
+								<rect
+									x={INSET + width * (1 - row.share)}
+									y={top + 24}
+									width={Math.max(4, width * row.share)}
+									height="8"
+									rx="4"
+									fill="url(#{hatch})"
+									class="stroke-chart-expenses"
+									stroke-width="1"
+								/>
+							{:else}
+								<rect x={INSET} y={top + 24} {width} height="8" rx="4" class="fill-muted" />
+							{/if}
 							{#if 'rest' in row}
 								<!-- One mark in the logo column like every other row; the tooltip shows their logos. -->
 								<LogoMark
@@ -136,21 +191,24 @@
 								<text x={INSET} y={top + 17} font-size="13" class="fill-foreground"
 									>{row.rest.length} other collectives</text
 								>
-								<!-- From the least to the most any of them got from this fund. -->
-								<rect
-									x={INSET + width * row.low}
-									y={top + 24}
-									width={Math.max(4, width * (row.share - row.low))}
-									height="8"
-									rx="4"
-									class="fill-chart-expenses-muted"
-								/>
+								{#if !stopped}
+									<!-- From the least to the most any of them got from this fund. -->
+									<rect
+										x={INSET + width * row.low}
+										y={top + 24}
+										width={Math.max(4, width * (row.share - row.low))}
+										height="8"
+										rx="4"
+										class="fill-chart-expenses-muted"
+									/>
+								{/if}
 								<text
 									x={context.width}
 									y={top + 32}
 									font-size="13"
 									text-anchor="end"
-									class="fill-foreground font-medium tabular-nums">{range(row)}</text
+									class="fill-foreground font-medium tabular-nums"
+									>{stopped ? `+${money.format(added(row))}` : range(row)}</text
 								>
 							{:else}
 								<LogoMark
@@ -163,20 +221,23 @@
 								/>
 								<text x={INSET} y={top + 17} font-size="13" class="fill-foreground">{row.name}</text
 								>
-								<rect
-									x={INSET}
-									y={top + 24}
-									width={Math.max(4, width * row.share)}
-									height="8"
-									rx="4"
-									class="fill-chart-expenses"
-								/>
+								{#if !stopped}
+									<rect
+										x={INSET}
+										y={top + 24}
+										width={Math.max(4, width * row.share)}
+										height="8"
+										rx="4"
+										class="fill-chart-expenses"
+									/>
+								{/if}
 								<text
 									x={context.width}
 									y={top + 32}
 									font-size="13"
 									text-anchor="end"
-									class="fill-foreground font-medium tabular-nums">{percent(row.share)}</text
+									class="fill-foreground font-medium tabular-nums"
+									>{stopped ? `+${money.format(row.recent)}` : percent(row.share)}</text
 								>
 							{/if}
 						{/each}
@@ -190,9 +251,11 @@
 									class="grid max-w-60 min-w-40 gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl"
 								>
 									{#if 'rest' in row}
-										<div class="font-medium">{row.rest.length} other collectives</div>
+										{const named = $derived(
+											row.rest.length > REST_NAMED + 1 ? row.rest.slice(0, REST_NAMED) : row.rest
+										)}
 										<ul class="grid gap-2 py-0.5">
-											{#each row.rest as other (other.slug)}
+											{#each named as other (other.slug)}
 												<li
 													class={[
 														'flex items-center gap-2 rounded-sm',
@@ -217,10 +280,18 @@
 												</li>
 											{/each}
 										</ul>
+										{#if named.length < row.rest.length}
+											<p class="text-muted-foreground">and {row.rest.length - named.length} more</p>
+										{/if}
 									{:else}
 										<div class="font-medium">{row.name}</div>
 										<p class="text-muted-foreground">
-											{#if row.recent >= row.contributions}
+											{#if stopped}
+												{money.format(row.recent)} a year would add {ofReceived(row)} to the {money.format(
+													row.contributions - row.recent
+												)}
+												{row.name} received last year.
+											{:else if row.recent >= row.contributions}
 												All {money.format(row.contributions)}
 												{row.name} received in the past year came from this fund.
 											{:else}
@@ -266,9 +337,15 @@
 <ul class="sr-only">
 	{#each recipients as row (row.slug)}
 		<li>
-			{row.name}: {percent(row.share)} of its contributions in the past year, {money.format(
-				row.recent
-			)} of {money.format(row.contributions)}
+			{#if stopped}
+				{row.name}: {money.format(row.recent)} a year would add {ofReceived(row)} to the {money.format(
+					row.contributions - row.recent
+				)} it received last year
+			{:else}
+				{row.name}: {percent(row.share)} of its contributions in the past year, {money.format(
+					row.recent
+				)} of {money.format(row.contributions)}
+			{/if}
 		</li>
 	{/each}
 </ul>

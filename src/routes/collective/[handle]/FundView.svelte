@@ -5,7 +5,7 @@
 	import { HandCoins } from '@lucide/svelte';
 	import { moneyFormat, runwayLength } from './chart-format';
 	import { monthsBetween } from './financials';
-	import { givingAhead, givingHistory, toRecipients, toRounds } from './grants';
+	import { givingAhead, givingHistory, givingYear, toRecipients, toRounds } from './grants';
 	import GivingTimeline from './GivingTimeline.svelte';
 	import { LinkedProject } from './linked-project.svelte';
 	import LogoPack from './LogoPack.svelte';
@@ -34,12 +34,13 @@
 		timeZone: 'UTC'
 	});
 	const balance = $derived(data.months.at(-1)?.balance ?? 0);
+	const year = $derived(givingYear({ grants: data.grants, now }));
 	const recipients = $derived(
 		toRecipients({
 			grants: data.grants,
 			commitments: data.commitments,
 			currency: data.currency,
-			now
+			year
 		})
 	);
 	const received = $derived(data.months.reduce((sum, month) => sum + month.income, 0));
@@ -64,6 +65,15 @@
 		return top && top.amount >= total / 2 ? top : undefined;
 	});
 
+	/** What it contributed in its giving year, and to how many projects. */
+	const yearGrants = $derived(
+		data.grants.filter((grant) => grant.date >= year.from && grant.date <= year.to)
+	);
+	const yearTotal = $derived(yearGrants.reduce((sum, grant) => sum + grant.amount, 0));
+	const yearProjects = $derived(new Set(yearGrants.map((grant) => grant.slug)).size);
+	/** The project it contributed most to, all told. */
+	const top = $derived(recipients.at(0));
+
 	/** Each figure in the colour of its line in the chart of giving over time, so the strip is its key. */
 	const stats = $derived<Stat[]>([
 		...(ownMoney
@@ -77,11 +87,34 @@
 					}
 				]),
 		{
-			label: 'Given away',
+			label: 'Contributed',
 			tone: 'text-chart-expenses',
 			value: money.format(granted),
 			note: `To ${recipients.length} project${recipients.length === 1 ? '' : 's'}`
 		},
+		// With nothing received nor left over, what it did with its own money fills the strip instead.
+		...(ownMoney && yearTotal > 0
+			? [
+					{
+						label: year.stopped ? 'In its last year' : 'In the past year',
+						tone: 'text-chart-expenses',
+						value: money.format(yearTotal),
+						note: year.stopped
+							? `Up to ${dayMonthYear.format(new Date(year.to))}`
+							: `To ${yearProjects} project${yearProjects === 1 ? '' : 's'}`
+					}
+				]
+			: []),
+		...(ownMoney && top && recipients.length > 1
+			? [
+					{
+						label: 'Favourite collective',
+						tone: 'text-chart-expenses',
+						value: money.format(top.total),
+						note: `Total contributions to ${top.name}`
+					}
+				]
+			: []),
 		...(ownMoney
 			? []
 			: [
@@ -95,7 +128,7 @@
 		...(monthly > 0
 			? [
 					{
-						label: 'Monthly gifts',
+						label: 'Monthly contributions',
 						tone: 'text-chart-expenses',
 						value: money.format(monthly),
 						note: `To ${data.commitments.length} project${data.commitments.length === 1 ? '' : 's'}, every month`
@@ -104,12 +137,15 @@
 			: [])
 	]);
 
-	/** Those it gave to in the past year whose contributions are known, the most from this fund first. */
+	/** Those it gave to in its giving year whose contributions are known, the most from this fund first. */
 	const shares = $derived(
 		recipients
 			.filter((r): r is typeof r & { contributions: number; share: number } => r.share !== null)
 			.sort((a, b) => b.share - a.share || b.total - a.total)
 	);
+
+	/** What it would add to them all in a year, once it has stopped, if it gave as it last did. */
+	const wouldAdd = $derived(shares.reduce((sum, r) => sum + r.recent, 0));
 
 	/** How far ahead the monthly gifts are drawn, however long the money would pay for them. */
 	const AHEAD_LIMIT = 60;
@@ -128,22 +164,42 @@
 	const capped = $derived(ahead.length > AHEAD_LIMIT && monthly * (AHEAD_LIMIT + 1) <= balance);
 </script>
 
+<!-- Yellow once it has paused all its contributions, green while it still contributes. -->
 <Alert.Root
-	class="border-status-paid/30 bg-status-paid/5 text-status-paid *:data-[slot=alert-description]:text-status-paid/80"
+	variant={quiet ? 'warning' : 'default'}
+	class={quiet
+		? undefined
+		: 'border-status-paid/30 bg-status-paid/5 text-status-paid *:data-[slot=alert-description]:text-status-paid/80'}
 >
 	<HandCoins />
 	<Alert.Title>
-		{ownMoney ? 'Funds other projects with its own money' : 'Passes its funds on to other projects'}
+		{#if !ownMoney}
+			Passes its funds on to other projects
+		{:else if quiet}
+			Paused direct contributions to other projects
+		{:else}
+			Contributes to other projects directly
+		{/if}
 	</Alert.Title>
 	<Alert.Description>
 		<p>
-			{#if ownMoney}
-				It pays other projects on Open Collective directly, rather than passing on money it is given
-			{:else}
-				It passes what it receives on to other projects on Open Collective
-			{/if}{#if quiet && lastGrant}, and last gave {runwayLength(sinceLast)} ago, on {dayMonthYear.format(
+			{#if ownMoney && quiet && lastGrant}
+				Its last contribution on Open Collective was {runwayLength(sinceLast)} ago, on {dayMonthYear.format(
 					new Date(lastGrant)
-				)}{/if}.
+				)}.
+			{:else}
+				{#if ownMoney}
+					It pays them from its own budget rather than passing on donations, so there is nothing
+					received or held here, only what it has contributed.
+				{:else}
+					Almost everything it receives goes on to other projects on Open Collective.
+				{/if}
+				{#if quiet && lastGrant}
+					Its last contribution was {runwayLength(sinceLast)} ago, on {dayMonthYear.format(
+						new Date(lastGrant)
+					)}.
+				{/if}
+			{/if}
 		</p>
 	</Alert.Description>
 </Alert.Root>
@@ -153,8 +209,10 @@
 <div class="grid gap-4 lg:grid-cols-2">
 	<Card.Root>
 		<Card.Header>
-			<Card.Title>Who it funds</Card.Title>
-			<Card.Description>Each project it funds, sized by the amount funded.</Card.Description>
+			<Card.Title>Contributions</Card.Title>
+			<Card.Description
+				>Each project it contributes to, sized by the contribution amount.</Card.Description
+			>
 		</Card.Header>
 		<Card.Content>
 			<LogoPack {recipients} {linked} slug={data.slug} currency={data.currency} />
@@ -164,13 +222,27 @@
 	{#if shares.length}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>How much it matters to them</Card.Title>
-				<Card.Description>
-					How much of each project's contributions in the past year came from this fund.
-				</Card.Description>
+				{#if year.stopped}
+					<Card.Title>Contribution impact</Card.Title>
+					<Card.Description>
+						Contributing as it did in the year to {dayMonthYear.format(new Date(year.to))} would add
+						{money.format(wouldAdd)} a year to these projects.
+					</Card.Description>
+				{:else}
+					<Card.Title>Contribution impact</Card.Title>
+					<Card.Description>
+						How much of each project's contributions in the past year came from this fund.
+					</Card.Description>
+				{/if}
 			</Card.Header>
 			<Card.Content>
-				<ShareBars recipients={shares} {linked} slug={data.slug} currency={data.currency} />
+				<ShareBars
+					recipients={shares}
+					stopped={year.stopped}
+					{linked}
+					slug={data.slug}
+					currency={data.currency}
+				/>
 			</Card.Content>
 		</Card.Root>
 	{/if}
@@ -178,14 +250,14 @@
 
 <Card.Root>
 	<Card.Header>
-		<Card.Title>Giving over time</Card.Title>
+		<Card.Title>Contributions over time</Card.Title>
 		<Card.Description>
 			{#if ahead.length}
-				What it has given so far, and the monthly gifts it already has the money for.
+				What it has contributed so far, and the monthly contributions it already has the money for.
 			{:else if ownMoney}
-				What it has given away so far.
+				What it has contributed so far.
 			{:else}
-				What it has received and given away so far.
+				What it has received and contributed so far.
 			{/if}
 		</Card.Description>
 	</Card.Header>

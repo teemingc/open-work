@@ -1843,7 +1843,9 @@
 			/>
 		{/if}
 
-		{#if soleBacker}
+		{#if fund && allIncome <= 0}
+			<!-- A company paying from its own budget has no backers to list, which its banner says. -->
+		{:else if soleBacker}
 			<!-- Named in the fund's own view. -->
 		{:else if income}
 			<!-- A fund's page has no range to pick, so its backers are all time, like its banner. -->

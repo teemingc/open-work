@@ -257,20 +257,20 @@
 									<div class="font-medium">{recipient.name}</div>
 									<!-- Once, when all it has been given so far is its first monthly gift. -->
 									{#if recipient.total !== recipient.monthly}
-										<MoneyRow value={recipient.total} name="Given by this fund" {money} />
+										<MoneyRow value={recipient.total} name="Contributed by this fund" {money} />
 									{/if}
 									{#if recipient.monthly}
-										<MoneyRow value={recipient.monthly} name="Given every month" {money} />
+										<MoneyRow value={recipient.monthly} name="Contributed every month" {money} />
 									{/if}
 									<div class="flex w-full items-center gap-2">
-										<span class="flex-1 text-muted-foreground">Last given</span>
+										<span class="flex-1 text-muted-foreground">Last contribution</span>
 										<span class="font-medium text-foreground tabular-nums">
 											{dayMonthYear.format(new Date(recipient.last))}
 										</span>
 									</div>
 								{:else}
 									<div class="font-medium">{slot.rest.length} more projects</div>
-									<MoneyRow value={slot.value} name="Given by this fund" {money} />
+									<MoneyRow value={slot.value} name="Contributed by this fund" {money} />
 								{/if}
 								{#if href}
 									<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
@@ -297,6 +297,6 @@
 {#if anyMonthly}
 	<p class="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
 		<span class="size-3 rounded-full border-2 border-chart-expenses" aria-hidden="true"></span>
-		Monthly contributions
+		Recurring contributions
 	</p>
 {/if}

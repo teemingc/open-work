@@ -241,7 +241,7 @@
 	}
 	/** What the asterisk on a Stopped badge means. */
 	const STOPPED_EVERYWHERE =
-		'It stopped all its regular giving on Open Collective, not only to this collective.';
+		'It stopped all its regular contributions on Open Collective, not only to this collective.';
 	/** How many who started or stopped a tooltip names, before saying how many more. */
 	const NAMED_BACKERS = 4;
 	const started = $derived(changes.reduce((sum, row) => sum + row.started, 0));
@@ -252,7 +252,7 @@
 	const whole = new Intl.NumberFormat('en-US');
 
 	const changeConfig = {
-		active: { label: 'Giving regularly', color: 'var(--color-chart-income)' },
+		active: { label: 'Contributing regularly', color: 'var(--color-chart-income)' },
 		yearBefore: { label: 'A year earlier', color: 'var(--color-muted-foreground)' },
 		started: { label: 'Started', color: 'var(--color-chart-income)' },
 		stopped: { label: 'Stopped', color: 'var(--color-chart-expenses)' }
@@ -393,7 +393,7 @@
 							<Card.Title>Recurring backers</Card.Title>
 							<Card.Description>
 								{backerCount(activeNow)}
-								{activeNow === 1 ? 'gives' : 'give'} regularly now.
+								{activeNow === 1 ? 'contributes' : 'contribute'} regularly now.
 								{#if started || stopped}
 									{started} started and {stopped} stopped {periodPhrase(months)}.
 								{:else}
@@ -485,7 +485,7 @@
 													{const offset = $derived((change.index + 1) * MARK_STEP)}
 													<g
 														class="pointer-events-none"
-														aria-label="{change.backer.name} {change.kind} giving regularly"
+														aria-label="{change.backer.name} {change.kind} contributing regularly"
 													>
 														<LogoMark
 															{x}
@@ -568,9 +568,9 @@
 				<Card.Title>Top backers</Card.Title>
 				<Card.Description>
 					<!-- Says the period first, as every figure below, the others' split included, covers it. -->
-					What each backer gave {periodPhrase(months)}.
+					What each backer contributed {periodPhrase(months)}.
 					{#if topShare}
-						The biggest gave {percent.format(topShare)} of all contributions.
+						The biggest contributed {percent.format(topShare)} of the total.
 					{/if}
 				</Card.Description>
 			</Card.Header>
@@ -674,10 +674,10 @@
 													(tier) =>
 														`${tier.count} ${
 															tier.max === null
-																? `gave ${money.format(tier.min)}+`
+																? `contributed ${money.format(tier.min)}+`
 																: tier.min === 0
-																	? `gave under ${money.format(tier.max)}`
-																	: `gave ${money.format(tier.min)}–${money.format(tier.max - 1)}`
+																	? `contributed under ${money.format(tier.max)}`
+																	: `contributed ${money.format(tier.min)}–${money.format(tier.max - 1)}`
 														}`
 												)
 												.join(', ')}

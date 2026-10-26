@@ -3,6 +3,7 @@ import type { Month } from './financials';
 import {
 	givingAhead,
 	givingHistory,
+	givingYear,
 	isFund,
 	toCommitments,
 	toGrants,
@@ -106,7 +107,7 @@ describe('toRecipients', () => {
 			]),
 			commitments: [{ slug: 'vue', name: 'VUE', monthly: 500 }],
 			currency: 'USD',
-			now: new Date('2026-11-24T00:00:00Z')
+			year: { from: '2025-11-24T00:00:00.000Z', to: '2026-11-24T00:00:00.000Z', stopped: false }
 		});
 		expect(recipients.map((r) => [r.slug, r.oneOff, r.recurring, r.count, r.monthly])).toEqual([
 			['vite', 36000, 0, 1, 0],
@@ -131,7 +132,7 @@ describe('toRecipients share', () => {
 			]),
 			commitments: [],
 			currency: 'USD',
-			now: new Date('2026-10-24T00:00:00Z')
+			year: { from: '2025-10-24T00:00:00.000Z', to: '2026-10-24T00:00:00.000Z', stopped: false }
 		});
 		expect(recipients.map((r) => [r.slug, r.recent, r.contributions, r.share])).toEqual([
 			['oxc', 36000, 40000, 0.9],
@@ -140,6 +141,43 @@ describe('toRecipients share', () => {
 			['vitest', 1000, 50000, 0.02],
 			['nuxt', 2000, null, null],
 			['none', 1000, null, null]
+		]);
+	});
+});
+
+describe('givingYear', () => {
+	const grants = toGrants([grant('2024-03-01', 'babel', 5000), grant('2025-02-03', 'vite', 1000)]);
+
+	it('is the past 12 months while it still gives', () => {
+		expect(givingYear({ grants, now: new Date('2026-01-15T00:00:00Z') })).toEqual({
+			from: '2025-01-15T00:00:00.000Z',
+			to: '2026-01-15T00:00:00.000Z',
+			stopped: false
+		});
+	});
+
+	it('is the 12 months up to the last gift once it has stopped', () => {
+		expect(givingYear({ grants, now: new Date('2026-10-26T00:00:00Z') })).toEqual({
+			from: '2024-02-03T00:00:00.000Z',
+			to: '2025-02-03T10:00:00.000Z',
+			stopped: true
+		});
+	});
+
+	it('puts its last year of gifts on top of what each project receives now', () => {
+		const recipients = toRecipients({
+			grants: toGrants([
+				grant('2024-01-01', 'babel', 9000, 'ONETIME', { value: 1000, currency: 'USD' }),
+				grant('2024-06-01', 'vite', 3000, 'ONETIME', { value: 9000, currency: 'USD' }),
+				grant('2025-02-03', 'vite', 1000, 'ONETIME', { value: 9000, currency: 'USD' })
+			]),
+			commitments: [],
+			currency: 'USD',
+			year: { from: '2024-02-03T00:00:00.000Z', to: '2025-02-03T10:00:00.000Z', stopped: true }
+		});
+		expect(recipients.map((r) => [r.slug, r.recent, r.contributions, r.share])).toEqual([
+			['babel', 0, null, null],
+			['vite', 4000, 13000, 4000 / 13000]
 		]);
 	});
 });
