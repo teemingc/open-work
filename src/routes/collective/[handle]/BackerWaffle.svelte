@@ -37,7 +37,7 @@
 				? [
 						{
 							key: 'rest',
-							label: `${rest.length} more top ${rest.length === 1 ? 'backer' : 'backers'}`,
+							label: `${rest.length} more top ${rest.length === 1 ? 'contributor' : 'contributors'}`,
 							amount: rest.reduce((sum, backer) => sum + backer.amount, 0),
 							swatch: 'bg-chart-other'
 						}
@@ -81,7 +81,7 @@
 
 <Card.Root class="@container lg:col-span-2">
 	<Card.Header>
-		<Card.Title>Who funds the collective</Card.Title>
+		<Card.Title>Contributors</Card.Title>
 		<Card.Description>Each square is 1% of contributions {period}.</Card.Description>
 	</Card.Header>
 	<Card.Content class="flex flex-col gap-6">

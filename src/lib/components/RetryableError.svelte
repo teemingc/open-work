@@ -67,7 +67,7 @@
 			{/if}
 		</p>
 		{#if details.connect}
-			<p>Connect your Open Collective account in settings to get a higher limit.</p>
+			<p>Connect your Open Collective account in Work > Settings to get a higher limit.</p>
 		{/if}
 	</div>
 	<!-- The buttons grow only once they wrap, so stacked they make two even rows rather than a ragged pair. -->

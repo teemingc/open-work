@@ -92,7 +92,9 @@
 						label: 'Received',
 						tone: 'text-chart-income',
 						value: money.format(received),
-						note: mainSource ? `Most of it from ${mainSource.name}` : 'From everyone who backs it'
+						note: mainSource
+							? `Most of it from ${mainSource.name}`
+							: 'From everyone who contributes'
 					}
 				]),
 		{
@@ -117,10 +119,10 @@
 		...(ownMoney && top && recipients.length > 1
 			? [
 					{
-						label: 'Favourite collective',
+						label: 'Largest total',
 						tone: 'text-chart-expenses',
 						value: money.format(top.total),
-						note: `Total contributions to ${top.name}`
+						note: `Contributed to ${top.name}`
 					}
 				]
 			: []),
@@ -131,7 +133,7 @@
 						label: 'Balance',
 						tone: 'text-chart-balance',
 						value: money.format(balance),
-						note: 'Yet to be passed on'
+						note: 'Available for gifting'
 					}
 				]),
 		...(monthly > 0
@@ -183,13 +185,13 @@
 	<HandCoins />
 	<Alert.Title>
 		{#if !ownMoney}
-			Passes its funds on to other projects
+			Contributes to other projects
 		{:else if quiet}
-			Paused direct contributions to other projects
+			Paused contributions
 		{:else if reduced}
-			Reduced direct contributions to other projects
+			Reduced contributions
 		{:else}
-			Contributes to other projects directly
+			Contributes to other projects
 		{/if}
 	</Alert.Title>
 	<Alert.Description>
@@ -226,7 +228,7 @@
 <div class="grid gap-4 lg:grid-cols-2">
 	<Card.Root>
 		<Card.Header>
-			<Card.Title>Contributions</Card.Title>
+			<Card.Title>Collectives it funds</Card.Title>
 			<Card.Description
 				>Each project it contributes to, sized by the contribution amount.</Card.Description
 			>

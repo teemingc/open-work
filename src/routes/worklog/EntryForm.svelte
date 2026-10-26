@@ -186,7 +186,7 @@
 				}}
 			/>
 			<Button type="button" variant="outline" onclick={addItem} disabled={!parsed}>
-				<Plus /> Item
+				<Plus /> Add item
 			</Button>
 		</div>
 	</div>
