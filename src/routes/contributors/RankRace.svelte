@@ -462,10 +462,11 @@
 	 */
 	@media (prefers-reduced-motion: no-preference) {
 		.lines {
-			animation: reveal 1400ms cubic-bezier(0.22, 1, 0.36, 1) both;
+			/* Ease in and out, so the years pass at an even pace rather than rushing out and crawling in. */
+			animation: reveal 1200ms cubic-bezier(0.45, 0, 0.25, 1) both;
 		}
 		.intro .label.current {
-			animation: appear 200ms cubic-bezier(0.19, 1, 0.22, 1) 700ms backwards;
+			animation: appear 200ms cubic-bezier(0.19, 1, 0.22, 1) 850ms backwards;
 		}
 		.stroke,
 		.dot {

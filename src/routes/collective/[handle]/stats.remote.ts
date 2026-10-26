@@ -208,12 +208,14 @@ function missing(slug: string): never {
 	error(404, `There is no collective called "${slug}" on Open Collective.`);
 }
 
-const STATS_QUERY = /* GraphQL */ `
-	query CollectiveStats($slug: String!, $from: DateTime!, $limit: Int!) {
+/**
+ * What the collective has promised to give regularly. Asked apart from the stats because the
+ * personal token lacks the scope for orders, and Open Collective refuses the whole query for it
+ * only after running it, which doubled the wait for a collective nobody had looked at yet.
+ */
+const COMMITMENTS_QUERY = /* GraphQL */ `
+	query Commitments($slug: String!) {
 		account(slug: $slug) {
-			name
-			imageUrl(height: 128)
-			currency
 			commitments: orders(filter: OUTGOING, status: [ACTIVE], limit: 1000) {
 				nodes {
 					frequency
@@ -226,6 +228,16 @@ const STATS_QUERY = /* GraphQL */ `
 					}
 				}
 			}
+		}
+	}
+`;
+
+const STATS_QUERY = /* GraphQL */ `
+	query CollectiveStats($slug: String!, $from: DateTime!, $limit: Int!) {
+		account(slug: $slug) {
+			name
+			imageUrl(height: 128)
+			currency
 			stats {
 				balance: balanceTimeSeries(timeUnit: MONTH, dateFrom: $from) {
 					nodes {
@@ -296,7 +308,6 @@ interface StatsResult {
 		name: string;
 		imageUrl: string | null;
 		currency: string;
-		commitments: { nodes: CommitmentNode[] };
 		stats: {
 			balance: { nodes: TimeSeriesNode[] };
 			received: { nodes: TimeSeriesNode[] };
@@ -315,16 +326,18 @@ const loadStats = perKey({
 	load: async (slug, ask) => {
 		const from = '2016-01-01T00:00:00Z';
 		let result: StatsResult;
+		let commitments: CommitmentNode[];
 		let payouts: PayoutNode[];
 		let grants: GrantNode[];
 		try {
-			result = await ask<StatsResult>({
-				query: STATS_QUERY,
-				variables: { slug, from, limit: PAGE_SIZE }
-			});
-			payouts = [
-				...result.payouts.nodes,
-				...(await remainingPages({
+			let commitmentsResult: { account: { commitments: { nodes: CommitmentNode[] } } | null };
+			[result, commitmentsResult] = await Promise.all([
+				ask<StatsResult>({ query: STATS_QUERY, variables: { slug, from, limit: PAGE_SIZE } }),
+				ask<typeof commitmentsResult>({ query: COMMITMENTS_QUERY, variables: { slug } })
+			]);
+			commitments = commitmentsResult.account?.commitments.nodes ?? [];
+			const [morePayouts, moreGrants] = await Promise.all([
+				remainingPages({
 					total: result.payouts.totalCount,
 					fetchPage: async (offset) => {
 						const page = await ask<{ transactions: { nodes: PayoutNode[] } }>({
@@ -333,11 +346,8 @@ const loadStats = perKey({
 						});
 						return page.transactions.nodes;
 					}
-				}))
-			];
-			grants = [
-				...result.grants.nodes,
-				...(await remainingPages({
+				}),
+				remainingPages({
 					total: result.grants.totalCount,
 					fetchPage: async (offset) => {
 						const page = await ask<{ transactions: { nodes: GrantNode[] } }>({
@@ -346,8 +356,10 @@ const loadStats = perKey({
 						});
 						return page.transactions.nodes;
 					}
-				}))
-			];
+				})
+			]);
+			payouts = [...result.payouts.nodes, ...morePayouts];
+			grants = [...result.grants.nodes, ...moreGrants];
 		} catch (err) {
 			// Open Collective reports a missing account as a failure of the fields that ask about it.
 			if (err instanceof Error && /not found/i.test(err.message)) missing(slug);
@@ -371,7 +383,7 @@ const loadStats = perKey({
 			}),
 			payouts: toPayouts(payouts),
 			grants: toGrants(grants),
-			commitments: toCommitments(account.commitments.nodes),
+			commitments: toCommitments(commitments),
 			payeeImages: accountImages(payouts),
 			unpaid: result.unpaid.nodes.map((expense): Unpaid => ({
 				slug: expense.payee.slug,
