@@ -174,7 +174,7 @@
 								rel="noreferrer"
 								aria-label={slot.kind === 'recipient'
 									? describe(slot.recipient)
-									: `${slot.rest.length} more projects: ${money.format(slot.value)}`}
+									: `${slot.rest.length} more collectives: ${money.format(slot.value)}`}
 								class="cursor-pointer outline-none"
 								onfocus={() => (focused = slot.key)}
 								onblur={() => (focused = undefined)}
@@ -269,7 +269,7 @@
 										</span>
 									</div>
 								{:else}
-									<div class="font-medium">{slot.rest.length} more projects</div>
+									<div class="font-medium">{slot.rest.length} more collectives</div>
 									<MoneyRow value={slot.value} name="Contributed by this fund" {money} />
 								{/if}
 								{#if href}

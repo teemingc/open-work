@@ -178,7 +178,7 @@
 					type="button"
 					variant="outline"
 					onclick={() => (confirmOpen = false)}
-					disabled={submitExpense.pending > 0}>Not yet</Button
+					disabled={submitExpense.pending > 0}>Cancel</Button
 				>
 				<Button type="submit" disabled={submitExpense.pending > 0}>
 					{#if submitExpense.pending > 0}<Spinner />{/if}

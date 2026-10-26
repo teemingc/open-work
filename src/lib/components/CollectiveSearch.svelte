@@ -129,10 +129,13 @@
 		</label>
 
 		{#if open}
-			<!-- Focusable, so clicking an item keeps focus inside the search instead of closing it first. -->
+			<!--
+				Focusable, so clicking an item keeps focus inside the search instead of closing it first.
+				Grows down out of the field like the site's popovers, and closes at once.
+			-->
 			<div
 				tabindex="-1"
-				class="absolute top-full left-0 z-50 mt-1 w-full rounded-md border bg-popover text-popover-foreground shadow-md outline-none"
+				class="absolute top-full left-0 z-50 mt-1 w-full origin-top animate-in rounded-md border bg-popover text-popover-foreground shadow-md duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] fade-in-0 outline-none zoom-in-95 slide-in-from-top-2"
 			>
 				<Command.List id={listId} class="p-1">
 					{#if searched.length < 2}
@@ -143,7 +146,7 @@
 								{/each}
 							</Command.Group>
 						{:else}
-							<Command.Group heading="Try one">
+							<Command.Group heading="Suggestions">
 								{#each SUGGESTED_COLLECTIVES as { slug, name } (slug)}
 									{@render item({ slug, name, imageUrl: collectiveLogo(slug) })}
 								{/each}

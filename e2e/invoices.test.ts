@@ -106,7 +106,7 @@ test('settings save automatically and the setup warning lists what is missing', 
 	await expect(page.getByText('Finish setup to submit invoices')).toBeVisible();
 
 	await page
-		.getByRole('navigation', { name: 'Main' })
+		.getByRole('navigation', { name: 'Work' })
 		.getByRole('link', { name: /Settings/ })
 		.click();
 	// Leaving before the save answers would lose the cookie it sets.

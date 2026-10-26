@@ -304,7 +304,7 @@
 
 <SettingsSection
 	title="Expected hours"
-	description="Each working day expects these hours. Weekends, holidays and leave expect none."
+	description="How many hours you aim to work each working day."
 >
 	<div class="grid gap-4 sm:grid-cols-2">
 		<div class="space-y-1.5">
@@ -449,10 +449,7 @@
 	<DaysOffEditor {store} kind="holidays" {year} />
 </SettingsSection>
 
-<SettingsSection
-	title="Leave"
-	description="Days you took off. Each weekday of leave expects no hours."
->
+<SettingsSection title="Leave" description="Days you took off.">
 	<LeaveEditor {store} {year} />
 </SettingsSection>
 

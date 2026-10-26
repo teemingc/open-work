@@ -108,7 +108,7 @@
 					? [{ ...backer, recurring: undefined as boolean | undefined }]
 					: givingGroups(backer.tiers).map((group) => ({
 							...backer,
-							name: `${group.count} other ${group.recurring ? 'recurring' : 'one-off'} ${group.count === 1 ? 'backer' : 'backers'}`,
+							name: `${group.count} other ${group.recurring ? 'recurring' : 'one-off'} ${group.count === 1 ? 'contributor' : 'contributors'}`,
 							amount: group.amount,
 							tiers: group.tiers,
 							recurring: group.recurring
@@ -240,14 +240,12 @@
 		return elsewhere.length ? 'here' : 'everywhere';
 	}
 	/** What the asterisk on a Stopped badge means. */
-	const STOPPED_EVERYWHERE =
-		'It stopped all its regular contributions on Open Collective, not only to this collective.';
+	const STOPPED_EVERYWHERE = 'No longer contributes to anyone on Open Collective';
 	/** How many who started or stopped a tooltip names, before saying how many more. */
 	const NAMED_BACKERS = 4;
 	const started = $derived(changes.reduce((sum, row) => sum + row.started, 0));
 	const stopped = $derived(changes.reduce((sum, row) => sum + row.stopped, 0));
 	const activeNow = $derived(income.recurring.at(-1)?.active ?? 0);
-	const backerCount = (count: number) => `${count} ${count === 1 ? 'backer' : 'backers'}`;
 	/** Counts of backers, formatted for the rows that otherwise show money. */
 	const whole = new Intl.NumberFormat('en-US');
 
@@ -390,9 +388,9 @@
 				{#if income.recurring.length}
 					<Card.Root>
 						<Card.Header>
-							<Card.Title>Recurring backers</Card.Title>
+							<Card.Title>Recurring contributors</Card.Title>
 							<Card.Description>
-								{backerCount(activeNow)}
+								{activeNow}
 								{activeNow === 1 ? 'contributes' : 'contribute'} regularly now.
 								{#if started || stopped}
 									{started} started and {stopped} stopped {periodPhrase(months)}.
@@ -401,7 +399,8 @@
 								{/if}
 								<!-- How to read the chart, on its own line apart from what the figures say. -->
 								<span class="block"
-									>Green when it was more than a year before it, red when fewer.</span
+									>Green when it has more recurring contributors than a year before it, red when
+									fewer.</span
 								>
 							</Card.Description>
 						</Card.Header>
@@ -565,10 +564,10 @@
 
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>Top backers</Card.Title>
+				<Card.Title>Top contributors</Card.Title>
 				<Card.Description>
 					<!-- Says the period first, as every figure below, the others' split included, covers it. -->
-					What each backer contributed {periodPhrase(months)}.
+					What each contributor contributed {periodPhrase(months)}.
 					{#if topShare}
 						The biggest contributed {percent.format(topShare)} of the total.
 					{/if}
@@ -601,7 +600,7 @@
 											rel="noreferrer"
 											class="flex min-w-0 items-center gap-2 font-medium hover:underline"
 										>
-											<!-- Their avatar or logo, as in "Who was paid", or a blank disc without one. -->
+											<!-- Their avatar or logo, as in "Expenses by recipient", or a blank disc without one. -->
 											{#if backer.imageUrl}
 												<img
 													src={backer.imageUrl}
@@ -684,7 +683,7 @@
 										</span>
 										{#if backer.recurring}
 											<Badge variant="secondary"
-												>{money.format(backer.amount / months.length)}/month avg</Badge
+												>{money.format(backer.amount / months.length)} a month on average</Badge
 											>
 										{/if}
 									</div>
@@ -723,7 +722,7 @@
 												{@const active = months.filter((month) => month >= first).length}
 												{#if active}
 													<Badge variant="secondary"
-														>{money.format(backer.amount / active)}/month avg</Badge
+														>{money.format(backer.amount / active)} a month on average</Badge
 													>
 												{/if}
 											{:else if status === 'Stopped'}
@@ -750,11 +749,11 @@
 													<Badge variant="outline">Stopped</Badge>
 												{/if}
 												{#if per}
-													<span>was {money.format(backer.history.lastAmount)}/{per}</span>
+													<span>was {money.format(backer.history.lastAmount)} a {per}</span>
 												{/if}
 											{:else if per}
 												<Badge variant="secondary"
-													>{money.format(backer.history.lastAmount)}/{per}</Badge
+													>{money.format(backer.history.lastAmount)} a {per}</Badge
 												>
 											{:else}
 												<Badge variant="secondary"

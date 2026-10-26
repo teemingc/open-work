@@ -66,7 +66,7 @@
 	<Card.Root>
 		<Card.Header>
 			<Card.Title>Pace</Card.Title>
-			<Card.Description>Hours logged so far against what the working days expect.</Card.Description>
+			<Card.Description>Hours logged so far against the hours you aim for.</Card.Description>
 		</Card.Header>
 		<Card.Content>
 			<LazyChart class="h-64">
@@ -130,9 +130,9 @@
 		<Card.Header>
 			<Card.Title>Hours each day</Card.Title>
 			<Card.Description
-				>By client. A working day expects {formatHours(
+				>By client. Currently aiming for {formatHours(
 					summary.expected / Math.max(1, summary.workingDays)
-				)} h.</Card.Description
+				)} h a working day.</Card.Description
 			>
 		</Card.Header>
 		<Card.Content>

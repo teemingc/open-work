@@ -52,7 +52,7 @@
 	let highlighted = $state<string | null>(null);
 
 	const description =
-		'The companies and people that fund open source projects on Open Collective, ranked by what they contribute.';
+		'The companies and people that fund open source projects on Open Collective, ranked by how much they have contributed.';
 
 	const RANK_BY: { by: RankBy; label: string; search: '' | '?by=all-time' }[] = [
 		{ by: 'recent', label: 'Past 12 months', search: '' },
@@ -74,11 +74,11 @@
 	-->
 	<header class="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
 		<div class="max-w-3xl">
-			<h1>Who funds open source on Open Collective</h1>
+			<h1>Top contributors on Open Collective</h1>
 			{#if result}
 				<p class="mt-3 max-w-2xl text-pretty text-muted-foreground">
 					These {givingNow.length} companies and people contributed {money.format(givenNow)} to projects
-					in the past 12 months. Here is where each has placed, year by year. Refreshed weekly.
+					in the past 12 months.
 				</p>
 			{:else}
 				<p class="mt-3 max-w-2xl text-pretty text-muted-foreground">
@@ -108,7 +108,7 @@
 			aria-labelledby="race-heading"
 			class="mt-8 rounded-xl border bg-card px-3 pt-4 pb-3 sm:px-6"
 		>
-			<h2 id="race-heading" class="sr-only">Place by year</h2>
+			<h2 id="race-heading" class="sr-only">Rank by year</h2>
 			<RankRace
 				contributors={charted}
 				roomFor={chartedEither}
@@ -137,7 +137,7 @@
 					</caption>
 					<thead class="text-xs">
 						<tr>
-							<th class="py-2 pr-1 pl-3 sm:pl-4">Place</th>
+							<th class="py-2 pr-1 pl-3 sm:pl-4">Rank</th>
 							<th class="px-3 py-2">Contributor</th>
 							<th class="px-3 py-2 text-right">{by === 'recent' ? 'Past 12 months' : 'All time'}</th
 							>
@@ -256,12 +256,9 @@
 				</table>
 			</div>
 			<p class="mt-3 max-w-2xl text-xs text-pretty text-muted-foreground">
-				Contributors are found from contributions of {money.format(MIN_CONTRIBUTION)} or more in the past
-				two years through Open Source Collective, Open Source Europe and NumFOCUS: the {contributors.length}
-				who gave the most. Collectives and giving platforms are left out, as they pass on money others
-				gave, which would count it twice; so are contributors who chose not to be named. Amounts include
-				contributions through any host, in US dollars. Places moved compare with the same ranking a year
-				ago, among these contributors.
+				Includes those who have contributed {money.format(MIN_CONTRIBUTION)} or more in the past two years
+				directly through Open Source Collective, Open Source Europe and NumFOCUS: the {contributors.length}
+				who gave the most.
 			</p>
 		</section>
 	{/if}

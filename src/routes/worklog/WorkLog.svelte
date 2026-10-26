@@ -52,6 +52,9 @@
 		store.data.clients.find((client) => client.openCollective) ?? store.data.clients[0]
 	);
 
+	/** The entry just saved from the form, which the list tints until the tint fades. */
+	let justAdded = $state<string>();
+
 	let fetching = $state(false);
 	let message = $state<{ tone: 'ok' | 'warn' | 'error'; text: string } | undefined>();
 
@@ -210,13 +213,13 @@
 								organization={settings.organization}
 								date={defaultDate}
 								clientId={githubClient?.id}
-								onsave={(entry) => store.addEntry(entry)}
+								onsave={(entry) => (justAdded = store.addEntry(entry).id)}
 							/>
 						{/key}
 					</Card.Content>
 				</Card.Root>
 			{/if}
-			<DayList {store} {summary} organization={settings.organization} />
+			<DayList {store} {summary} organization={settings.organization} bind:justAdded />
 		</section>
 
 		<section class="space-y-6" aria-label="Charts">

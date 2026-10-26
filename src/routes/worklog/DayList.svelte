@@ -11,8 +11,15 @@
 	let {
 		store,
 		summary,
-		organization
-	}: { store: WorkLogStore; summary: MonthSummary; organization?: string } = $props();
+		organization,
+		justAdded = $bindable()
+	}: {
+		store: WorkLogStore;
+		summary: MonthSummary;
+		organization?: string;
+		/** The entry just saved, tinted once and then cleared, so it does not tint again later. */
+		justAdded?: string;
+	} = $props();
 
 	let editing = $state<string | undefined>();
 
@@ -77,7 +84,10 @@
 									/>
 								</div>
 							{:else}
-								<div class="flex items-start gap-3 text-sm">
+								<div
+									class={['flex items-start gap-3 text-sm', entry.id === justAdded && 'just-added']}
+									onanimationend={() => (justAdded = undefined)}
+								>
 									<span
 										class="mt-1.5 size-2 shrink-0 rounded-full"
 										style:background-color={clientColor(clientIndex.get(entry.clientId) ?? 0)}
@@ -130,3 +140,21 @@
 		{/each}
 	</ol>
 {/if}
+
+<style>
+	/*
+	 * Fades from a tint to nothing, so the entry you just saved is easy to find. The shadow widens
+	 * the tint past the text without moving anything.
+	 */
+	.just-added {
+		border-radius: var(--radius-sm);
+		animation: just-added 1200ms cubic-bezier(0.23, 1, 0.32, 1);
+	}
+
+	@keyframes just-added {
+		from {
+			background-color: color-mix(in oklch, var(--primary) 12%, transparent);
+			box-shadow: 0 0 0 0.375rem color-mix(in oklch, var(--primary) 12%, transparent);
+		}
+	}
+</style>
