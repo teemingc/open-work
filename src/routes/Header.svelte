@@ -5,7 +5,7 @@
 	import { getMe } from '#lib/opencollective.remote.js';
 	import { getSettings } from '#lib/settings.remote.js';
 	import logo from '#lib/assets/favicon.svg';
-	import { ChartLine, Clock, FileText, Settings } from '@lucide/svelte';
+	import { Briefcase, ChartLine, Clock, FileText, Settings, Trophy } from '@lucide/svelte';
 
 	// Read without `await` so the header never waits on Open Collective. The query is kept for the
 	// header's whole life: a query nothing holds on to is dropped from the cache, and the header
@@ -17,21 +17,37 @@
 	/** The collective you invoice from, which the collective link leads to. */
 	const collectiveSlug = $derived(settingsQuery.current?.collectiveSlug);
 
+	/** The pages for freelancers doing open work, kept under Work so visitors see what is public. */
+	const WORK_PATHS = ['/worklog', '/invoices', '/settings'] as const;
+	type WorkPath = (typeof WORK_PATHS)[number];
+
+	const inWork = $derived(
+		WORK_PATHS.some(
+			(path) => page.url.pathname === path || page.url.pathname.startsWith(`${path}/`)
+		)
+	);
+
 	/**
-	 * Icons alone on phones and small tablets, each at least 40px wide so it is easy to tap. Below
-	 * 680px the four labels do not fit beside the name, and would wrap and squeeze the icons.
+	 * Icons alone on phones, each at least 40px wide so it is easy to tap. Below 560px the three
+	 * labels do not fit beside the name, and would wrap and squeeze the icons. Each sits on the rule
+	 * below it: the masthead's double rule, or the top of the Work row while it shows.
 	 */
 	const LINK =
-		'relative -mb-[3px] flex min-w-10 items-center justify-center gap-1.5 border-b-2 border-transparent text-muted-foreground hover:text-foreground [&[aria-current]]:border-primary [&[aria-current]]:font-medium [&[aria-current]]:text-foreground min-[680px]:min-w-0 min-[680px]:px-3 min-[680px]:whitespace-nowrap [&>svg]:shrink-0';
+		'relative flex min-w-10 items-center justify-center gap-1.5 border-b-2 border-transparent text-muted-foreground hover:text-foreground [&[aria-current]]:border-primary [&[aria-current]]:font-medium [&[aria-current]]:text-foreground min-[560px]:min-w-0 min-[560px]:px-3 min-[560px]:whitespace-nowrap [&>svg]:shrink-0';
+
+	/**
+	 * The Work row's links, labelled at every width: three short ones fit on any phone. They line up
+	 * on the right under Work, with the same padding as the main links so the last labels end together.
+	 */
+	const SUB_LINK =
+		'relative -mb-[3px] flex items-center gap-1.5 border-b-2 border-transparent px-3 whitespace-nowrap text-muted-foreground hover:text-foreground [&[aria-current]]:border-primary [&[aria-current]]:font-medium [&[aria-current]]:text-foreground [&>svg]:shrink-0';
 
 	/**
 	 * `page` when the link leads to the page you are on, `true` when you are elsewhere in its
 	 * section, such as another collective's page. The collective link leads to your own collective,
 	 * or to the search on the home page when none is set.
 	 */
-	function current(
-		path: '/collective' | '/invoices' | '/worklog' | '/settings'
-	): 'page' | 'true' | undefined {
+	function current(path: '/collective' | '/contributors' | WorkPath): 'page' | 'true' | undefined {
 		const { pathname } = page.url;
 		if (path === '/collective') {
 			if (pathname === (collectiveSlug ? `/collective/${collectiveSlug}` : '/')) return 'page';
@@ -60,7 +76,10 @@
 			<span class="max-[359px]:sr-only">Open Work</span>
 		</a>
 
-		<nav aria-label="Main" class="flex items-stretch text-sm min-[680px]:gap-2">
+		<nav
+			aria-label="Main"
+			class={['flex items-stretch text-sm min-[560px]:gap-2', inWork ? '-mb-px' : '-mb-[3px]']}
+		>
 			<a
 				href={collectiveSlug
 					? resolve(`/collective/[handle]${dashboardSearch()}`, { handle: collectiveSlug })
@@ -69,32 +88,45 @@
 				class={LINK}
 			>
 				<ChartLine size={15} />
-				<span class="max-[680px]:sr-only">Collective</span>
+				<span class="max-[560px]:sr-only">Collectives</span>
 			</a>
-			<a href={resolve('/worklog')} aria-current={current('/worklog')} class={LINK}>
-				<Clock size={15} />
-				<span class="max-[680px]:sr-only">Work log</span>
+			<a href={resolve('/contributors')} aria-current={current('/contributors')} class={LINK}>
+				<Trophy size={15} />
+				<span class="max-[560px]:sr-only">Leaderboard</span>
 			</a>
-			<a href={resolve('/invoices')} aria-current={current('/invoices')} class={LINK}>
-				<FileText size={15} />
-				<span class="max-[680px]:sr-only">Invoices</span>
-			</a>
-			<a href={resolve('settings')} aria-current={current('/settings')} class={LINK}>
-				<Settings size={15} />
-				<span class="max-[680px]:sr-only">Settings</span>
-				<!--
-					Always takes its space, so the nav does not move when it appears. Without labels it sits on
-					the icon's corner, so the icon stays centred in its tap target.
-				-->
-				<span
-					class={[
-						'size-1.5 rounded-full bg-attention max-[680px]:absolute max-[680px]:top-[calc(50%-11px)] max-[680px]:right-2',
-						!needsSetup && 'invisible'
-					]}
-					title={needsSetup ? 'Setup unfinished' : undefined}
-				></span>
-				{#if needsSetup}<span class="sr-only">(setup unfinished)</span>{/if}
+			<a href={resolve('/worklog')} aria-current={inWork ? 'true' : undefined} class={LINK}>
+				<Briefcase size={15} />
+				<span class="max-[560px]:sr-only">Work</span>
 			</a>
 		</nav>
 	</div>
+
+	{#if inWork}
+		<div class="border-t">
+			<nav
+				aria-label="Work"
+				class="mx-auto flex h-11 max-w-6xl items-stretch justify-end px-1 text-sm sm:px-6"
+			>
+				<a href={resolve('/worklog')} aria-current={current('/worklog')} class={SUB_LINK}>
+					<Clock size={14} />
+					Work log
+				</a>
+				<a href={resolve('/invoices')} aria-current={current('/invoices')} class={SUB_LINK}>
+					<FileText size={14} />
+					Invoices
+				</a>
+				<a href={resolve('/settings')} aria-current={current('/settings')} class={SUB_LINK}>
+					<Settings size={14} />
+					Settings
+					<!-- Always takes its space, so the nav does not move when it appears. Only on Settings, not
+						on Work: visitors who never set up would otherwise be nagged on every page. -->
+					<span
+						class={['size-1.5 rounded-full bg-attention', !needsSetup && 'invisible']}
+						title={needsSetup ? 'Setup unfinished' : undefined}
+					></span>
+					{#if needsSetup}<span class="sr-only">(setup unfinished)</span>{/if}
+				</a>
+			</nav>
+		</div>
+	{/if}
 </header>
