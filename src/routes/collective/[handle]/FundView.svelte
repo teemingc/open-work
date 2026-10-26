@@ -253,7 +253,7 @@
 		<Card.Title>Contributions over time</Card.Title>
 		<Card.Description>
 			{#if ahead.length}
-				What it has contributed so far, and the monthly contributions it already has the money for.
+				What it has contributed so far, and how long it can keep up its monthly contributions.
 			{:else if ownMoney}
 				What it has contributed so far.
 			{:else}
