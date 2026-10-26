@@ -67,9 +67,10 @@
 	const given = $derived(points.at(-1)?.given ?? 0);
 	/**
 	 * It gives from its own pocket rather than passing on what it receives, as a company paying by
-	 * card does, so there is no line of what it received nor anything still to give.
+	 * card does, so there is no line of what it received nor anything still to give. Known by having
+	 * given more than it received, as a few stray donations to such a company are not what it gives.
 	 */
-	const ownMoney = $derived(received <= 0);
+	const ownMoney = $derived(received < given);
 	/**
 	 * One money scale for both sides, so the lines run on across today. With no line of what it
 	 * received above it, the top of what it gave is given room for the label of a quiet stretch.
