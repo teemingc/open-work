@@ -45,7 +45,13 @@ async function scanHost(host: string, since: string): Promise<ScanNode[]> {
 /**
  * Refreshed once a week by the schedule in `worker.ts`, and after a deploy by `pnpm warm`: the
  * standings move slowly, and the scan takes a minute or more, longer than a visit allows. The
- * scan covers the past two years, so the year before can be compared with the past one.
+ * scan covers the past two years, so the year before can be compared with the past one. In
+ * development, where no schedule runs, the first visit starts it instead.
+ *
+ * A scan asks Open Collective about four times: a page of `SCAN_PAGE` contributions for each of
+ * the `HOSTS`, plus a page for every further `SCAN_PAGE` a host has, then one query for every
+ * `BATCH_SIZE` of the `LIMIT` ranked. Open Collective doesn't publish its rate limit; asking with
+ * `OC_PERSONAL_TOKEN`, when set, gets a higher one than asking anonymously.
  */
 export const loadContributors = cached<ContributorsResult>({
 	key: 'contributors:scan:v2',
