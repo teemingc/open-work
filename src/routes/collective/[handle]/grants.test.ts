@@ -5,6 +5,7 @@ import {
 	givingHistory,
 	givingYear,
 	isFund,
+	reducedContributions,
 	toCommitments,
 	toGrants,
 	toRecipients,
@@ -179,6 +180,38 @@ describe('givingYear', () => {
 			['babel', 0, null, null],
 			['vite', 4000, 13000, 4000 / 13000]
 		]);
+	});
+});
+
+describe('reducedContributions', () => {
+	const now = new Date('2026-10-26T00:00:00Z');
+
+	it('compares the past 12 months with the 12 months before, once they have dropped by a third', () => {
+		const grants = toGrants([
+			grant('2024-10-01', 'babel', 9000),
+			grant('2024-11-01', 'babel', 6000),
+			grant('2025-06-01', 'vite', 4000),
+			grant('2025-12-01', 'vite', 3000),
+			grant('2026-09-01', 'vite', 2000)
+		]);
+		expect(reducedContributions({ grants, now })).toEqual({ recent: 5000, previous: 10000 });
+	});
+
+	it('is undefined while it contributes more than two thirds as much', () => {
+		const grants = toGrants([
+			grant('2025-06-01', 'vite', 10000),
+			grant('2026-09-01', 'vite', 6667)
+		]);
+		expect(reducedContributions({ grants, now })).toBeUndefined();
+	});
+
+	it('is undefined once it has stopped, or when it has only just started', () => {
+		expect(
+			reducedContributions({ grants: toGrants([grant('2025-06-01', 'vite', 10000)]), now })
+		).toBeUndefined();
+		expect(
+			reducedContributions({ grants: toGrants([grant('2026-09-01', 'vite', 100)]), now })
+		).toBeUndefined();
 	});
 });
 

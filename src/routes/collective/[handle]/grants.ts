@@ -151,6 +151,49 @@ export function givingYear({ grants, now }: { grants: Grant[]; now: Date }): Giv
 	return { from: yearBefore(new Date(last)), to: last, stopped: true };
 }
 
+/** Its contributions in the past 12 months against the 12 months before, when they have dropped. */
+export interface Reduction {
+	/** What it contributed in the past 12 months. */
+	recent: number;
+	/** What it contributed in the 12 months before those. */
+	previous: number;
+}
+
+/**
+ * How far contributions in the past 12 months must fall below the 12 months before to count as
+ * reduced. A fund that contributes in a few rounds a year can see one land on either side of a
+ * year's edge, so small dips are left alone: only a drop of at least a third counts, as when Airbnb
+ * went from about $154k to $80k.
+ */
+const REDUCED_SHARE = 2 / 3;
+
+/**
+ * Its past 12 months of contributions against the 12 months before, when it still contributes but
+ * at most two thirds as much as it did. Undefined when it contributed nothing in either year, which
+ * `givingYear` covers as having stopped, or when it contributes as much or nearly so.
+ */
+export function reducedContributions({
+	grants,
+	now
+}: {
+	grants: Grant[];
+	now: Date;
+}): Reduction | undefined {
+	const yearsBefore = (years: number) =>
+		new Date(
+			Date.UTC(now.getUTCFullYear() - years, now.getUTCMonth(), now.getUTCDate())
+		).toISOString();
+	const yearAgo = yearsBefore(1);
+	const twoYearsAgo = yearsBefore(2);
+	let recent = 0;
+	let previous = 0;
+	for (const grant of grants) {
+		if (grant.date >= yearAgo) recent += grant.amount;
+		else if (grant.date >= twoYearsAgo) previous += grant.amount;
+	}
+	return recent > 0 && recent <= previous * REDUCED_SHARE ? { recent, previous } : undefined;
+}
+
 /** Everyone the collective gave to, the most given first. */
 export function toRecipients({
 	grants,
