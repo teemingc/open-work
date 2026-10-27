@@ -204,7 +204,12 @@
 										</span>
 										<span class="w-8 text-xs">
 											{#if moved === null}
-												<!-- New to the ranking: marked beside the name. -->
+												<!-- New to the ranking: marked where its movement would be, leaving the name its room. -->
+												{#if rank}
+													<span class="font-medium text-primary">
+														New<span class="sr-only"> to the ranking</span>
+													</span>
+												{/if}
 											{:else if moved > 0}
 												<span class="inline-flex items-center gap-0.5 text-status-paid">
 													<ArrowUp size={12} aria-hidden="true" />
@@ -249,11 +254,6 @@
 											{/if}
 											<span class="truncate">{contributor.name}</span>
 										</a>
-										{#if rank && moved === null}
-											<span class="shrink-0 rounded-sm bg-accent px-1.5 text-xs text-primary"
-												>New</span
-											>
-										{/if}
 									</div>
 								</th>
 								<td
