@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { cubicOut } from 'svelte/easing';
-	import { prefersReducedMotion } from 'svelte/motion';
 	import type { TransitionConfig } from 'svelte/transition';
 	import type { Contributor } from './contributors';
 
@@ -184,9 +183,11 @@
 	 */
 	let intro = $state(true);
 
-	/** A quick fade for what joins the chart, unless motion is reduced. */
+	/**
+	 * A quick fade for what joins the chart. Kept when motion is reduced: it moves nothing, and without
+	 * it lines and names would flash in.
+	 */
 	const JOIN = 200;
-	const joinDuration = $derived(prefersReducedMotion.current ? 0 : JOIN);
 
 	/**
 	 * Fades in what joins the chart. A line fades through the opacity its marks inherit: opacity on
@@ -194,10 +195,26 @@
 	 */
 	function join(_node: Element, what: 'line' | 'name'): TransitionConfig {
 		return {
-			duration: joinDuration,
+			duration: JOIN,
 			easing: cubicOut,
 			css: (t) => (what === 'line' ? `stroke-opacity: ${t}; fill-opacity: ${t}` : `opacity: ${t}`)
 		};
+	}
+
+	/**
+	 * Fades in a logo that arrives after its name, as it does on a slow connection or for a contributor
+	 * new to the chart, rather than letting it pop into the disc. One already loaded shows at once.
+	 */
+	function fadeInOnLoad(img: HTMLImageElement) {
+		if (img.complete) return;
+		// `cubicOut`, as the names fade in.
+		const fade = () =>
+			img.animate([{ opacity: 0 }, {}], {
+				duration: JOIN,
+				easing: 'cubic-bezier(0.33, 1, 0.68, 1)'
+			});
+		img.addEventListener('load', fade, { once: true });
+		return () => img.removeEventListener('load', fade);
 	}
 
 	/** The followed line last, so it is drawn over the others. */
@@ -358,10 +375,13 @@
 							onpointerenter={(event) => follow(event, slug)}
 							onpointerleave={unfollow}
 						>
-							<!-- Its logo where the line reaches this year, a disc in its colour without one. -->
+							<!--
+								Its logo where the line reaches this year, a disc in its colour without one. Not lazy:
+								the chart opens the page, and a lazy logo waits for layout, so it lands after its name.
+							-->
 							<span class="logo">
 								{#if line.contributor.imageUrl}
-									<img src={line.contributor.imageUrl} alt="" loading="lazy" />
+									<img src={line.contributor.imageUrl} alt="" {@attach fadeInOnLoad} />
 								{/if}
 							</span>
 							<span class="name">{line.contributor.name}</span>
@@ -573,43 +593,67 @@
 
 	/*
 	 * The lines open left to right as the page loads, so the years play out in order, and the names
-	 * fade in as the reveal reaches the last column. Only while the page loads: CSS animations replay
-	 * whenever an element moves, and lines and names move as the ranking or the followed line changes.
-	 * After that, lines and names that join fade in through `in:` transitions, which play only when
-	 * they are added, and lines that stay ease to their new colour.
+	 * ease in off the end of their lines as the reveal reaches the last column: slow enough to read as
+	 * arriving with the lines, where a quick fade reads as a pop once the lines have settled. Only while
+	 * the page loads: CSS animations replay whenever an element moves, and lines and names move as the
+	 * ranking or the followed line changes. After that, lines and names that join fade in through `in:`
+	 * transitions, which play only when they are added, and lines that stay ease to their new colour.
 	 */
 	@media (prefers-reduced-motion: no-preference) {
 		.lines {
 			/* Ease in and out, so the years pass at an even pace rather than rushing out and crawling in. */
 			animation: reveal 1200ms cubic-bezier(0.45, 0, 0.25, 1) both;
 		}
+		/* A little before the reveal reaches the last column, about 820ms in at any width. */
 		.intro .label {
-			animation: appear 200ms cubic-bezier(0.19, 1, 0.22, 1) 850ms backwards;
-		}
-		.stroke,
-		.dot {
-			transition:
-				stroke 200ms ease,
-				fill 200ms ease;
-		}
-		.logo {
-			transition:
-				border-color 200ms ease,
-				background-color 200ms ease;
+			animation: appear 450ms cubic-bezier(0.33, 1, 0.68, 1) 740ms backwards;
 		}
 	}
-	/* Wider than the plot, so dots on the first and last years are not cut. */
+	/*
+	 * With motion reduced, the lines and names fade in together, with no wipe or slide. The lines still
+	 * end an animation, which ends the intro.
+	 */
+	@media (prefers-reduced-motion: reduce) {
+		.lines,
+		.intro .label {
+			animation: fade 200ms cubic-bezier(0.33, 1, 0.68, 1) both;
+		}
+	}
+	/* Colours ease whatever the motion setting, as nothing moves. */
+	.stroke,
+	.dot {
+		transition:
+			stroke 200ms ease,
+			fill 200ms ease;
+	}
+	.logo {
+		transition:
+			border-color 200ms ease,
+			background-color 200ms ease;
+	}
+	/*
+	 * Past the plot either side, so dots on the first and last years are not cut. The overshoot on the
+	 * right is a share of the plot, not a fixed width, so the reveal reaches the last column at the same
+	 * moment however wide the plot is, and the names can be timed to it.
+	 */
 	@keyframes reveal {
 		from {
-			clip-path: inset(-20px calc(100% + 20px) -20px -20px);
+			clip-path: inset(-20px 110% -20px -20px);
 		}
 		to {
-			clip-path: inset(-20px -20px -20px -20px);
+			clip-path: inset(-20px -10% -20px -20px);
 		}
 	}
+	@keyframes fade {
+		from {
+			opacity: 0;
+		}
+	}
+	/* `transform` rather than `translate`, which places the label. */
 	@keyframes appear {
 		from {
 			opacity: 0;
+			transform: translateX(-6px);
 		}
 	}
 </style>
