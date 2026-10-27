@@ -55,11 +55,12 @@
 		'relative flex min-w-10 items-center justify-center gap-1.5 border-b-2 border-transparent text-muted-foreground hover:text-foreground [&[aria-current]]:border-primary [&[aria-current]]:font-medium [&[aria-current]]:text-foreground min-[560px]:min-w-0 min-[560px]:px-3 min-[560px]:whitespace-nowrap [&>svg]:shrink-0';
 
 	/**
-	 * The Work row's links, labelled at every width: three short ones fit on any phone. They line up
-	 * on the right under Work, with the same padding as the main links so the last labels end together.
+	 * The Work row's links, labelled at every width: three short ones fit on any phone. On phones they
+	 * share the row's width, as tabs. Wider, they line up on the right under Work, with the same
+	 * padding as the main links so the last labels end together.
 	 */
 	const SUB_LINK =
-		'relative -mb-[3px] flex items-center gap-1.5 border-b-2 border-transparent px-3 whitespace-nowrap text-muted-foreground hover:text-foreground [&[aria-current]]:border-primary [&[aria-current]]:font-medium [&[aria-current]]:text-foreground [&>svg]:shrink-0';
+		'relative -mb-[3px] flex items-center gap-1.5 max-sm:flex-1 max-sm:justify-center border-b-2 border-transparent px-3 whitespace-nowrap text-muted-foreground hover:text-foreground [&[aria-current]]:border-primary [&[aria-current]]:font-medium [&[aria-current]]:text-foreground [&>svg]:shrink-0';
 
 	/**
 	 * `page` when the link leads to the page you are on, `true` when you are elsewhere in its
@@ -128,7 +129,7 @@
 		<div class="border-t">
 			<nav
 				aria-label="Work"
-				class="mx-auto flex h-11 max-w-6xl items-stretch justify-end px-1 text-sm sm:px-6"
+				class="mx-auto flex h-11 max-w-6xl items-stretch justify-end text-sm sm:px-6"
 			>
 				<a href={resolve('/worklog')} aria-current={current('/worklog')} class={SUB_LINK}>
 					<Clock size={14} />
