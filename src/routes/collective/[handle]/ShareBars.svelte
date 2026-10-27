@@ -4,7 +4,7 @@
 	import { TooltipLink } from '#lib/tooltip-link.svelte.js';
 	import { dashboardSearch } from '#lib/dashboard-search.svelte.js';
 	import { ArrowRight, ExternalLink } from '@lucide/svelte';
-	import { moneyFormat } from './chart-format';
+	import { compactFormat, moneyFormat } from './chart-format';
 	import { transactionsUrl } from './financials';
 	import type { Recipient } from './grants';
 	import type { LinkedProject } from './linked-project.svelte';
@@ -50,6 +50,11 @@
 	});
 
 	const money = $derived(moneyFormat(currency));
+	/** Short enough to follow a long name on a phone. */
+	const compact = $derived(compactFormat(currency));
+	/** What the fund gave a row in its year, all of the rest together for theirs. */
+	const amount = (row: Row | Rest) =>
+		'rest' in row ? row.rest.reduce((sum, other) => sum + other.recent, 0) : row.recent;
 
 	/** Room right of the months for how long they last, more for the rest's "up to 10 months". */
 	const label = $derived(rows.some((row) => 'rest' in row) ? 108 : 88);
@@ -101,6 +106,11 @@
 		linked.hover('bars', row && !('rest' in row) ? row.slug : undefined);
 	}
 </script>
+
+<!-- What the fund gave, after the name, quieter than it, so the end of the row holds only how long it lasts. -->
+{#snippet given(row: Row | Rest)}
+	<tspan dx="8" class="fill-muted-foreground tabular-nums">{compact.format(amount(row))}</tspan>
+{/snippet}
 
 <div
 	style:height="{rows.length * ROW}px"
@@ -218,7 +228,7 @@
 									mark="+"
 								/>
 								<text x={INSET} y={top + 17} font-size="13" class="fill-foreground"
-									>{row.rest.length} other collectives</text
+									>{row.rest.length} other collectives{@render given(row)}</text
 								>
 							{:else}
 								<LogoMark
@@ -229,7 +239,8 @@
 									imageUrl={row.imageUrl}
 									recurring={row.monthly > 0}
 								/>
-								<text x={INSET} y={top + 17} font-size="13" class="fill-foreground">{row.name}</text
+								<text x={INSET} y={top + 17} font-size="13" class="fill-foreground"
+									>{row.name}{@render given(row)}</text
 								>
 							{/if}
 							<text

@@ -248,8 +248,7 @@
 				{:else}
 					<Card.Title>Contribution impact</Card.Title>
 					<Card.Description>
-						How long a year of this fund's contributions keeps each project going at what it spends
-						a month.
+						How this fund's contributions help sustain a collective.
 					</Card.Description>
 				{/if}
 			</Card.Header>
