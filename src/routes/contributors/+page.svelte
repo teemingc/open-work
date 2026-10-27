@@ -180,7 +180,14 @@
 									if (event.pointerType !== 'touch') highlighted = contributor.slug;
 								}}
 								onpointerleave={(event) => {
-									if (event.pointerType !== 'touch') highlighted = null;
+									if (event.pointerType === 'touch') return;
+									// Straight onto the next row, which follows that one instead.
+									if (
+										event.relatedTarget instanceof Element &&
+										event.relatedTarget.closest('tbody tr')
+									)
+										return;
+									highlighted = null;
 								}}
 								onfocusin={() => (highlighted = contributor.slug)}
 								onfocusout={() => (highlighted = null)}

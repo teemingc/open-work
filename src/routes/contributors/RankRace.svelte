@@ -174,7 +174,12 @@
 		if (event.pointerType !== 'touch') highlighted = slug;
 	}
 	function unfollow(event: PointerEvent) {
-		if (event.pointerType !== 'touch') highlighted = null;
+		if (event.pointerType === 'touch') return;
+		// Straight onto another line or name, which follows that one: letting go first would flash every
+		// line back on in between.
+		if (event.relatedTarget instanceof Element && event.relatedTarget.closest('.line, .label'))
+			return;
+		highlighted = null;
 	}
 
 	/**
@@ -228,6 +233,7 @@
 
 <div
 	class={['race', { intro }]}
+	style:--row="{ROW}px"
 	role="img"
 	aria-label="Each top contributor's place by the year, from {years[0]} to {partialYear}. The table below has the figures."
 >
@@ -547,6 +553,8 @@
 		gap: 8px;
 		/* Centres the logo on the point, and lets the name run into the room kept for it. */
 		translate: -10.5px -50%;
+		/* Its whole row, so the pointer passes from one name straight to the next without a gap between. */
+		height: var(--row);
 		max-width: calc(var(--names) + 22px);
 		font-size: 12px;
 		color: var(--muted-foreground);
