@@ -402,6 +402,7 @@ const CONTRIBUTIONS_QUERY = /* GraphQL */ `
 			account: [{ slug: $slug }]
 			type: CREDIT
 			kind: [CONTRIBUTION, ADDED_FUNDS, BALANCE_TRANSFER]
+			isRefund: false
 			dateFrom: $from
 			orderBy: { field: CREATED_AT, direction: DESC }
 			limit: $limit
@@ -455,6 +456,14 @@ function mergeContributions(nodes: ContributionNode[], more: ContributionNode[])
 }
 
 /**
+ * Whether money came from the collective itself: its own account, or a vendor its host made for it,
+ * which Open Collective names `<host id>-<its slug>-<hash>`.
+ */
+function isItself({ from, slug }: { from: ContributionNode['fromAccount']; slug: string }) {
+	return from?.slug === slug || new RegExp(`^\\d+-${slug}-[0-9a-f]+$`).test(from?.slug ?? '');
+}
+
+/**
  * Every contribution since `from`, newest first, a few pages at a time. Each batch is passed to
  * `saved` as it arrives. New contributions only push older ones to later pages, so a page fetched
  * again repeats some, which are dropped, but never skips any.
@@ -488,9 +497,12 @@ async function fetchContributions({
 			)
 		);
 		total = pages[0].transactions.totalCount;
+		// Funds it adds to itself are its own money moved, not a contribution from anyone.
 		nodes = mergeContributions(
 			nodes,
-			pages.flatMap((page) => page.transactions.nodes)
+			pages.flatMap((page) =>
+				page.transactions.nodes.filter((node) => !isItself({ from: node.fromAccount, slug }))
+			)
 		);
 		nextOffset = offsets.at(-1)! + PAGE_SIZE;
 		await saved?.({ nodes, nextOffset, total });
@@ -504,7 +516,7 @@ async function fetchContributions({
  * asks only for the contributions since the newest one, which is a single request.
  */
 const loadContributions = perKey({
-	cacheKey: (slug) => `contributions:v5:${slug}`,
+	cacheKey: (slug) => `contributions:v7:${slug}`,
 	maxAgeMs: CACHE_MS,
 	load: async (slug, ask, previous): Promise<ContributionNode[]> => {
 		try {
@@ -515,7 +527,7 @@ const loadContributions = perKey({
 			}
 			// Only what was fetched the shared way is saved, as a visitor's token may see more.
 			if (ask !== askPublicly) return await fetchContributions({ slug, ask });
-			const progress = kvStore<Progress>(`contributions-progress:v5:${slug}`);
+			const progress = kvStore<Progress>(`contributions-progress:v7:${slug}`);
 			return await fetchContributions({
 				slug,
 				ask,

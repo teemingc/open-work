@@ -186,9 +186,7 @@
 >
 	<HandCoins />
 	<Alert.Title>
-		{#if !ownMoney}
-			Contributes to other collectives
-		{:else if quiet}
+		{#if ownMoney && quiet}
 			Paused contributions
 		{:else if reduced}
 			Reduced contributions
@@ -202,6 +200,10 @@
 				Its last contribution on Open Collective was {runwayLength(sinceLast)} ago, on {dayMonthYear.format(
 					new Date(lastGrant)
 				)}.
+			{:else if reduced}
+				Contributed {money.format(reduced.recent)} in the past 12 months, which is {money.format(
+					reduced.previous - reduced.recent
+				)} less compared to {money.format(reduced.previous)} in the 12 months before.
 			{:else}
 				{#if ownMoney}
 					It directly contributes to other collectives from its own funds.
@@ -212,12 +214,6 @@
 					Its last contribution was {runwayLength(sinceLast)} ago, on {dayMonthYear.format(
 						new Date(lastGrant)
 					)}.
-				{:else if reduced}
-					It contributed {money.format(reduced.recent)} in the past 12 months, after {money.format(
-						reduced.previous
-					)} in the 12 months before. Contributing at that level again would add {money.format(
-						reduced.previous - reduced.recent
-					)} a year to the projects it funds.
 				{/if}
 			{/if}
 		</p>
@@ -231,7 +227,7 @@
 		<Card.Header>
 			<Card.Title>Collectives it funds</Card.Title>
 			<Card.Description
-				>Each project it contributes to, sized by the contribution amount.</Card.Description
+				>Each collective it contributes to, sized by the total amount.</Card.Description
 			>
 		</Card.Header>
 		<Card.Content>

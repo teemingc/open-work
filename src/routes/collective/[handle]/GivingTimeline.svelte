@@ -506,15 +506,36 @@
 							-->
 							{const funded = $derived(`Funded ${capped ? 'past' : 'to'} ${monthYear.format(end)}`)}
 							{const fundedX = $derived(context.width - 8)}
+							{const fundedOneLine = $derived(fits(funded, context.width - 16))}
+							{const stillOneLine = $derived(fits('Still to contribute', context.width - 16))}
+							<!--
+								Where the two would run into each other across the chart, "Still to contribute" hangs
+								just under the line of what it received and the funded date drops a line below it.
+							-->
+							{const crowded = $derived(
+								8 + (stillOneLine ? 'Still to contribute' : 'contribute').length * CHAR_WIDTH + 12 >
+									fundedX - (fundedOneLine ? funded : 'Funded past').length * CHAR_WIDTH
+							)}
+							{const stillY = $derived(
+								crowded
+									? context.yScale(received) + (stillOneLine ? 14 : 22)
+									: context.yScale(given + (received - given) * 0.7)
+							)}
+							{const fundedY = $derived(
+								Math.max(
+									context.yScale(ahead.at(-1)?.given ?? 0) + 20,
+									crowded ? stillY + (stillOneLine ? 24 : 32) : -Infinity
+								)
+							)}
 							<text
 								x={fundedX}
-								y={context.yScale(ahead.at(-1)?.given ?? 0) + 20}
+								y={fundedY}
 								text-anchor="end"
 								paint-order="stroke"
 								stroke-width="4"
 								class="pointer-events-none fill-chart-expenses stroke-card! font-medium"
 							>
-								{#if fits(funded, context.width - 16)}
+								{#if fundedOneLine}
 									{funded}
 								{:else}
 									<tspan x={fundedX}>Funded {capped ? 'past' : 'to'}</tspan>
@@ -523,13 +544,13 @@
 							</text>
 							<text
 								x={8}
-								y={context.yScale(given + (received - given) * 0.7)}
+								y={stillY}
 								dominant-baseline="central"
 								paint-order="stroke"
 								stroke-width="4"
 								class="pointer-events-none fill-chart-balance stroke-card! font-medium"
 							>
-								{#if fits('Still to contribute', context.width - 16)}
+								{#if stillOneLine}
 									Still to contribute
 								{:else}
 									<tspan x={8} dy="-0.6em">Still to</tspan>
