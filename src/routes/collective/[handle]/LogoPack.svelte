@@ -66,7 +66,9 @@
 	/** Space between circles, in pixels. */
 	const GAP = 6;
 	/** The smallest a logo gets, so a small gift can still be made out on a phone. */
-	const MIN_RADIUS = 11;
+	const MIN_RADIUS = 14;
+	/** The biggest a logo gets, as its image is only so sharp; a bigger circle holds it in its middle. */
+	const MAX_LOGO = 48;
 	type Placed = { slot: Slot; x: number; y: number; r: number };
 
 	/**
@@ -200,6 +202,7 @@
 										x={node.x}
 										y={node.y}
 										r={node.r}
+										logo={Math.min(node.r, MAX_LOGO)}
 										name={slot.recipient.name}
 										imageUrl={slot.recipient.imageUrl}
 										recurring={slot.recipient.monthly > 0}

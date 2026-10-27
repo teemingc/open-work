@@ -171,7 +171,7 @@ const GRANT_NODES = /* GraphQL */ `
 		oppositeAccount {
 			slug
 			name
-			imageUrl(height: 96)
+			imageUrl(height: 192)
 			currency
 			stats {
 				totalAmountSpent(periodInMonths: 12) {

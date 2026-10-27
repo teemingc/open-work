@@ -227,7 +227,8 @@
 		<Card.Header>
 			<Card.Title>Collectives it funds</Card.Title>
 			<Card.Description
-				>Each collective it contributes to, sized by the total amount.</Card.Description
+				>Each collective it contributes to, sized by the total amount, with the smallest enlarged so
+				their logos can be seen.</Card.Description
 			>
 		</Card.Header>
 		<Card.Content>
