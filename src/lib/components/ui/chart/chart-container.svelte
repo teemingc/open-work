@@ -37,6 +37,43 @@
 
 	/** Whether a finger lifting from the chart already clicked it, so the click after it is dropped. */
 	let lifted = false;
+
+	/**
+	 * Keeps a finger scrubbing across the chart from scrolling the page as it drifts up or down,
+	 * which would cancel its pointer and end the scrub midway. A drag that starts out mostly
+	 * sideways scrubs until the finger lifts; one that starts out mostly up or down scrolls the page.
+	 * Svelte's touch handlers are passive and can't stop the scroll, so listen directly.
+	 */
+	function holdScrub(node: HTMLElement) {
+		let start: { x: number; y: number } | undefined;
+		let scrubbing: boolean | undefined;
+
+		function down(event: TouchEvent) {
+			const [touch] = event.touches;
+			start = event.touches.length === 1 ? { x: touch.clientX, y: touch.clientY } : undefined;
+			scrubbing = undefined;
+		}
+
+		function move(event: TouchEvent) {
+			if (!start) return;
+			if (scrubbing === undefined) {
+				const [touch] = event.touches;
+				const dx = Math.abs(touch.clientX - start.x);
+				const dy = Math.abs(touch.clientY - start.y);
+				// Wait out the jitter of a finger settling before telling which way it's going
+				if (dx < 4 && dy < 4) return;
+				scrubbing = dx > dy;
+			}
+			if (scrubbing && event.cancelable) event.preventDefault();
+		}
+
+		node.addEventListener('touchstart', down, { passive: true });
+		node.addEventListener('touchmove', move, { passive: false });
+		return () => {
+			node.removeEventListener('touchstart', down);
+			node.removeEventListener('touchmove', move);
+		};
+	}
 </script>
 
 <!-- A tooltip a tap left up would otherwise stay over the page as it scrolls, or after tapping elsewhere. -->
@@ -63,6 +100,7 @@
 	bind:this={ref}
 	data-chart={chartId}
 	data-slot="chart"
+	{@attach holdScrub}
 	class={cn(
 		'flex aspect-video justify-center overflow-visible text-xs',
 		// Pressing and dragging across a chart scrubs its tooltip, so don't select text or open the
