@@ -85,18 +85,28 @@
 		return value && allowed.includes(value) ? value : fallback;
 	};
 
+	/**
+	 * The address a setting was last sent to, until it arrives. `page.url` only changes once the
+	 * navigation is done, so a second setting picked before then would otherwise drop the first.
+	 */
+	let pendingSearch: Search | undefined;
+
 	/** Keeps a chart setting in the address, so it survives a reload and can be shared. */
 	function setParam({ name, value, fallback }: { name: string; value: string; fallback: string }) {
-		const params = new SvelteURLSearchParams(page.url.search);
+		const params = new SvelteURLSearchParams(pendingSearch ?? page.url.search);
 		if (value === fallback) params.delete(name);
 		else params.set(name, value);
 		const search: Search = params.size ? `?${params}` : '';
+		pendingSearch = search;
 		rememberDashboardSearch(search);
 		// Not shallow, which leaves `page.url` behind. The stats are not fetched again, and the page
 		// keeps its scroll and focus.
 		goto(resolve(`/collective/[handle]${search}`, { handle: data.slug }), {
 			replace: true,
 			reset: false
+		}).finally(() => {
+			// Only the latest, as an earlier one settles once a later one takes over.
+			if (pendingSearch === search) pendingSearch = undefined;
 		});
 	}
 

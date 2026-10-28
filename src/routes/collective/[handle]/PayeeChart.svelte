@@ -86,6 +86,16 @@
 	const payeePlot = $derived(
 		payeeWidth - payeeNameWidth - payeeTotalWidth - payeePadding.left - payeePadding.right
 	);
+	/** The dots' chart is drawn this tall, as its `h-64` says. */
+	const PAYEE_ROWS_HEIGHT = 256;
+	/**
+	 * How far from a dot the pointer still finds it: across the whole chart, so every spot finds the
+	 * nearest dot. Left at its default of infinity, layerchart drew each dot's hover area with an
+	 * infinite circle, which logged errors whenever the dots changed.
+	 */
+	const payeeHoverRadius = $derived(
+		Math.ceil(Math.hypot(Math.max(0, payeePlot), PAYEE_ROWS_HEIGHT))
+	);
 
 	/** Narrower than this a month, as on phones, dots barely differ in size, so quarters are shown. */
 	const MIN_MONTH_WIDTH = 12;
@@ -440,7 +450,9 @@
 									grid: { x: false, y: true, bandAlign: 'between' },
 									// The nearest dot, wherever the pointer is: hovering only the cells with a dot left gaps
 									// between them, so moving along a row dropped the highlight and brought it back.
-									tooltip: { context: { mode: 'voronoi', locked: payeeLink.locked } }
+									tooltip: {
+										context: { mode: 'voronoi', radius: payeeHoverRadius, locked: payeeLink.locked }
+									}
 								}}
 							>
 								{#snippet belowMarks({ context })}
