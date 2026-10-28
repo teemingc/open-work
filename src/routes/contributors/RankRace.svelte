@@ -476,6 +476,18 @@
 			display: grid;
 		}
 	}
+	/*
+	 * Narrower than any phone, as in a narrow window, names would leave the plot no room, so only the
+	 * logos are kept. The table below names them.
+	 */
+	@container (width < 240px) {
+		.layout.phone {
+			--names: 10px;
+		}
+		.name {
+			display: none;
+		}
+	}
 
 	.places,
 	.plot {
