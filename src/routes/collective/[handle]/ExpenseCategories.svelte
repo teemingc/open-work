@@ -11,8 +11,8 @@
 		monthLabel,
 		moneyFormat,
 		periodPhrase
-	} from './chart-format';
-	import { categoriesByMonth, transactionsUrl, type Payout } from './financials';
+	} from '#lib/chart-format.js';
+	import { categoriesByMonth, transactionsUrl, type Payout } from '#lib/financials.js';
 	import MoneyRow from './MoneyRow.svelte';
 
 	let {

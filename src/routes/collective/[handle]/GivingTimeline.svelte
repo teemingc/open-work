@@ -4,9 +4,9 @@
 	import LazyChart from '#lib/components/LazyChart.svelte';
 	import { TooltipLink } from '#lib/tooltip-link.svelte.js';
 	import { scaleLinear, scaleUtc } from 'd3-scale';
-	import { compactFormat, moneyFormat } from './chart-format';
-	import { monthsBetween, transactionsUrl } from './financials';
-	import type { AheadPoint, HistoryPoint, Recipient, Round, RoundGift } from './grants';
+	import { compactFormat, moneyFormat } from '#lib/chart-format.js';
+	import { monthsBetween, transactionsUrl } from '#lib/financials.js';
+	import type { AheadPoint, HistoryPoint, Recipient, Round, RoundGift } from '#lib/grants.js';
 	import MoneyRow from './MoneyRow.svelte';
 
 	let {

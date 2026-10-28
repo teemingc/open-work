@@ -25,6 +25,8 @@ import {
 	transactionsUrl,
 	oneOffSummary,
 	withRecurringIncome,
+	unpaidTotals,
+	yearsBefore,
 	type Month,
 	type TimeSeriesNode
 } from './financials';
@@ -614,5 +616,26 @@ describe('accountName', () => {
 		expect(accountName({ slug: 'guest-a3c3ba7a', name: '' })).toBe('Anonymous');
 		expect(accountName({ slug: 'someone', name: '' })).toBe('Unknown');
 		expect(accountName(null)).toBe('Unknown');
+	});
+});
+
+describe('unpaidTotals', () => {
+	it('splits unpaid expenses by whether they are approved', () => {
+		expect(
+			unpaidTotals([
+				{ slug: 'a', amount: 100, approved: true },
+				{ slug: 'b', amount: 40, approved: false },
+				{ slug: 'c', amount: 25, approved: true }
+			])
+		).toEqual({ committed: 125, awaiting: 40 });
+		expect(unpaidTotals([])).toEqual({ committed: 0, awaiting: 0 });
+	});
+});
+
+describe('yearsBefore', () => {
+	it('is the same day in UTC, years earlier', () => {
+		const now = new Date('2026-10-28T15:30:00Z');
+		expect(yearsBefore(now, 1)).toBe('2025-10-28T00:00:00.000Z');
+		expect(yearsBefore(now, 2)).toBe('2024-10-28T00:00:00.000Z');
 	});
 });

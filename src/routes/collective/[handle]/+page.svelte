@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getMe } from '#lib/opencollective.remote.js';
 	import Dashboard from './Dashboard.svelte';
-	import { getCachedIncomeSources, getCollectiveStats } from './stats.remote';
+	import { getCachedIncomeSources, getCollectiveStats } from '#lib/collective-stats.remote.js';
 	import type { PageProps } from './$types';
 
 	let { params }: PageProps = $props();

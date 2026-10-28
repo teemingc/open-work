@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as Card from '#lib/components/ui/card/index.js';
-	import { waffleCells } from './financials';
+	import { waffleCells } from '#lib/financials.js';
 
 	let {
 		backers,

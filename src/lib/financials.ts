@@ -825,6 +825,27 @@ export function change(before: number, after: number): number | undefined {
 	return before === 0 ? undefined : (after - before) / Math.abs(before);
 }
 
+/** The same day `years` years before `now`, in UTC, as an ISO timestamp. */
+export function yearsBefore(now: Date, years: number): string {
+	return new Date(
+		Date.UTC(now.getUTCFullYear() - years, now.getUTCMonth(), now.getUTCDate())
+	).toISOString();
+}
+
+/**
+ * Unpaid expenses split by whether they are approved. Approved ones will be paid soon, so they are
+ * `committed` and taken out of the balance before forecasting; the rest `await` approval.
+ */
+export function unpaidTotals(unpaid: Unpaid[]): { committed: number; awaiting: number } {
+	let committed = 0;
+	let awaiting = 0;
+	for (const expense of unpaid) {
+		if (expense.approved) committed += expense.amount;
+		else awaiting += expense.amount;
+	}
+	return { committed, awaiting };
+}
+
 /** Whole months from `from` to `to`, rounded down. */
 export function monthsBetween(from: Date, to: Date): number {
 	return Math.floor((to.getTime() - from.getTime()) / DAY_MS / DAYS_PER_MONTH);

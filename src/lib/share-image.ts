@@ -3,7 +3,7 @@
  * picture for as long as its address stays the same, so the address changes whenever the picture
  * does.
  */
-import type { CollectiveStats } from '../routes/collective/[handle]/stats.remote';
+import type { CollectiveStats } from '#lib/collective-stats.remote.js';
 
 /** Bump when the cards change, so sharing sites fetch them again instead of using their copy. */
 export const OG_IMAGE_VERSION = '4';

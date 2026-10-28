@@ -3,7 +3,7 @@
  * gives to the projects of an ecosystem, rather than paying expenses of their own.
  */
 
-import { accountName, type Month } from './financials';
+import { accountName, yearsBefore, type Month } from './financials';
 
 /** A contribution the collective made to another account, as Open Collective's transactions report it. */
 export interface GrantNode {
@@ -179,12 +179,8 @@ export function reducedContributions({
 	grants: Grant[];
 	now: Date;
 }): Reduction | undefined {
-	const yearsBefore = (years: number) =>
-		new Date(
-			Date.UTC(now.getUTCFullYear() - years, now.getUTCMonth(), now.getUTCDate())
-		).toISOString();
-	const yearAgo = yearsBefore(1);
-	const twoYearsAgo = yearsBefore(2);
+	const yearAgo = yearsBefore(now, 1);
+	const twoYearsAgo = yearsBefore(now, 2);
 	let recent = 0;
 	let previous = 0;
 	for (const grant of grants) {

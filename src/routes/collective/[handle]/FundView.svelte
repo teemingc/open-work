@@ -3,8 +3,8 @@
 	import StatStrip, { type Stat } from '#lib/components/StatStrip.svelte';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { HandCoins } from '@lucide/svelte';
-	import { moneyFormat, runwayLength } from './chart-format';
-	import { monthsBetween } from './financials';
+	import { moneyFormat, runwayLength } from '#lib/chart-format.js';
+	import { monthsBetween } from '#lib/financials.js';
 	import {
 		givingAhead,
 		givingHistory,
@@ -12,12 +12,12 @@
 		reducedContributions,
 		toRecipients,
 		toRounds
-	} from './grants';
+	} from '#lib/grants.js';
 	import GivingTimeline from './GivingTimeline.svelte';
 	import { LinkedProject } from './linked-project.svelte';
 	import LogoPack from './LogoPack.svelte';
 	import ShareBars from './ShareBars.svelte';
-	import type { CollectiveStats, IncomeSources } from './stats.remote';
+	import type { CollectiveStats, IncomeSources } from '#lib/collective-stats.remote.js';
 
 	let {
 		data,

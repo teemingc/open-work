@@ -10,7 +10,7 @@
 	import { dashboardSearch } from '#lib/dashboard-search.svelte.js';
 	import { readRecentCollectives } from '#lib/recent-collectives.js';
 	import type { CollectiveMatch } from '#lib/collective-search.js';
-	import { searchCollectives } from '../../routes/collective/[handle]/stats.remote';
+	import { searchCollectives } from '#lib/collective-stats.remote.js';
 
 	let {
 		name,

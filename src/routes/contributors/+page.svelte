@@ -5,7 +5,7 @@
 	import { flip } from 'svelte/animate';
 	import { cubicOut } from 'svelte/easing';
 	import { prefersReducedMotion } from 'svelte/motion';
-	import { moneyFormat } from '../collective/[handle]/chart-format';
+	import { moneyFormat } from '#lib/chart-format.js';
 	import { MIN_CONTRIBUTION, standings, yearlyRanks, type RankBy } from './contributors';
 	import { getContributors } from './contributors.remote';
 	import RankRace from './RankRace.svelte';

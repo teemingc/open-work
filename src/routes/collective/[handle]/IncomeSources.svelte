@@ -15,12 +15,12 @@
 		monthLabel,
 		moneyFormat,
 		periodPhrase
-	} from './chart-format';
-	import { backerStatus, transactionsUrl, type Backer, type SizeTier } from './financials';
+	} from '#lib/chart-format.js';
+	import { backerStatus, transactionsUrl, type Backer, type SizeTier } from '#lib/financials.js';
 	import BackerWaffle from './BackerWaffle.svelte';
 	import LogoMark from './LogoMark.svelte';
 	import MoneyRow from './MoneyRow.svelte';
-	import { getGivingNow, type IncomeSources } from './stats.remote';
+	import { getGivingNow, type IncomeSources } from '#lib/collective-stats.remote.js';
 
 	let {
 		income,

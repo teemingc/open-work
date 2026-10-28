@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { downloadJson } from '#lib/download.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import * as Alert from '#lib/components/ui/alert/index.js';
@@ -125,13 +126,10 @@
 	let clearDialogOpen = $state(false);
 
 	function downloadBackup() {
-		const blob = new Blob([exportBackup(settings)], { type: 'application/json' });
-		const url = URL.createObjectURL(blob);
-		const link = document.createElement('a');
-		link.href = url;
-		link.download = `invoice-settings-${new Date().toISOString().slice(0, 10)}.json`;
-		link.click();
-		URL.revokeObjectURL(url);
+		downloadJson({
+			text: exportBackup(settings),
+			name: `invoice-settings-${new Date().toISOString().slice(0, 10)}.json`
+		});
 	}
 
 	async function importBackup(event: Event & { currentTarget: HTMLInputElement }) {

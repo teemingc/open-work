@@ -4,6 +4,8 @@
  * contributed in the past year or in all, with their place in each of the past few calendar years.
  */
 
+import { yearsBefore } from '#lib/financials.js';
+
 /**
  * The hosts scanned for contributors. Open Collective cannot list the accounts that contribute to
  * others, nor sort accounts by what they have contributed, but it can list a host's transactions.
@@ -163,13 +165,9 @@ export function contributorsWindow(now: Date): {
 	twoYearsAgo: string;
 	firstYear: string;
 } {
-	const yearsBefore = (years: number) =>
-		new Date(
-			Date.UTC(now.getUTCFullYear() - years, now.getUTCMonth(), now.getUTCDate())
-		).toISOString();
 	return {
-		yearAgo: yearsBefore(1),
-		twoYearsAgo: yearsBefore(2),
+		yearAgo: yearsBefore(now, 1),
+		twoYearsAgo: yearsBefore(now, 2),
 		firstYear: new Date(Date.UTC(firstYear(now.getUTCFullYear()), 0, 1)).toISOString()
 	};
 }

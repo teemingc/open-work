@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { downloadJson } from '#lib/download.js';
 	import { resolve } from '$app/paths';
 	import SettingsSection from '#lib/components/SettingsSection.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -8,7 +9,7 @@
 	import { Label } from '#lib/components/ui/label/index.js';
 	import * as Select from '#lib/components/ui/select/index.js';
 	import DriveSyncStatus from '#lib/components/DriveSyncStatus.svelte';
-	import { signInWithGoogle, signOutOfGoogle } from '#lib/auth-client.js';
+	import { signInWithGoogle, signOutOfGoogle } from './auth-client';
 	import { driveSync } from '#lib/drive-sync.svelte.js';
 	import { WorkLogParseError, type WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import type { Settings } from '#lib/settings.js';
@@ -79,13 +80,10 @@
 	}
 
 	function downloadBackup() {
-		const blob = new Blob([store.exportJson()], { type: 'application/json' });
-		const url = URL.createObjectURL(blob);
-		const link = document.createElement('a');
-		link.href = url;
-		link.download = `work-log-${new Date().toISOString().slice(0, 10)}.json`;
-		link.click();
-		URL.revokeObjectURL(url);
+		downloadJson({
+			text: store.exportJson(),
+			name: `work-log-${new Date().toISOString().slice(0, 10)}.json`
+		});
 	}
 
 	/** The backup picked, waiting for you to confirm it replaces the log. */

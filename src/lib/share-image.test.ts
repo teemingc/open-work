@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CollectiveStats } from '../routes/collective/[handle]/stats.remote';
+import type { CollectiveStats } from '#lib/collective-stats.remote.js';
 import { collectiveImageVersion } from './share-image';
 
 const stats = {

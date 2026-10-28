@@ -4,9 +4,9 @@
 	import { TooltipLink } from '#lib/tooltip-link.svelte.js';
 	import { dashboardSearch } from '#lib/dashboard-search.svelte.js';
 	import { ArrowRight, ExternalLink } from '@lucide/svelte';
-	import { compactFormat, moneyFormat } from './chart-format';
-	import { transactionsUrl } from './financials';
-	import type { Recipient } from './grants';
+	import { compactFormat, moneyFormat } from '#lib/chart-format.js';
+	import { transactionsUrl } from '#lib/financials.js';
+	import type { Recipient } from '#lib/grants.js';
 	import type { LinkedProject } from './linked-project.svelte';
 	import LogoMark from './LogoMark.svelte';
 

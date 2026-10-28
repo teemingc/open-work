@@ -7,7 +7,7 @@
 	import { LEGACY_STORAGE_KEY, parseBackup } from '#lib/settings.js';
 	import { collectiveImageVersion, OG_IMAGE_VERSION } from '#lib/share-image.js';
 	import { onMount } from 'svelte';
-	import { getCollectiveStats } from './collective/[handle]/stats.remote';
+	import { getCollectiveStats } from '#lib/collective-stats.remote.js';
 	import Header from './Header.svelte';
 	import NavigationLoader from './NavigationLoader.svelte';
 
