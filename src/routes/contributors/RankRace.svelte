@@ -167,8 +167,8 @@
 	]);
 
 	/**
-	 * Follows a line under a mouse or pen. A tap on a touch screen would only flash the highlight on
-	 * and off, as it enters and leaves at once.
+	 * Follows a line under a mouse or pen. Touch is followed by `scrub` instead: a tap would only flash
+	 * the highlight on and off, as it enters and leaves at once.
 	 */
 	function follow(event: PointerEvent, slug: string) {
 		if (event.pointerType !== 'touch') highlighted = slug;
@@ -180,6 +180,38 @@
 		if (event.relatedTarget instanceof Element && event.relatedTarget.closest('.line, .label'))
 			return;
 		highlighted = null;
+	}
+
+	/** What was followed before a touch, put back if the touch turns out to scroll the page. */
+	let beforeTouch: string | null = null;
+
+	/** The line or name under a touch, or `null` for the chart around them. */
+	function slugAt(event: PointerEvent): string | null {
+		const under = document.elementFromPoint(event.clientX, event.clientY);
+		return under?.closest<HTMLElement | SVGElement>('[data-slug]')?.dataset.slug ?? null;
+	}
+
+	/**
+	 * Follows whatever line or name is under a finger as it slides across the chart, and keeps
+	 * following it once the finger lifts, so its places can be read. A touch captures the pointer, so
+	 * what is under it is looked up rather than left to `pointerenter`.
+	 */
+	function scrub(event: PointerEvent) {
+		if (event.pointerType !== 'touch') return;
+		if (event.type === 'pointerdown') {
+			beforeTouch = highlighted;
+			const slug = slugAt(event);
+			// A second tap on the line followed lets it go.
+			highlighted = slug === highlighted ? null : slug;
+			return;
+		}
+		const slug = slugAt(event);
+		if (slug) highlighted = slug;
+	}
+
+	/** A touch that scrolls the page instead leaves the chart as it was. */
+	function cancelScrub(event: PointerEvent) {
+		if (event.pointerType === 'touch') highlighted = beforeTouch;
 	}
 
 	/**
@@ -236,6 +268,9 @@
 	style:--row="{ROW}px"
 	role="img"
 	aria-label="Each top contributor's place by the year, from {years[0]} to {partialYear}. The table below has the figures."
+	onpointerdown={scrub}
+	onpointermove={scrub}
+	onpointercancel={cancelScrub}
 >
 	{#each layouts as { name, years: shownYears, x, rows, height, lines } (name)}
 		<div class={['layout', name, { following: highlighted !== null }]} style:height="{height}px">
@@ -306,6 +341,7 @@
 							in:join={'line'}
 							role="presentation"
 							class={['line', { followed: highlighted === slug }]}
+							data-slug={slug}
 							style:--tint={line.color}
 							style:--weight="{line.weight}px"
 							onpointerenter={(event) => follow(event, slug)}
@@ -346,7 +382,13 @@
 								})}
 							{/if}
 							{#each line.points as point (point.x)}
-								<circle cx="{point.x}%" cy={y(point.rank)} class="dot" />
+								<!-- Sized by attribute, as Safari ignores `r` in CSS. -->
+								<circle
+									cx="{point.x}%"
+									cy={y(point.rank)}
+									r={highlighted === slug ? 9 : 3.5}
+									class="dot"
+								/>
 								<text
 									x="{point.x}%"
 									y={y(point.rank)}
@@ -378,6 +420,7 @@
 							style:top="{y(at.rank)}px"
 							style:--tint={line.color}
 							title={line.contributor.name}
+							data-slug={slug}
 							onpointerenter={(event) => follow(event, slug)}
 							onpointerleave={unfollow}
 						>
@@ -404,6 +447,13 @@
 	.race {
 		container-type: inline-size;
 		font-variant-numeric: tabular-nums lining-nums;
+		/*
+		 * A finger sliding across scrubs the lines, and one sliding up or down still scrolls the page.
+		 * Holding a name selects nothing, as it would otherwise on iOS.
+		 */
+		touch-action: pan-y;
+		user-select: none;
+		-webkit-touch-callout: none;
 	}
 	.layout {
 		--places: 28px;
@@ -489,7 +539,6 @@
 		stroke-width: var(--weight);
 	}
 	.dot {
-		r: 3.5;
 		fill: var(--tint);
 		stroke: var(--card);
 		stroke-width: 1.5;
@@ -516,9 +565,6 @@
 	}
 	.followed .stroke {
 		stroke-width: 4;
-	}
-	.followed .dot {
-		r: 9;
 	}
 	.followed .dot-rank {
 		opacity: 1;
