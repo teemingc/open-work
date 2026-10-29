@@ -32,6 +32,9 @@ export default defineConfig({
 		warnOnPortFallback(),
 		tailwindcss(),
 		sveltekit({
+			paths: {
+				origin: 'https://openwork.ing'
+			},
 			preprocess: vitePreprocess(),
 			compilerOptions: { experimental: { async: true } },
 			experimental: { remoteFunctions: true },
