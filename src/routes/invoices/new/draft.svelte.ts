@@ -2,11 +2,14 @@ import { invoiceTitle, lineItemDescription, totalCents } from '#lib/format.js';
 import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 import {
 	activeClients,
+	availableCredit,
 	defaultClient,
 	earnings,
 	entriesFor,
 	rateOn,
+	invoiceTotals,
 	suggestedInvoiceNumber,
+	type Adjustment,
 	type Invoice,
 	type InvoiceStatus
 } from '#lib/worklog.js';
@@ -22,6 +25,8 @@ export interface DraftData {
 	descriptionOverride?: string;
 	invoiceId?: string;
 	numberOverride?: string;
+	adjustments?: Adjustment[];
+	creditOverride?: number;
 }
 
 /**
@@ -45,6 +50,10 @@ export class Draft {
 	invoiceId = $state<string | undefined>();
 	/** Set when you edit the suggested invoice number. */
 	numberOverride = $state<string | undefined>();
+	/** Amounts added or taken off, for clients invoiced by email. */
+	adjustments = $state<Adjustment[]>([]);
+	/** Set when you change how much of the client's credit to use. */
+	creditOverride = $state<number | undefined>();
 
 	#store: WorkLogStore;
 	#fallbackRate: number;
@@ -112,6 +121,28 @@ export class Draft {
 			: totalCents({ hours: this.hours, rate: this.rate })
 	);
 
+	/** What the client overpaid before, less what other invoices have used. */
+	availableCredit = $derived.by(() =>
+		this.client && this.byEmail
+			? availableCredit({
+					invoices: this.#store.data.invoices,
+					client: this.client,
+					exceptId: this.invoiceId
+				})
+			: 0
+	);
+	/** What the invoice comes to once its adjustments, tax and credit are counted. */
+	totals = $derived.by(() =>
+		invoiceTotals({
+			invoice: {
+				amount: this.cents / 100,
+				adjustments: this.byEmail ? this.adjustments : [],
+				credit: this.byEmail ? (this.creditOverride ?? this.availableCredit) : 0
+			},
+			client: this.client ?? {}
+		})
+	);
+
 	constructor({
 		store,
 		startDate,
@@ -154,6 +185,9 @@ export class Draft {
 		this.numberOverride = invoice.number;
 		if (invoice.hours !== this.loggedHours) this.hoursOverride = invoice.hours;
 		if (invoice.rate !== this.logged.rate) this.rateOverride = invoice.rate;
+		this.adjustments = (invoice.adjustments ?? []).map((adjustment) => ({ ...adjustment }));
+		// The credit it was saved with, so what it billed stays put.
+		this.creditOverride = invoice.credit ?? 0;
 		this.#saved = JSON.stringify(this.toJSON());
 	}
 
@@ -176,6 +210,9 @@ export class Draft {
 			rate: this.rate,
 			amount: this.cents / 100,
 			currency: this.currency,
+			...(this.byEmail &&
+				this.adjustments.length > 0 && { adjustments: $state.snapshot(this.adjustments) }),
+			...(this.totals.credit > 0 && { credit: this.totals.credit }),
 			status,
 			sentOn: status === 'draft' ? undefined : (saved?.sentOn ?? today),
 			dueOn: status === 'draft' ? undefined : saved?.dueOn,
@@ -200,7 +237,9 @@ export class Draft {
 			this.rateOverride !== undefined ||
 			this.titleOverride !== undefined ||
 			this.descriptionOverride !== undefined ||
-			this.numberOverride !== undefined
+			this.numberOverride !== undefined ||
+			this.adjustments.length > 0 ||
+			this.creditOverride !== undefined
 		);
 	}
 
@@ -215,7 +254,9 @@ export class Draft {
 			titleOverride: this.titleOverride,
 			descriptionOverride: this.descriptionOverride,
 			invoiceId: this.invoiceId,
-			numberOverride: this.numberOverride
+			numberOverride: this.numberOverride,
+			adjustments: $state.snapshot(this.adjustments),
+			creditOverride: this.creditOverride
 		};
 	}
 
@@ -230,5 +271,7 @@ export class Draft {
 		this.descriptionOverride = data.descriptionOverride;
 		this.invoiceId = data.invoiceId;
 		this.numberOverride = data.numberOverride;
+		this.adjustments = data.adjustments ?? [];
+		this.creditOverride = data.creditOverride;
 	}
 }

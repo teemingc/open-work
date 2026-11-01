@@ -4,7 +4,7 @@
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { formatDMY, formatMoney, toIsoDate } from '#lib/format.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import { invoiceDates, type Invoice } from '#lib/worklog.js';
+	import { invoiceDates, invoiceTotals, type Invoice } from '#lib/worklog.js';
 	import { Check, Pencil, Send, Trash2 } from '@lucide/svelte';
 	import StatusBadge from './StatusBadge.svelte';
 
@@ -13,6 +13,11 @@
 	/** Newest first, as the list of expenses sent to Open Collective. */
 	const invoices = $derived(store.data.invoices.toReversed());
 	let removing = $state<Invoice | undefined>();
+
+	/** What the invoice asks for, after its adjustments, tax and credit. */
+	function due(invoice: Invoice): number {
+		return invoiceTotals({ invoice, client: store.client(invoice.clientId) ?? {} }).due;
+	}
 
 	/** Sent today, and due after the client's payment days from today. */
 	function markSent(invoice: Invoice) {
@@ -67,10 +72,10 @@
 					<td
 						class="self-start px-4 pt-1.5 text-right font-medium tabular-nums sm:py-3 sm:font-normal"
 					>
-						{formatMoney(invoice.amount, invoice.currency)}
+						{formatMoney(due(invoice), invoice.currency)}
 					</td>
 					<td
-						class="col-span-2 row-start-2 self-center justify-self-start px-4 py-1.5 whitespace-nowrap sm:py-3"
+						class="col-span-2 col-start-1 row-start-2 self-center justify-self-start px-4 py-1.5 whitespace-nowrap sm:py-3"
 					>
 						<!-- The date beside the status it dates, rather than in small type under it. -->
 						<span class="inline-flex items-center gap-2">
@@ -81,7 +86,9 @@
 						</span>
 					</td>
 					<!-- Shares the status's line on a phone, so the amount alone sets the column's width. -->
-					<td class="col-span-2 row-start-2 justify-self-end px-2 py-1.5 sm:px-4 sm:py-3">
+					<td
+						class="col-span-2 col-start-1 row-start-2 justify-self-end px-2 py-1.5 sm:px-4 sm:py-3"
+					>
 						<div class="flex justify-end gap-1">
 							{#if invoice.status === 'draft'}
 								<Button variant="ghost" size="sm" onclick={() => markSent(invoice)}>
@@ -95,7 +102,8 @@
 										store.setInvoiceStatus({
 											id: invoice.id,
 											status: 'paid',
-											on: toIsoDate(new Date())
+											on: toIsoDate(new Date()),
+											paidAmount: due(invoice)
 										})}
 								>
 									<Check /> Mark paid

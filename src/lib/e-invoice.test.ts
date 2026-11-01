@@ -2,8 +2,14 @@ import { InvoiceService } from '@e-invoice-eu/core';
 import { readFileSync } from 'node:fs';
 import { inflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { emptyInvoicing, invoiceMissing, type Client, type Invoice } from '#lib/worklog.js';
-import { invoiceTotals, toEInvoice } from './e-invoice';
+import {
+	emptyInvoicing,
+	invoiceMissing,
+	invoiceTotals,
+	type Client,
+	type Invoice
+} from '#lib/worklog.js';
+import { toEInvoice } from './e-invoice';
 import { addressLines, drawInvoicePdf } from './invoice-pdf';
 
 const invoicing = {
@@ -77,7 +83,7 @@ describe('e-invoice', () => {
 	it('adds VAT at the client’s rate', () => {
 		expect(
 			invoiceTotals({ invoice, client: { ...client, tax: { category: 'standard', rate: 19 } } })
-		).toMatchObject({ net: 1785, tax: 339.15, total: 2124.15 });
+		).toMatchObject({ net: 1785, tax: 339.15, total: 2124.15, due: 2124.15 });
 	});
 
 	it('says what is still needed', () => {
@@ -106,7 +112,10 @@ describe('e-invoice', () => {
 			invoice,
 			client,
 			invoicing,
-			logLines: Array.from({ length: 80 }, (_, index) => `02/10/2026 – web pull/${index}`),
+			logLines: Array.from({ length: 80 }, (_, index) => ({
+				date: `${String((index % 28) + 1).padStart(2, '0')}/10/2026`,
+				work: `web PR #${index}`
+			})),
 			today: '2026-11-20',
 			fontBytes
 		});
@@ -147,8 +156,16 @@ describe('e-invoice', () => {
 		async (tax) => {
 			// Checked against Mustang, the reference validator, when written: these keep it so.
 			const vatClient: Client = { ...client, vatId: 'FR40303265045', tax };
+			const adjusted: Invoice = {
+				...invoice,
+				adjustments: [
+					{ description: 'Discount', kind: 'take-off', amount: 20 },
+					{ description: 'Hosting', kind: 'add', amount: 10.5 }
+				],
+				credit: 143
+			};
 			const data = toEInvoice({
-				invoice,
+				invoice: adjusted,
 				client: vatClient,
 				invoicing: { ...invoicing, vatId: 'DE123456789' },
 				today: '2026-11-20'
@@ -158,9 +175,11 @@ describe('e-invoice', () => {
 			const subtotal = JSON.stringify(ubl['cac:TaxTotal']);
 			if (tax.category === 'reverse-charge') expect(subtotal).toContain('"cbc:Percent":"0"');
 			if (tax.category === 'outside-scope') expect(subtotal).not.toContain('cbc:Percent');
+			expect(ubl['cac:AllowanceCharge']).toHaveLength(2);
+			expect(ubl['cac:LegalMonetaryTotal']).toMatchObject({ 'cbc:PrepaidAmount': '143.00' });
 			const service = new InvoiceService({ log() {}, warn() {}, error() {} });
 			const pdf = await drawInvoicePdf({
-				invoice,
+				invoice: adjusted,
 				client: vatClient,
 				invoicing,
 				logLines: [],

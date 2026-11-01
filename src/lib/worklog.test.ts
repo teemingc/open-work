@@ -12,7 +12,9 @@ import {
 	groupDaysOff,
 	entryRate,
 	insertionIndex,
+	availableCredit,
 	invoiceEmailHref,
+	invoiceTotals,
 	invoiceFileName,
 	invoiceFrequency,
 	invoiceLogLines,
@@ -35,6 +37,7 @@ import {
 	workLogText,
 	type Client,
 	type DayOff,
+	type Invoice,
 	type WorkLogData,
 	type WorkLogEntry,
 	type WorkRef
@@ -150,9 +153,9 @@ describe('notes', () => {
 		];
 		expect(workLogText({ entries, organization }).split('\n')).toEqual([
 			WORK_LOG_HEADER,
-			'01/10/2026 | kit | PR #17292',
-			'01/10/2026 | vitejs/kit | PR #3',
-			'01/10/2026 | — | Thu meeting'
+			'01/10/2026 | kit PR #17292',
+			'01/10/2026 | vitejs/kit PR #3',
+			'01/10/2026 | Thu meeting'
 		]);
 		expect(workLogText({ entries: [], organization })).toBe('');
 	});
@@ -335,6 +338,67 @@ describe('invoices', () => {
 	});
 });
 
+describe('credits and adjustments', () => {
+	const billed = (partial: Partial<Invoice>): Invoice => ({
+		id: crypto.randomUUID(),
+		clientId: 'zenos',
+		startDate: '2026-05-01',
+		endDate: '2026-05-31',
+		hours: 10,
+		rate: 42,
+		amount: 420,
+		currency: 'USD',
+		status: 'sent',
+		...partial
+	});
+
+	it('takes adjustments off or adds them before tax, and credit off after it', () => {
+		expect(
+			invoiceTotals({
+				invoice: {
+					amount: 420,
+					adjustments: [
+						{ description: 'Discount', kind: 'take-off', amount: 20 },
+						{ description: 'Hosting', kind: 'add', amount: 10.5 }
+					],
+					credit: 100
+				},
+				client: { tax: { category: 'standard', rate: 10 } }
+			})
+		).toMatchObject({
+			lines: 420,
+			allowances: 20,
+			charges: 10.5,
+			net: 410.5,
+			tax: 41.05,
+			total: 451.55,
+			credit: 100,
+			due: 351.55
+		});
+	});
+
+	it('never uses more credit than the invoice comes to', () => {
+		expect(invoiceTotals({ invoice: { amount: 50, credit: 143 }, client: {} })).toMatchObject({
+			credit: 50,
+			due: 0
+		});
+	});
+
+	it('keeps what a client overpaid as credit until later invoices use it up', () => {
+		const may = billed({ status: 'paid', paidAmount: 563 });
+		const june = billed({ startDate: '2026-06-01', endDate: '2026-06-30', credit: 100 });
+		expect(availableCredit({ invoices: [may], client: zenos })).toBe(143);
+		expect(availableCredit({ invoices: [may, june], client: zenos })).toBe(43);
+		// Writing June again, its own credit is free to use.
+		expect(availableCredit({ invoices: [may, june], client: zenos, exceptId: june.id })).toBe(143);
+		// Paid what was due, or another client's overpayment: no credit.
+		expect(
+			availableCredit({ invoices: [billed({ status: 'paid', paidAmount: 420 })], client: zenos })
+		).toBe(0);
+		expect(availableCredit({ invoices: [may], client: svelte })).toBe(0);
+	});
+});
+
 describe('invoices by email', () => {
 	it('names a whole month, and spells out any other period', () => {
 		expect(periodLabel({ startDate: '2026-09-01', endDate: '2026-09-30' })).toBe('September 2026');
@@ -347,16 +411,29 @@ describe('invoices by email', () => {
 	});
 
 	it('writes the email from the client’s templates, or the usual ones', () => {
-		const invoice = { startDate: '2026-09-01', endDate: '2026-09-30', number: 'ZENOS-2026-09' };
-		const href = invoiceEmailHref({
-			client: { email: 'zenos@ap.ramp.com', emailMessage: 'Hi Ben,\n\nHere is {number}.' },
-			invoice
-		});
-		const url = new URL(href);
-		expect(url.protocol).toBe('mailto:');
-		expect(url.pathname).toBe('zenos@ap.ramp.com');
-		expect(url.searchParams.get('subject')).toBe('Invoice for September 2026');
-		expect(url.searchParams.get('body')).toBe('Hi Ben,\n\nHere is ZENOS-2026-09.');
+		const invoice = {
+			startDate: '2026-09-01',
+			endDate: '2026-09-30',
+			number: 'ZENOS-2026-09',
+			amount: 1785,
+			currency: 'USD'
+		};
+		const client = { currency: 'USD', email: 'zenos@ap.ramp.com' };
+		const usual = new URL(invoiceEmailHref({ client, invoice, invoicing: { name: 'Tee Ming' } }));
+		expect(usual.protocol).toBe('mailto:');
+		expect(usual.pathname).toBe('zenos@ap.ramp.com');
+		expect(usual.searchParams.get('subject')).toBe('Invoice for September 2026');
+		expect(usual.searchParams.get('body')).toBe(
+			"Hi,\n\nI've attached the invoice for September 2026.\n\nKind regards,"
+		);
+		const own = new URL(
+			invoiceEmailHref({
+				client: { ...client, emailMessage: 'Hi Ben,\n\nHere is {number}.\n\n{name}.' },
+				invoice,
+				invoicing: { name: 'Tee Ming' }
+			})
+		);
+		expect(own.searchParams.get('body')).toBe('Hi Ben,\n\nHere is ZENOS-2026-09.\n\nTee Ming.');
 	});
 
 	it('names the PDF after the client and month', () => {
@@ -384,9 +461,9 @@ describe('invoices by email', () => {
 			entry({ date: '2026-09-11', items: [pr('zenos_ws', 637)] })
 		];
 		expect(invoiceLogLines(entries)).toEqual([
-			'02/09/2026 – web pull/8',
-			'11/09/2026 – Set up simulation',
-			'11/09/2026 – zenos_ws pull/637'
+			{ date: '02/09/2026', work: 'web PR #8' },
+			{ date: '11/09/2026', work: 'Set up simulation' },
+			{ date: '11/09/2026', work: 'zenos_ws PR #637' }
 		]);
 		expect(
 			invoiceLogLines([
@@ -396,7 +473,7 @@ describe('invoices by email', () => {
 					items: [{ kind: 'issue', owner: 'sveltejs', repo: 'kit', number: 1 }]
 				})
 			]).at(-1)
-		).toBe('12/09/2026 – sveltejs/kit issues/1');
+		).toEqual({ date: '12/09/2026', work: 'sveltejs/kit Issue #1' });
 	});
 });
 

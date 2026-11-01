@@ -10,15 +10,15 @@ import { formatHours, formatMoney } from '#lib/format.js';
 import {
 	DEFAULT_LINE_ITEM,
 	invoiceDates,
-	periodLabel,
+	invoiceTotals,
 	type Address,
 	type Client,
 	type Invoice,
-	type Invoicing
+	type Invoicing,
+	type LogLine
 } from '#lib/worklog.js';
 import regularFont from './assets/fonts/source-serif-4-regular.ttf?url';
 import semiboldFont from './assets/fonts/source-serif-4-semibold.ttf?url';
-import { invoiceTotals } from './e-invoice';
 
 const A4 = { width: 595.28, height: 841.89 };
 const MARGIN = 56;
@@ -29,10 +29,10 @@ const RULE = rgb(0.82, 0.82, 0.85);
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-/** "15 Nov 2026", spelled the same everywhere. */
+/** "02 Sep 2026", spelled the same everywhere. */
 export function longDate(iso: string): string {
 	const [year, month, day] = iso.split('-');
-	return `${Number(day)} ${MONTHS[Number(month) - 1]} ${year}`;
+	return `${day} ${MONTHS[Number(month) - 1]} ${year}`;
 }
 
 /**
@@ -180,6 +180,18 @@ function block({
 	return writer.y;
 }
 
+/** Lines like "Routing number: 026073150" as a label and value; other lines as they are. */
+export function labelledLines(text: string): [label: string | undefined, value: string][] {
+	return text
+		.split('\n')
+		.map((line) => line.trim())
+		.filter(Boolean)
+		.map((line) => {
+			const match = /^([^:]{1,40}):\s+(.+)$/.exec(line);
+			return match ? [match[1], match[2]] : [undefined, line];
+		});
+}
+
 export async function drawInvoicePdf({
 	invoice,
 	client,
@@ -192,7 +204,7 @@ export async function drawInvoicePdf({
 	client: Client;
 	invoicing: Invoicing;
 	/** The work log, one line per item. */
-	logLines: string[];
+	logLines: LogLine[];
 	today: string;
 	fontBytes: { regular: Uint8Array; semibold: Uint8Array };
 }): Promise<Uint8Array> {
@@ -209,145 +221,240 @@ export async function drawInvoicePdf({
 	doc.setProducer('Open Work');
 
 	const w = new Writer(doc, fonts);
-	const { issuedOn, dueOn } = invoiceDates({ invoice, client, today });
+	const { issuedOn } = invoiceDates({ invoice, client, today });
 	const totals = invoiceTotals({ invoice, client });
 	const money = (amount: number) => formatMoney(amount, invoice.currency);
 
-	// Title, and the facts every invoice is filed by.
+	// Laid out as the invoices you wrote by hand: who it is from and to, its number and dates, one
+	// table of what was billed, the total due, your notes and how to pay, then the work log.
 	w.y -= 22;
-	w.text({ text: 'Invoice', size: 26, font: fonts.semibold });
-	w.y -= 30;
-	const facts: [string, string][] = [
-		['Invoice number', number],
-		['Date of issue', longDate(issuedOn)],
-		['Date due', longDate(dueOn)],
-		['Billing period', `${longDate(invoice.startDate)} – ${longDate(invoice.endDate)}`]
-	];
-	for (const [label, value] of facts) {
-		w.text({ text: label, color: MUTED });
-		w.text({ text: value, x: MARGIN + 100, font: fonts.semibold });
-		w.y -= 15;
-	}
+	w.text({ text: 'INVOICE', size: 24, font: fonts.semibold });
 
 	// Who it is from and to.
-	w.y -= 18;
+	w.y -= 36;
 	const top = w.y;
 	const from = [
 		invoicing.name,
 		...addressLines(invoicing.address),
 		invoicing.email,
+		invoicing.phone,
 		...(invoicing.vatId.trim() && totals.category !== 'outside-scope'
 			? [`VAT ${invoicing.vatId}`]
-			: []),
-		...(invoicing.taxId.trim() ? [`Tax number ${invoicing.taxId}`] : [])
+			: [])
 	].filter((line) => line.trim());
 	const to = [
 		client.legalName?.trim() || client.name,
 		...addressLines(client.address),
-		client.email ?? '',
 		...(client.vatId?.trim() && totals.category !== 'outside-scope' ? [`VAT ${client.vatId}`] : [])
 	].filter((line) => line.trim());
-	const leftEnd = block({ writer: w, heading: 'From', lines: from, x: MARGIN, top });
-	const rightEnd = block({ writer: w, heading: 'Bill to', lines: to, x: MARGIN + 250, top });
+	const leftEnd = block({ writer: w, heading: 'From:', lines: from, x: MARGIN, top });
+	const rightEnd = block({ writer: w, heading: 'Bill To:', lines: to, x: MARGIN + 250, top });
 	w.y = Math.min(leftEnd, rightEnd) - 34;
 
-	// The one line someone paying it looks for.
-	w.text({
-		text: `${money(totals.total)} ${invoice.currency} due ${longDate(dueOn)}`,
-		size: 16,
-		font: fonts.semibold
-	});
+	// Its number and dates, side by side.
+	const facts: [string, string][] = [
+		['Invoice #', number],
+		['Invoice Date', longDate(issuedOn)],
+		['Billing Period', `${longDate(invoice.startDate)} – ${longDate(invoice.endDate)}`]
+	];
+	const factX = [MARGIN, MARGIN + 150, MARGIN + 290];
+	w.rule();
+	w.y -= 16;
+	facts.forEach(([label], index) =>
+		w.text({ text: label, x: factX[index], size: 9, color: MUTED })
+	);
+	w.y -= 15;
+	facts.forEach(([, value], index) =>
+		w.text({ text: value, x: factX[index], font: fonts.semibold })
+	);
+	w.y -= 12;
+	w.rule();
 
 	// What was billed.
-	const columns = { qty: RIGHT - 190, price: RIGHT - 90, amount: RIGHT };
-	w.y -= 34;
+	const columns = { hours: RIGHT - 200, rate: RIGHT - 100, amount: RIGHT };
+	const plain = (amount: number) => amount.toFixed(2);
+	w.y -= 32;
 	w.text({ text: 'Description', size: 9, color: MUTED });
-	w.text({ text: 'Qty', x: columns.qty, size: 9, color: MUTED, align: 'right' });
-	w.text({ text: 'Unit price', x: columns.price, size: 9, color: MUTED, align: 'right' });
-	w.text({ text: 'Amount', x: columns.amount, size: 9, color: MUTED, align: 'right' });
+	w.text({ text: 'Hours', x: columns.hours, size: 9, color: MUTED, align: 'right' });
+	w.text({
+		text: `Rate (${invoice.currency}/hr)`,
+		x: columns.rate,
+		size: 9,
+		color: MUTED,
+		align: 'right'
+	});
+	w.text({
+		text: `Amount (${invoice.currency})`,
+		x: columns.amount,
+		size: 9,
+		color: MUTED,
+		align: 'right'
+	});
 	w.y -= 8;
 	w.rule();
 	w.y -= 18;
 	w.text({ text: client.lineItem?.trim() || DEFAULT_LINE_ITEM });
-	w.text({ text: `${formatHours(invoice.hours)} h`, x: columns.qty, align: 'right' });
+	w.text({ text: formatHours(invoice.hours), x: columns.hours, align: 'right' });
 	w.text({
-		text: money(invoice.hours > 0 ? totals.net / invoice.hours : invoice.rate),
-		x: columns.price,
+		text: plain(invoice.hours > 0 ? totals.lines / invoice.hours : invoice.rate),
+		x: columns.rate,
 		align: 'right'
 	});
-	w.text({ text: money(totals.net), x: columns.amount, align: 'right' });
-	w.y -= 14;
-	w.text({ text: periodLabel(invoice), size: 9, color: MUTED });
+	w.text({ text: plain(totals.lines), x: columns.amount, align: 'right' });
+	// Each adjustment is a line of its own, taken off or added.
+	for (const adjustment of invoice.adjustments ?? []) {
+		const lines = w.wrap({
+			text: adjustment.description.trim() || 'Adjustment',
+			width: columns.hours - MARGIN - 40
+		});
+		w.need(14 + lines.length * 14);
+		w.y -= 22;
+		lines.forEach((line, index) => {
+			if (index > 0) w.y -= 14;
+			w.text({ text: line });
+		});
+		w.text({
+			text: `${adjustment.kind === 'take-off' ? '−' : ''}${plain(adjustment.amount)}`,
+			x: columns.amount,
+			align: 'right'
+		});
+	}
 	w.y -= 12;
 	w.rule();
 
-	// The totals, ruled off under the amount column.
-	const label = RIGHT - 200;
-	const rows: [string, string, boolean][] = [
-		['Subtotal', money(totals.net), false],
-		[
-			totals.category === 'standard'
-				? `VAT ${totals.rate}%`
-				: totals.category === 'reverse-charge'
-					? 'No VAT: reverse charge'
-					: 'No VAT: outside its scope',
-			money(totals.tax),
-			false
-		],
-		['Total', money(totals.total), false],
-		['Amount due', `${money(totals.total)} ${invoice.currency}`, true]
+	// The totals, right-aligned under the amounts.
+	type Row = [label: string, value: string, strong: boolean];
+	const rows: Row[] = [
+		['Subtotal:', money(totals.net), false],
+		...(totals.category === 'standard'
+			? ([[`VAT ${totals.rate}%:`, money(totals.tax), false]] as Row[])
+			: totals.category === 'reverse-charge'
+				? ([['VAT (reverse charge):', money(0), false]] as Row[])
+				: []),
+		...(totals.credit > 0
+			? ([['Credit from earlier payments:', `−${money(totals.credit)}`, false]] as Row[])
+			: []),
+		['Total Due:', `${money(totals.due)} ${invoice.currency}`, true]
 	];
-	w.y -= 6;
+	w.y -= 4;
 	for (const [name, value, strong] of rows) {
-		w.y -= 16;
-		if (strong) {
-			w.y -= 2;
-			w.page.drawLine({
-				start: { x: label, y: w.y + 12 },
-				end: { x: RIGHT, y: w.y + 12 },
-				thickness: 0.6,
-				color: RULE
-			});
-		}
+		w.y -= 17;
 		const font = strong ? fonts.semibold : fonts.regular;
-		w.text({ text: name, x: label, font, color: strong ? INK : MUTED });
-		w.text({ text: value, x: RIGHT, font, align: 'right' });
+		const size = strong ? 11 : 10;
+		w.text({ text: `${name} ${value}`, x: RIGHT, font, size, align: 'right' });
 	}
 
 	const width = RIGHT - MARGIN;
-	const paragraph = (heading: string, text: string) => {
+	const paragraph = ({ heading, text }: { heading?: string; text: string }) => {
 		const lines = w.wrap({ text, width });
-		w.need(30 + lines.length * 14);
+		w.need((heading ? 44 : 30) + lines.length * 14);
 		w.y -= 30;
-		w.text({ text: heading, size: 9, color: MUTED });
-		for (const line of lines) {
-			w.y -= 14;
+		if (heading) {
+			w.text({ text: heading, font: fonts.semibold });
+			w.y -= 4;
+		}
+		for (const [index, line] of lines.entries()) {
+			if (heading || index > 0) w.y -= 14;
 			w.text({ text: line });
 		}
 	};
 
 	if (totals.category === 'reverse-charge') {
-		paragraph('VAT', 'Reverse charge: the customer accounts for the VAT on this invoice.');
+		paragraph({ text: 'Reverse charge: the customer accounts for the VAT on this invoice.' });
 	}
-	const payment = [
-		...(invoicing.accountName.trim() ? [`Account name: ${invoicing.accountName.trim()}`] : []),
-		`Account number: ${invoicing.accountNumber.trim()}`,
-		...(invoicing.bic.trim() ? [`BIC/SWIFT: ${invoicing.bic.trim()}`] : []),
-		...(invoicing.payment.trim() ? [invoicing.payment.trim()] : [])
-	].join('\n');
-	paragraph('How to pay', payment);
-	if (invoicing.notes.trim()) paragraph('Notes', invoicing.notes.trim());
+	// Your notes, and your tax number unless the notes already give it.
+	const taxId = invoicing.taxId.trim();
+	const notes = [
+		invoicing.notes.trim(),
+		...(taxId && !invoicing.notes.includes(taxId) ? [`Income tax number: ${taxId}`] : [])
+	]
+		.filter(Boolean)
+		.join('\n');
+	if (notes) paragraph({ text: notes });
 
+	// How to pay: any opening words first, then a table of labels and values, the account's own
+	// details before the rest. A line with no label is said as it was written.
+	const written = labelledLines(invoicing.payment);
+	const opening = written.findIndex(([label]) => label !== undefined);
+	const intro = (opening === -1 ? written : written.slice(0, opening)).map(([, text]) => text);
+	const paymentRows: [label: string | undefined, value: string][] = [
+		...(invoicing.accountName.trim()
+			? [['Name', invoicing.accountName.trim()] as [string, string]]
+			: []),
+		['Account number', invoicing.accountNumber.trim()],
+		...(invoicing.bic.trim() ? [['Swift/BIC', invoicing.bic.trim()] as [string, string]] : []),
+		...(opening === -1 ? [] : written.slice(opening))
+	];
+	const labelWidth = Math.min(
+		180,
+		Math.max(
+			...paymentRows.map(([label]) => (label ? fonts.regular.widthOfTextAtSize(label, 10) : 0))
+		) + 16
+	);
+	w.need(44 + (intro.length + paymentRows.length) * 15);
+	w.y -= 30;
+	w.text({ text: 'Payment Terms', font: fonts.semibold });
+	w.y -= 4;
+	for (const line of intro.flatMap((text) => w.wrap({ text, width }))) {
+		w.y -= 15;
+		w.text({ text: line });
+	}
+	if (intro.length > 0) w.y -= 6;
+	for (const [label, value] of paymentRows) {
+		// A long label wraps within its column rather than running into the value.
+		const labels = label ? w.wrap({ text: label, width: labelWidth - 16 }) : [];
+		const values = w.wrap({ text: value, width: label ? width - labelWidth : width });
+		const height = Math.max(labels.length, values.length);
+		w.need(height * 15);
+		for (let index = 0; index < height; index++) {
+			w.y -= 15;
+			if (labels[index]) w.text({ text: labels[index], color: MUTED });
+			if (values[index]) w.text({ text: values[index], x: label ? MARGIN + labelWidth : MARGIN });
+		}
+	}
+
+	// The work log backs the invoice up, so it starts a page of its own: the first page is the
+	// whole invoice, the same every month however long the log runs.
 	if (logLines.length > 0) {
-		w.need(60);
-		w.y -= 30;
-		w.text({ text: 'Work log', size: 9, color: MUTED });
+		w.newPage();
+		w.y -= 10;
+		w.text({ text: 'Work Log', font: fonts.semibold });
+		w.y -= 6;
+		// A table of the day and what was worked on, each day's date said once. The headings come
+		// again at the top of each page it runs onto.
+		const size = 9.5;
+		const workX = MARGIN + 76;
+		const headings = () => {
+			w.y -= 16;
+			w.text({ text: 'Date', size: 9, color: MUTED });
+			w.text({ text: 'Work', x: workX, size: 9, color: MUTED });
+			w.y -= 6;
+			w.rule();
+		};
+		headings();
+		let lastDate = '';
 		for (const line of logLines) {
-			for (const wrapped of w.wrap({ text: line, width, size: 9 })) {
-				w.need(13);
-				w.y -= 13;
-				w.text({ text: wrapped, size: 9 });
+			const wrapped = w.wrap({ text: line.work, width: RIGHT - workX, size });
+			const newDay = line.date !== lastDate;
+			const page = w.page;
+			w.need((newDay ? 6 : 0) + wrapped.length * 13);
+			const turned = w.page !== page;
+			if (turned) headings();
+			if (newDay && lastDate && !turned) {
+				w.y -= 4;
+				w.page.drawLine({
+					start: { x: MARGIN, y: w.y - 2 },
+					end: { x: RIGHT, y: w.y - 2 },
+					thickness: 0.3,
+					color: RULE
+				});
 			}
+			wrapped.forEach((text, index) => {
+				w.y -= 13;
+				if (index === 0 && (newDay || turned)) w.text({ text: line.date, size, color: MUTED });
+				w.text({ text, x: workX, size });
+			});
+			lastDate = line.date;
 		}
 	}
 

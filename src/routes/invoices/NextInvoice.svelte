@@ -24,6 +24,7 @@
 		failed = false,
 		today,
 		entries = [],
+		credit = 0,
 		showName = false
 	}: {
 		client?: Client;
@@ -36,6 +37,8 @@
 		today: string;
 		/** The work log, to show what the period bills so far. */
 		entries?: WorkLogEntry[];
+		/** Credit the client has from overpaying, which the invoice will use. */
+		credit?: number;
 		showName?: boolean;
 	} = $props();
 
@@ -69,7 +72,9 @@
 	action={resolve('/invoices/new')}
 	class={[
 		'grid gap-x-8 gap-y-3 sm:items-center',
-		showName ? 'sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto]' : 'sm:grid-cols-[1fr_auto]'
+		showName
+			? 'sm:grid-cols-[minmax(0,9rem)_minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto]'
+			: 'sm:grid-cols-[1fr_auto]'
 	]}
 >
 	{#if chosen}
@@ -105,15 +110,18 @@
 							<button
 								{...props}
 								type="button"
-								class="group block w-fit animate-in rounded-sm text-left font-display text-xl leading-snug whitespace-nowrap tabular-nums underline decoration-muted-foreground/40 decoration-dotted decoration-1 underline-offset-[0.25em] duration-300 outline-none fade-in hover:decoration-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:text-[1.75rem]"
+								class="group block w-fit animate-in rounded-sm text-left font-display text-xl leading-snug tabular-nums underline decoration-muted-foreground/40 decoration-dotted decoration-1 underline-offset-[0.25em] duration-300 outline-none fade-in hover:decoration-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 lg:text-[1.75rem]"
 								aria-label="Change dates, {formatDMY(chosen.startDate)} to {formatDMY(
 									chosen.endDate
 								)}"
 							>
-								{formatDMY(chosen.startDate)} – {formatDMY(chosen.endDate)}
-								<CalendarRange
-									class="ml-1 inline size-[0.6em] align-[0.05em] text-muted-foreground transition-colors group-hover:text-foreground"
-								/>
+								<!-- Too narrow for both dates, the end wraps under the start, its icon with it. -->
+								<span class="whitespace-nowrap">{formatDMY(chosen.startDate)} –</span>
+								<span class="whitespace-nowrap"
+									>{formatDMY(chosen.endDate)}<CalendarRange
+										class="ml-1.5 inline size-[0.6em] align-[0.05em] text-muted-foreground transition-colors group-hover:text-foreground"
+									/></span
+								>
 							</button>
 						{:else}
 							<Button {...props} variant="outline" class="font-normal">
@@ -146,9 +154,7 @@
 				</p>
 			{:else if chosen}
 				<!-- What the invoice would come to, so you know before opening it. -->
-				<p
-					class="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-muted-foreground"
-				>
+				<p class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
 					{#if worth}
 						<span class="tabular-nums">
 							{#if worth.hours > 0}
@@ -157,6 +163,11 @@
 							{:else}
 								Nothing logged yet
 							{/if}
+						</span>
+					{/if}
+					{#if credit > 0 && client}
+						<span class="tabular-nums">
+							<span class="text-foreground">{formatMoney(credit, client.currency)}</span> credit
 						</span>
 					{/if}
 					{#if !due}

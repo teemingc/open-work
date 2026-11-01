@@ -112,7 +112,7 @@
 						<tbody>
 							{#each logRows as cells, index (index)}
 								<tr
-									class={index === 0 && cells.length === 3 ? 'font-semibold text-neutral-900' : ''}
+									class={index === 0 && cells[0] === 'Date' ? 'font-semibold text-neutral-900' : ''}
 								>
 									{#each cells as cell, cellIndex (cellIndex)}
 										<td class="py-0.5 pr-3 align-top whitespace-nowrap">{cell}</td>

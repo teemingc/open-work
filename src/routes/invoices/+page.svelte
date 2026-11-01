@@ -12,7 +12,13 @@
 	import { getExpenses, getMe } from '#lib/opencollective.remote.js';
 	import { isHttpError } from '@sveltejs/kit';
 	import { onMount } from 'svelte';
-	import { activeClients, invoiceFrequency, lastInvoicedEnd, type Client } from '#lib/worklog.js';
+	import {
+		activeClients,
+		availableCredit,
+		invoiceFrequency,
+		lastInvoicedEnd,
+		type Client
+	} from '#lib/worklog.js';
 	import { openWorkLog, type WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import { lastInvoicedEnd as lastExpenseEnd } from './expenses';
 	import EmailInvoicesTable from './EmailInvoicesTable.svelte';
@@ -167,6 +173,9 @@
 								failed={next?.failed}
 								{today}
 								entries={store?.data.entries}
+								credit={store && next?.client && !next.client.openCollective
+									? availableCredit({ invoices: store.data.invoices, client: next.client })
+									: 0}
 								showName={clients.length > 1}
 							/>
 						</li>

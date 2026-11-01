@@ -45,7 +45,7 @@ describe('buildExpense', () => {
 			description: validInput.title,
 			currency: 'USD',
 			payee: { slug: 'someone' },
-			payoutMethod: { publicId: 'po_123' },
+			payoutMethod: { id: 'po_123', publicId: 'po_123' },
 			items: [
 				{
 					description: validInput.itemDescription,

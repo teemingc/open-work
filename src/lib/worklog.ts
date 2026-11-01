@@ -102,7 +102,7 @@ const ClientSchema = v.object({
 	paymentDays: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
 	/** The invoice's one line item, like "Maintenance and development". */
 	lineItem: v.optional(v.string()),
-	/** The email's subject and message. `{period}` and `{number}` are filled in. */
+	/** The email's subject and message, with the invoice filled in; see `fillTemplate`. */
 	emailSubject: v.optional(v.string()),
 	emailMessage: v.optional(v.string())
 });
@@ -138,6 +138,17 @@ const InvoiceStatusSchema = v.picklist(['draft', 'sent', 'paid']);
 /** Where an invoice you send yourself is at: being written, sent, or paid. */
 export type InvoiceStatus = v.InferOutput<typeof InvoiceStatusSchema>;
 
+const AdjustmentSchema = v.object({
+	/** Why, like "Hosting" or "Discount". */
+	description: v.string(),
+	/** Taken off the invoice, or added to it. */
+	kind: v.picklist(['take-off', 'add']),
+	amount: v.pipe(v.number(), v.minValue(0))
+});
+
+/** An amount added to or taken off an invoice, with its reason. */
+export type Adjustment = v.InferOutput<typeof AdjustmentSchema>;
+
 const InvoiceSchema = v.object({
 	id: v.string(),
 	updatedAt: UpdatedAt,
@@ -151,12 +162,17 @@ const InvoiceSchema = v.object({
 	rate: Rate,
 	amount: v.pipe(v.number(), v.minValue(0)),
 	currency: Currency,
+	adjustments: v.optional(v.array(AdjustmentSchema)),
+	/** Credit from the client's earlier overpayments, used up on this invoice. */
+	credit: v.optional(v.pipe(v.number(), v.minValue(0))),
 	status: InvoiceStatusSchema,
 	/** Also the invoice's date of issue. */
 	sentOn: v.optional(IsoDate),
 	/** Set when it is sent, from the client's payment days then. */
 	dueOn: v.optional(IsoDate),
-	paidOn: v.optional(IsoDate)
+	paidOn: v.optional(IsoDate),
+	/** What the client paid. More than was due leaves them credit for later invoices. */
+	paidAmount: v.optional(v.pipe(v.number(), v.minValue(0)))
 });
 
 /**
@@ -177,6 +193,7 @@ const InvoicingSchema = v.object({
 		country: ''
 	}),
 	email: v.optional(v.string(), ''),
+	phone: v.optional(v.string(), ''),
 	/** A tax number from where you live, like a Malaysian income tax number. */
 	taxId: v.optional(v.string(), ''),
 	/** Your VAT number, if you have one. */
@@ -251,7 +268,7 @@ export function emptyWorkLog(): WorkLogData {
 
 /* ---------------------------------- Items ---------------------------------- */
 
-export const WORK_LOG_HEADER = 'Date | Repository | Issue/PR';
+export const WORK_LOG_HEADER = 'Date | Work';
 
 /**
  * `owner/repo/pull/1`, `repo/issues/2` (the owner defaults to your organization),
@@ -329,6 +346,12 @@ export function refCells({
 		case 'advisory':
 			return [repository, `Advisory ${ref.id}`];
 	}
+}
+
+/** What was worked on, in a few words: "kit PR #17292", or a task as written. */
+export function workLabel({ ref, organization }: { ref: WorkRef; organization?: string }): string {
+	if (ref.kind === 'task') return ref.text;
+	return refCells({ ref, organization }).join(' ');
 }
 
 export function refKey(ref: WorkRef): string {
@@ -433,7 +456,7 @@ export function workLogText({
 			const key = `${entry.date} ${refKey(ref)}`;
 			if (seen.has(key)) continue;
 			seen.add(key);
-			lines.push([formatDMY(entry.date), ...refCells({ ref, organization })].join(' | '));
+			lines.push(`${formatDMY(entry.date)} | ${workLabel({ ref, organization })}`);
 		}
 	}
 	return lines.length === 0 ? '' : [WORK_LOG_HEADER, ...lines].join('\n');
@@ -607,6 +630,82 @@ export function periodLabel({
 
 export const DEFAULT_PAYMENT_DAYS = 14;
 
+/** What an invoice comes to, step by step, in whole cents so the parts always add up. */
+export function invoiceTotals({
+	invoice,
+	client
+}: {
+	invoice: Pick<Invoice, 'amount' | 'adjustments' | 'credit'>;
+	client: Pick<Client, 'tax'>;
+}): {
+	/** The hours at their rates. */
+	lines: number;
+	/** Taken off and added by the adjustments, each as a positive amount. */
+	allowances: number;
+	charges: number;
+	/** What tax is worked out on. */
+	net: number;
+	tax: number;
+	total: number;
+	/** The credit used, never more than the total. */
+	credit: number;
+	due: number;
+	rate: number;
+	category: TaxCategory;
+} {
+	const cents = (amount: number) => Math.round(amount * 100);
+	const category = client.tax?.category ?? 'outside-scope';
+	const rate = category === 'standard' ? (client.tax?.rate ?? 0) : 0;
+	const lines = cents(invoice.amount);
+	let allowances = 0;
+	let charges = 0;
+	for (const { kind, amount } of invoice.adjustments ?? []) {
+		if (kind === 'take-off') allowances += cents(amount);
+		else charges += cents(amount);
+	}
+	const net = lines - allowances + charges;
+	const tax = Math.round((net * rate) / 100);
+	const total = net + tax;
+	const credit = Math.min(cents(invoice.credit ?? 0), Math.max(0, total));
+	return {
+		lines: lines / 100,
+		allowances: allowances / 100,
+		charges: charges / 100,
+		net: net / 100,
+		tax: tax / 100,
+		total: total / 100,
+		credit: credit / 100,
+		due: (total - credit) / 100,
+		rate,
+		category
+	};
+}
+
+/**
+ * The credit a client has left: what they overpaid on paid invoices, less what other invoices
+ * have used. `exceptId` leaves out the invoice being written, so its own credit is not counted.
+ */
+export function availableCredit({
+	invoices,
+	client,
+	exceptId
+}: {
+	invoices: Invoice[];
+	client: Pick<Client, 'id' | 'tax'>;
+	exceptId?: string;
+}): number {
+	let cents = 0;
+	for (const invoice of invoices) {
+		if (invoice.clientId !== client.id || invoice.id === exceptId) continue;
+		if (invoice.status === 'paid' && invoice.paidAmount !== undefined) {
+			const { due } = invoiceTotals({ invoice, client });
+			cents += Math.max(0, Math.round(invoice.paidAmount * 100) - Math.round(due * 100));
+		}
+		cents -= Math.round((invoice.credit ?? 0) * 100);
+	}
+	return Math.max(0, cents) / 100;
+}
+
 /** The invoice's date of issue and due date: when it was sent, or today for one not sent yet. */
 export function invoiceDates({
 	invoice,
@@ -651,29 +750,53 @@ export function invoiceMissing({
 	];
 }
 
-/** A subject or message with the invoice's `{period}` and `{number}` filled in. */
+/**
+ * A subject or message with the invoice filled in: `{period}`, `{number}`, `{amount}` (what is
+ * due, like $1,785.00 USD) and `{name}` (yours).
+ */
 export function fillTemplate({
 	template,
-	invoice
+	invoice,
+	amount,
+	name
 }: {
 	template: string;
 	invoice: Pick<Invoice, 'startDate' | 'endDate' | 'number'>;
+	amount: string;
+	name: string;
 }): string {
 	return template
 		.replaceAll('{period}', periodLabel(invoice))
-		.replaceAll('{number}', invoice.number ?? '');
+		.replaceAll('{number}', invoice.number ?? '')
+		.replaceAll('{amount}', amount)
+		.replaceAll('{name}', name)
+		.trim();
 }
 
 /** A link that opens your mail app with the invoice's email written. The PDF is attached by hand. */
 export function invoiceEmailHref({
 	client,
-	invoice
+	invoice,
+	invoicing
 }: {
-	client: Pick<Client, 'email' | 'emailSubject' | 'emailMessage'>;
-	invoice: Pick<Invoice, 'startDate' | 'endDate' | 'number'>;
+	client: Pick<Client, 'email' | 'emailSubject' | 'emailMessage' | 'tax' | 'currency'>;
+	invoice: Pick<
+		Invoice,
+		'startDate' | 'endDate' | 'number' | 'amount' | 'adjustments' | 'credit' | 'currency'
+	>;
+	invoicing: Pick<Invoicing, 'name'> | undefined;
 }): string {
-	const subject = fillTemplate({ template: client.emailSubject || DEFAULT_EMAIL_SUBJECT, invoice });
-	const body = fillTemplate({ template: client.emailMessage || DEFAULT_EMAIL_MESSAGE, invoice });
+	const { due } = invoiceTotals({ invoice, client });
+	const values = {
+		invoice,
+		amount: `${new Intl.NumberFormat('en-US', { style: 'currency', currency: invoice.currency }).format(due)} ${invoice.currency}`,
+		name: invoicing?.name.trim() ?? ''
+	};
+	const subject = fillTemplate({
+		template: client.emailSubject || DEFAULT_EMAIL_SUBJECT,
+		...values
+	});
+	const body = fillTemplate({ template: client.emailMessage || DEFAULT_EMAIL_MESSAGE, ...values });
 	const query = `subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 	return `mailto:${encodeURIComponent(client.email?.trim() ?? '').replaceAll('%40', '@')}?${query}`;
 }
@@ -694,32 +817,33 @@ export function invoiceFileName({
 	return [name || 'Invoice', 'Invoice', year, month, ...(day === '01' ? [] : [day])].join('_');
 }
 
+/** One line of an invoice's work log: the day and what was worked on. */
+export interface LogLine {
+	/** Like 02/09/2026. */
+	date: string;
+	/** Like "web PR #8", or a task as written. */
+	work: string;
+}
+
 /**
- * The work log as the invoice lists it, like "02/09/2026 – web pull/8", each item once a day.
- * When everything is in one organization, its name is left out.
+ * The work log as the invoice lists it, each item once a day. When everything is in one
+ * organization, its name is left out.
  */
-export function invoiceLogLines(entries: WorkLogEntry[]): string[] {
+export function invoiceLogLines(entries: WorkLogEntry[]): LogLine[] {
 	const owners = new Set(
 		entries.flatMap((entry) =>
 			entry.items.flatMap((ref) => (ref.kind === 'task' ? [] : [ref.owner.toLowerCase()]))
 		)
 	);
-	const repository = (ref: Exclude<WorkRef, { kind: 'task' }>) =>
-		owners.size === 1 ? ref.repo : `${ref.owner}/${ref.repo}`;
 	const seen = new Set<string>();
-	const lines: string[] = [];
+	const lines: LogLine[] = [];
 	for (const entry of [...entries].sort((a, b) => a.date.localeCompare(b.date))) {
 		for (const ref of entry.items) {
 			const key = `${entry.date} ${refKey(ref)}`;
 			if (seen.has(key)) continue;
 			seen.add(key);
-			const item =
-				ref.kind === 'task'
-					? ref.text
-					: ref.kind === 'advisory'
-						? `${repository(ref)} advisory ${ref.id}`
-						: `${repository(ref)} ${ref.kind === 'pr' ? 'pull' : 'issues'}/${ref.number}`;
-			lines.push(`${formatDMY(entry.date)} – ${item}`);
+			const organization = owners.size === 1 ? [...owners][0] : undefined;
+			lines.push({ date: formatDMY(entry.date), work: workLabel({ ref, organization }) });
 		}
 	}
 	return lines;

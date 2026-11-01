@@ -54,7 +54,10 @@ export function buildExpense({
 		description: input.title,
 		currency: input.currency,
 		payee: { slug: payeeSlug },
-		payoutMethod: { publicId: input.payoutMethodId },
+		// `createExpense` only looks a saved payout method up by `id`, though the schema deprecates it
+		// for `publicId`: given `publicId` alone, it takes the method for a new one and fails with
+		// "Invalid payout method type: undefined". `id` accepts the public id, so both are sent.
+		payoutMethod: { id: input.payoutMethodId, publicId: input.payoutMethodId },
 		items: [
 			{
 				description: input.itemDescription,

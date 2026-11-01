@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import * as Alert from '#lib/components/ui/alert/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Label } from '#lib/components/ui/label/index.js';
+	import * as Popover from '#lib/components/ui/popover/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
 	import { formatDMY, toIsoDate } from '#lib/format.js';
@@ -12,6 +15,7 @@
 		invoiceFileName,
 		invoiceLogLines,
 		invoiceMissing,
+		invoiceTotals,
 		type Client,
 		type Invoice,
 		type Invoicing
@@ -38,6 +42,7 @@
 	const client = $derived(invoice && store.client(invoice.clientId));
 	const invoicing = $derived(store.data.invoicing ?? emptyInvoicing());
 	const today = toIsoDate(new Date());
+	let paying = $state(false);
 	const missing = $derived(client ? invoiceMissing({ invoicing, client }) : []);
 	const fileName = $derived(
 		invoice && client ? `${invoiceFileName({ client, invoice })}.pdf` : 'invoice.pdf'
@@ -166,17 +171,52 @@
 					{/if}
 				{/await}
 				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- opens your mail app -->
-				<Button variant="outline" href={invoiceEmailHref({ client, invoice })}>
+				<Button variant="outline" href={invoiceEmailHref({ client, invoice, invoicing })}>
 					<Mail /> Email {client.name}
 				</Button>
 				{#if invoice.status === 'draft'}
 					<Button onclick={() => markSent(invoice, client)}><Check /> Mark sent</Button>
 				{:else if invoice.status === 'sent'}
-					<Button
-						onclick={() => store.setInvoiceStatus({ id: invoice.id, status: 'paid', on: today })}
-					>
-						<Check /> Mark paid
-					</Button>
+					{const due = $derived(invoiceTotals({ invoice, client }).due)}
+					<Popover.Root bind:open={paying}>
+						<Popover.Trigger>
+							{#snippet child({ props })}
+								<Button {...props}><Check /> Mark paid</Button>
+							{/snippet}
+						</Popover.Trigger>
+						<Popover.Content align="end" class="w-72">
+							<form
+								class="space-y-3"
+								onsubmit={(event) => {
+									event.preventDefault();
+									const received = Number(new FormData(event.currentTarget).get('received'));
+									if (!(received >= 0)) return;
+									store.setInvoiceStatus({
+										id: invoice.id,
+										status: 'paid',
+										on: today,
+										paidAmount: received
+									});
+									paying = false;
+								}}
+							>
+								<div class="space-y-1.5">
+									<Label for="received">Amount received ({invoice.currency})</Label>
+									<Input
+										id="received"
+										name="received"
+										type="number"
+										inputmode="decimal"
+										min="0"
+										step="0.01"
+										class="tabular-nums"
+										value={due.toFixed(2)}
+									/>
+								</div>
+								<Button type="submit" class="w-full"><Check /> Mark paid</Button>
+							</form>
+						</Popover.Content>
+					</Popover.Root>
 				{/if}
 			</div>
 		</div>

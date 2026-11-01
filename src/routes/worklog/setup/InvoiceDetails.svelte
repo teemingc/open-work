@@ -29,8 +29,8 @@
 	} = $props();
 
 	const TAX: Record<TaxCategory, string> = {
-		'outside-scope': 'No VAT: outside its scope',
-		'reverse-charge': 'No VAT: reverse charge',
+		'outside-scope': 'No VAT',
+		'reverse-charge': 'Reverse charge',
 		standard: 'VAT at a rate'
 	};
 
@@ -80,7 +80,7 @@
 >
 	<fieldset class="space-y-4">
 		<legend class="mb-3 font-medium">You</legend>
-		<div class="grid gap-3 sm:grid-cols-2">
+		<div class="grid gap-3 sm:grid-cols-3">
 			{@render field({
 				id: 'invoice-name',
 				label: 'Name',
@@ -94,6 +94,13 @@
 				value: invoicing.email,
 				save: (email) => change({ email })
 			})}
+			{@render field({
+				id: 'invoice-phone',
+				label: 'Phone',
+				type: 'tel',
+				value: invoicing.phone,
+				save: (phone) => change({ phone })
+			})}
 		</div>
 		<AddressFields
 			id="invoice-address"
@@ -103,8 +110,7 @@
 		<div class="grid gap-3 sm:grid-cols-2">
 			{@render field({
 				id: 'invoice-tax-id',
-				label: 'Tax number',
-				placeholder: 'Where you pay income tax',
+				label: 'Income tax number',
 				value: invoicing.taxId,
 				save: (taxId) => change({ taxId })
 			})}
@@ -188,7 +194,8 @@
 				address={client.address}
 				onchange={(address) => onchange(client, { address })}
 			/>
-			<div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_6rem_minmax(0,1fr)]">
+			<!-- Only what the chosen VAT treatment needs: most clients abroad need none of it. -->
+			<div class="grid gap-3 sm:grid-cols-3">
 				<div class="space-y-1.5">
 					<Label for="{client.id}-tax">VAT</Label>
 					<Select.Root
@@ -207,31 +214,33 @@
 						</Select.Content>
 					</Select.Root>
 				</div>
-				<div class="space-y-1.5">
-					<Label for="{client.id}-tax-rate">Rate (%)</Label>
-					<Input
-						id="{client.id}-tax-rate"
-						type="number"
-						inputmode="decimal"
-						min="0"
-						max="100"
-						step="0.1"
-						class="tabular-nums"
-						disabled={category !== 'standard'}
-						value={client.tax?.rate ?? ''}
-						onchange={(event) => {
-							const rate = Number(event.currentTarget.value);
-							if (rate >= 0 && rate <= 100) onchange(client, { tax: { category, rate } });
-						}}
-					/>
-				</div>
-				{@render field({
-					id: `${client.id}-vat-id`,
-					label: 'Their VAT number',
-					placeholder: 'For reverse charge',
-					value: client.vatId ?? '',
-					save: (vatId) => onchange(client, { vatId: vatId || undefined })
-				})}
+				{#if category === 'standard'}
+					<div class="space-y-1.5">
+						<Label for="{client.id}-tax-rate">Rate (%)</Label>
+						<Input
+							id="{client.id}-tax-rate"
+							type="number"
+							inputmode="decimal"
+							min="0"
+							max="100"
+							step="0.1"
+							class="tabular-nums"
+							value={client.tax?.rate ?? ''}
+							onchange={(event) => {
+								const rate = Number(event.currentTarget.value);
+								if (rate >= 0 && rate <= 100) onchange(client, { tax: { category, rate } });
+							}}
+						/>
+					</div>
+				{/if}
+				{#if category !== 'outside-scope'}
+					{@render field({
+						id: `${client.id}-vat-id`,
+						label: 'Their VAT number',
+						value: client.vatId ?? '',
+						save: (vatId) => onchange(client, { vatId: vatId || undefined })
+					})}
+				{/if}
 			</div>
 			<div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
 				{@render field({
@@ -283,7 +292,7 @@
 					onchange={(event) => onchange(client, { emailMessage: text(event) })}
 				/>
 				<p id="{client.id}-message-hint" class="text-xs text-muted-foreground">
-					Write {'{period}'} or {'{number}'} in the subject or message to fill them in.
+					{'{number}'}, {'{period}'}, {'{amount}'} and {'{name}'} are filled in from each invoice.
 				</p>
 			</div>
 		</fieldset>

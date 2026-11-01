@@ -7,6 +7,7 @@ import type { Invoice as EInvoice } from '@e-invoice-eu/core';
 import {
 	DEFAULT_LINE_ITEM,
 	invoiceDates,
+	invoiceTotals,
 	periodLabel,
 	type Address,
 	type Client,
@@ -21,29 +22,6 @@ const TAX_CODES: Record<TaxCategory, { code: string; reason?: string }> = {
 	'reverse-charge': { code: 'AE', reason: 'Reverse charge' },
 	standard: { code: 'S' }
 };
-
-/** What the invoice charges, with tax: everything in whole cents. */
-export function invoiceTotals({ invoice, client }: { invoice: Invoice; client: Client }): {
-	net: number;
-	tax: number;
-	total: number;
-	rate: number;
-	category: TaxCategory;
-	reason?: string;
-} {
-	const category = client.tax?.category ?? 'outside-scope';
-	const rate = category === 'standard' ? (client.tax?.rate ?? 0) : 0;
-	const net = Math.round(invoice.amount * 100);
-	const tax = Math.round((net * rate) / 100);
-	return {
-		net: net / 100,
-		tax: tax / 100,
-		total: (net + tax) / 100,
-		rate,
-		category,
-		reason: TAX_CODES[category].reason
-	};
-}
 
 function money(amount: number): string {
 	return amount.toFixed(2);
@@ -136,8 +114,11 @@ export function toEInvoice({
 							}
 						: {}),
 					'cac:PartyLegalEntity': { 'cbc:RegistrationName': invoicing.name.trim() },
-					...(invoicing.email.trim() && {
-						'cac:Contact': { 'cbc:ElectronicMail': invoicing.email.trim() }
+					...((invoicing.email.trim() || invoicing.phone.trim()) && {
+						'cac:Contact': {
+							...(invoicing.phone.trim() && { 'cbc:Telephone': invoicing.phone.trim() }),
+							...(invoicing.email.trim() && { 'cbc:ElectronicMail': invoicing.email.trim() })
+						}
 					})
 				}
 			},
@@ -177,6 +158,16 @@ export function toEInvoice({
 				}
 			],
 			'cac:PaymentTerms': { 'cbc:Note': `Payable within ${days} days` },
+			...((invoice.adjustments ?? []).length > 0 && {
+				// Adjustments are allowances (taken off) and charges (added) on the whole invoice.
+				'cac:AllowanceCharge': (invoice.adjustments ?? []).map((adjustment) => ({
+					'cbc:ChargeIndicator': adjustment.kind === 'add' ? 'true' : 'false',
+					'cbc:AllowanceChargeReason':
+						adjustment.description.trim() || (adjustment.kind === 'add' ? 'Charge' : 'Discount'),
+					...withCurrency('Amount', adjustment.amount),
+					'cac:TaxCategory': category
+				}))
+			}),
 			'cac:TaxTotal': [
 				{
 					...withCurrency('TaxAmount', totals.tax),
@@ -186,17 +177,21 @@ export function toEInvoice({
 							...withCurrency('TaxAmount', totals.tax),
 							'cac:TaxCategory': {
 								...category,
-								...(totals.reason && { 'cbc:TaxExemptionReason': totals.reason })
+								...(tax.reason && { 'cbc:TaxExemptionReason': tax.reason })
 							}
 						}
 					]
 				}
 			],
 			'cac:LegalMonetaryTotal': {
-				...withCurrency('LineExtensionAmount', totals.net),
+				...withCurrency('LineExtensionAmount', totals.lines),
+				...(totals.allowances > 0 && withCurrency('AllowanceTotalAmount', totals.allowances)),
+				...(totals.charges > 0 && withCurrency('ChargeTotalAmount', totals.charges)),
 				...withCurrency('TaxExclusiveAmount', totals.net),
 				...withCurrency('TaxInclusiveAmount', totals.total),
-				...withCurrency('PayableAmount', totals.total)
+				// Credit from earlier overpayments counts as paid already.
+				...(totals.credit > 0 && withCurrency('PrepaidAmount', totals.credit)),
+				...withCurrency('PayableAmount', totals.due)
 			},
 			'cac:InvoiceLine': [
 				{
@@ -204,7 +199,7 @@ export function toEInvoice({
 					// HUR is the UN/ECE code for an hour.
 					'cbc:InvoicedQuantity': String(invoice.hours),
 					'cbc:InvoicedQuantity@unitCode': 'HUR',
-					...withCurrency('LineExtensionAmount', totals.net),
+					...withCurrency('LineExtensionAmount', totals.lines),
 					'cac:Item': {
 						'cbc:Description': periodLabel(invoice),
 						'cbc:Name': client.lineItem?.trim() || DEFAULT_LINE_ITEM,
@@ -213,7 +208,7 @@ export function toEInvoice({
 					'cac:Price': {
 						// The hours times the rate makes the line, to the cent.
 						'cbc:PriceAmount':
-							invoice.hours > 0 ? (totals.net / invoice.hours).toFixed(4) : money(invoice.rate),
+							invoice.hours > 0 ? (totals.lines / invoice.hours).toFixed(4) : money(invoice.rate),
 						'cbc:PriceAmount@currencyID': currency
 					}
 				}

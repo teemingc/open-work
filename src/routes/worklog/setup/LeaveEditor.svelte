@@ -2,6 +2,7 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
+	import DateRangeInput from '#lib/components/DateRangeInput.svelte';
 	import * as Popover from '#lib/components/ui/popover/index.js';
 	import { RangeCalendar } from '#lib/components/ui/range-calendar/index.js';
 	import { parseIsoDate } from '#lib/format.js';
@@ -9,7 +10,6 @@
 	import { groupDaysOff, weekdaysBetween, type DayOffRange } from '#lib/worklog.js';
 	import { parseDate } from '@internationalized/date';
 	import { CalendarRange, Plus, Trash2 } from '@lucide/svelte';
-	import { MediaQuery } from 'svelte/reactivity';
 	import type { DateRange } from 'bits-ui';
 
 	let { store, year }: { store: WorkLogStore; year: string } = $props();
@@ -35,13 +35,9 @@
 		return { from, to: range.end?.toString() ?? from };
 	}
 
-	/** Two months fit side by side from this width (see range-calendar-months.svelte). */
-	const twoMonths = new MediaQuery('min-width: 32rem');
-	let picked = $state<DateRange | undefined>();
+	let picked = $state<{ from: string; to: string } | undefined>();
 	let note = $state('');
-	let pickerOpen = $state(false);
-	const pickedRange = $derived(toRange(picked));
-	const pickedDays = $derived(pickedRange ? weekdaysBetween(pickedRange) : []);
+	const pickedDays = $derived(picked ? weekdaysBetween(picked) : []);
 
 	function add() {
 		if (pickedDays.length === 0) return;
@@ -134,32 +130,12 @@
 			add();
 		}}
 	>
-		<div class="space-y-1.5">
-			<Label for="{id}-range">Days off</Label>
-			<Popover.Root bind:open={pickerOpen}>
-				<Popover.Trigger id="{id}-range">
-					{#snippet child({ props })}
-						<Button {...props} variant="outline" class="w-64 justify-start font-normal">
-							<CalendarRange />
-							{#if pickedRange}
-								{label(pickedRange)}
-							{:else}
-								<span class="text-muted-foreground">Pick the first and last day</span>
-							{/if}
-						</Button>
-					{/snippet}
-				</Popover.Trigger>
-				<Popover.Content class="w-auto p-0" align="start">
-					<RangeCalendar
-						bind:value={picked}
-						numberOfMonths={twoMonths.current ? 2 : 1}
-						onValueChange={(next) => {
-							if (next?.start && next.end) pickerOpen = false;
-						}}
-					/>
-				</Popover.Content>
-			</Popover.Root>
-		</div>
+		<DateRangeInput
+			label="Days off"
+			start={picked?.from}
+			end={picked?.to}
+			onchange={(range) => (picked = { from: range.start, to: range.end })}
+		/>
 		<div class="min-w-40 flex-1 space-y-1.5">
 			<Label for="{id}-note">Note</Label>
 			<Input id="{id}-note" bind:value={note} placeholder="Optional" />

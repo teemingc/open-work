@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
@@ -7,11 +8,13 @@
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import {
 		emptyInvoicing,
+		invoiceMissing,
 		invoiceLogLines,
 		type Client,
 		type Invoice,
 		type InvoiceStatus,
-		type Invoicing
+		type Invoicing,
+		type LogLine
 	} from '#lib/worklog.js';
 	import { onDestroy } from 'svelte';
 	import { CircleAlert, FileText, RotateCcw } from '@lucide/svelte';
@@ -30,6 +33,8 @@
 
 	const today = toIsoDate(new Date());
 	const invoicing = $derived(store.data.invoicing ?? emptyInvoicing());
+	/** Details the invoice needs from the clients page, said as things to add there. */
+	const missing = $derived(draft.client ? invoiceMissing({ invoicing, client: draft.client }) : []);
 	let fonts: Promise<{ regular: Uint8Array; semibold: Uint8Array }> | undefined;
 	let previous: string | undefined;
 
@@ -43,7 +48,7 @@
 		invoice: Invoice;
 		client: Client;
 		invoicing: Invoicing;
-		logLines: string[];
+		logLines: LogLine[];
 	}): Promise<string> {
 		const { drawInvoicePdf, invoiceFonts } = await import('#lib/invoice-pdf.js');
 		fonts ??= invoiceFonts();
@@ -121,8 +126,16 @@
 		/>
 	</div>
 
-	{#if problems.length > 0}
+	{#if problems.length > 0 || missing.length > 0}
 		<ul class="space-y-1 text-sm text-muted-foreground">
+			{#if missing.length > 0}
+				<li class="flex items-start gap-1.5">
+					<CircleAlert size={15} class="mt-0.5 shrink-0" />
+					<a href={resolve('/worklog/setup')} class="underline hover:text-foreground">
+						Add {missing.join(', ').replace(/, ([^,]*)$/, ' and $1')} in clients and days off
+					</a>
+				</li>
+			{/if}
 			{#each problems as problem (problem)}
 				<li class="flex items-start gap-1.5">
 					<CircleAlert size={15} class="mt-0.5 shrink-0" />{problem}

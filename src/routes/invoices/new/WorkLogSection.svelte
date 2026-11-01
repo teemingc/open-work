@@ -66,7 +66,7 @@
 			{formatDMY(draft.endDate)}.
 		</p>
 	{:else}
-		<ol class="ledger-rows max-h-96 overflow-y-auto rounded-lg border bg-card">
+		<ol class="ledger-rows relative max-h-96 overflow-y-auto rounded-lg border bg-card">
 			{#each days as day (day.date)}
 				<li class="p-3">
 					<div class="mb-1 flex items-baseline justify-between text-sm">

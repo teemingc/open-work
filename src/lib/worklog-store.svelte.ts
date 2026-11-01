@@ -344,12 +344,15 @@ export class WorkLogStore {
 		id,
 		status,
 		on,
-		dueOn
+		dueOn,
+		paidAmount
 	}: {
 		id: string;
 		status: InvoiceStatus;
 		on: string;
 		dueOn?: string;
+		/** What arrived, for a paid invoice. */
+		paidAmount?: number;
 	}) {
 		const invoice = this.invoice(id);
 		if (!invoice) return;
@@ -357,6 +360,7 @@ export class WorkLogStore {
 		invoice.sentOn = status === 'draft' ? undefined : (invoice.sentOn ?? on);
 		invoice.dueOn = status === 'draft' ? undefined : (invoice.dueOn ?? dueOn);
 		invoice.paidOn = status === 'paid' ? (invoice.paidOn ?? on) : undefined;
+		invoice.paidAmount = status === 'paid' ? (paidAmount ?? invoice.paidAmount) : undefined;
 		invoice.updatedAt = nowIso();
 		this.#save();
 	}

@@ -7,6 +7,7 @@
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
+	import DateRangeInput from '#lib/components/DateRangeInput.svelte';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import { formatDMY, formatHours, formatMoney, invoiceInfoText, nextPeriod } from '#lib/format.js';
 	import { driveSync } from '#lib/drive-sync.svelte.js';
@@ -17,6 +18,7 @@
 	import InvoiceSheet from './InvoiceSheet.svelte';
 	import SubmitPanel from './SubmitPanel.svelte';
 	import WorkLogSection from './WorkLogSection.svelte';
+	import AdjustmentsSection from './AdjustmentsSection.svelte';
 	import EmailInvoicePanel from './EmailInvoicePanel.svelte';
 
 	const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -166,22 +168,15 @@
 				<h2 id="time-heading" class="text-lg">Time</h2>
 
 				<div class="grid gap-x-4 gap-y-5 sm:grid-cols-2">
-					<div class="space-y-1.5">
-						<Label for="start-date">From</Label>
-						<Input
-							id="start-date"
-							type="date"
-							class="block"
-							bind:value={() => draft.startDate, (value) => value && (draft.startDate = value)}
-						/>
-					</div>
-					<div class="space-y-1.5">
-						<Label for="end-date">To</Label>
-						<Input
-							id="end-date"
-							type="date"
-							class="block"
-							bind:value={() => draft.endDate, (value) => value && (draft.endDate = value)}
+					<div class="sm:col-span-2">
+						<DateRangeInput
+							label="Period"
+							start={draft.startDate}
+							end={draft.endDate}
+							onchange={(range) => {
+								draft.startDate = range.start;
+								draft.endDate = range.end;
+							}}
 						/>
 					</div>
 					<div class="space-y-1.5">
@@ -247,6 +242,10 @@
 					</span>
 				</div>
 			</section>
+
+			{#if draft.byEmail}
+				<AdjustmentsSection {draft} />
+			{/if}
 
 			<WorkLogSection {draft} {store} organization={settings.organization} />
 

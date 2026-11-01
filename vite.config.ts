@@ -53,7 +53,8 @@ export default defineConfig({
 					'object-src': ['none'],
 					// The invoice PDF, made in the browser, is previewed from a blob URL.
 					'frame-src': ['self', 'blob:'],
-					'frame-ancestors': ['none']
+					// Only this app may frame its pages, which its own PDF previews need: a blob takes on this policy.
+					'frame-ancestors': ['self']
 				}
 			},
 			// Built from its own config, as `wrangler.jsonc` deploys `worker.ts`, which wraps the build.
