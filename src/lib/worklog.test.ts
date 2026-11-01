@@ -12,7 +12,11 @@ import {
 	groupDaysOff,
 	entryRate,
 	insertionIndex,
+	invoiceEmailHref,
+	invoiceFileName,
 	invoiceFrequency,
+	invoiceLogLines,
+	periodLabel,
 	lastInvoicedEnd,
 	suggestedInvoiceNumber,
 	mergeDaysOff,
@@ -328,6 +332,71 @@ describe('invoices', () => {
 		const old: Partial<WorkLogData> = emptyWorkLog();
 		delete old.invoices;
 		expect(v.parse(WorkLogSchema, old).invoices).toEqual([]);
+	});
+});
+
+describe('invoices by email', () => {
+	it('names a whole month, and spells out any other period', () => {
+		expect(periodLabel({ startDate: '2026-09-01', endDate: '2026-09-30' })).toBe('September 2026');
+		expect(periodLabel({ startDate: '2026-09-02', endDate: '2026-09-30' })).toBe(
+			'02/09/2026 – 30/09/2026'
+		);
+		expect(periodLabel({ startDate: '2026-10-16', endDate: '2026-10-31' })).toBe(
+			'16/10/2026 – 31/10/2026'
+		);
+	});
+
+	it('writes the email from the client’s templates, or the usual ones', () => {
+		const invoice = { startDate: '2026-09-01', endDate: '2026-09-30', number: 'ZENOS-2026-09' };
+		const href = invoiceEmailHref({
+			client: { email: 'zenos@ap.ramp.com', emailMessage: 'Hi Ben,\n\nHere is {number}.' },
+			invoice
+		});
+		const url = new URL(href);
+		expect(url.protocol).toBe('mailto:');
+		expect(url.pathname).toBe('zenos@ap.ramp.com');
+		expect(url.searchParams.get('subject')).toBe('Invoice for September 2026');
+		expect(url.searchParams.get('body')).toBe('Hi Ben,\n\nHere is ZENOS-2026-09.');
+	});
+
+	it('names the PDF after the client and month', () => {
+		expect(invoiceFileName({ client: zenos, invoice: { startDate: '2026-09-01' } })).toBe(
+			'zenos_Invoice_2026_09'
+		);
+		expect(
+			invoiceFileName({ client: { name: 'Acme Inc.' }, invoice: { startDate: '2026-10-16' } })
+		).toBe('Acme_Inc_Invoice_2026_10_16');
+	});
+
+	it('lists each item once a day, leaving out a shared organization', () => {
+		const pr = (repo: string, number: number): WorkRef => ({
+			kind: 'pr',
+			owner: 'zenoscorp',
+			repo,
+			number
+		});
+		const entries = [
+			entry({
+				date: '2026-09-11',
+				items: [{ kind: 'task', text: 'Set up simulation' }, pr('zenos_ws', 637)]
+			}),
+			entry({ date: '2026-09-02', items: [pr('web', 8)] }),
+			entry({ date: '2026-09-11', items: [pr('zenos_ws', 637)] })
+		];
+		expect(invoiceLogLines(entries)).toEqual([
+			'02/09/2026 – web pull/8',
+			'11/09/2026 – Set up simulation',
+			'11/09/2026 – zenos_ws pull/637'
+		]);
+		expect(
+			invoiceLogLines([
+				...entries,
+				entry({
+					date: '2026-09-12',
+					items: [{ kind: 'issue', owner: 'sveltejs', repo: 'kit', number: 1 }]
+				})
+			]).at(-1)
+		).toBe('12/09/2026 – sveltejs/kit issues/1');
 	});
 });
 

@@ -9,6 +9,7 @@ import {
 	type DayOff,
 	type Invoice,
 	type InvoiceStatus,
+	type Invoicing,
 	type Tombstone,
 	type WorkLogData,
 	type WorkLogEntry
@@ -338,11 +339,23 @@ export class WorkLogStore {
 	}
 
 	/** Move an invoice on to sent or paid, noting the day, or back to an earlier status. */
-	setInvoiceStatus({ id, status, on }: { id: string; status: InvoiceStatus; on: string }) {
+	/** `dueOn` is kept from when the invoice is first sent, so later payment days leave it be. */
+	setInvoiceStatus({
+		id,
+		status,
+		on,
+		dueOn
+	}: {
+		id: string;
+		status: InvoiceStatus;
+		on: string;
+		dueOn?: string;
+	}) {
 		const invoice = this.invoice(id);
 		if (!invoice) return;
 		invoice.status = status;
 		invoice.sentOn = status === 'draft' ? undefined : (invoice.sentOn ?? on);
+		invoice.dueOn = status === 'draft' ? undefined : (invoice.dueOn ?? dueOn);
 		invoice.paidOn = status === 'paid' ? (invoice.paidOn ?? on) : undefined;
 		invoice.updatedAt = nowIso();
 		this.#save();
@@ -362,6 +375,14 @@ export class WorkLogStore {
 		this.data.hoursPerDay = hoursPerDay;
 		this.data.exchange = exchange;
 		this.data.scheduleUpdatedAt = nowIso();
+		this.#save();
+	}
+
+	/* Invoices by email */
+
+	setInvoicing(invoicing: Invoicing) {
+		this.data.invoicing = invoicing;
+		this.data.invoicingUpdatedAt = nowIso();
 		this.#save();
 	}
 
@@ -442,6 +463,7 @@ export class WorkLogStore {
 			leave: backup.leave.map(stamp),
 			invoices: backup.invoices.map(stamp),
 			scheduleUpdatedAt: at,
+			invoicingUpdatedAt: at,
 			deleted: [...backup.deleted, ...gone]
 		};
 		this.#save();

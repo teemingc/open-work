@@ -178,6 +178,7 @@ export class Draft {
 			currency: this.currency,
 			status,
 			sentOn: status === 'draft' ? undefined : (saved?.sentOn ?? today),
+			dueOn: status === 'draft' ? undefined : saved?.dueOn,
 			paidOn: status === 'paid' ? saved?.paidOn : undefined
 		};
 	}

@@ -51,6 +51,8 @@ export default defineConfig({
 					'form-action': ['self'],
 					'base-uri': ['self'],
 					'object-src': ['none'],
+					// The invoice PDF, made in the browser, is previewed from a blob URL.
+					'frame-src': ['self', 'blob:'],
 					'frame-ancestors': ['none']
 				}
 			},

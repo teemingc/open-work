@@ -4,7 +4,7 @@
  */
 
 import * as v from 'valibot';
-import { formatDMY, parseIsoDate, toIsoDate } from './format';
+import { addDays, formatDMY, parseIsoDate, toIsoDate } from './format';
 
 /* ---------------------------------- Shape ---------------------------------- */
 
@@ -41,6 +41,37 @@ const FrequencySchema = v.picklist(['monthly', 'twice-monthly']);
 /** How often a client is invoiced: once a month, or for the 1st–15th and the 16th–end. */
 export type InvoiceFrequency = v.InferOutput<typeof FrequencySchema>;
 
+const AddressSchema = v.object({
+	street: v.optional(v.string(), ''),
+	/** A second line, like a floor or building. */
+	extra: v.optional(v.string(), ''),
+	city: v.optional(v.string(), ''),
+	postcode: v.optional(v.string(), ''),
+	/** A state or province, where the address needs one. */
+	region: v.optional(v.string(), ''),
+	/** A two-letter country code, like MY or US. */
+	country: v.optional(v.string(), '')
+});
+
+/** A postal address, in the parts an e-invoice asks for. */
+export type Address = v.InferOutput<typeof AddressSchema>;
+
+const TaxCategorySchema = v.picklist(['outside-scope', 'reverse-charge', 'standard']);
+
+/**
+ * How an invoice is taxed: outside the scope of VAT (as for work done for a client in another
+ * country), reverse charge (the client accounts for VAT), or VAT added at a rate.
+ */
+export type TaxCategory = v.InferOutput<typeof TaxCategorySchema>;
+
+const TaxSchema = v.object({
+	category: TaxCategorySchema,
+	/** The VAT rate in percent, for `standard`. */
+	rate: v.optional(v.pipe(v.number(), v.minValue(0), v.maxValue(100)))
+});
+
+export type Tax = v.InferOutput<typeof TaxSchema>;
+
 const ClientSchema = v.object({
 	id: v.string(),
 	updatedAt: UpdatedAt,
@@ -57,7 +88,23 @@ const ClientSchema = v.object({
 	/** The percentage of each month's expected hours meant for this client. */
 	targetShare: v.optional(v.pipe(v.number(), v.minValue(0), v.maxValue(100))),
 	/** Kept for the time logged for it, but no longer offered for new work or invoices. */
-	archived: v.optional(v.boolean())
+	archived: v.optional(v.boolean()),
+	/** For clients invoiced by email: where the invoice goes. */
+	email: v.optional(v.string()),
+	/** The client's legal name on the invoice, when it differs from the name you use. */
+	legalName: v.optional(v.string()),
+	address: v.optional(AddressSchema),
+	/** The client's VAT number, for reverse-charge invoices. */
+	vatId: v.optional(v.string()),
+	/** How the invoice is taxed. Unset is outside the scope of VAT, as for most clients abroad. */
+	tax: v.optional(TaxSchema),
+	/** Days the client has to pay. */
+	paymentDays: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+	/** The invoice's one line item, like "Maintenance and development". */
+	lineItem: v.optional(v.string()),
+	/** The email's subject and message. `{period}` and `{number}` are filled in. */
+	emailSubject: v.optional(v.string()),
+	emailMessage: v.optional(v.string())
 });
 
 export type Client = v.InferOutput<typeof ClientSchema>;
@@ -105,7 +152,10 @@ const InvoiceSchema = v.object({
 	amount: v.pipe(v.number(), v.minValue(0)),
 	currency: Currency,
 	status: InvoiceStatusSchema,
+	/** Also the invoice's date of issue. */
 	sentOn: v.optional(IsoDate),
+	/** Set when it is sent, from the client's payment days then. */
+	dueOn: v.optional(IsoDate),
 	paidOn: v.optional(IsoDate)
 });
 
@@ -114,6 +164,42 @@ const InvoiceSchema = v.object({
  * read from there instead.
  */
 export type Invoice = v.InferOutput<typeof InvoiceSchema>;
+
+const InvoicingSchema = v.object({
+	/** Your name, or your business's, as the invoice is from. */
+	name: v.optional(v.string(), ''),
+	address: v.optional(AddressSchema, {
+		street: '',
+		extra: '',
+		city: '',
+		postcode: '',
+		region: '',
+		country: ''
+	}),
+	email: v.optional(v.string(), ''),
+	/** A tax number from where you live, like a Malaysian income tax number. */
+	taxId: v.optional(v.string(), ''),
+	/** Your VAT number, if you have one. */
+	vatId: v.optional(v.string(), ''),
+	/** The bank account you are paid into. */
+	accountName: v.optional(v.string(), ''),
+	/** An IBAN, or an account number where there is none. */
+	accountNumber: v.optional(v.string(), ''),
+	/** The bank's BIC or SWIFT code. */
+	bic: v.optional(v.string(), ''),
+	/** Anything else needed to pay you, like the bank's name and a routing number. */
+	payment: v.optional(v.string(), ''),
+	/** Anything else every invoice says, like your tax status. */
+	notes: v.optional(v.string(), '')
+});
+
+/** What every invoice you email says about you. */
+export type Invoicing = v.InferOutput<typeof InvoicingSchema>;
+
+/** Invoice details with nothing filled in yet. */
+export function emptyInvoicing(): Invoicing {
+	return v.parse(InvoicingSchema, {});
+}
 
 const TombstoneSchema = v.object({
 	kind: v.picklist(['entry', 'client', 'holiday', 'leave', 'invoice']),
@@ -141,6 +227,9 @@ export const WorkLogSchema = v.object({
 	updatedAt: v.optional(v.string()),
 	/** When the hours per day or the exchange rate last changed. */
 	scheduleUpdatedAt: v.optional(v.string()),
+	invoicing: v.optional(InvoicingSchema),
+	/** When your invoice details last changed. */
+	invoicingUpdatedAt: v.optional(v.string()),
 	/** Records deleted here, so a copy that still has them does not bring them back. */
 	deleted: v.optional(v.array(TombstoneSchema), [])
 });
@@ -492,6 +581,148 @@ export function suggestedInvoiceNumber({
 		.replace(/[^A-Z0-9]+/g, '-')
 		.replace(/^-|-$/g, '');
 	return `${prefix || 'INVOICE'}-${startDate.slice(0, 7)}`;
+}
+
+/* ---------------------------------- Invoices by email ---------------------------------- */
+
+export const DEFAULT_LINE_ITEM = 'Maintenance and development';
+export const DEFAULT_EMAIL_SUBJECT = 'Invoice for {period}';
+export const DEFAULT_EMAIL_MESSAGE =
+	"Hi,\n\nI've attached the invoice for {period}.\n\nKind regards,";
+
+/** "September 2026" for a whole month, else "16/10/2026 – 31/10/2026". */
+export function periodLabel({
+	startDate,
+	endDate
+}: Pick<Invoice, 'startDate' | 'endDate'>): string {
+	const start = parseIsoDate(startDate);
+	const wholeMonth =
+		startDate.endsWith('-01') &&
+		monthOf(startDate) === monthOf(endDate) &&
+		addDays(endDate, 1).endsWith('-01');
+	return wholeMonth
+		? start.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+		: `${formatDMY(startDate)} – ${formatDMY(endDate)}`;
+}
+
+export const DEFAULT_PAYMENT_DAYS = 14;
+
+/** The invoice's date of issue and due date: when it was sent, or today for one not sent yet. */
+export function invoiceDates({
+	invoice,
+	client,
+	today
+}: {
+	invoice: Pick<Invoice, 'sentOn' | 'dueOn'>;
+	client: Pick<Client, 'paymentDays'>;
+	today: string;
+}): { issuedOn: string; dueOn: string } {
+	const issuedOn = invoice.sentOn ?? today;
+	return {
+		issuedOn,
+		dueOn: invoice.dueOn ?? addDays(issuedOn, client.paymentDays ?? DEFAULT_PAYMENT_DAYS)
+	};
+}
+
+/** Whether an address has the parts every e-invoice needs: a city and a two-letter country. */
+export function addressComplete(address: Address | undefined): boolean {
+	return !!address?.city.trim() && /^[A-Z]{2}$/.test(address.country.trim());
+}
+
+/** What the invoice still needs before it can be made, said as things to add. */
+export function invoiceMissing({
+	invoicing,
+	client
+}: {
+	invoicing: Invoicing | undefined;
+	client: Client;
+}): string[] {
+	return [
+		...(invoicing?.name.trim() ? [] : ['your name']),
+		...(addressComplete(invoicing?.address) ? [] : ['your city and country']),
+		...(invoicing?.accountNumber.trim() ? [] : ['your bank account']),
+		...(addressComplete(client.address) ? [] : [`${client.name}’s city and country`]),
+		...(client.tax?.category === 'reverse-charge' && !client.vatId?.trim()
+			? [`${client.name}’s VAT number`]
+			: []),
+		...(client.tax?.category === 'reverse-charge' && !invoicing?.vatId.trim()
+			? ['your VAT number']
+			: [])
+	];
+}
+
+/** A subject or message with the invoice's `{period}` and `{number}` filled in. */
+export function fillTemplate({
+	template,
+	invoice
+}: {
+	template: string;
+	invoice: Pick<Invoice, 'startDate' | 'endDate' | 'number'>;
+}): string {
+	return template
+		.replaceAll('{period}', periodLabel(invoice))
+		.replaceAll('{number}', invoice.number ?? '');
+}
+
+/** A link that opens your mail app with the invoice's email written. The PDF is attached by hand. */
+export function invoiceEmailHref({
+	client,
+	invoice
+}: {
+	client: Pick<Client, 'email' | 'emailSubject' | 'emailMessage'>;
+	invoice: Pick<Invoice, 'startDate' | 'endDate' | 'number'>;
+}): string {
+	const subject = fillTemplate({ template: client.emailSubject || DEFAULT_EMAIL_SUBJECT, invoice });
+	const body = fillTemplate({ template: client.emailMessage || DEFAULT_EMAIL_MESSAGE, invoice });
+	const query = `subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+	return `mailto:${encodeURIComponent(client.email?.trim() ?? '').replaceAll('%40', '@')}?${query}`;
+}
+
+/** "Zenos_Invoice_2026_09", the PDF's name. A second invoice in a month adds its first day. */
+export function invoiceFileName({
+	client,
+	invoice
+}: {
+	client: Pick<Client, 'name'>;
+	invoice: Pick<Invoice, 'startDate'>;
+}): string {
+	const name = client.name
+		.trim()
+		.replace(/[^A-Za-z0-9]+/g, '_')
+		.replace(/^_|_$/g, '');
+	const [year, month, day] = invoice.startDate.split('-');
+	return [name || 'Invoice', 'Invoice', year, month, ...(day === '01' ? [] : [day])].join('_');
+}
+
+/**
+ * The work log as the invoice lists it, like "02/09/2026 – web pull/8", each item once a day.
+ * When everything is in one organization, its name is left out.
+ */
+export function invoiceLogLines(entries: WorkLogEntry[]): string[] {
+	const owners = new Set(
+		entries.flatMap((entry) =>
+			entry.items.flatMap((ref) => (ref.kind === 'task' ? [] : [ref.owner.toLowerCase()]))
+		)
+	);
+	const repository = (ref: Exclude<WorkRef, { kind: 'task' }>) =>
+		owners.size === 1 ? ref.repo : `${ref.owner}/${ref.repo}`;
+	const seen = new Set<string>();
+	const lines: string[] = [];
+	for (const entry of [...entries].sort((a, b) => a.date.localeCompare(b.date))) {
+		for (const ref of entry.items) {
+			const key = `${entry.date} ${refKey(ref)}`;
+			if (seen.has(key)) continue;
+			seen.add(key);
+			const item =
+				ref.kind === 'task'
+					? ref.text
+					: ref.kind === 'advisory'
+						? `${repository(ref)} advisory ${ref.id}`
+						: `${repository(ref)} ${ref.kind === 'pr' ? 'pull' : 'issues'}/${ref.number}`;
+			lines.push(`${formatDMY(entry.date)} – ${item}`);
+		}
+	}
+	return lines;
 }
 
 /* ---------------------------------- Calendar ---------------------------------- */

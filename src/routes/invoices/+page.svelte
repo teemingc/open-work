@@ -183,7 +183,7 @@
 							here.
 						</p>
 					{:else}
-						<EmailInvoicesTable {store} highlightId={page.state.savedInvoiceId} />
+						<EmailInvoicesTable {store} />
 					{/if}
 				</section>
 			{/if}

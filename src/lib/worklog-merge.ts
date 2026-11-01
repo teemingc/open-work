@@ -79,6 +79,8 @@ export function mergeWorkLogs({
 	}
 	const deletedAt = (kind: Kind) => (id: string) => tombstones.get(`${kind}:${id}`)?.at;
 
+	const invoicing =
+		(theirs.invoicingUpdatedAt ?? '') > (ours.invoicingUpdatedAt ?? '') ? theirs : ours;
 	const schedule =
 		(theirs.scheduleUpdatedAt ?? '') > (ours.scheduleUpdatedAt ?? '') ? theirs : ours;
 
@@ -117,6 +119,8 @@ export function mergeWorkLogs({
 		hoursPerDay: schedule.hoursPerDay,
 		exchange: schedule.exchange,
 		scheduleUpdatedAt: schedule.scheduleUpdatedAt,
+		invoicing: invoicing.invoicing,
+		invoicingUpdatedAt: invoicing.invoicingUpdatedAt,
 		updatedAt: newer({ updatedAt: ours.updatedAt }, { updatedAt: theirs.updatedAt }).updatedAt,
 		deleted: [...tombstones.values()]
 	};

@@ -36,6 +36,7 @@
 	} from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import DaysOffEditor from './DaysOffEditor.svelte';
+	import InvoiceDetails from './InvoiceDetails.svelte';
 	import LeaveEditor from './LeaveEditor.svelte';
 
 	const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD', 'MYR', 'SGD'];
@@ -68,6 +69,7 @@
 	let clientMessage = $state<string | undefined>();
 	const clients = $derived(store.data.clients.filter((client) => !client.archived));
 	const archived = $derived(store.data.clients.filter((client) => client.archived));
+	const emailed = $derived(clients.filter((client) => !client.openCollective));
 	/** Clients with logged time are archived rather than deleted, so no entry loses its client. */
 	const clientsWithTime = $derived(new Set(store.data.entries.map((entry) => entry.clientId)));
 	let backupMessage = $state<{ tone: 'ok' | 'error'; text: string } | undefined>();
@@ -416,6 +418,10 @@
 		<Plus /> Add a client
 	</Button>
 </SettingsSection>
+
+{#if emailed.length > 0}
+	<InvoiceDetails {store} clients={emailed} onchange={changeClient} />
+{/if}
 
 <SettingsSection
 	title="Expected hours"

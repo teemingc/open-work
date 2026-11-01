@@ -37,6 +37,7 @@
 		"@tailwindcss/vite": "^4.3.3",
 		"@types/d3-hierarchy": "^3.1.7",
 		"@types/d3-scale": "^4.0.9",
+		"@types/fontkit": "^2.0.9",
 		"@types/node": "^26.6.5",
 		"@typescript/native": "catalog:",
 		"better-auth": "^1.7.10",
@@ -68,6 +69,9 @@
 		"#lib/*": "./src/lib/*"
 	},
 	"dependencies": {
-		"d3-hierarchy": "^3.1.2"
+		"@cantoo/pdf-lib": "^2.11.1",
+		"@e-invoice-eu/core": "^3.4.2",
+		"d3-hierarchy": "^3.1.2",
+		"fontkit": "^2.0.4"
 	}
 }

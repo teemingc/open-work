@@ -128,7 +128,7 @@
 
 	function onSaved(savedInvoiceId: string) {
 		submitted = true;
-		goto(resolve('/invoices'), { replace: true, state: { savedInvoiceId } });
+		goto(resolve('/invoices/[id]', { id: savedInvoiceId }), { replace: true });
 	}
 
 	function onSubmitted(submittedUrl: string | undefined) {
@@ -204,15 +204,9 @@
 							min="0"
 							step="0.5"
 							class="tabular-nums"
-							aria-describedby="hours-source"
 							bind:value={hoursInput.get, hoursInput.set}
 							onblur={hoursInput.blur}
 						/>
-						<p id="hours-source" class="text-xs text-muted-foreground">
-							{draft.hoursOverride === undefined
-								? 'Added up from the times in your work log.'
-								: 'Typed by you.'}
-						</p>
 					</div>
 					<div class="space-y-1.5">
 						<div class="flex items-center justify-between">

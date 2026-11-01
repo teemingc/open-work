@@ -4,22 +4,23 @@
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { formatDMY, formatMoney, toIsoDate } from '#lib/format.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import type { Invoice } from '#lib/worklog.js';
+	import { invoiceDates, type Invoice } from '#lib/worklog.js';
 	import { Check, Pencil, Send, Trash2 } from '@lucide/svelte';
 	import StatusBadge from './StatusBadge.svelte';
 
-	let {
-		store,
-		highlightId
-	}: {
-		store: WorkLogStore;
-		/** Briefly marks this invoice, such as one just saved. */
-		highlightId?: string;
-	} = $props();
+	let { store }: { store: WorkLogStore } = $props();
 
 	/** Newest first, as the list of expenses sent to Open Collective. */
 	const invoices = $derived(store.data.invoices.toReversed());
 	let removing = $state<Invoice | undefined>();
+
+	/** Sent today, and due after the client's payment days from today. */
+	function markSent(invoice: Invoice) {
+		const today = toIsoDate(new Date());
+		const client = store.client(invoice.clientId);
+		const { dueOn } = invoiceDates({ invoice, client: client ?? {}, today });
+		store.setInvoiceStatus({ id: invoice.id, status: 'sent', on: today, dueOn });
+	}
 
 	function label(invoice: Invoice): string {
 		return invoice.number || `${formatDMY(invoice.startDate)} – ${formatDMY(invoice.endDate)}`;
@@ -45,13 +46,14 @@
 			{#each invoices as invoice (invoice.id)}
 				{const on = invoice.paidOn ?? invoice.sentOn}
 				<tr
-					class={[
-						'grid grid-cols-[minmax(0,1fr)_auto] items-center py-1.5 hover:bg-accent/50 sm:table-row sm:py-0',
-						invoice.id === highlightId && 'just-saved'
-					]}
+					class="grid grid-cols-[minmax(0,1fr)_auto] items-center py-1.5 hover:bg-accent/50 sm:table-row sm:py-0"
 				>
 					<td class="px-4 pt-1.5 sm:py-3">
-						<span class="font-medium whitespace-nowrap">{invoice.number || '—'}</span>
+						<a
+							href={resolve('/invoices/[id]', { id: invoice.id })}
+							class="font-medium whitespace-nowrap underline-offset-4 hover:underline"
+							>{invoice.number || 'Invoice'}</a
+						>
 						<span class="block text-xs text-muted-foreground">
 							{store.client(invoice.clientId)?.name ?? 'Removed client'}
 							<span class="whitespace-nowrap tabular-nums sm:hidden">
@@ -82,16 +84,7 @@
 					<td class="col-span-2 row-start-2 justify-self-end px-2 py-1.5 sm:px-4 sm:py-3">
 						<div class="flex justify-end gap-1">
 							{#if invoice.status === 'draft'}
-								<Button
-									variant="ghost"
-									size="sm"
-									onclick={() =>
-										store.setInvoiceStatus({
-											id: invoice.id,
-											status: 'sent',
-											on: toIsoDate(new Date())
-										})}
-								>
+								<Button variant="ghost" size="sm" onclick={() => markSent(invoice)}>
 									<Send /> Mark sent
 								</Button>
 							{:else if invoice.status === 'sent'}
@@ -156,16 +149,3 @@
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
-
-<style>
-	/* Fades from a tint to nothing, so the invoice you just saved is easy to find. */
-	.just-saved {
-		animation: just-saved 1200ms cubic-bezier(0.23, 1, 0.32, 1) 300ms backwards;
-	}
-
-	@keyframes just-saved {
-		from {
-			background-color: color-mix(in oklch, var(--primary) 12%, transparent);
-		}
-	}
-</style>

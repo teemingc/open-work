@@ -30,8 +30,7 @@
 	const problems = $derived([
 		...missing.map((item) => `Add your ${item} in settings`),
 		...(draft.needsClient ? ['Choose the client this invoice bills'] : []),
-		...(draft.startDate <= draft.endDate ? [] : ['Make the period end on or after it starts']),
-		...(draft.hours > 0 ? [] : ['Log your time or enter the hours you worked'])
+		...(draft.startDate <= draft.endDate ? [] : ['Make the period end on or after it starts'])
 	]);
 	const fields = submitExpense.fields;
 	const notes = $derived(
@@ -102,7 +101,7 @@
 	<Button
 		size="lg"
 		class="w-full motion-safe:active:scale-[0.98]"
-		disabled={problems.length > 0}
+		disabled={problems.length > 0 || draft.hours <= 0}
 		onclick={() => (confirmOpen = true)}><Send />Submit to Open Collective</Button
 	>
 

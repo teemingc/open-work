@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { emptyWorkLog, type Invoice, type WorkLogData, type WorkLogEntry } from './worklog';
+import {
+	emptyInvoicing,
+	emptyWorkLog,
+	type Invoice,
+	type WorkLogData,
+	type WorkLogEntry
+} from './worklog';
 import { mergeWorkLogs, removedBy, sameWorkLog } from './worklog-merge';
 
 const now = new Date('2026-10-18T12:00:00Z');
@@ -110,6 +116,18 @@ describe('mergeWorkLogs', () => {
 		]);
 		expect(merged.hoursPerDay).toBe(7);
 		expect(merged.exchange).toEqual({ from: 'USD', to: 'MYR', rate: 4 });
+	});
+
+	it('keeps the invoice details changed last', () => {
+		const merged = mergeWorkLogs({
+			ours: log({ invoicing: { ...emptyInvoicing(), name: 'Old' }, invoicingUpdatedAt: at(10) }),
+			theirs: log({
+				invoicing: { ...emptyInvoicing(), name: 'Older' },
+				invoicingUpdatedAt: at(9)
+			}),
+			now
+		});
+		expect(merged.invoicing?.name).toBe('Old');
 	});
 
 	it('gives the same result whichever copy is ours', () => {
