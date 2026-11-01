@@ -4,8 +4,14 @@
 	import * as Popover from '#lib/components/ui/popover/index.js';
 	import { RangeCalendar } from '#lib/components/ui/range-calendar/index.js';
 	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
-	import { addDays, formatDMY } from '#lib/format.js';
-	import type { Client } from '#lib/worklog.js';
+	import { addDays, formatDMY, formatHours, formatMoney } from '#lib/format.js';
+	import {
+		earnings,
+		entriesFor,
+		invoiceFrequency,
+		type Client,
+		type WorkLogEntry
+	} from '#lib/worklog.js';
 	import { parseDate } from '@internationalized/date';
 	import { CalendarRange, Undo2 } from '@lucide/svelte';
 	import type { DateRange } from 'bits-ui';
@@ -17,6 +23,7 @@
 		pending = false,
 		failed = false,
 		today,
+		entries = [],
 		showName = false
 	}: {
 		client?: Client;
@@ -27,6 +34,8 @@
 		/** The last invoice is unknown, so there is no suggestion and the dates must be picked. */
 		failed?: boolean;
 		today: string;
+		/** The work log, to show what the period bills so far. */
+		entries?: WorkLogEntry[];
 		showName?: boolean;
 	} = $props();
 
@@ -43,51 +52,71 @@
 			: suggested
 	);
 	const due = $derived(chosen !== undefined && chosen.endDate < today);
+	/** What the period bills from the time logged in it so far. */
+	const worth = $derived(
+		client && chosen
+			? {
+					...earnings({ client, entries: entriesFor({ entries, clientId: client.id, ...chosen }) }),
+					currency: client.currency
+				}
+			: undefined
+	);
 	const labelId = $props.id();
 </script>
 
 <form
 	method="GET"
 	action={resolve('/invoices/new')}
-	class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
+	class={[
+		'grid gap-x-8 gap-y-3 sm:items-center',
+		showName ? 'sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto]' : 'sm:grid-cols-[1fr_auto]'
+	]}
 >
 	{#if chosen}
 		<input type="hidden" name="start" value={chosen.startDate} />
 		<input type="hidden" name="end" value={chosen.endDate} />
 	{/if}
 	{#if client}<input type="hidden" name="client" value={client.id} />{/if}
-	<div>
-		{#if client && showName}
-			<h3 id={labelId} class="font-medium">{client.name}</h3>
-		{/if}
+	<!-- In a column of its own, so every client's dates line up like a ledger. -->
+	{#if client && showName}
+		<div class="min-w-0">
+			<h3 id={labelId} class="truncate font-display text-lg leading-tight">{client.name}</h3>
+			<p class="mt-0.5 text-xs text-muted-foreground">
+				{client.openCollective ? 'Open Collective' : 'Email'}, {invoiceFrequency(client) ===
+				'monthly'
+					? 'monthly'
+					: 'twice a month'}
+			</p>
+		</div>
+	{/if}
+	<div class="min-w-0">
 		{#if pending}
-			<Skeleton class="mt-1 h-10 w-96 max-w-full" />
+			<Skeleton class="h-8 w-72 max-w-full" />
+			<Skeleton class="mt-2 h-4 w-40" />
 		{:else}
 			<Popover.Root bind:open>
 				<Popover.Trigger>
 					{#snippet child({ props })}
 						{#if chosen}
-							<!-- The dates are the picker, so changing them happens where you read them. -->
+							<!--
+								The dates are the picker, so changing them happens where you read them. The dotted
+								rule marks them as something to click, as on a form you fill in by hand.
+							-->
 							<button
 								{...props}
 								type="button"
-								class="group -mx-1.5 mt-0.5 block w-fit animate-in rounded-md px-1.5 py-0.5 text-left font-display text-2xl duration-300 outline-none fade-in hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:text-3xl"
+								class="group block w-fit animate-in rounded-sm text-left font-display text-xl leading-snug whitespace-nowrap tabular-nums underline decoration-muted-foreground/40 decoration-dotted decoration-1 underline-offset-[0.25em] duration-300 outline-none fade-in hover:decoration-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:text-[1.75rem]"
 								aria-label="Change dates, {formatDMY(chosen.startDate)} to {formatDMY(
 									chosen.endDate
 								)}"
 							>
-								<!-- On a narrow screen the end date wraps onto its own line rather than overflowing. -->
-								<span class="whitespace-nowrap">{formatDMY(chosen.startDate)} –</span>
-								<!-- The icon stays with the end date, so it never drifts to the far edge. -->
-								<span class="whitespace-nowrap">
-									{formatDMY(chosen.endDate)}
-									<CalendarRange
-										class="ml-2 inline size-5 align-[-0.1em] text-muted-foreground transition-colors group-hover:text-foreground"
-									/>
-								</span>
+								{formatDMY(chosen.startDate)} – {formatDMY(chosen.endDate)}
+								<CalendarRange
+									class="ml-1 inline size-[0.6em] align-[0.05em] text-muted-foreground transition-colors group-hover:text-foreground"
+								/>
 							</button>
 						{:else}
-							<Button {...props} variant="outline" class="mt-2 font-normal">
+							<Button {...props} variant="outline" class="font-normal">
 								<CalendarRange />
 								Pick the first and last day
 							</Button>
@@ -115,18 +144,34 @@
 				<p class="mt-2 text-sm text-muted-foreground">
 					Could not check what you last invoiced, so pick the dates yourself.
 				</p>
-			{:else if picked && suggested}
-				<button
-					type="button"
-					class="mt-1 inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-					onclick={() => (picked = undefined)}
+			{:else if chosen}
+				<!-- What the invoice would come to, so you know before opening it. -->
+				<p
+					class="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-muted-foreground"
 				>
-					<Undo2 size={14} />
-					Use the suggested dates
-				</button>
-			{:else if chosen && !due}
-				<p class="mt-1 text-sm text-muted-foreground">
-					Due from {formatDMY(addDays(chosen.endDate, 1))}
+					{#if worth}
+						<span class="tabular-nums">
+							{#if worth.hours > 0}
+								<span class="text-foreground">{formatHours(worth.hours)} h</span> logged,
+								<span class="text-foreground">{formatMoney(worth.amount, worth.currency)}</span>
+							{:else}
+								Nothing logged yet
+							{/if}
+						</span>
+					{/if}
+					{#if !due}
+						<span>Due from {formatDMY(addDays(chosen.endDate, 1))}</span>
+					{/if}
+					{#if picked && suggested}
+						<button
+							type="button"
+							class="inline-flex items-center gap-1 underline-offset-4 hover:text-foreground hover:underline"
+							onclick={() => (picked = undefined)}
+						>
+							<Undo2 size={14} />
+							Use the suggested dates
+						</button>
+					{/if}
 				</p>
 			{/if}
 		{/if}
@@ -134,6 +179,7 @@
 	<Button
 		type="submit"
 		size="lg"
+		class="mt-1 sm:mt-0"
 		variant={chosen && !due ? 'outline' : 'default'}
 		disabled={pending || !chosen}
 		aria-describedby={client && showName ? labelId : undefined}

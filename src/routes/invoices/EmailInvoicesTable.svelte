@@ -26,9 +26,13 @@
 	}
 </script>
 
-<div class="animate-in overflow-x-auto rounded-xl border bg-card duration-300 fade-in">
+<!--
+	A ledger on a wide screen. On a phone each invoice takes two lines instead of scrolling sideways:
+	what it is and what it is for, then where it is at and what to do next.
+-->
+<div class="animate-in overflow-hidden rounded-xl border bg-card duration-300 fade-in">
 	<table class="ledger text-sm">
-		<thead>
+		<thead class="max-sm:sr-only">
 			<tr>
 				<th scope="col" class="px-4 py-2.5 font-medium">Invoice</th>
 				<th scope="col" class="px-4 py-2.5 font-medium">Period</th>
@@ -39,28 +43,43 @@
 		</thead>
 		<tbody>
 			{#each invoices as invoice (invoice.id)}
-				<tr class={['hover:bg-accent/50', invoice.id === highlightId && 'just-saved']}>
-					<td class="px-4 py-3">
-						<span class="font-medium">{invoice.number || '—'}</span>
+				{const on = invoice.paidOn ?? invoice.sentOn}
+				<tr
+					class={[
+						'grid grid-cols-[minmax(0,1fr)_auto] items-center py-1.5 hover:bg-accent/50 sm:table-row sm:py-0',
+						invoice.id === highlightId && 'just-saved'
+					]}
+				>
+					<td class="px-4 pt-1.5 sm:py-3">
+						<span class="font-medium whitespace-nowrap">{invoice.number || '—'}</span>
 						<span class="block text-xs text-muted-foreground">
 							{store.client(invoice.clientId)?.name ?? 'Removed client'}
+							<span class="whitespace-nowrap tabular-nums sm:hidden">
+								· {formatDMY(invoice.startDate)} – {formatDMY(invoice.endDate)}
+							</span>
 						</span>
 					</td>
-					<td class="px-4 py-3 whitespace-nowrap tabular-nums">
+					<td class="hidden px-4 py-3 whitespace-nowrap tabular-nums sm:table-cell">
 						{formatDMY(invoice.startDate)} – {formatDMY(invoice.endDate)}
 					</td>
-					<td class="px-4 py-3 text-right tabular-nums">
+					<td
+						class="self-start px-4 pt-1.5 text-right font-medium tabular-nums sm:py-3 sm:font-normal"
+					>
 						{formatMoney(invoice.amount, invoice.currency)}
 					</td>
-					<td class="px-4 py-3 whitespace-nowrap">
-						<StatusBadge status={invoice.status.toUpperCase()} />
-						{#if invoice.paidOn ?? invoice.sentOn}
-							<span class="block text-xs text-muted-foreground tabular-nums">
-								{formatDMY((invoice.paidOn ?? invoice.sentOn)!)}
-							</span>
-						{/if}
+					<td
+						class="col-span-2 row-start-2 self-center justify-self-start px-4 py-1.5 whitespace-nowrap sm:py-3"
+					>
+						<!-- The date beside the status it dates, rather than in small type under it. -->
+						<span class="inline-flex items-center gap-2">
+							<StatusBadge status={invoice.status.toUpperCase()} />
+							{#if on}
+								<span class="text-xs text-muted-foreground tabular-nums">{formatDMY(on)}</span>
+							{/if}
+						</span>
 					</td>
-					<td class="px-4 py-3">
+					<!-- Shares the status's line on a phone, so the amount alone sets the column's width. -->
+					<td class="col-span-2 row-start-2 justify-self-end px-2 py-1.5 sm:px-4 sm:py-3">
 						<div class="flex justify-end gap-1">
 							{#if invoice.status === 'draft'}
 								<Button

@@ -87,10 +87,11 @@
 			<thead class="text-xs">
 				<tr>
 					<th class="px-3 py-2 font-medium">Client</th>
-					<th class="px-3 py-2 text-right font-medium">Hours</th>
+					<th class="px-3 py-2 text-right font-medium">
+						{targets ? 'Hours of target' : 'Hours'}
+					</th>
 					{#if targets}
-						<th class="px-3 py-2 text-right font-medium">Target</th>
-						<th class="px-3 py-2 text-right font-medium">Still to log</th>
+						<th class="px-3 py-2 text-right font-medium whitespace-nowrap">To log</th>
 					{/if}
 					<th class="px-3 py-2 text-right font-medium">Rate</th>
 					<th class="px-3 py-2 text-right font-medium">Earned</th>
@@ -104,13 +105,34 @@
 					{const local = $derived(converted({ data, amounts: { [client.currency]: amount } }))}
 					<tr>
 						<td class="px-3 py-2">{client.name}</td>
-						<td class="px-3 py-2 text-right">{formatHours(hours)}</td>
+						<!--
+							The hours and the target they count towards share a cell, with a bar under them, so
+							progress reads at a glance instead of as two numbers to compare.
+						-->
+						<td class="px-3 py-2 text-right whitespace-nowrap">
+							{formatHours(hours)}
+							{#if target !== undefined}
+								<span class="text-muted-foreground">/ {formatHours(target)}</span>
+								<span class="mt-1 ml-auto block h-1 w-24 overflow-hidden rounded-full bg-border">
+									<span
+										class={[
+											'block h-full rounded-full',
+											hours >= target ? 'bg-status-paid' : 'bg-primary/70'
+										]}
+										style:width="{target > 0 ? Math.min(100, (hours / target) * 100) : 100}%"
+									></span>
+								</span>
+							{/if}
+						</td>
 						{#if targets}
-							<td class="px-3 py-2 text-right">
-								{target === undefined ? '—' : formatHours(target)}
-							</td>
-							<td class="px-3 py-2 text-right">
-								{target === undefined ? '—' : formatHours(Math.max(0, target - hours))}
+							<td class="px-3 py-2 text-right whitespace-nowrap">
+								{#if target === undefined}
+									<span class="text-muted-foreground">—</span>
+								{:else if hours >= target}
+									<span class="text-status-paid">Reached</span>
+								{:else}
+									{formatHours(target - hours)}
+								{/if}
 							</td>
 						{/if}
 						<td class="px-3 py-2 text-right">

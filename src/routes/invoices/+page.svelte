@@ -152,19 +152,21 @@
 				</Alert.Root>
 			{/if}
 
-			<section class="rounded-xl border bg-card p-5 sm:p-6" aria-labelledby="next-heading">
-				<h2 id="next-heading" class="text-sm font-medium text-muted-foreground">
+			<!-- Titled like the sections below it, so the page reads as three equal parts. -->
+			<section aria-labelledby="next-heading">
+				<h2 id="next-heading" class="mb-3 text-lg">
 					Next invoice{(nextInvoices?.length ?? 0) > 1 ? 's' : ''}
 				</h2>
-				<ul class="divide-y">
+				<ul class="ledger-rows divide-y overflow-hidden rounded-xl border bg-card">
 					{#each nextInvoices ?? [undefined] as next, index (next?.client?.id ?? index)}
-						<li class="py-4 first:pt-1 last:pb-0">
+						<li class="px-5 py-4 sm:px-6 sm:py-5">
 							<NextInvoice
 								client={next?.client}
 								period={next?.period}
 								pending={!next || next.pending}
 								failed={next?.failed}
 								{today}
+								entries={store?.data.entries}
 								showName={clients.length > 1}
 							/>
 						</li>

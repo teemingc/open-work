@@ -130,94 +130,90 @@
 >
 	<ul class="space-y-3">
 		{#each clients as client (client.id)}
-			<li
-				class="grid grid-cols-2 gap-3 rounded-lg border bg-card p-3 sm:grid-cols-[1fr_7rem_7rem_auto] sm:items-end"
-			>
-				<!-- On a phone the name shares its row with the delete button; wider, everything is one row. -->
-				<div class="col-span-2 flex items-end gap-2 sm:contents">
-					<div class="min-w-0 flex-1 space-y-1.5">
-						<Label for="{client.id}-name">Name</Label>
-						<Input
-							id="{client.id}-name"
-							value={client.name}
-							onchange={(event) => {
-								const name = event.currentTarget.value.trim();
-								if (name) changeClient(client, { name });
-							}}
-						/>
-					</div>
+			<li class="rounded-lg border bg-card">
+				<!-- The name heads the card, so each client reads as its own record rather than a row of equal fields. -->
+				<div class="flex items-center gap-2 border-b py-2 pr-2 pl-1.5">
+					<Label for="{client.id}-name" class="sr-only">Name</Label>
+					<Input
+						id="{client.id}-name"
+						class="h-9 min-w-0 flex-1 border-transparent bg-transparent px-1.5 font-display text-lg shadow-none hover:border-input focus-visible:border-ring md:text-lg dark:bg-transparent"
+						value={client.name}
+						onchange={(event) => {
+							const name = event.currentTarget.value.trim();
+							if (name) changeClient(client, { name });
+						}}
+					/>
 					{#if clientsWithTime.has(client.id)}
 						<Button
 							variant="ghost"
-							size="icon"
-							class="shrink-0 sm:col-start-4 sm:row-start-1"
+							size="sm"
+							class="shrink-0 text-muted-foreground"
 							aria-label="Archive {client.name}"
-							title="Archive"
 							onclick={() => changeClient(client, { archived: true })}
 						>
-							<Archive size={16} />
+							<Archive /> Archive
 						</Button>
 					{:else}
 						<Button
 							variant="ghost"
-							size="icon"
-							class="shrink-0 sm:col-start-4 sm:row-start-1"
+							size="sm"
+							class="shrink-0 text-muted-foreground"
 							aria-label="Remove {client.name}"
-							title="Remove"
 							onclick={() => {
 								clientMessage = store.removeClient(client.id)
 									? undefined
 									: `${client.name} has logged time, so it stays.`;
 							}}
 						>
-							<Trash2 size={16} />
+							<Trash2 /> Remove
 						</Button>
 					{/if}
 				</div>
-				<div class="space-y-1.5">
-					<Label for="{client.id}-rate">Per hour</Label>
-					<Input
-						id="{client.id}-rate"
-						type="number"
-						inputmode="decimal"
-						min="0"
-						step="0.01"
-						class="tabular-nums"
-						value={rateOn(client, toIsoDate(new Date()))}
-						onchange={(event) => {
-							const rate = Number(event.currentTarget.value);
-							if (Number.isFinite(rate) && rate >= 0) {
-								store.updateClient(
-									withCurrentRate({
-										client: latest(client),
-										rate,
-										today: toIsoDate(new Date())
-									})
-								);
-							}
-						}}
-					/>
-				</div>
-				<div class="space-y-1.5">
-					<Label for="{client.id}-currency">Currency</Label>
-					<Select.Root
-						type="single"
-						value={client.currency}
-						onValueChange={(currency) => changeClient(client, { currency })}
-					>
-						<Select.Trigger id="{client.id}-currency" class="w-full"
-							>{client.currency}</Select.Trigger
-						>
-						<Select.Content>
-							{#each CURRENCIES as code (code)}
-								<Select.Item value={code}>{code}</Select.Item>
-							{/each}
-						</Select.Content>
-					</Select.Root>
-				</div>
-				<div
-					class="col-span-2 grid grid-cols-2 gap-3 border-t pt-3 sm:col-span-4 sm:grid-cols-[1fr_1fr_9rem]"
-				>
+				<div class="grid grid-cols-2 gap-x-3 gap-y-4 p-3 lg:grid-cols-4">
+					<div class="space-y-1.5">
+						<Label for="{client.id}-rate">Per hour</Label>
+						<!-- The currency is part of the rate, so it is attached to it rather than a field of its own. -->
+						<div class="flex">
+							<Input
+								id="{client.id}-rate"
+								type="number"
+								inputmode="decimal"
+								min="0"
+								step="0.01"
+								class="min-w-0 rounded-r-none tabular-nums focus-visible:z-10"
+								value={rateOn(client, toIsoDate(new Date()))}
+								onchange={(event) => {
+									const rate = Number(event.currentTarget.value);
+									if (Number.isFinite(rate) && rate >= 0) {
+										store.updateClient(
+											withCurrentRate({
+												client: latest(client),
+												rate,
+												today: toIsoDate(new Date())
+											})
+										);
+									}
+								}}
+							/>
+							<Select.Root
+								type="single"
+								value={client.currency}
+								onValueChange={(currency) => changeClient(client, { currency })}
+							>
+								<Select.Trigger
+									class="-ml-px w-[5.25rem] shrink-0 rounded-l-none bg-muted/50"
+									aria-label="Currency"
+								>
+									{client.currency}
+								</Select.Trigger>
+								<Select.Content>
+									{#each CURRENCIES as code (code)}
+										<Select.Item value={code}>{code}</Select.Item>
+									{/each}
+								</Select.Content>
+							</Select.Root>
+						</div>
+					</div>
 					<div class="space-y-1.5">
 						<Label for="{client.id}-method">Invoiced through</Label>
 						<Select.Root
@@ -254,119 +250,127 @@
 							</Select.Content>
 						</Select.Root>
 					</div>
-					<div class="col-span-2 space-y-1.5 sm:col-span-1">
-						<Label for="{client.id}-share">Share of hours (%)</Label>
-						<Input
-							id="{client.id}-share"
-							type="number"
-							inputmode="decimal"
-							min="0"
-							max="100"
-							step="1"
-							placeholder="None"
-							class="tabular-nums"
-							value={client.targetShare ?? ''}
-							onchange={(event) => {
-								const text = event.currentTarget.value.trim();
-								const share = Number(text);
-								if (!text) changeClient(client, { targetShare: undefined });
-								else if (Number.isFinite(share) && share >= 0 && share <= 100) {
-									changeClient(client, { targetShare: share });
-								}
-							}}
-						/>
+					<div class="space-y-1.5">
+						<Label for="{client.id}-share">Share of hours</Label>
+						<!-- The unit sits in the field, and only once there is a number for it to qualify. -->
+						<div class="relative">
+							<Input
+								id="{client.id}-share"
+								type="number"
+								inputmode="decimal"
+								min="0"
+								max="100"
+								step="1"
+								placeholder="None"
+								class="peer pr-8 tabular-nums"
+								value={client.targetShare ?? ''}
+								onchange={(event) => {
+									const text = event.currentTarget.value.trim();
+									const share = Number(text);
+									if (!text) changeClient(client, { targetShare: undefined });
+									else if (Number.isFinite(share) && share >= 0 && share <= 100) {
+										changeClient(client, { targetShare: share });
+									}
+								}}
+							/>
+							<span
+								class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-muted-foreground peer-placeholder-shown:hidden"
+								aria-hidden="true">%</span
+							>
+						</div>
 					</div>
-				</div>
-				<details class="group col-span-2 sm:col-span-4" open={(client.rates?.length ?? 0) > 0}>
-					<summary
-						class="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden"
-					>
-						<ChevronRight
-							size={15}
-							class="transition-transform group-open:rotate-90 motion-reduce:transition-none"
-						/>
-						Rate changes
-					</summary>
-					<div class="mt-3 space-y-3">
-						<p class="text-xs text-muted-foreground">
-							Each rate applies from its date until the next change, so past work earns what you
-							billed at the time.
-						</p>
-						{#if client.rates?.length}
-							<div class="max-w-40 space-y-1.5">
-								<Label for="{client.id}-base-rate">Before {formatDMY(client.rates[0].from)}</Label>
-								<Input
-									id="{client.id}-base-rate"
-									type="number"
-									inputmode="decimal"
-									min="0"
-									step="0.01"
-									class="tabular-nums"
-									value={client.rate}
-									onchange={(event) => {
-										const rate = Number(event.currentTarget.value);
-										if (Number.isFinite(rate) && rate >= 0) changeClient(client, { rate });
-									}}
-								/>
-							</div>
-						{/if}
-						{#each client.rates ?? [] as change, index (index)}
-							<div class="grid grid-cols-[1fr_7rem_auto] items-end gap-3">
-								<div class="space-y-1.5">
-									<Label for="{client.id}-rate-{index}-from">From</Label>
+					<details class="group col-span-2 lg:col-span-4" open={(client.rates?.length ?? 0) > 0}>
+						<summary
+							class="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden"
+						>
+							<ChevronRight
+								size={15}
+								class="transition-transform group-open:rotate-90 motion-reduce:transition-none"
+							/>
+							Rate changes
+						</summary>
+						<div class="mt-3 space-y-3">
+							<p class="text-xs text-muted-foreground">
+								Each rate applies from its date until the next change, so past work earns what you
+								billed at the time.
+							</p>
+							{#if client.rates?.length}
+								<div class="max-w-40 space-y-1.5">
+									<Label for="{client.id}-base-rate">Before {formatDMY(client.rates[0].from)}</Label
+									>
 									<Input
-										id="{client.id}-rate-{index}-from"
-										type="date"
-										value={change.from}
-										onchange={(event) => {
-											const from = event.currentTarget.value;
-											if (from) changeRates(client, (rates) => (rates[index].from = from));
-										}}
-									/>
-								</div>
-								<div class="space-y-1.5">
-									<Label for="{client.id}-rate-{index}-rate">Per hour</Label>
-									<Input
-										id="{client.id}-rate-{index}-rate"
+										id="{client.id}-base-rate"
 										type="number"
 										inputmode="decimal"
 										min="0"
 										step="0.01"
 										class="tabular-nums"
-										value={change.rate}
+										value={client.rate}
 										onchange={(event) => {
 											const rate = Number(event.currentTarget.value);
-											if (Number.isFinite(rate) && rate >= 0) {
-												changeRates(client, (rates) => (rates[index].rate = rate));
-											}
+											if (Number.isFinite(rate) && rate >= 0) changeClient(client, { rate });
 										}}
 									/>
 								</div>
-								<Button
-									variant="ghost"
-									size="icon"
-									aria-label="Remove the rate from {change.from}"
-									onclick={() => changeRates(client, (rates) => rates.splice(index, 1))}
-								>
-									<Trash2 size={16} />
-								</Button>
-							</div>
-						{/each}
-						<Button
-							variant="outline"
-							size="sm"
-							onclick={() =>
-								changeRates(client, (rates) =>
-									rates.push({
-										from: toIsoDate(new Date()),
-										rate: rateOn(client, toIsoDate(new Date()))
-									})
-								)}
-						>
-							<Plus /> Add a rate change
-						</Button>
-					</div>
-				</details>
+							{/if}
+							{#each client.rates ?? [] as change, index (index)}
+								<div class="grid grid-cols-[1fr_7rem_auto] items-end gap-3">
+									<div class="space-y-1.5">
+										<Label for="{client.id}-rate-{index}-from">From</Label>
+										<Input
+											id="{client.id}-rate-{index}-from"
+											type="date"
+											value={change.from}
+											onchange={(event) => {
+												const from = event.currentTarget.value;
+												if (from) changeRates(client, (rates) => (rates[index].from = from));
+											}}
+										/>
+									</div>
+									<div class="space-y-1.5">
+										<Label for="{client.id}-rate-{index}-rate">Per hour</Label>
+										<Input
+											id="{client.id}-rate-{index}-rate"
+											type="number"
+											inputmode="decimal"
+											min="0"
+											step="0.01"
+											class="tabular-nums"
+											value={change.rate}
+											onchange={(event) => {
+												const rate = Number(event.currentTarget.value);
+												if (Number.isFinite(rate) && rate >= 0) {
+													changeRates(client, (rates) => (rates[index].rate = rate));
+												}
+											}}
+										/>
+									</div>
+									<Button
+										variant="ghost"
+										size="icon"
+										aria-label="Remove the rate from {change.from}"
+										onclick={() => changeRates(client, (rates) => rates.splice(index, 1))}
+									>
+										<Trash2 size={16} />
+									</Button>
+								</div>
+							{/each}
+							<Button
+								variant="outline"
+								size="sm"
+								onclick={() =>
+									changeRates(client, (rates) =>
+										rates.push({
+											from: toIsoDate(new Date()),
+											rate: rateOn(client, toIsoDate(new Date()))
+										})
+									)}
+							>
+								<Plus /> Add a rate change
+							</Button>
+						</div>
+					</details>
+				</div>
 			</li>
 		{/each}
 	</ul>
@@ -382,10 +386,11 @@
 				/>
 				Archived clients ({archived.length})
 			</summary>
-			<ul class="mt-3 divide-y rounded-lg border bg-card">
+			<!-- A quiet ruled list rather than cards: these are kept for their history, not edited. -->
+			<ul class="mt-2 ml-5 divide-y border-y text-sm">
 				{#each archived as client (client.id)}
-					<li class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-						<span class="min-w-0 truncate">{client.name}</span>
+					<li class="flex items-center justify-between gap-3 py-1">
+						<span class="min-w-0 truncate text-muted-foreground">{client.name}</span>
 						<Button
 							variant="ghost"
 							size="sm"
