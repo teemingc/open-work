@@ -17,6 +17,7 @@
 	} from '#lib/worklog.js';
 	import { Plus, X } from '@lucide/svelte';
 	import { untrack } from 'svelte';
+	import TimeInput from './TimeInput.svelte';
 
 	let {
 		clients,
@@ -125,14 +126,8 @@
 			</Select.Content>
 		</Select.Root>
 	</div>
-	<div class="space-y-1.5">
-		<Label for="{id}-start">Start</Label>
-		<Input id="{id}-start" type="time" step="900" bind:value={rowStart} class="block" />
-	</div>
-	<div class="space-y-1.5">
-		<Label for="{id}-end">End</Label>
-		<Input id="{id}-end" type="time" step="900" bind:value={rowEnd} class="block" />
-	</div>
+	<TimeInput label="Start" bind:value={rowStart} />
+	<TimeInput label="End" bind:value={rowEnd} />
 
 	{#if !timed}
 		<div class="space-y-1.5">
@@ -158,12 +153,8 @@
 			step="0.01"
 			class="tabular-nums"
 			placeholder={clientRate === undefined ? undefined : String(clientRate)}
-			aria-describedby="{id}-rate-hint"
 			bind:value={rowRate}
 		/>
-		<p id="{id}-rate-hint" class="text-xs text-muted-foreground">
-			Leave empty to use the client's rate on this date.
-		</p>
 	</div>
 
 	<div class="col-span-2 space-y-1.5">
@@ -172,7 +163,7 @@
 			<Input
 				id="{id}-item"
 				bind:value={itemText}
-				placeholder="owner/repo/pull/123"
+				placeholder="owner/repo/pull/123, or a task like a meeting"
 				autocomplete="off"
 				spellcheck={false}
 				aria-describedby="{id}-item-hint"
@@ -199,10 +190,7 @@
 				That looks like a GitHub path but is missing a number, like owner/repo/pull/123.
 			</span>
 		{:else if parsed}
-			{describeRef(parsed)}. Press Enter to add it.
-		{:else}
-			A GitHub link or path like <code class="font-mono">owner/repo/pull/123</code>, or a task like
-			a meeting. Add as many as you worked on in this block.
+			{describeRef(parsed)}
 		{/if}
 	</p>
 

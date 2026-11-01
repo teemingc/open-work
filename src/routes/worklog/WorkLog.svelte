@@ -199,9 +199,13 @@
 		<MonthStats {summary} data={store.data} {current} />
 	</section>
 
-	<div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-		<section class="space-y-3" aria-labelledby="entries-heading">
-			<h2 id="entries-heading" class="text-lg">Entries</h2>
+	<!--
+		In rows rather than columns, so each card shares its height with the one beside it: the entry
+		form with the month's pace, the days logged with the hours each day.
+	-->
+	<section class="space-y-3" aria-labelledby="entries-heading">
+		<h2 id="entries-heading" class="text-lg">Entries</h2>
+		<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 			{#if clients.length === 0}
 				<p class="text-sm text-muted-foreground">
 					Add a client in
@@ -211,7 +215,7 @@
 					to start logging.
 				</p>
 			{:else}
-				<Card.Root>
+				<Card.Root class="h-full">
 					<Card.Content>
 						<!-- A fresh form for each month. It takes its date once, so a reused one kept the last month's. -->
 						{#key month}
@@ -226,12 +230,12 @@
 					</Card.Content>
 				</Card.Root>
 			{/if}
+			<MonthCharts chart="pace" {summary} clients={store.data.clients} {today} />
 			<DayList {store} {summary} organization={settings.organization} bind:justAdded />
-		</section>
+			<MonthCharts chart="daily" {summary} clients={store.data.clients} {today} />
+		</div>
+	</section>
 
-		<section class="space-y-6" aria-label="Charts">
-			<MonthCharts {summary} clients={store.data.clients} {today} />
-			<YearOverview data={store.data} year={Number(month.slice(0, 4))} {today} />
-		</section>
-	</div>
+	<!-- The year across the page's full width: its table of months is the widest thing here. -->
+	<YearOverview data={store.data} year={Number(month.slice(0, 4))} {today} />
 </div>

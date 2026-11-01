@@ -8,8 +8,18 @@
 	import { scaleBand, scaleTime } from 'd3-scale';
 	import { clientColor } from './colors';
 
-	let { summary, clients, today }: { summary: MonthSummary; clients: Client[]; today: string } =
-		$props();
+	let {
+		chart,
+		summary,
+		clients,
+		today
+	}: {
+		/** Which of the month's two charts: its pace, or its hours each day. */
+		chart: 'pace' | 'daily';
+		summary: MonthSummary;
+		clients: Client[];
+		today: string;
+	} = $props();
 
 	const dayMonth = new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short' });
 	const weekdayDayMonth = new Intl.DateTimeFormat('en', {
@@ -62,8 +72,8 @@
 	</div>
 {/snippet}
 
-<div class="grid gap-4">
-	<Card.Root>
+{#if chart === 'pace'}
+	<Card.Root class="h-full">
 		<Card.Header>
 			<Card.Title>Pace</Card.Title>
 			<Card.Description>Hours logged so far against the hours you aim for.</Card.Description>
@@ -125,8 +135,8 @@
 			</LazyChart>
 		</Card.Content>
 	</Card.Root>
-
-	<Card.Root>
+{:else}
+	<Card.Root class="h-full">
 		<Card.Header>
 			<Card.Title>Hours each day</Card.Title>
 			<Card.Description
@@ -189,4 +199,4 @@
 			</LazyChart>
 		</Card.Content>
 	</Card.Root>
-</div>
+{/if}

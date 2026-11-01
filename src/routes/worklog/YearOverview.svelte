@@ -27,12 +27,20 @@
 		});
 	});
 
+	/**
+	 * A finished month that fell short of its expected hours draws its logged bar as `short`, in the
+	 * alarming colour; the month under way is not counted short until it ends.
+	 */
 	const chartData = $derived(
-		months.map(({ month, summary }) => ({
-			month,
-			expected: summary.expected,
-			logged: summary.logged
-		}))
+		months.map(({ month, summary }) => {
+			const short = month < today.slice(0, 7) && summary.logged < summary.expected;
+			return {
+				month,
+				expected: summary.expected,
+				logged: short ? null : summary.logged,
+				short: short ? summary.logged : null
+			};
+		})
 	);
 
 	const totals = $derived.by(() => {
@@ -57,7 +65,8 @@
 
 	const config = {
 		expected: { label: 'Expected', color: 'var(--color-chart-other)' },
-		logged: { label: 'Logged', color: 'var(--color-chart-balance)' }
+		logged: { label: 'Logged', color: 'var(--color-chart-balance)' },
+		short: { label: 'Short of expected', color: 'var(--color-chart-expenses)' }
 	} satisfies ChartConfig;
 
 	const money = (amounts: Record<string, number>) =>
@@ -67,10 +76,13 @@
 </script>
 
 {#snippet hoursRow({ value, name }: { value: unknown; name: string })}
-	<div class="flex w-full justify-between gap-4">
-		<span class="text-muted-foreground">{name}</span>
-		<span class="font-medium tabular-nums">{formatHours(Number(value))} h</span>
-	</div>
+	<!-- A month is either logged or short, so the other of the two has nothing to say. -->
+	{#if value !== null && value !== undefined}
+		<div class="flex w-full justify-between gap-4">
+			<span class="text-muted-foreground">{name}</span>
+			<span class="font-medium tabular-nums">{formatHours(Number(value))} h</span>
+		</div>
+	{/if}
 {/snippet}
 
 <Card.Root>
@@ -97,11 +109,29 @@
 							padding={chartPadding({ left: 44, legend: true })}
 							data={chartData}
 							x="month"
-							xScale={scaleBand().padding(0.2)}
-							seriesLayout="group"
+							xScale={scaleBand().padding(0.15)}
+							seriesLayout="overlap"
 							series={[
-								{ key: 'expected', label: config.expected.label, color: config.expected.color },
-								{ key: 'logged', label: config.logged.label, color: config.logged.color }
+								// A bullet chart: each month's expected hours as a wide, pale bar, and the hours
+								// logged as a narrow one inside it, so falling short or going over shows at a glance.
+								{
+									key: 'expected',
+									label: config.expected.label,
+									color: config.expected.color,
+									props: { fillOpacity: 0.35 }
+								},
+								{
+									key: 'logged',
+									label: config.logged.label,
+									color: config.logged.color,
+									props: { insets: { x: 8 } }
+								},
+								{
+									key: 'short',
+									label: config.short.label,
+									color: config.short.color,
+									props: { insets: { x: 8 } }
+								}
 							]}
 							props={{
 								bars: { radius: 2, strokeWidth: 0, motion: legendMotion },
