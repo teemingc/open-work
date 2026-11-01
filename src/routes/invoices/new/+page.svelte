@@ -10,23 +10,27 @@
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import { formatDMY, formatHours, formatMoney, invoiceInfoText, nextPeriod } from '#lib/format.js';
 	import { driveSync } from '#lib/drive-sync.svelte.js';
-	import { workLogText } from '#lib/worklog.js';
+	import { invoiceFrequency, workLogText, type Client } from '#lib/worklog.js';
 	import { ArrowLeft, RotateCcw } from '@lucide/svelte';
 	import { untrack } from 'svelte';
-	import { Draft, type DraftData } from './draft.svelte';
+	import { defaultClient, Draft, type DraftData } from './draft.svelte';
 	import InvoiceSheet from './InvoiceSheet.svelte';
 	import SubmitPanel from './SubmitPanel.svelte';
 	import WorkLogSection from './WorkLogSection.svelte';
 
 	const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-	function initialPeriod(): { startDate: string; endDate: string } {
+	function initialPeriod({ clients }: { clients: Client[] }): {
+		startDate: string;
+		endDate: string;
+	} {
 		const start = page.url.searchParams.get('start') ?? '';
 		const end = page.url.searchParams.get('end') ?? '';
 		if (ISO_DATE.test(start) && ISO_DATE.test(end) && start <= end) {
 			return { startDate: start, endDate: end };
 		}
-		return nextPeriod({});
+		const client = defaultClient(clients);
+		return nextPeriod({ frequency: client && invoiceFrequency(client) });
 	}
 
 	let { data } = $props();
@@ -41,7 +45,7 @@
 	const store = untrack(() => data.store);
 	// Pulls the latest log from Google Drive, if you sync it, before you invoice from it.
 	driveSync(store);
-	const draft = new Draft({ store, ...initialPeriod(), fallback });
+	const draft = new Draft({ store, ...initialPeriod(store.data), fallback });
 	const notes = $derived(
 		workLogText({ entries: draft.entries, organization: settings.organization })
 	);

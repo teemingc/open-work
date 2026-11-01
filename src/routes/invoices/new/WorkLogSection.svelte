@@ -6,7 +6,7 @@
 	import WorkItem from '#lib/components/WorkItem.svelte';
 	import { formatDMY, formatHours } from '#lib/format.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import { monthOf, totalHours, type WorkLogEntry } from '#lib/worklog.js';
+	import { activeClients, monthOf, totalHours, type WorkLogEntry } from '#lib/worklog.js';
 	import { Clock } from '@lucide/svelte';
 	import type { Draft } from './draft.svelte';
 
@@ -14,6 +14,7 @@
 		$props();
 
 	const client = $derived(draft.client);
+	const clients = $derived(activeClients(store.data.clients));
 	const itemCount = $derived(draft.entries.reduce((sum, entry) => sum + entry.items.length, 0));
 	const days = $derived.by(() => {
 		const groups: { date: string; entries: WorkLogEntry[] }[] = [];
@@ -36,7 +37,7 @@
 					{itemCount}
 					{itemCount === 1 ? 'item' : 'items'} and {formatHours(draft.loggedHours)} h logged for
 					{client.name} in this period. Sent as the expense notes.
-				{:else if store.data.clients.length > 0}
+				{:else if clients.length > 0}
 					Choose the client this invoice bills.
 				{:else}
 					Sent as the expense notes.
@@ -46,7 +47,7 @@
 		<Button variant="outline" size="sm" href={logHref}><Clock /> Edit in the work log</Button>
 	</div>
 
-	{#if store.data.clients.length > 1}
+	{#if clients.length > 1}
 		<div class="max-w-60 space-y-1.5">
 			<Label for="invoice-client">Client</Label>
 			<Select.Root
@@ -58,7 +59,7 @@
 					{client?.name ?? 'Choose one'}
 				</Select.Trigger>
 				<Select.Content>
-					{#each store.data.clients as option (option.id)}
+					{#each clients as option (option.id)}
 						<Select.Item value={option.id}>{option.name}</Select.Item>
 					{/each}
 				</Select.Content>
@@ -66,7 +67,7 @@
 		</div>
 	{/if}
 
-	{#if store.data.clients.length === 0}
+	{#if clients.length === 0}
 		<p class="text-sm text-muted-foreground">
 			Add the client you invoice in
 			<a href={resolve('/worklog/setup')} class="font-medium text-foreground underline"

@@ -16,6 +16,9 @@
 	import type { DateRange } from 'bits-ui';
 	import { getExpenses, getMe } from '#lib/opencollective.remote.js';
 	import { isHttpError } from '@sveltejs/kit';
+	import { onMount } from 'svelte';
+	import { activeClients, invoiceFrequency } from '#lib/worklog.js';
+	import { openWorkLog, type WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import { lastInvoicedEnd } from './expenses';
 	import ExpensesTable from './ExpensesTable.svelte';
 
@@ -44,12 +47,29 @@
 		if (!error) return '';
 		return isHttpError(error) ? error.body.message : 'Failed to load your expenses.';
 	});
-	/** The suggested dates come from the latest expense, so they wait for the list. */
-	const expensesPending = $derived(
-		!ready || (expensesQuery !== undefined && expenses === undefined && !loadError)
+	/** The work log, in this browser's IndexedDB, says how often the client is invoiced. */
+	let store = $state<WorkLogStore>();
+	onMount(async () => {
+		const { hourlyRate, currency, collectiveSlug } = await getSettings();
+		store = await openWorkLog({ rate: hourlyRate, currency, collective: collectiveSlug });
+	});
+	const client = $derived(
+		store && activeClients(store.data.clients).find((other) => other.openCollective)
 	);
 
-	const suggested = $derived(nextPeriod({ lastEnd: expenses && lastInvoicedEnd(expenses) }));
+	/** The suggested dates come from the latest expense, so they wait for the list. */
+	const expensesPending = $derived(
+		!ready ||
+			store === undefined ||
+			(expensesQuery !== undefined && expenses === undefined && !loadError)
+	);
+
+	const suggested = $derived(
+		nextPeriod({
+			lastEnd: expenses && lastInvoicedEnd(expenses),
+			frequency: client && invoiceFrequency(client)
+		})
+	);
 
 	/** Open when you open it, or when there are no suggested dates to start from. */
 	let datesOpen = $state<boolean>();

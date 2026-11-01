@@ -3,7 +3,6 @@
 	import { resolve } from '$app/paths';
 	import SettingsSection from '#lib/components/SettingsSection.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
@@ -15,13 +14,17 @@
 	import type { Settings } from '#lib/settings.js';
 	import { formatDMY, toIsoDate } from '#lib/format.js';
 	import {
+		invoiceFrequency,
 		rateOn,
 		withCurrentRate,
 		withRates,
 		type Client,
+		type InvoiceFrequency,
 		type RateChange
 	} from '#lib/worklog.js';
 	import {
+		Archive,
+		ArchiveRestore,
 		ChevronRight,
 		Cloud,
 		Download,
@@ -36,6 +39,11 @@
 	import LeaveEditor from './LeaveEditor.svelte';
 
 	const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD', 'MYR', 'SGD'];
+	const METHODS = { opencollective: 'Open Collective', email: 'Email' };
+	const FREQUENCIES: Record<InvoiceFrequency, string> = {
+		'twice-monthly': 'Twice a month',
+		monthly: 'Monthly'
+	};
 	/** The "To" choice that turns the second currency off. */
 	const NO_CURRENCY = 'none';
 
@@ -58,6 +66,10 @@
 	);
 
 	let clientMessage = $state<string | undefined>();
+	const clients = $derived(store.data.clients.filter((client) => !client.archived));
+	const archived = $derived(store.data.clients.filter((client) => client.archived));
+	/** Clients with logged time are archived rather than deleted, so no entry loses its client. */
+	const clientsWithTime = $derived(new Set(store.data.entries.map((entry) => entry.clientId)));
 	let backupMessage = $state<{ tone: 'ok' | 'error'; text: string } | undefined>();
 
 	/**
@@ -114,10 +126,10 @@
 
 <SettingsSection
 	title="Clients"
-	description="Who you work for and what they pay an hour. New invoices take their hours from the client invoiced through Open Collective."
+	description="Who you work for, what they pay an hour, and how and how often you invoice them. Archive a client you no longer work for to keep its logged time."
 >
 	<ul class="space-y-3">
-		{#each store.data.clients as client (client.id)}
+		{#each clients as client (client.id)}
 			<li
 				class="grid grid-cols-2 gap-3 rounded-lg border bg-card p-3 sm:grid-cols-[1fr_7rem_7rem_auto] sm:items-end"
 			>
@@ -134,19 +146,33 @@
 							}}
 						/>
 					</div>
-					<Button
-						variant="ghost"
-						size="icon"
-						class="shrink-0 sm:col-start-4 sm:row-start-1"
-						aria-label="Remove {client.name}"
-						onclick={() => {
-							clientMessage = store.removeClient(client.id)
-								? undefined
-								: `${client.name} has logged time, so it stays. Delete its entries first.`;
-						}}
-					>
-						<Trash2 size={16} />
-					</Button>
+					{#if clientsWithTime.has(client.id)}
+						<Button
+							variant="ghost"
+							size="icon"
+							class="shrink-0 sm:col-start-4 sm:row-start-1"
+							aria-label="Archive {client.name}"
+							title="Archive"
+							onclick={() => changeClient(client, { archived: true })}
+						>
+							<Archive size={16} />
+						</Button>
+					{:else}
+						<Button
+							variant="ghost"
+							size="icon"
+							class="shrink-0 sm:col-start-4 sm:row-start-1"
+							aria-label="Remove {client.name}"
+							title="Remove"
+							onclick={() => {
+								clientMessage = store.removeClient(client.id)
+									? undefined
+									: `${client.name} has logged time, so it stays.`;
+							}}
+						>
+							<Trash2 size={16} />
+						</Button>
+					{/if}
 				</div>
 				<div class="space-y-1.5">
 					<Label for="{client.id}-rate">Per hour</Label>
@@ -189,14 +215,67 @@
 						</Select.Content>
 					</Select.Root>
 				</div>
-				<div class="col-span-2 flex items-center gap-2 border-t pt-3 sm:col-span-4">
-					<Checkbox
-						id="{client.id}-oc"
-						checked={client.openCollective}
-						onCheckedChange={(checked) =>
-							changeClient(client, { openCollective: checked === true })}
-					/>
-					<Label for="{client.id}-oc" class="font-normal">Invoiced through Open Collective</Label>
+				<div
+					class="col-span-2 grid grid-cols-2 gap-3 border-t pt-3 sm:col-span-4 sm:grid-cols-[1fr_1fr_9rem]"
+				>
+					<div class="space-y-1.5">
+						<Label for="{client.id}-method">Invoiced through</Label>
+						<Select.Root
+							type="single"
+							value={client.openCollective ? 'opencollective' : 'email'}
+							onValueChange={(method) =>
+								changeClient(client, { openCollective: method === 'opencollective' })}
+						>
+							<Select.Trigger id="{client.id}-method" class="w-full">
+								{client.openCollective ? METHODS.opencollective : METHODS.email}
+							</Select.Trigger>
+							<Select.Content>
+								{#each Object.entries(METHODS) as [value, label] (value)}
+									<Select.Item {value}>{label}</Select.Item>
+								{/each}
+							</Select.Content>
+						</Select.Root>
+					</div>
+					<div class="space-y-1.5">
+						<Label for="{client.id}-frequency">How often</Label>
+						<Select.Root
+							type="single"
+							value={invoiceFrequency(client)}
+							onValueChange={(frequency) =>
+								changeClient(client, { frequency: frequency as InvoiceFrequency })}
+						>
+							<Select.Trigger id="{client.id}-frequency" class="w-full">
+								{FREQUENCIES[invoiceFrequency(client)]}
+							</Select.Trigger>
+							<Select.Content>
+								{#each Object.entries(FREQUENCIES) as [value, label] (value)}
+									<Select.Item {value}>{label}</Select.Item>
+								{/each}
+							</Select.Content>
+						</Select.Root>
+					</div>
+					<div class="col-span-2 space-y-1.5 sm:col-span-1">
+						<Label for="{client.id}-share">Share of hours (%)</Label>
+						<Input
+							id="{client.id}-share"
+							type="number"
+							inputmode="decimal"
+							min="0"
+							max="100"
+							step="1"
+							placeholder="None"
+							class="tabular-nums"
+							value={client.targetShare ?? ''}
+							onchange={(event) => {
+								const text = event.currentTarget.value.trim();
+								const share = Number(text);
+								if (!text) changeClient(client, { targetShare: undefined });
+								else if (Number.isFinite(share) && share >= 0 && share <= 100) {
+									changeClient(client, { targetShare: share });
+								}
+							}}
+						/>
+					</div>
 				</div>
 				<details class="group col-span-2 sm:col-span-4" open={(client.rates?.length ?? 0) > 0}>
 					<summary
@@ -292,6 +371,33 @@
 		{/each}
 	</ul>
 	{#if clientMessage}<p role="alert" class="text-sm text-destructive">{clientMessage}</p>{/if}
+	{#if archived.length > 0}
+		<details class="group">
+			<summary
+				class="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden"
+			>
+				<ChevronRight
+					size={15}
+					class="transition-transform group-open:rotate-90 motion-reduce:transition-none"
+				/>
+				Archived clients ({archived.length})
+			</summary>
+			<ul class="mt-3 divide-y rounded-lg border bg-card">
+				{#each archived as client (client.id)}
+					<li class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+						<span class="min-w-0 truncate">{client.name}</span>
+						<Button
+							variant="ghost"
+							size="sm"
+							onclick={() => changeClient(client, { archived: false })}
+						>
+							<ArchiveRestore /> Restore
+						</Button>
+					</li>
+				{/each}
+			</ul>
+		</details>
+	{/if}
 	<Button
 		variant="outline"
 		onclick={() =>

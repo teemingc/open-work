@@ -4,7 +4,7 @@
 	import WorkItem from '#lib/components/WorkItem.svelte';
 	import { formatHours, formatMoney, parseIsoDate } from '#lib/format.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import { entryHours, type MonthSummary } from '#lib/worklog.js';
+	import { clientChoices, entryHours, type MonthSummary } from '#lib/worklog.js';
 	import { Pencil, Trash2 } from '@lucide/svelte';
 	import { clientColor } from './colors';
 	import EntryForm from './EntryForm.svelte';
@@ -73,7 +73,10 @@
 							{#if editing === entry.id}
 								<div class="rounded-lg border bg-muted/30 p-3">
 									<EntryForm
-										clients={store.data.clients}
+										clients={clientChoices({
+											clients: store.data.clients,
+											clientId: entry.clientId
+										})}
 										{organization}
 										{entry}
 										date={entry.date}

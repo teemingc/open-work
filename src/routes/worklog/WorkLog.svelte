@@ -9,7 +9,14 @@
 	import { fetchActivity, GitHubError } from '#lib/github.js';
 	import DriveSyncStatus from '#lib/components/DriveSyncStatus.svelte';
 	import { driveSync } from '#lib/drive-sync.svelte.js';
-	import { addMonths, monthDates, monthOf, summarizeMonth, unloggedItems } from '#lib/worklog.js';
+	import {
+		activeClients,
+		addMonths,
+		monthDates,
+		monthOf,
+		summarizeMonth,
+		unloggedItems
+	} from '#lib/worklog.js';
 	import {
 		ChevronLeft,
 		ChevronRight,
@@ -48,9 +55,8 @@
 	);
 	/** New entries default to today in this month, else its first day. */
 	const defaultDate = $derived(current ? today : `${month}-01`);
-	const githubClient = $derived(
-		store.data.clients.find((client) => client.openCollective) ?? store.data.clients[0]
-	);
+	const clients = $derived(activeClients(store.data.clients));
+	const githubClient = $derived(clients.find((client) => client.openCollective) ?? clients[0]);
 
 	/** The entry just saved from the form, which the list tints until the tint fades. */
 	let justAdded = $state<string>();
@@ -196,7 +202,7 @@
 	<div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
 		<section class="space-y-3" aria-labelledby="entries-heading">
 			<h2 id="entries-heading" class="text-lg">Entries</h2>
-			{#if store.data.clients.length === 0}
+			{#if clients.length === 0}
 				<p class="text-sm text-muted-foreground">
 					Add a client in
 					<a href={resolve('/worklog/setup')} class="font-medium text-foreground underline"
@@ -210,7 +216,7 @@
 						<!-- A fresh form for each month. It takes its date once, so a reused one kept the last month's. -->
 						{#key month}
 							<EntryForm
-								clients={store.data.clients}
+								{clients}
 								organization={settings.organization}
 								date={defaultDate}
 								clientId={githubClient?.id}

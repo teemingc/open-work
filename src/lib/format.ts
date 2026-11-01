@@ -1,5 +1,7 @@
 /** Pure helpers for dates, invoice text and the work log. No browser or storage access. */
 
+import type { InvoiceFrequency } from './worklog';
+
 const MONTHS = [
 	'January',
 	'February',
@@ -61,10 +63,13 @@ export function addDays(iso: string, days: number): string {
 	return toIsoDate(date);
 }
 
-/** Invoices run 1st–15th and 16th–end of month. */
-export function endOfPeriod(startIso: string): string {
+/** Monthly invoices run to the end of the month; twice-monthly ones 1st–15th and 16th–end. */
+export function endOfPeriod(
+	startIso: string,
+	frequency: InvoiceFrequency = 'twice-monthly'
+): string {
 	const start = parseIsoDate(startIso);
-	if (start.getDate() <= 15) {
+	if (frequency === 'twice-monthly' && start.getDate() <= 15) {
 		return toIsoDate(new Date(start.getFullYear(), start.getMonth(), 15));
 	}
 	return toIsoDate(new Date(start.getFullYear(), start.getMonth() + 1, 0));
@@ -72,22 +77,32 @@ export function endOfPeriod(startIso: string): string {
 
 /**
  * The period to invoice next: the day after the last invoice ended, or, with no
- * invoices yet, the most recent half-month that has finished.
+ * invoices yet, the most recent month or half-month that has finished.
  */
-export function nextPeriod({ lastEnd, today = new Date() }: { lastEnd?: string; today?: Date }): {
+export function nextPeriod({
+	lastEnd,
+	today = new Date(),
+	frequency = 'twice-monthly'
+}: {
+	lastEnd?: string;
+	today?: Date;
+	frequency?: InvoiceFrequency;
+}): {
 	startDate: string;
 	endDate: string;
 } {
 	if (lastEnd) {
 		const startDate = addDays(lastEnd, 1);
-		return { startDate, endDate: endOfPeriod(startDate) };
+		return { startDate, endDate: endOfPeriod(startDate, frequency) };
 	}
-	if (today.getDate() >= 16) {
-		const startDate = toIsoDate(new Date(today.getFullYear(), today.getMonth(), 1));
-		return { startDate, endDate: endOfPeriod(startDate) };
+	if (frequency === 'monthly' || today.getDate() < 16) {
+		const startDate = toIsoDate(
+			new Date(today.getFullYear(), today.getMonth() - 1, frequency === 'monthly' ? 1 : 16)
+		);
+		return { startDate, endDate: endOfPeriod(startDate, frequency) };
 	}
-	const startDate = toIsoDate(new Date(today.getFullYear(), today.getMonth() - 1, 16));
-	return { startDate, endDate: endOfPeriod(startDate) };
+	const startDate = toIsoDate(new Date(today.getFullYear(), today.getMonth(), 1));
+	return { startDate, endDate: endOfPeriod(startDate, frequency) };
 }
 
 export function formatMoney(amount: number, currency: string): string {

@@ -1,7 +1,9 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import {
+	activeClients,
 	addMonths,
+	clientChoices,
 	converted,
 	describeRef,
 	emptyWorkLog,
@@ -10,6 +12,7 @@ import {
 	groupDaysOff,
 	entryRate,
 	insertionIndex,
+	invoiceFrequency,
 	mergeDaysOff,
 	parseDaysOff,
 	parseRef,
@@ -238,6 +241,46 @@ describe('month summary', () => {
 		expect(month.amounts).toEqual({ USD: 484 });
 		expect(converted({ data, amounts: month.amounts })).toBe(1936);
 		expect(month.days[0].byClient).toEqual({ svelte: 7 });
+	});
+});
+
+describe('clients', () => {
+	it('invoices Open Collective clients twice a month unless told otherwise', () => {
+		expect(invoiceFrequency(svelte)).toBe('twice-monthly');
+		expect(invoiceFrequency(zenos)).toBe('monthly');
+		expect(invoiceFrequency({ ...svelte, frequency: 'monthly' })).toBe('monthly');
+	});
+
+	it('offers archived clients only for entries already theirs', () => {
+		const old: Client = { ...zenos, archived: true };
+		expect(activeClients([svelte, old])).toEqual([svelte]);
+		expect(clientChoices({ clients: [svelte, old] })).toEqual([svelte]);
+		expect(clientChoices({ clients: [svelte, old], clientId: 'zenos' })).toEqual([svelte, old]);
+	});
+
+	it('gives each client its share of the expected hours', () => {
+		const data: WorkLogData = {
+			...emptyWorkLog(),
+			clients: [
+				{ ...svelte, targetShare: 50 },
+				{ ...zenos, targetShare: 50 },
+				{
+					id: 'old',
+					name: 'old',
+					rate: 10,
+					currency: 'USD',
+					openCollective: false,
+					targetShare: 20,
+					archived: true
+				}
+			],
+			entries: [entry({ date: '2026-10-01', hours: 7 })]
+		};
+		const month = summarizeMonth({ data, month: '2026-10', today: '2026-10-12' });
+		expect(month.clients.map(({ client, hours, target }) => [client.id, hours, target])).toEqual([
+			['svelte', 7, 88],
+			['zenos', 0, 88]
+		]);
 	});
 });
 

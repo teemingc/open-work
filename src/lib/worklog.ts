@@ -36,6 +36,11 @@ export type RateChange = v.InferOutput<typeof RateChangeSchema>;
 /** When a record last changed, so two copies of the log can merge record by record. */
 const UpdatedAt = v.optional(v.string());
 
+const FrequencySchema = v.picklist(['monthly', 'twice-monthly']);
+
+/** How often a client is invoiced: once a month, or for the 1st–15th and the 16th–end. */
+export type InvoiceFrequency = v.InferOutput<typeof FrequencySchema>;
+
 const ClientSchema = v.object({
 	id: v.string(),
 	updatedAt: UpdatedAt,
@@ -46,7 +51,13 @@ const ClientSchema = v.object({
 	rates: v.optional(v.array(RateChangeSchema)),
 	currency: Currency,
 	/** Invoiced through Open Collective, so new invoices take their hours from this client. */
-	openCollective: v.optional(v.boolean(), false)
+	openCollective: v.optional(v.boolean(), false),
+	/** Unset for clients from before it could be chosen; see `invoiceFrequency`. */
+	frequency: v.optional(FrequencySchema),
+	/** The percentage of each month's expected hours meant for this client. */
+	targetShare: v.optional(v.pipe(v.number(), v.minValue(0), v.maxValue(100))),
+	/** Kept for the time logged for it, but no longer offered for new work or invoices. */
+	archived: v.optional(v.boolean())
 });
 
 export type Client = v.InferOutput<typeof ClientSchema>;
@@ -385,6 +396,31 @@ export function withCurrentRate({
 	};
 }
 
+/* ---------------------------------- Clients ---------------------------------- */
+
+/** Open Collective clients used to always be invoiced twice a month, so they keep that. */
+export function invoiceFrequency(
+	client: Pick<Client, 'frequency' | 'openCollective'>
+): InvoiceFrequency {
+	return client.frequency ?? (client.openCollective ? 'twice-monthly' : 'monthly');
+}
+
+/** The clients you can log new work for and invoice. */
+export function activeClients(clients: Client[]): Client[] {
+	return clients.filter((client) => !client.archived);
+}
+
+/** The clients to choose from for an entry: the active ones, and the entry's own if archived. */
+export function clientChoices({
+	clients,
+	clientId
+}: {
+	clients: Client[];
+	clientId?: string;
+}): Client[] {
+	return clients.filter((client) => !client.archived || client.id === clientId);
+}
+
 /* ---------------------------------- Calendar ---------------------------------- */
 
 /** "2026-10" → every date in October 2026. */
@@ -430,6 +466,8 @@ export interface ClientTotal {
 	/** Earned per hour: the one rate used, or the average when entries used several. */
 	rate: number;
 	mixedRates: boolean;
+	/** The client's share of the month's expected hours, when it has one. */
+	target?: number;
 }
 
 export interface MonthSummary {
@@ -510,11 +548,15 @@ export function summarizeMonth({
 	const remaining = Math.max(0, round2(expected - logged));
 
 	const clients = data.clients
-		.map((client) => {
+		.map((client): ClientTotal => {
 			const own = entries.filter((entry) => entry.clientId === client.id);
-			return { client, ...earnings({ client, entries: own }) };
+			const target =
+				client.targetShare === undefined || client.archived
+					? undefined
+					: round2((expected * client.targetShare) / 100);
+			return { client, ...earnings({ client, entries: own }), target };
 		})
-		.filter((total) => total.hours > 0);
+		.filter((total) => total.hours > 0 || total.target !== undefined);
 	const amounts: Record<string, number> = {};
 	for (const { client, amount } of clients) {
 		amounts[client.currency] = round2((amounts[client.currency] ?? 0) + amount);

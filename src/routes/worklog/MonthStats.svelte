@@ -22,6 +22,8 @@
 			.map(([currency, amount]) => formatMoney(amount, currency))
 			.join(' + ') || formatMoney(0, data.clients[0]?.currency ?? 'USD')
 	);
+	/** Whether any client has a share of the month's hours to show against. */
+	const targets = $derived(summary.clients.some((total) => total.target !== undefined));
 	const percent = $derived(
 		summary.expected > 0 ? Math.round((summary.logged / summary.expected) * 100) : 0
 	);
@@ -86,6 +88,10 @@
 				<tr>
 					<th class="px-3 py-2 font-medium">Client</th>
 					<th class="px-3 py-2 text-right font-medium">Hours</th>
+					{#if targets}
+						<th class="px-3 py-2 text-right font-medium">Target</th>
+						<th class="px-3 py-2 text-right font-medium">Still to log</th>
+					{/if}
 					<th class="px-3 py-2 text-right font-medium">Rate</th>
 					<th class="px-3 py-2 text-right font-medium">Earned</th>
 					{#if data.exchange}
@@ -94,11 +100,19 @@
 				</tr>
 			</thead>
 			<tbody>
-				{#each summary.clients as { client, hours, amount, rate, mixedRates } (client.id)}
+				{#each summary.clients as { client, hours, amount, rate, mixedRates, target } (client.id)}
 					{const local = $derived(converted({ data, amounts: { [client.currency]: amount } }))}
 					<tr>
 						<td class="px-3 py-2">{client.name}</td>
 						<td class="px-3 py-2 text-right">{formatHours(hours)}</td>
+						{#if targets}
+							<td class="px-3 py-2 text-right">
+								{target === undefined ? '—' : formatHours(target)}
+							</td>
+							<td class="px-3 py-2 text-right">
+								{target === undefined ? '—' : formatHours(Math.max(0, target - hours))}
+							</td>
+						{/if}
 						<td class="px-3 py-2 text-right">
 							{#if mixedRates}<span class="text-muted-foreground">avg</span>{/if}
 							{formatMoney(rate, client.currency)}

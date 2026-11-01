@@ -92,6 +92,22 @@ describe('periods', () => {
 			endDate: '2026-12-31'
 		});
 	});
+
+	it('runs monthly periods to the end of the month', () => {
+		expect(endOfPeriod('2026-02-01', 'monthly')).toBe('2026-02-28');
+		expect(nextPeriod({ lastEnd: '2026-09-30', frequency: 'monthly' })).toEqual({
+			startDate: '2026-10-01',
+			endDate: '2026-10-31'
+		});
+		expect(nextPeriod({ today: new Date(2026, 9, 20), frequency: 'monthly' })).toEqual({
+			startDate: '2026-09-01',
+			endDate: '2026-09-30'
+		});
+		expect(nextPeriod({ today: new Date(2027, 0, 5), frequency: 'monthly' })).toEqual({
+			startDate: '2026-12-01',
+			endDate: '2026-12-31'
+		});
+	});
 });
 
 describe('work log', () => {

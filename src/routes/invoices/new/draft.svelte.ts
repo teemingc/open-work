@@ -1,6 +1,6 @@
 import { invoiceTitle, lineItemDescription, totalCents } from '#lib/format.js';
 import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-import { earnings, entriesFor, rateOn } from '#lib/worklog.js';
+import { activeClients, earnings, entriesFor, rateOn, type Client } from '#lib/worklog.js';
 
 export interface DraftData {
 	startDate: string;
@@ -11,6 +11,14 @@ export interface DraftData {
 	currency: string;
 	titleOverride?: string;
 	descriptionOverride?: string;
+}
+
+/** The client a new invoice bills: the one invoiced through Open Collective, or the only one. */
+export function defaultClient(clients: Client[]): Client | undefined {
+	const active = activeClients(clients);
+	return (
+		active.find((client) => client.openCollective) ?? (active.length === 1 ? active[0] : undefined)
+	);
 }
 
 /**
@@ -36,7 +44,9 @@ export class Draft {
 
 	client = $derived.by(() => (this.clientId ? this.#store.client(this.clientId) : undefined));
 	/** The client has to be chosen before its work can be billed. */
-	needsClient = $derived.by(() => this.client === undefined && this.#store.data.clients.length > 0);
+	needsClient = $derived.by(
+		() => this.client === undefined && activeClients(this.#store.data.clients).length > 0
+	);
 
 	/** The client's work log entries in this period. Sent as the expense notes. */
 	entries = $derived.by(() =>
@@ -100,11 +110,7 @@ export class Draft {
 		this.#fallbackRate = fallback.rate;
 		this.startDate = startDate;
 		this.endDate = endDate;
-		const { clients } = store.data;
-		// The client invoiced through Open Collective, or the only one there is.
-		const client =
-			clients.find((other) => other.openCollective) ??
-			(clients.length === 1 ? clients[0] : undefined);
+		const client = defaultClient(store.data.clients);
 		this.clientId = client?.id;
 		this.currency = client?.currency ?? fallback.currency;
 	}
