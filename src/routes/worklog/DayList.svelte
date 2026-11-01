@@ -2,15 +2,12 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
-	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
-	import * as Item from '#lib/components/ui/item/index.js';
-	import WorkItem from '#lib/components/WorkItem.svelte';
-	import { formatHours, formatMoney, formatTime, parseIsoDate } from '#lib/format.js';
+	import EntryRow from '#lib/components/EntryRow.svelte';
+	import { formatHours, formatMoney, parseIsoDate } from '#lib/format.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import { clientChoices, entryHours, type MonthSummary } from '#lib/worklog.js';
-	import { Ellipsis, Pencil, Trash2 } from '@lucide/svelte';
+	import { clientChoices, type MonthSummary } from '#lib/worklog.js';
 	import { clientColor } from './colors';
-	import EntryForm from './EntryForm.svelte';
+	import EntryForm from '#lib/components/EntryForm.svelte';
 
 	let {
 		store,
@@ -49,34 +46,41 @@
 	);
 </script>
 
-<Card.Root class="h-full gap-0 py-0">
+<Card.Root class="h-full gap-0 overflow-hidden py-0">
 	{#if days.length === 0}
 		<p class="p-6 text-center text-sm text-muted-foreground">Nothing logged this month yet.</p>
 	{:else}
-		<ol class="divide-y">
+		<ol>
 			{#each days as day (day.date)}
-				<li class="px-4 py-4 sm:px-6">
-					<div class="flex items-baseline justify-between gap-3 text-sm">
-						<h3 class="font-medium tabular-nums">
-							{dayFormat.format(parseIsoDate(day.date))}
+				<li class="border-b last:border-b-0">
+					<!-- The day's total lines up with each entry's hours, as their sum. -->
+					<div
+						class="flex items-baseline justify-between gap-3 border-b bg-muted/50 py-1.5 pr-14 pl-4 text-sm"
+					>
+						<h3 class="min-w-0 truncate">
+							<span class="font-medium tabular-nums"
+								>{dayFormat.format(parseIsoDate(day.date))}</span
+							>
 							{#if day.name || day.kind === 'holiday' || day.kind === 'leave'}
-								<span class="ml-1.5 font-normal text-muted-foreground">
+								<span class="ml-1.5 text-muted-foreground">
 									{day.kind === 'leave' ? 'Leave' : 'Holiday'}{day.name ? `: ${day.name}` : ''}
 								</span>
 							{/if}
 						</h3>
-						<!-- The day against what it was meant to hold; each entry gives its own hours. -->
-						<span class="text-muted-foreground tabular-nums">
-							{formatHours(day.logged)}{#if day.expected}{` of ${formatHours(day.expected)}`}{/if} h
+						<span class="whitespace-nowrap tabular-nums">
+							<span class="font-semibold">{formatHours(day.logged)}</span>{#if day.expected}<span
+									class="text-muted-foreground">{` / ${formatHours(day.expected)}`}</span
+								>{/if}
+							h
 						</span>
 					</div>
 
 					{#if day.entries.length > 0}
-						<Item.Group class="-mx-3 mt-2 gap-1">
+						<ul class="divide-y divide-border/60">
 							{#each day.entries as entry (entry.id)}
 								{const client = $derived(store.client(entry.clientId))}
 								{#if editing === entry.id}
-									<div class="mx-3 rounded-lg border bg-muted/30 p-3">
+									<li class="bg-muted/30 p-4">
 										<EntryForm
 											clients={clientChoices({
 												clients: store.data.clients,
@@ -91,77 +95,26 @@
 											}}
 											oncancel={() => (editing = undefined)}
 										/>
-									</div>
+									</li>
 								{:else}
-									<Item.Root
-										size="sm"
-										class={['items-start', entry.id === justAdded && 'just-added']}
+									<EntryRow
+										{entry}
+										{organization}
+										client={{
+											name: client?.name ?? 'Unknown client',
+											color: clientColor(clientIndex.get(entry.clientId) ?? 0)
+										}}
+										rate={entry.rate !== undefined && client
+											? formatMoney(entry.rate, client.currency)
+											: undefined}
+										class={entry.id === justAdded ? 'just-added' : undefined}
 										onanimationend={() => (justAdded = undefined)}
-									>
-										<Item.Media class="pt-1.5">
-											<span
-												class="size-2 rounded-full"
-												style:background-color={clientColor(clientIndex.get(entry.clientId) ?? 0)}
-												aria-hidden="true"
-											></span>
-										</Item.Media>
-										<Item.Content class="min-w-0">
-											<Item.Title class="tabular-nums">
-												{client?.name ?? 'Unknown client'}
-												{#if entry.start && entry.end}
-													<span class="font-normal text-muted-foreground">
-														{formatTime(entry.start)} – {formatTime(entry.end)}
-													</span>
-												{/if}
-												{#if entry.rate !== undefined && client}
-													<span class="font-normal text-muted-foreground">
-														{formatMoney(entry.rate, client.currency)}/h
-													</span>
-												{/if}
-											</Item.Title>
-											{#if entry.items.length > 0}
-												<ul class="flex flex-col gap-0.5 text-sm">
-													{#each entry.items as item, index (index)}
-														<li class="flex min-w-0"><WorkItem ref={item} {organization} /></li>
-													{/each}
-												</ul>
-											{/if}
-										</Item.Content>
-										<Item.Actions class="gap-1">
-											{#if entryHours(entry) > 0}
-												<span class="text-sm tabular-nums">{formatHours(entryHours(entry))} h</span>
-											{/if}
-											<DropdownMenu.Root>
-												<DropdownMenu.Trigger>
-													{#snippet child({ props })}
-														<Button
-															{...props}
-															variant="ghost"
-															size="icon"
-															class="size-7 text-muted-foreground"
-															aria-label="Change this entry"
-														>
-															<Ellipsis size={16} />
-														</Button>
-													{/snippet}
-												</DropdownMenu.Trigger>
-												<DropdownMenu.Content align="end">
-													<DropdownMenu.Item onclick={() => (editing = entry.id)}>
-														<Pencil /> Edit
-													</DropdownMenu.Item>
-													<DropdownMenu.Item
-														variant="destructive"
-														onclick={() => (removing = entry.id)}
-													>
-														<Trash2 /> Delete
-													</DropdownMenu.Item>
-												</DropdownMenu.Content>
-											</DropdownMenu.Root>
-										</Item.Actions>
-									</Item.Root>
+										onedit={() => (editing = entry.id)}
+										onremove={() => (removing = entry.id)}
+									/>
 								{/if}
 							{/each}
-						</Item.Group>
+						</ul>
 					{/if}
 				</li>
 			{/each}
@@ -191,19 +144,14 @@
 </Dialog.Root>
 
 <style>
-	/*
-	 * Fades from a tint to nothing, so the entry you just saved is easy to find. The shadow widens
-	 * the tint past the text without moving anything.
-	 */
+	/* Fades from a tint to nothing, so the entry you just saved is easy to find. */
 	:global(.just-added) {
-		border-radius: var(--radius-sm);
 		animation: just-added 1200ms cubic-bezier(0.23, 1, 0.32, 1);
 	}
 
 	@keyframes just-added {
 		from {
 			background-color: color-mix(in oklch, var(--primary) 12%, transparent);
-			box-shadow: 0 0 0 0.375rem color-mix(in oklch, var(--primary) 12%, transparent);
 		}
 	}
 </style>

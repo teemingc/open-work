@@ -28,7 +28,7 @@
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import { untrack } from 'svelte';
 	import DayList from './DayList.svelte';
-	import EntryForm from './EntryForm.svelte';
+	import EntryForm from '#lib/components/EntryForm.svelte';
 	import MonthCharts from './MonthCharts.svelte';
 	import MonthPicker from './MonthPicker.svelte';
 	import MonthStats from './MonthStats.svelte';

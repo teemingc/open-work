@@ -3,10 +3,18 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
 	import * as Select from '#lib/components/ui/select/index.js';
-	import WorkItem from '#lib/components/WorkItem.svelte';
-	import { formatDMY, formatHours } from '#lib/format.js';
+	import EntryForm from '#lib/components/EntryForm.svelte';
+	import * as Dialog from '#lib/components/ui/dialog/index.js';
+	import EntryRow from '#lib/components/EntryRow.svelte';
+	import { formatDMY, formatHours, parseIsoDate } from '#lib/format.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import { activeClients, monthOf, totalHours, type WorkLogEntry } from '#lib/worklog.js';
+	import {
+		activeClients,
+		clientChoices,
+		monthOf,
+		totalHours,
+		type WorkLogEntry
+	} from '#lib/worklog.js';
 	import { Clock } from '@lucide/svelte';
 	import type { Draft } from './draft.svelte';
 
@@ -24,6 +32,16 @@
 		}
 		return groups;
 	});
+	/** The entry open in the edit dialog, and the one waiting for you to confirm its deletion. */
+	let editing = $state<WorkLogEntry | undefined>();
+	let removing = $state<WorkLogEntry | undefined>();
+
+	const dayFormat = new Intl.DateTimeFormat('en', {
+		weekday: 'short',
+		day: 'numeric',
+		month: 'short'
+	});
+
 	const logHref = $derived(`${resolve('/worklog')}?month=${monthOf(draft.startDate)}`);
 </script>
 
@@ -66,18 +84,25 @@
 			{formatDMY(draft.endDate)}.
 		</p>
 	{:else}
-		<ol class="ledger-rows relative max-h-96 overflow-y-auto rounded-lg border bg-card">
+		<!-- Each block of time on its own, so one can be put right without leaving the invoice. -->
+		<ol class="relative max-h-96 overflow-y-auto rounded-lg border bg-card">
 			{#each days as day (day.date)}
-				<li class="p-3">
-					<div class="mb-1 flex items-baseline justify-between text-sm">
-						<h3 class="font-medium tabular-nums">{formatDMY(day.date)}</h3>
-						<span class="text-muted-foreground tabular-nums">
-							{formatHours(totalHours(day.entries))} h
-						</span>
+				<li class="border-b last:border-b-0">
+					<!-- The day's total lines up with each entry's hours, as their sum. -->
+					<div
+						class="sticky top-0 z-10 flex items-baseline justify-between gap-3 border-b bg-muted py-1.5 pr-14 pl-4 text-sm"
+					>
+						<h3 class="font-medium tabular-nums">{dayFormat.format(parseIsoDate(day.date))}</h3>
+						<span class="font-semibold tabular-nums">{formatHours(totalHours(day.entries))} h</span>
 					</div>
-					<ul class="space-y-0.5 text-sm">
-						{#each day.entries.flatMap((entry) => entry.items) as item (item)}
-							<li class="flex min-w-0"><WorkItem ref={item} {organization} /></li>
+					<ul class="divide-y divide-border/60">
+						{#each day.entries as entry (entry.id)}
+							<EntryRow
+								{entry}
+								{organization}
+								onedit={() => (editing = entry)}
+								onremove={() => (removing = entry)}
+							/>
 						{/each}
 					</ul>
 				</li>
@@ -85,3 +110,45 @@
 		</ol>
 	{/if}
 </section>
+
+<Dialog.Root bind:open={() => editing !== undefined, (open) => !open && (editing = undefined)}>
+	<Dialog.Content class="sm:max-w-xl">
+		<Dialog.Header>
+			<Dialog.Title>Edit entry</Dialog.Title>
+		</Dialog.Header>
+		{#if editing}
+			{const entry = editing}
+			<EntryForm
+				clients={clientChoices({ clients: store.data.clients, clientId: entry.clientId })}
+				{organization}
+				{entry}
+				date={entry.date}
+				onsave={(changes) => {
+					store.updateEntry({ ...changes, id: entry.id });
+					editing = undefined;
+				}}
+				oncancel={() => (editing = undefined)}
+			/>
+		{/if}
+	</Dialog.Content>
+</Dialog.Root>
+
+<Dialog.Root bind:open={() => removing !== undefined, (open) => !open && (removing = undefined)}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Delete this entry?</Dialog.Title>
+		</Dialog.Header>
+		<Dialog.Footer>
+			<Button variant="outline" onclick={() => (removing = undefined)}>Keep it</Button>
+			<Button
+				variant="destructive"
+				onclick={() => {
+					if (removing) store.removeEntry(removing.id);
+					removing = undefined;
+				}}
+			>
+				Delete
+			</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
