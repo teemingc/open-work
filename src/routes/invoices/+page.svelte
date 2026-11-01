@@ -3,23 +3,20 @@
 	import { page } from '$app/state';
 	import * as Alert from '#lib/components/ui/alert/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import { Label } from '#lib/components/ui/label/index.js';
-	import * as Popover from '#lib/components/ui/popover/index.js';
-	import { RangeCalendar } from '#lib/components/ui/range-calendar/index.js';
 	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
-	import { formatDMY, nextPeriod } from '#lib/format.js';
+	import { nextPeriod, toIsoDate } from '#lib/format.js';
 	import { getSettings } from '#lib/settings.remote.js';
 	import { missingForSubmit } from '#lib/settings.js';
-	import { CalendarRange, CircleAlert, RefreshCw, TriangleAlert } from '@lucide/svelte';
-	import { MediaQuery } from 'svelte/reactivity';
-	import type { DateRange } from 'bits-ui';
+	import { CircleAlert, RefreshCw, TriangleAlert } from '@lucide/svelte';
 	import { getExpenses, getMe } from '#lib/opencollective.remote.js';
 	import { isHttpError } from '@sveltejs/kit';
 	import { onMount } from 'svelte';
-	import { activeClients, invoiceFrequency } from '#lib/worklog.js';
+	import { activeClients, invoiceFrequency, lastInvoicedEnd, type Client } from '#lib/worklog.js';
 	import { openWorkLog, type WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import { lastInvoicedEnd } from './expenses';
+	import { lastInvoicedEnd as lastExpenseEnd } from './expenses';
+	import EmailInvoicesTable from './EmailInvoicesTable.svelte';
+	import NextInvoice from './NextInvoice.svelte';
 	import ExpensesTable from './ExpensesTable.svelte';
 
 	// Read without `await`, so the page shows straight away with one set of skeletons while your
@@ -47,38 +44,56 @@
 		if (!error) return '';
 		return isHttpError(error) ? error.body.message : 'Failed to load your expenses.';
 	});
-	/** The work log, in this browser's IndexedDB, says how often the client is invoiced. */
+	/**
+	 * The work log, in this browser's IndexedDB: your clients, how often each is invoiced, and
+	 * the invoices sent by email.
+	 */
 	let store = $state<WorkLogStore>();
 	onMount(async () => {
 		const { hourlyRate, currency, collectiveSlug } = await getSettings();
 		store = await openWorkLog({ rate: hourlyRate, currency, collective: collectiveSlug });
 	});
-	const client = $derived(
-		store && activeClients(store.data.clients).find((other) => other.openCollective)
+	const clients = $derived(store ? activeClients(store.data.clients) : []);
+	const showExpenses = $derived(
+		clients.length === 0 || clients.some((other) => other.openCollective)
+	);
+	const showEmailed = $derived(
+		!!store && (store.data.invoices.length > 0 || clients.some((other) => !other.openCollective))
 	);
 
-	/** The suggested dates come from the latest expense, so they wait for the list. */
+	/** The list of expenses Open Collective clients' suggested dates wait for. */
 	const expensesPending = $derived(
 		!ready ||
 			store === undefined ||
 			(expensesQuery !== undefined && expenses === undefined && !loadError)
 	);
+	const today = toIsoDate(new Date());
 
-	const suggested = $derived(
-		nextPeriod({
-			lastEnd: expenses && lastInvoicedEnd(expenses),
-			frequency: client && invoiceFrequency(client)
-		})
-	);
-
-	/** Open when you open it, or when there are no suggested dates to start from. */
-	let datesOpen = $state<boolean>();
-	/** Two months fit side by side from this width (see range-calendar-months.svelte). */
-	const twoMonths = new MediaQuery('min-width: 32rem');
-	let custom = $state<DateRange | undefined>();
-	let customOpen = $state(false);
-	const customStart = $derived(custom?.start?.toString() ?? '');
-	const customEnd = $derived(custom?.end?.toString() ?? '');
+	/**
+	 * Each client's next invoice, so everything due can be started from one place. A client
+	 * invoiced by email has its last invoice in the work log rather than Open Collective.
+	 */
+	const nextInvoices = $derived.by(() => {
+		if (!ready || store === undefined) return undefined;
+		const work = store;
+		return (clients.length > 0 ? clients : [undefined]).map((client?: Client) => {
+			const byEmail = client !== undefined && !client.openCollective;
+			const period = nextPeriod({
+				lastEnd: byEmail
+					? lastInvoicedEnd({ invoices: work.data.invoices, clientId: client.id })
+					: expenses && lastExpenseEnd(expenses),
+				frequency: client && invoiceFrequency(client)
+			});
+			return {
+				client,
+				// The suggested dates come from the latest invoice, so they wait for the list.
+				pending: !byEmail && expensesPending,
+				// Without the list, a suggestion could repeat a period already invoiced.
+				failed: !byEmail && !!loadError,
+				period
+			};
+		});
+	});
 </script>
 
 <svelte:head>
@@ -126,7 +141,7 @@
 						</p>
 					</Alert.Description>
 				</Alert.Root>
-			{:else if missing.length > 0}
+			{:else if missing.length > 0 && showExpenses}
 				<Alert.Root variant="warning">
 					<TriangleAlert />
 					<!-- One line: the notice is short, and the link is the only thing to do about it. -->
@@ -137,123 +152,83 @@
 				</Alert.Root>
 			{/if}
 
-			<section class="rounded-xl border bg-card p-5 sm:p-6">
-				<form
-					method="GET"
-					action={resolve('invoices/new')}
-					class="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"
-				>
-					<input type="hidden" name="start" value={suggested.startDate} />
-					<input type="hidden" name="end" value={suggested.endDate} />
-					<div>
-						<h2 class="text-sm font-medium text-muted-foreground">Next invoice</h2>
-						{#if expensesPending}
-							<Skeleton class="mt-1 h-10 w-96 max-w-full" />
-						{:else if loadError}
-							<!-- Without the list, a suggestion could repeat a period you already invoiced. -->
-							<p class="mt-1 text-sm text-muted-foreground">
-								Could not check what you last invoiced, so choose the dates below.
-							</p>
-						{:else}
-							<p class="mt-1 animate-in font-display text-2xl duration-300 fade-in sm:text-3xl">
-								<!-- On a narrow screen the end date wraps onto its own line rather than overflowing. -->
-								<span class="whitespace-nowrap">{formatDMY(suggested.startDate)} –</span>
-								<span class="whitespace-nowrap">{formatDMY(suggested.endDate)}</span>
-							</p>
-						{/if}
-					</div>
-					<Button type="submit" size="lg" disabled={expensesPending || !!loadError}
-						>Start invoice</Button
-					>
-				</form>
-
-				<!-- Bound rather than set, so picking dates (which re-renders the form) never closes it. -->
-				<details
-					class="group mt-5 border-t pt-4 text-sm"
-					bind:open={() => datesOpen ?? !!loadError, (open) => (datesOpen = open)}
-				>
-					<summary class="cursor-pointer text-muted-foreground hover:text-foreground">
-						Choose other dates
-					</summary>
-					<form
-						method="GET"
-						action={resolve('invoices/new')}
-						class="mt-3 flex flex-wrap items-end gap-3"
-					>
-						<div class="w-64 max-w-full space-y-1.5">
-							<Label for="custom-range">Dates</Label>
-							<Popover.Root bind:open={customOpen}>
-								<Popover.Trigger id="custom-range">
-									{#snippet child({ props })}
-										<Button {...props} variant="outline" class="w-full justify-start font-normal">
-											<CalendarRange />
-											{#if customStart}
-												{formatDMY(customStart)} – {customEnd ? formatDMY(customEnd) : '…'}
-											{:else}
-												<span class="text-muted-foreground">Pick the first and last day</span>
-											{/if}
-										</Button>
-									{/snippet}
-								</Popover.Trigger>
-								<Popover.Content class="w-auto p-0" align="start">
-									<RangeCalendar
-										bind:value={custom}
-										numberOfMonths={twoMonths.current ? 2 : 1}
-										onValueChange={(next) => {
-											if (next?.start && next.end) customOpen = false;
-										}}
-									/>
-								</Popover.Content>
-							</Popover.Root>
-						</div>
-						<input type="hidden" name="start" value={customStart} />
-						<input type="hidden" name="end" value={customEnd} />
-						<Button type="submit" variant="outline" disabled={!customEnd}>Start invoice</Button>
-					</form>
-				</details>
+			<section class="rounded-xl border bg-card p-5 sm:p-6" aria-labelledby="next-heading">
+				<h2 id="next-heading" class="text-sm font-medium text-muted-foreground">
+					Next invoice{(nextInvoices?.length ?? 0) > 1 ? 's' : ''}
+				</h2>
+				<ul class="divide-y">
+					{#each nextInvoices ?? [undefined] as next, index (next?.client?.id ?? index)}
+						<li class="py-4 first:pt-1 last:pb-0">
+							<NextInvoice
+								client={next?.client}
+								period={next?.period}
+								pending={!next || next.pending}
+								failed={next?.failed}
+								{today}
+								showName={clients.length > 1}
+							/>
+						</li>
+					{/each}
+				</ul>
 			</section>
 
-			<section aria-labelledby="history-heading">
-				<div class="mb-3 flex items-center justify-between gap-3">
-					<h2 id="history-heading" class="text-lg">
-						Sent to {settings?.collectiveSlug || 'Open Collective'}
-					</h2>
-					<!-- Always rendered so its space is kept, but only shown once you are known to be connected. -->
-					<Button
-						variant="ghost"
-						size="sm"
-						class={me ? '' : 'invisible'}
-						onclick={() => expensesQuery?.refresh()}
-						disabled={!expensesQuery || loading}
-					>
-						<!-- Only spins for a refresh: the first load shows skeletons below instead. -->
-						{#if loading && expenses}<Spinner />{:else}<RefreshCw />{/if}
-						Refresh
-					</Button>
-				</div>
+			{#if showEmailed && store}
+				<section aria-labelledby="emailed-heading">
+					<h2 id="emailed-heading" class="mb-3 text-lg">Invoiced by email</h2>
+					{#if store.data.invoices.length === 0}
+						<p class="rounded-xl border border-dashed bg-card/50 p-6 text-sm text-muted-foreground">
+							No invoices yet. Start one above for a client invoiced by email and save it to see it
+							here.
+						</p>
+					{:else}
+						<EmailInvoicesTable {store} highlightId={page.state.savedInvoiceId} />
+					{/if}
+				</section>
+			{/if}
 
-				{#if expensesPending}
-					{@render tableSkeleton()}
-				{:else if !me}
-					<p class="rounded-xl border border-dashed bg-card/50 p-6 text-sm text-muted-foreground">
-						<a href={resolve('settings')} class="font-medium text-foreground underline"
-							>Connect Open Collective</a
+			{#if showExpenses}
+				<section aria-labelledby="history-heading">
+					<div class="mb-3 flex items-center justify-between gap-3">
+						<h2 id="history-heading" class="text-lg">
+							Sent to {settings?.collectiveSlug || 'Open Collective'}
+						</h2>
+						<!-- Always rendered so its space is kept, but only shown once you are known to be connected. -->
+						<Button
+							variant="ghost"
+							size="sm"
+							class={me ? '' : 'invisible'}
+							onclick={() => expensesQuery?.refresh()}
+							disabled={!expensesQuery || loading}
 						>
+							<!-- Only spins for a refresh: the first load shows skeletons below instead. -->
+							{#if loading && expenses}<Spinner />{:else}<RefreshCw />{/if}
+							Refresh
+						</Button>
+					</div>
 
-						to see the expenses you have already sent.
-					</p>
-				{:else if loadError}
-					<p class="flex items-start gap-1.5 text-sm text-destructive" role="alert">
-						<CircleAlert size={15} class="mt-0.5 shrink-0" />{loadError}
-					</p>
-				{:else if !expenses || expenses.length === 0}
-					<p class="rounded-xl border border-dashed bg-card/50 p-6 text-sm text-muted-foreground">
-						No expenses yet. Start the first one above and it will show up here once submitted.
-					</p>
-				{:else}
-					<ExpensesTable {expenses} highlightUrl={page.state.submittedUrl} />
-				{/if}
-			</section>
+					{#if expensesPending}
+						{@render tableSkeleton()}
+					{:else if !me}
+						<p class="rounded-xl border border-dashed bg-card/50 p-6 text-sm text-muted-foreground">
+							<a href={resolve('settings')} class="font-medium text-foreground underline"
+								>Connect Open Collective</a
+							>
+
+							to see the expenses you have already sent.
+						</p>
+					{:else if loadError}
+						<p class="flex items-start gap-1.5 text-sm text-destructive" role="alert">
+							<CircleAlert size={15} class="mt-0.5 shrink-0" />{loadError}
+						</p>
+					{:else if !expenses || expenses.length === 0}
+						<p class="rounded-xl border border-dashed bg-card/50 p-6 text-sm text-muted-foreground">
+							No expenses yet. Start the first one above and it will show up here once submitted.
+						</p>
+					{:else}
+						<ExpensesTable {expenses} highlightUrl={page.state.submittedUrl} />
+					{/if}
+				</section>
+			{/if}
 		</div>
 	{/if}
 </div>

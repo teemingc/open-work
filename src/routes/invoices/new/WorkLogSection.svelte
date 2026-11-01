@@ -36,7 +36,8 @@
 				{#if client}
 					{itemCount}
 					{itemCount === 1 ? 'item' : 'items'} and {formatHours(draft.loggedHours)} h logged for
-					{client.name} in this period. Sent as the expense notes.
+					{client.name} in this period.
+					{draft.byEmail ? 'Listed on the invoice.' : 'Sent as the expense notes.'}
 				{:else if clients.length > 0}
 					Choose the client this invoice bills.
 				{:else}

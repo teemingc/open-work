@@ -13,6 +13,8 @@ import {
 	entryRate,
 	insertionIndex,
 	invoiceFrequency,
+	lastInvoicedEnd,
+	suggestedInvoiceNumber,
 	mergeDaysOff,
 	parseDaysOff,
 	parseRef,
@@ -281,6 +283,51 @@ describe('clients', () => {
 			['svelte', 7, 88],
 			['zenos', 0, 88]
 		]);
+	});
+});
+
+describe('invoices', () => {
+	const sent = {
+		id: 'sep',
+		clientId: 'zenos',
+		startDate: '2026-09-01',
+		endDate: '2026-09-30',
+		hours: 42.5,
+		rate: 42,
+		amount: 1785,
+		currency: 'USD',
+		status: 'sent'
+	} as const;
+
+	it('continues from the last invoice sent, not a draft', () => {
+		const invoices = [
+			sent,
+			{
+				...sent,
+				id: 'oct',
+				startDate: '2026-10-01',
+				endDate: '2026-10-31',
+				status: 'draft' as const
+			},
+			{ ...sent, id: 'svelte', clientId: 'svelte', endDate: '2026-10-15' }
+		];
+		expect(lastInvoicedEnd({ invoices, clientId: 'zenos' })).toBe('2026-09-30');
+		expect(lastInvoicedEnd({ invoices, clientId: 'other' })).toBeUndefined();
+	});
+
+	it('suggests a number from the client and month', () => {
+		expect(suggestedInvoiceNumber({ client: zenos, startDate: '2026-09-02' })).toBe(
+			'ZENOS-2026-09'
+		);
+		expect(suggestedInvoiceNumber({ client: { name: 'Acme Co.' }, startDate: '2026-10-01' })).toBe(
+			'ACME-CO-2026-10'
+		);
+	});
+
+	it('reads logs from before invoices were kept', () => {
+		const old: Partial<WorkLogData> = emptyWorkLog();
+		delete old.invoices;
+		expect(v.parse(WorkLogSchema, old).invoices).toEqual([]);
 	});
 });
 

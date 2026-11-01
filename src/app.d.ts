@@ -21,6 +21,8 @@ declare global {
 		interface PageState {
 			/** The expense just submitted, so the list can point it out. */
 			submittedUrl?: string;
+			/** The emailed invoice just saved, so the list can point it out. */
+			savedInvoiceId?: string;
 		}
 	}
 }

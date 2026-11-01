@@ -10,17 +10,18 @@
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import { formatDMY, formatHours, formatMoney, invoiceInfoText, nextPeriod } from '#lib/format.js';
 	import { driveSync } from '#lib/drive-sync.svelte.js';
-	import { invoiceFrequency, workLogText, type Client } from '#lib/worklog.js';
+	import { defaultClient, invoiceFrequency, workLogText, type Client } from '#lib/worklog.js';
 	import { ArrowLeft, RotateCcw } from '@lucide/svelte';
 	import { untrack } from 'svelte';
-	import { defaultClient, Draft, type DraftData } from './draft.svelte';
+	import { Draft, type DraftData } from './draft.svelte';
 	import InvoiceSheet from './InvoiceSheet.svelte';
 	import SubmitPanel from './SubmitPanel.svelte';
 	import WorkLogSection from './WorkLogSection.svelte';
+	import EmailInvoicePanel from './EmailInvoicePanel.svelte';
 
 	const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-	function initialPeriod({ clients }: { clients: Client[] }): {
+	function initialPeriod({ clients, clientId }: { clients: Client[]; clientId?: string }): {
 		startDate: string;
 		endDate: string;
 	} {
@@ -29,7 +30,7 @@
 		if (ISO_DATE.test(start) && ISO_DATE.test(end) && start <= end) {
 			return { startDate: start, endDate: end };
 		}
-		const client = defaultClient(clients);
+		const client = clients.find((other) => other.id === clientId) ?? defaultClient(clients);
 		return nextPeriod({ frequency: client && invoiceFrequency(client) });
 	}
 
@@ -45,7 +46,15 @@
 	const store = untrack(() => data.store);
 	// Pulls the latest log from Google Drive, if you sync it, before you invoice from it.
 	driveSync(store);
-	const draft = new Draft({ store, ...initialPeriod(store.data), fallback });
+	const clientId = page.url.searchParams.get('client') ?? undefined;
+	const invoiceId = page.url.searchParams.get('invoice');
+	const draft = new Draft({
+		store,
+		...initialPeriod({ clients: store.data.clients, clientId }),
+		clientId,
+		invoice: invoiceId ? store.invoice(invoiceId) : undefined,
+		fallback
+	});
 	const notes = $derived(
 		workLogText({ entries: draft.entries, organization: settings.organization })
 	);
@@ -115,6 +124,11 @@
 		leaving = true;
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the URL SvelteKit was navigating to
 		goto(leaveTo);
+	}
+
+	function onSaved(savedInvoiceId: string) {
+		submitted = true;
+		goto(resolve('/invoices'), { replace: true, state: { savedInvoiceId } });
 	}
 
 	function onSubmitted(submittedUrl: string | undefined) {
@@ -242,80 +256,86 @@
 
 			<WorkLogSection {draft} {store} organization={settings.organization} />
 
-			<section class="p-5 sm:p-6">
-				<details>
-					<summary class="cursor-pointer text-lg font-semibold">Edit the wording</summary>
-					<div class="mt-4 space-y-5">
-						<div class="space-y-1.5">
-							<div class="flex items-center justify-between">
-								<Label for="title">Title</Label>
-								{#if draft.titleOverride !== undefined}
-									<Button
-										variant="ghost"
-										size="sm"
-										onclick={() => (draft.titleOverride = undefined)}
-										><RotateCcw />Use the standard title</Button
+			{#if !draft.byEmail}
+				<section class="p-5 sm:p-6">
+					<details>
+						<summary class="cursor-pointer text-lg font-semibold">Edit the wording</summary>
+						<div class="mt-4 space-y-5">
+							<div class="space-y-1.5">
+								<div class="flex items-center justify-between">
+									<Label for="title">Title</Label>
+									{#if draft.titleOverride !== undefined}
+										<Button
+											variant="ghost"
+											size="sm"
+											onclick={() => (draft.titleOverride = undefined)}
+											><RotateCcw />Use the standard title</Button
+										>
+									{/if}
+								</div>
+								<Input
+									id="title"
+									bind:value={() => draft.title, (value) => (draft.titleOverride = value)}
+								/>
+							</div>
+
+							<div class="space-y-1.5">
+								<div class="flex items-center justify-between">
+									<Label for="item-description">Item description</Label>
+									{#if draft.descriptionOverride !== undefined}
+										<Button
+											variant="ghost"
+											size="sm"
+											onclick={() => (draft.descriptionOverride = undefined)}
+											><RotateCcw />Use the standard text</Button
+										>
+									{/if}
+								</div>
+								<Textarea
+									id="item-description"
+									rows={3}
+									bind:value={
+										() => draft.itemDescription, (value) => (draft.descriptionOverride = value)
+									}
+								/>
+							</div>
+
+							<p class="text-sm text-muted-foreground">
+								{#if invoiceInfo}
+									Invoice note: {invoiceInfo}
+								{:else}
+									No invoice note.
+
+									<a href={resolve('settings')} class="font-medium text-foreground underline"
+										>Add it in settings</a
 									>
 								{/if}
-							</div>
-							<Input
-								id="title"
-								bind:value={() => draft.title, (value) => (draft.titleOverride = value)}
-							/>
+							</p>
 						</div>
-
-						<div class="space-y-1.5">
-							<div class="flex items-center justify-between">
-								<Label for="item-description">Item description</Label>
-								{#if draft.descriptionOverride !== undefined}
-									<Button
-										variant="ghost"
-										size="sm"
-										onclick={() => (draft.descriptionOverride = undefined)}
-										><RotateCcw />Use the standard text</Button
-									>
-								{/if}
-							</div>
-							<Textarea
-								id="item-description"
-								rows={3}
-								bind:value={
-									() => draft.itemDescription, (value) => (draft.descriptionOverride = value)
-								}
-							/>
-						</div>
-
-						<p class="text-sm text-muted-foreground">
-							{#if invoiceInfo}
-								Invoice note: {invoiceInfo}
-							{:else}
-								No invoice note.
-
-								<a href={resolve('settings')} class="font-medium text-foreground underline"
-									>Add it in settings</a
-								>
-							{/if}
-						</p>
-					</div>
-				</details>
-			</section>
+					</details>
+				</section>
+			{/if}
 		</div>
 
 		<aside class="space-y-5 lg:sticky lg:top-6">
-			<InvoiceSheet
-				payeeName={me?.name}
-				payeeAddress={settings.payeeAddress ?? me?.address ?? undefined}
-				payeeCountry={settings.payeeCountry ?? me?.country ?? undefined}
-				collectiveSlug={settings.collectiveSlug}
-				title={draft.title}
-				itemDescription={draft.itemDescription}
-				cents={draft.cents}
-				currency={draft.currency}
-				{invoiceInfo}
-				workLog={notes}
-			/>
+			{#if draft.byEmail}
+				<EmailInvoicePanel {draft} {store} onsaved={onSaved} />
+			{:else}
+				<InvoiceSheet
+					payeeName={me?.name}
+					payeeAddress={settings.payeeAddress ?? me?.address ?? undefined}
+					payeeCountry={settings.payeeCountry ?? me?.country ?? undefined}
+					collectiveSlug={settings.collectiveSlug}
+					title={draft.title}
+					itemDescription={draft.itemDescription}
+					cents={draft.cents}
+					currency={draft.currency}
+					{invoiceInfo}
+					workLog={notes}
+				/>
 
-			<SubmitPanel {draft} {me} {settings} {invoiceInfo} onsubmitted={onSubmitted} />
+				<SubmitPanel {draft} {me} {settings} {invoiceInfo} onsubmitted={onSubmitted} />
+			{/if}
 		</aside>
 	</div>
 </div>
@@ -323,7 +343,7 @@
 <Dialog.Root bind:open={() => leaveTo !== undefined, (open) => !open && (leaveTo = undefined)}>
 	<Dialog.Content>
 		<Dialog.Header>
-			<Dialog.Title>Leave this invoice unsubmitted?</Dialog.Title>
+			<Dialog.Title>Leave this invoice unsaved?</Dialog.Title>
 			<Dialog.Description>You can return to it with the Back button.</Dialog.Description>
 		</Dialog.Header>
 		<Dialog.Footer>

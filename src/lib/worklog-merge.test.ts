@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emptyWorkLog, type WorkLogData, type WorkLogEntry } from './worklog';
+import { emptyWorkLog, type Invoice, type WorkLogData, type WorkLogEntry } from './worklog';
 import { mergeWorkLogs, removedBy, sameWorkLog } from './worklog-merge';
 
 const now = new Date('2026-10-18T12:00:00Z');
@@ -13,7 +13,40 @@ function log(partial: Partial<WorkLogData>): WorkLogData {
 	return { ...emptyWorkLog(), ...partial };
 }
 
+function invoice(id: string, updatedAt: string, partial: Partial<Invoice> = {}): Invoice {
+	return {
+		id,
+		clientId: 'zenos',
+		startDate: '2026-09-01',
+		endDate: '2026-09-30',
+		hours: 42.5,
+		rate: 42,
+		amount: 1785,
+		currency: 'USD',
+		status: 'sent',
+		updatedAt,
+		...partial
+	};
+}
+
 describe('mergeWorkLogs', () => {
+	it('merges invoices like entries, in period order, and remembers deleted ones', () => {
+		const merged = mergeWorkLogs({
+			ours: log({
+				invoices: [invoice('oct', at(9), { startDate: '2026-10-01' }), invoice('sep', at(9))],
+				deleted: [{ kind: 'invoice', id: 'aug', at: at(10) }]
+			}),
+			theirs: log({
+				invoices: [invoice('sep', at(11), { status: 'paid' }), invoice('aug', at(8))]
+			}),
+			now
+		});
+		expect(merged.invoices.map((i) => [i.id, i.status])).toEqual([
+			['sep', 'paid'],
+			['oct', 'sent']
+		]);
+	});
+
 	it('keeps entries added on either device', () => {
 		const merged = mergeWorkLogs({
 			ours: log({ entries: [entry('laptop', at(9), { date: '2026-10-16' })] }),

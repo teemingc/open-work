@@ -1,6 +1,15 @@
 import { invoiceTitle, lineItemDescription, totalCents } from '#lib/format.js';
 import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-import { activeClients, earnings, entriesFor, rateOn, type Client } from '#lib/worklog.js';
+import {
+	activeClients,
+	defaultClient,
+	earnings,
+	entriesFor,
+	rateOn,
+	suggestedInvoiceNumber,
+	type Invoice,
+	type InvoiceStatus
+} from '#lib/worklog.js';
 
 export interface DraftData {
 	startDate: string;
@@ -11,19 +20,13 @@ export interface DraftData {
 	currency: string;
 	titleOverride?: string;
 	descriptionOverride?: string;
-}
-
-/** The client a new invoice bills: the one invoiced through Open Collective, or the only one. */
-export function defaultClient(clients: Client[]): Client | undefined {
-	const active = activeClients(clients);
-	return (
-		active.find((client) => client.openCollective) ?? (active.length === 1 ? active[0] : undefined)
-	);
+	invoiceId?: string;
+	numberOverride?: string;
 }
 
 /**
- * An invoice being written. Its hours and notes come from the work log; it only lives on this
- * page, and once submitted, Open Collective holds the expense.
+ * An invoice being written. Its hours and notes come from the work log. Once submitted, Open
+ * Collective holds the expense; an invoice sent by email is kept in the work log.
  */
 export class Draft {
 	startDate = $state('');
@@ -38,11 +41,26 @@ export class Draft {
 	/** Set when you edit the generated title or line item text. */
 	titleOverride = $state<string | undefined>();
 	descriptionOverride = $state<string | undefined>();
+	/** The saved invoice this edits, for clients invoiced by email. */
+	invoiceId = $state<string | undefined>();
+	/** Set when you edit the suggested invoice number. */
+	numberOverride = $state<string | undefined>();
 
 	#store: WorkLogStore;
 	#fallbackRate: number;
+	/** The saved invoice as it was picked up, so leaving it unchanged loses nothing. */
+	#saved: string | undefined;
 
 	client = $derived.by(() => (this.clientId ? this.#store.client(this.clientId) : undefined));
+	/** Invoiced by email, so saved in the work log rather than submitted to Open Collective. */
+	byEmail = $derived.by(() => this.client !== undefined && !this.client.openCollective);
+	number = $derived.by(
+		() =>
+			this.numberOverride ??
+			(this.client
+				? suggestedInvoiceNumber({ client: this.client, startDate: this.startDate })
+				: '')
+	);
 	/** The client has to be chosen before its work can be billed. */
 	needsClient = $derived.by(
 		() => this.client === undefined && activeClients(this.#store.data.clients).length > 0
@@ -98,21 +116,70 @@ export class Draft {
 		store,
 		startDate,
 		endDate,
+		clientId,
+		invoice,
 		fallback
 	}: {
 		store: WorkLogStore;
 		startDate: string;
 		endDate: string;
+		/** The client chosen before the invoice started, else the usual one. */
+		clientId?: string;
+		/** A saved invoice to carry on with. */
+		invoice?: Invoice;
 		/** Rate and currency when the work log has no clients. */
 		fallback: { rate: number; currency: string };
 	}) {
 		this.#store = store;
 		this.#fallbackRate = fallback.rate;
+		if (invoice) {
+			this.edit(invoice);
+			return;
+		}
 		this.startDate = startDate;
 		this.endDate = endDate;
-		const client = defaultClient(store.data.clients);
+		const chosen = clientId ? store.client(clientId) : undefined;
+		const client = chosen && !chosen.archived ? chosen : defaultClient(store.data.clients);
 		this.clientId = client?.id;
 		this.currency = client?.currency ?? fallback.currency;
+	}
+
+	/** Pick up a saved invoice, keeping what it billed where that differs from the log now. */
+	edit(invoice: Invoice) {
+		this.invoiceId = invoice.id;
+		this.clientId = invoice.clientId;
+		this.startDate = invoice.startDate;
+		this.endDate = invoice.endDate;
+		this.currency = invoice.currency;
+		this.numberOverride = invoice.number;
+		if (invoice.hours !== this.loggedHours) this.hoursOverride = invoice.hours;
+		if (invoice.rate !== this.logged.rate) this.rateOverride = invoice.rate;
+		this.#saved = JSON.stringify(this.toJSON());
+	}
+
+	/** The invoice to keep in the work log. `today` is when it counts as sent, if it is now. */
+	toInvoice({
+		status,
+		today
+	}: {
+		status: InvoiceStatus;
+		today: string;
+	}): Omit<Invoice, 'id' | 'updatedAt'> & { id?: string } {
+		const saved = this.invoiceId ? this.#store.invoice(this.invoiceId) : undefined;
+		return {
+			id: this.invoiceId,
+			clientId: this.clientId ?? '',
+			number: this.number.trim() || undefined,
+			startDate: this.startDate,
+			endDate: this.endDate,
+			hours: this.hours,
+			rate: this.rate,
+			amount: this.cents / 100,
+			currency: this.currency,
+			status,
+			sentOn: status === 'draft' ? undefined : (saved?.sentOn ?? today),
+			paidOn: status === 'paid' ? saved?.paidOn : undefined
+		};
 	}
 
 	/** Bill another client, at its own rates. */
@@ -126,11 +193,13 @@ export class Draft {
 
 	/** Whether anything typed here would be lost by leaving the page. The log keeps itself. */
 	get hasWork(): boolean {
+		if (this.#saved !== undefined) return JSON.stringify(this.toJSON()) !== this.#saved;
 		return (
 			this.hoursOverride !== undefined ||
 			this.rateOverride !== undefined ||
 			this.titleOverride !== undefined ||
-			this.descriptionOverride !== undefined
+			this.descriptionOverride !== undefined ||
+			this.numberOverride !== undefined
 		);
 	}
 
@@ -143,7 +212,9 @@ export class Draft {
 			rateOverride: this.rateOverride,
 			currency: this.currency,
 			titleOverride: this.titleOverride,
-			descriptionOverride: this.descriptionOverride
+			descriptionOverride: this.descriptionOverride,
+			invoiceId: this.invoiceId,
+			numberOverride: this.numberOverride
 		};
 	}
 
@@ -156,5 +227,7 @@ export class Draft {
 		this.currency = data.currency;
 		this.titleOverride = data.titleOverride;
 		this.descriptionOverride = data.descriptionOverride;
+		this.invoiceId = data.invoiceId;
+		this.numberOverride = data.numberOverride;
 	}
 }

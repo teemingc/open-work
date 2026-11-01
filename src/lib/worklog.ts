@@ -86,8 +86,37 @@ const DayOffSchema = v.object({ date: IsoDate, name: v.string(), updatedAt: Upda
 /** A public holiday or a day of leave. */
 export type DayOff = v.InferOutput<typeof DayOffSchema>;
 
+const InvoiceStatusSchema = v.picklist(['draft', 'sent', 'paid']);
+
+/** Where an invoice you send yourself is at: being written, sent, or paid. */
+export type InvoiceStatus = v.InferOutput<typeof InvoiceStatusSchema>;
+
+const InvoiceSchema = v.object({
+	id: v.string(),
+	updatedAt: UpdatedAt,
+	clientId: v.string(),
+	/** Like ZENOS-2026-09. */
+	number: v.optional(v.string()),
+	startDate: IsoDate,
+	endDate: IsoDate,
+	hours: v.pipe(v.number(), v.minValue(0)),
+	/** Per hour: the one rate billed, or the average when the hours were billed at several. */
+	rate: Rate,
+	amount: v.pipe(v.number(), v.minValue(0)),
+	currency: Currency,
+	status: InvoiceStatusSchema,
+	sentOn: v.optional(IsoDate),
+	paidOn: v.optional(IsoDate)
+});
+
+/**
+ * An invoice for a client you invoice by email. Open Collective keeps its own, so those are
+ * read from there instead.
+ */
+export type Invoice = v.InferOutput<typeof InvoiceSchema>;
+
 const TombstoneSchema = v.object({
-	kind: v.picklist(['entry', 'client', 'holiday', 'leave']),
+	kind: v.picklist(['entry', 'client', 'holiday', 'leave', 'invoice']),
 	/** The entry's or client's id, or the day off's date. */
 	id: v.string(),
 	at: v.string()
@@ -102,6 +131,7 @@ export const WorkLogSchema = v.object({
 	entries: v.array(EntrySchema),
 	holidays: v.array(DayOffSchema),
 	leave: v.array(DayOffSchema),
+	invoices: v.optional(v.array(InvoiceSchema), []),
 	hoursPerDay: v.optional(v.pipe(v.number(), v.minValue(0), v.maxValue(24)), 8),
 	/** Shows totals in a second currency, like USD earnings in MYR. */
 	exchange: v.optional(
@@ -124,6 +154,7 @@ export function emptyWorkLog(): WorkLogData {
 		entries: [],
 		holidays: [],
 		leave: [],
+		invoices: [],
 		hoursPerDay: 8,
 		deleted: []
 	};
@@ -410,6 +441,14 @@ export function activeClients(clients: Client[]): Client[] {
 	return clients.filter((client) => !client.archived);
 }
 
+/** The client a new invoice bills: the one invoiced through Open Collective, or the only one. */
+export function defaultClient(clients: Client[]): Client | undefined {
+	const active = activeClients(clients);
+	return (
+		active.find((client) => client.openCollective) ?? (active.length === 1 ? active[0] : undefined)
+	);
+}
+
 /** The clients to choose from for an entry: the active ones, and the entry's own if archived. */
 export function clientChoices({
 	clients,
@@ -419,6 +458,40 @@ export function clientChoices({
 	clientId?: string;
 }): Client[] {
 	return clients.filter((client) => !client.archived || client.id === clientId);
+}
+
+/* ---------------------------------- Invoices ---------------------------------- */
+
+/** The end of the latest period a client was sent an invoice for. Drafts are not sent yet. */
+export function lastInvoicedEnd({
+	invoices,
+	clientId
+}: {
+	invoices: Invoice[];
+	clientId: string;
+}): string | undefined {
+	let latest: string | undefined;
+	for (const invoice of invoices) {
+		if (invoice.clientId !== clientId || invoice.status === 'draft') continue;
+		if (!latest || invoice.endDate > latest) latest = invoice.endDate;
+	}
+	return latest;
+}
+
+/** A first suggestion for an invoice's number, like ZENOS-2026-09 for September's. */
+export function suggestedInvoiceNumber({
+	client,
+	startDate
+}: {
+	client: Pick<Client, 'name'>;
+	startDate: string;
+}): string {
+	const prefix = client.name
+		.trim()
+		.toUpperCase()
+		.replace(/[^A-Z0-9]+/g, '-')
+		.replace(/^-|-$/g, '');
+	return `${prefix || 'INVOICE'}-${startDate.slice(0, 7)}`;
 }
 
 /* ---------------------------------- Calendar ---------------------------------- */

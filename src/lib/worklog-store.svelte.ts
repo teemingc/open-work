@@ -7,6 +7,8 @@ import {
 	WorkLogSchema,
 	type Client,
 	type DayOff,
+	type Invoice,
+	type InvoiceStatus,
 	type Tombstone,
 	type WorkLogData,
 	type WorkLogEntry
@@ -318,6 +320,42 @@ export class WorkLogStore {
 		return true;
 	}
 
+	/* Invoices */
+
+	invoice(id: string): Invoice | undefined {
+		return this.data.invoices.find((invoice) => invoice.id === id);
+	}
+
+	/** Add an invoice, or replace the one with its id. */
+	saveInvoice(invoice: Omit<Invoice, 'id' | 'updatedAt'> & { id?: string }): Invoice {
+		const saved = { ...invoice, id: invoice.id ?? crypto.randomUUID(), updatedAt: nowIso() };
+		const index = this.data.invoices.findIndex((other) => other.id === saved.id);
+		if (index !== -1) this.data.invoices.splice(index, 1);
+		const at = this.data.invoices.findIndex((other) => other.startDate > saved.startDate);
+		this.data.invoices.splice(at === -1 ? this.data.invoices.length : at, 0, saved);
+		this.#save();
+		return saved;
+	}
+
+	/** Move an invoice on to sent or paid, noting the day, or back to an earlier status. */
+	setInvoiceStatus({ id, status, on }: { id: string; status: InvoiceStatus; on: string }) {
+		const invoice = this.invoice(id);
+		if (!invoice) return;
+		invoice.status = status;
+		invoice.sentOn = status === 'draft' ? undefined : (invoice.sentOn ?? on);
+		invoice.paidOn = status === 'paid' ? (invoice.paidOn ?? on) : undefined;
+		invoice.updatedAt = nowIso();
+		this.#save();
+	}
+
+	removeInvoice(id: string) {
+		const index = this.data.invoices.findIndex((invoice) => invoice.id === id);
+		if (index === -1) return;
+		this.data.invoices.splice(index, 1);
+		this.#bury('invoice', id);
+		this.#save();
+	}
+
 	/* Schedule */
 
 	setSchedule({ hoursPerDay, exchange }: Pick<WorkLogData, 'hoursPerDay' | 'exchange'>) {
@@ -402,6 +440,7 @@ export class WorkLogStore {
 			clients: backup.clients.map(stamp),
 			holidays: backup.holidays.map(stamp),
 			leave: backup.leave.map(stamp),
+			invoices: backup.invoices.map(stamp),
 			scheduleUpdatedAt: at,
 			deleted: [...backup.deleted, ...gone]
 		};

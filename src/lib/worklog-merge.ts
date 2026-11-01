@@ -4,7 +4,7 @@
  * last; a deletion wins over any edit made before it.
  */
 
-import type { DayOff, Tombstone, WorkLogData, WorkLogEntry } from './worklog';
+import type { DayOff, Invoice, Tombstone, WorkLogData, WorkLogEntry } from './worklog';
 
 /** How long a deletion is remembered. A device offline for longer could bring a record back. */
 const TOMBSTONE_DAYS = 180;
@@ -53,6 +53,10 @@ function byDateAndStart(a: WorkLogEntry, b: WorkLogEntry): number {
 
 function byDate(a: DayOff, b: DayOff): number {
 	return a.date.localeCompare(b.date);
+}
+
+function byPeriod(a: Invoice, b: Invoice): number {
+	return a.startDate.localeCompare(b.startDate) || a.endDate.localeCompare(b.endDate);
 }
 
 /** Combine two copies of the log into one that has every change from both. */
@@ -104,6 +108,12 @@ export function mergeWorkLogs({
 			key: (day) => day.date,
 			deletedAt: deletedAt('leave')
 		}).sort(byDate),
+		invoices: mergeRecords({
+			ours: ours.invoices,
+			theirs: theirs.invoices,
+			key: (invoice) => invoice.id,
+			deletedAt: deletedAt('invoice')
+		}).sort(byPeriod),
 		hoursPerDay: schedule.hoursPerDay,
 		exchange: schedule.exchange,
 		scheduleUpdatedAt: schedule.scheduleUpdatedAt,
@@ -142,6 +152,7 @@ export function removedBy({
 		...missing('entry', current.entries, next.entries, (entry) => entry.id),
 		...missing('client', current.clients, next.clients, (client) => client.id),
 		...missing('holiday', current.holidays, next.holidays, (day) => day.date),
-		...missing('leave', current.leave, next.leave, (day) => day.date)
+		...missing('leave', current.leave, next.leave, (day) => day.date),
+		...missing('invoice', current.invoices, next.invoices, (invoice) => invoice.id)
 	];
 }
