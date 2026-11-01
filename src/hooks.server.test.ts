@@ -1,6 +1,7 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { describe, expect, it, vi } from 'vitest';
 import { handle } from './hooks.server';
+import { ORIGIN } from '#lib/origin.js';
 
 function request(url: string) {
 	const resolve = vi.fn(async () => new Response('page'));
@@ -15,12 +16,12 @@ describe('handle', () => {
 		);
 		const res = await response;
 		expect(res.status).toBe(301);
-		expect(res.headers.get('location')).toBe('https://openwork.ing/collective/svelte?range=1y');
+		expect(res.headers.get('location')).toBe(`${ORIGIN}/collective/svelte?range=1y`);
 		expect(resolve).not.toHaveBeenCalled();
 	});
 
 	it('serves the custom domain as usual', async () => {
-		const { resolve, response } = request('https://openwork.ing/worklog');
+		const { resolve, response } = request(`${ORIGIN}/worklog`);
 		expect(await (await response).text()).toBe('page');
 		expect(resolve).toHaveBeenCalled();
 	});

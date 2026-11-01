@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { ORIGIN } from './src/lib/origin.ts';
 
 // Matches the Open Collective and Google OAuth callback URLs registered for local development.
 const DEV_PORT = 5317;
@@ -32,9 +33,7 @@ export default defineConfig({
 		warnOnPortFallback(),
 		tailwindcss(),
 		sveltekit({
-			paths: {
-				origin: 'https://openwork.ing'
-			},
+			paths: { origin: ORIGIN },
 			preprocess: vitePreprocess(),
 			compilerOptions: { experimental: { async: true } },
 			experimental: { remoteFunctions: true },

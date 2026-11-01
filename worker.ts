@@ -5,14 +5,17 @@
  */
 
 import kit from './.svelte-kit/cloudflare/_worker.js';
+import { ORIGIN } from './src/lib/origin.ts';
 
 export default {
 	fetch: kit.fetch,
 	async scheduled(_controller, env, ctx) {
 		// From the site itself, as SvelteKit refuses a POST from anywhere else.
-		const origin = 'https://openwork.ing';
 		const response = await kit.fetch!(
-			new Request(`${origin}/contributors/refresh`, { method: 'POST', headers: { origin } }),
+			new Request(`${ORIGIN}/contributors/refresh`, {
+				method: 'POST',
+				headers: { origin: ORIGIN }
+			}),
 			env,
 			ctx
 		);

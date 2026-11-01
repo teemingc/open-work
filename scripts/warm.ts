@@ -1,7 +1,9 @@
 // Gathers what the site keeps fresh on a schedule, so the first visit after a deploy finds it
 // stored. Run after `wrangler deploy`; each refresh does nothing while what is stored is fresh.
 
-const origin = process.argv[2] ?? 'https://openwork.ing';
+import { ORIGIN } from '../src/lib/origin.ts';
+
+const origin = process.argv[2] ?? ORIGIN;
 
 const response = await fetch(`${origin}/contributors/refresh`, {
 	method: 'POST',
