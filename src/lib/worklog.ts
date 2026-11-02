@@ -5,6 +5,7 @@
 
 import * as v from 'valibot';
 import { addDays, formatDMY, parseIsoDate, toIsoDate } from './format';
+import { SettingsSchema } from './settings';
 
 /* ---------------------------------- Shape ---------------------------------- */
 
@@ -35,6 +36,11 @@ export type RateChange = v.InferOutput<typeof RateChangeSchema>;
 
 /** When a record last changed, so two copies of the log can merge record by record. */
 const UpdatedAt = v.optional(v.string());
+
+/** When each field of a group of settings last changed, so devices merge them field by field. */
+const FieldStamps = v.record(v.string(), v.string());
+
+export type FieldStamps = v.InferOutput<typeof FieldStamps>;
 
 const FrequencySchema = v.picklist(['monthly', 'twice-monthly']);
 
@@ -305,6 +311,8 @@ export const WorkLogSchema = v.object({
 	invoicing: v.optional(InvoicingSchema),
 	/** When your invoice details last changed. */
 	invoicingUpdatedAt: v.optional(v.string()),
+	/** When each of your invoice details last changed. Replaces `invoicingUpdatedAt`. */
+	invoicingFieldsUpdatedAt: v.optional(FieldStamps),
 	deductions: v.optional(v.array(DeductionSchema), []),
 	allowance: v.optional(AllowanceSchema),
 	/** When the days-off allowance last changed. */
@@ -313,6 +321,10 @@ export const WorkLogSchema = v.object({
 	replaceHolidays: v.optional(v.boolean(), true),
 	/** When `replaceHolidays` last changed. */
 	replaceHolidaysUpdatedAt: v.optional(v.string()),
+	/** Your settings, kept with the work log so they sync with it. */
+	settings: v.optional(SettingsSchema),
+	/** When each of your settings last changed. */
+	settingsUpdatedAt: v.optional(FieldStamps),
 	/** Records deleted here, so a copy that still has them does not bring them back. */
 	deleted: v.optional(v.array(TombstoneSchema), [])
 });

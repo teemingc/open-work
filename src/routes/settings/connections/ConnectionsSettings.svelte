@@ -51,6 +51,7 @@
 
 <SettingsForm
 	settings={data.settings}
+	store={data.store}
 	shown={['githubToken', 'githubUsername', 'organization', 'repositories']}
 >
 	{#snippet children({ save })}

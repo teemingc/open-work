@@ -4,6 +4,7 @@ import {
 	insertionIndex,
 	mergeDaysOff,
 	nowIso,
+	type FieldStamps,
 	orderedDeductions,
 	WorkLogSchema,
 	type Allowance,
@@ -17,7 +18,8 @@ import {
 	type WorkLogData,
 	type WorkLogEntry
 } from './worklog';
-import { mergeWorkLogs, removedBy, sameWorkLog } from './worklog-merge';
+import { invoicingStamps, mergeWorkLogs, removedBy, sameWorkLog } from './worklog-merge';
+import { DEFAULT_SETTINGS, type Settings } from './settings';
 
 /** Where this browser keeps the work log. */
 export interface WorkLogBackend {
@@ -37,6 +39,31 @@ const LEGACY_STORAGE_KEY = 'invoicer:worklog';
 const DB_NAME = 'open-work';
 const DB_STORE = 'worklog';
 const DB_KEY = 'log';
+
+/** Every field of `value` stamped as changed `at`. */
+function stampAll(value: object, at: string): FieldStamps {
+	return Object.fromEntries(Object.keys(value).map((key) => [key, at]));
+}
+
+/** `stamps`, with each field `next` changes from `current` stamped as changed now. */
+function restamp({
+	current = {},
+	next,
+	stamps
+}: {
+	current?: object;
+	next: object;
+	stamps: FieldStamps;
+}): FieldStamps {
+	const at = nowIso();
+	const before: Record<string, unknown> = { ...current };
+	const after: Record<string, unknown> = { ...next };
+	const restamped = { ...stamps };
+	for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+		if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) restamped[key] = at;
+	}
+	return restamped;
+}
 const CHANNEL = 'open-work:worklog';
 
 export class WorkLogParseError extends Error {}
@@ -187,6 +214,7 @@ export class WorkLogStore {
 	saveError = $state<string | undefined>();
 	#backend: WorkLogBackend;
 	#listeners: (() => void)[] = [];
+	#replacedListeners: (() => void)[] = [];
 	/** Saves in the order they were made, so an older one never lands after a newer one. */
 	#writes: Promise<void> = Promise.resolve();
 
@@ -215,6 +243,16 @@ export class WorkLogStore {
 		return () => {
 			this.#listeners = this.#listeners.filter((other) => other !== listener);
 		};
+	}
+
+	/** Resolves once every change so far is kept in this browser. */
+	saved(): Promise<void> {
+		return this.#writes;
+	}
+
+	/** Calls back after another copy replaces this one, from Drive or a backup. */
+	onReplace(listener: () => void) {
+		this.#replacedListeners.push(listener);
 	}
 
 	#save() {
@@ -392,6 +430,23 @@ export class WorkLogStore {
 		this.#save();
 	}
 
+	/* Settings */
+
+	/** Your settings, or the defaults before you have any. */
+	get settings(): Settings {
+		return this.data.settings ?? DEFAULT_SETTINGS;
+	}
+
+	setSettings(settings: Settings) {
+		this.data.settingsUpdatedAt = restamp({
+			current: this.data.settings,
+			next: settings,
+			stamps: this.data.settingsUpdatedAt ?? {}
+		});
+		this.data.settings = settings;
+		this.#save();
+	}
+
 	/* Schedule */
 
 	setSchedule({ hoursPerDay, exchange }: Pick<WorkLogData, 'hoursPerDay' | 'exchange'>) {
@@ -459,8 +514,13 @@ export class WorkLogStore {
 	/* Invoices by email */
 
 	setInvoicing(invoicing: Invoicing) {
+		this.data.invoicingFieldsUpdatedAt = restamp({
+			current: this.data.invoicing,
+			next: invoicing,
+			stamps: invoicingStamps(this.data)
+		});
+		this.data.invoicingUpdatedAt = undefined;
 		this.data.invoicing = invoicing;
-		this.data.invoicingUpdatedAt = nowIso();
 		this.#save();
 	}
 
@@ -501,6 +561,7 @@ export class WorkLogStore {
 	adopt(data: WorkLogData) {
 		this.data = data;
 		this.#write();
+		for (const listener of this.#replacedListeners) listener();
 	}
 
 	/** Delete the log from this browser, after any saves still on their way. */
@@ -528,12 +589,19 @@ export class WorkLogStore {
 			invoices: backup.invoices.map(stamp),
 			deductions: backup.deductions.map(stamp),
 			scheduleUpdatedAt: at,
-			invoicingUpdatedAt: at,
+			invoicingUpdatedAt: undefined,
+			invoicingFieldsUpdatedAt: backup.invoicing && stampAll(backup.invoicing, at),
 			allowanceUpdatedAt: at,
 			replaceHolidaysUpdatedAt: at,
+			// A backup from before settings were in the log keeps the ones you have.
+			settings: backup.settings ?? this.data.settings,
+			settingsUpdatedAt: backup.settings
+				? stampAll(backup.settings, at)
+				: this.data.settingsUpdatedAt,
 			deleted: [...backup.deleted, ...gone]
 		};
 		this.#save();
+		for (const listener of this.#replacedListeners) listener();
 	}
 }
 
@@ -543,7 +611,7 @@ let opening: Promise<WorkLogStore> | undefined;
  * The one work log for this browser, opened on first use. Pages open it in their `load`, so
  * it is ready before anything renders and no edit can land before the saved log is read.
  */
-export function openWorkLog(defaults: WorkLogDefaults): Promise<WorkLogStore> {
+export function openWorkLog(defaults: () => Promise<WorkLogDefaults>): Promise<WorkLogStore> {
 	opening ??= (async () => {
 		// Ask the browser not to clear the log to free space.
 		void navigator.storage?.persist?.();
@@ -557,7 +625,7 @@ export function openWorkLog(defaults: WorkLogDefaults): Promise<WorkLogStore> {
 		}
 		const store = new WorkLogStore({
 			backend: indexedDbBackend,
-			data: data ?? starterLog(defaults)
+			data: data ?? starterLog(await defaults())
 		});
 		// A log that could not be read stays as it is until you change something, so it can be recovered.
 		if (!data && !unreadable) store.adopt(store.data);
