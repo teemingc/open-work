@@ -147,6 +147,21 @@
 	title="Clients"
 	description="Who you work for, what they pay an hour, and how and how often you invoice them. Archive a client you no longer work for to keep its logged time."
 >
+	{#snippet action()}
+		<Button
+			variant="outline"
+			size="sm"
+			onclick={() =>
+				store.addClient({
+					name: `Client ${store.data.clients.length + 1}`,
+					rate: data.settings.hourlyRate,
+					currency: data.settings.currency,
+					openCollective: false
+				})}
+		>
+			<Plus /> Add a client
+		</Button>
+	{/snippet}
 	<ul class="space-y-3">
 		{#each clients as client (client.id)}
 			{const color = $derived(
@@ -374,17 +389,27 @@
 							</Select.Content>
 						</Select.Root>
 					</div>
-					<div class="space-y-1.5 lg:col-span-2">
-						<Label for="{client.id}-website">Website</Label>
-						{@render lookupField({
-							client,
-							source: 'website',
-							placeholder: 'None',
-							onchange: (website) =>
-								lookUp(client, { website: website || undefined }, () => getSiteLook(website))
-						})}
-					</div>
-					<details class="group col-span-2 lg:col-span-4" open={(client.rates?.length ?? 0) > 0}>
+					<!-- A collective's logo and colour come from Open Collective, so only other clients need one. -->
+					{#if !client.openCollective}
+						<div class="space-y-1.5 lg:col-span-2">
+							<Label for="{client.id}-website">Website</Label>
+							{@render lookupField({
+								client,
+								source: 'website',
+								placeholder: 'None',
+								onchange: (website) =>
+									lookUp(client, { website: website || undefined }, () => getSiteLook(website))
+							})}
+						</div>
+					{/if}
+					<!-- Opened once, for a client with rate changes. An `open` attribute would be set again on
+						every change to the client, opening it straight after you close it. -->
+					<details
+						class="group col-span-2 lg:col-span-4"
+						{@attach (details) => {
+							details.open = untrack(() => (client.rates?.length ?? 0) > 0);
+						}}
+					>
 						<summary
 							class="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden"
 						>
@@ -508,16 +533,4 @@
 			</ul>
 		</details>
 	{/if}
-	<Button
-		variant="outline"
-		onclick={() =>
-			store.addClient({
-				name: `Client ${store.data.clients.length + 1}`,
-				rate: data.settings.hourlyRate,
-				currency: data.settings.currency,
-				openCollective: false
-			})}
-	>
-		<Plus /> Add a client
-	</Button>
 </SettingsSection>

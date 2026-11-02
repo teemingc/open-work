@@ -33,27 +33,28 @@
 </script>
 
 <!--
-	A ledger on a wide screen. On a phone each invoice takes two lines instead of scrolling sideways:
+	A ledger on a wide screen, its cells padded less until there is room for every column. Narrower,
+	each invoice takes two lines instead of scrolling sideways:
 	what it is and what it is for, then where it is at and what to do next.
 -->
 <div class="animate-in overflow-hidden rounded-xl border bg-card duration-300 fade-in">
 	<table class="ledger text-sm">
-		<thead class="max-sm:sr-only">
+		<thead class="max-md:sr-only">
 			<tr>
-				<th scope="col" class="px-4 py-2.5 font-medium">Invoice</th>
-				<th scope="col" class="px-4 py-2.5 font-medium">Period</th>
-				<th scope="col" class="px-4 py-2.5 text-right font-medium">Amount</th>
-				<th scope="col" class="px-4 py-2.5 font-medium">Status</th>
-				<th scope="col" class="px-4 py-2.5"><span class="sr-only">Actions</span></th>
+				<th scope="col" class="px-4 py-2.5 font-medium md:max-lg:px-3">Invoice</th>
+				<th scope="col" class="px-4 py-2.5 font-medium md:max-lg:px-3">Period</th>
+				<th scope="col" class="px-4 py-2.5 text-right font-medium md:max-lg:px-3">Amount</th>
+				<th scope="col" class="px-4 py-2.5 font-medium md:max-lg:px-3">Status</th>
+				<th scope="col" class="px-4 py-2.5 md:max-lg:px-3"><span class="sr-only">Actions</span></th>
 			</tr>
 		</thead>
 		<tbody>
 			{#each invoices as invoice (invoice.id)}
 				{const on = $derived(invoice.paidOn ?? invoice.sentOn)}
 				<tr
-					class="grid grid-cols-[minmax(0,1fr)_auto] items-center py-1.5 hover:bg-accent/50 sm:table-row sm:py-0"
+					class="grid grid-cols-[minmax(0,1fr)_auto] items-center py-1.5 hover:bg-accent/50 md:table-row md:py-0"
 				>
-					<td class="px-4 pt-1.5 sm:py-3">
+					<td class="px-4 pt-1.5 md:py-3 md:max-lg:px-3">
 						<a
 							href={resolve('/invoices/[id]', { id: invoice.id })}
 							class="font-medium whitespace-nowrap underline-offset-4 hover:underline"
@@ -61,21 +62,23 @@
 						>
 						<span class="block text-xs text-muted-foreground">
 							{store.client(invoice.clientId)?.name ?? 'Removed client'}
-							<span class="whitespace-nowrap tabular-nums sm:hidden">
+							<span class="whitespace-nowrap tabular-nums md:hidden">
 								· {formatDMY(invoice.startDate)} – {formatDMY(invoice.endDate)}
 							</span>
 						</span>
 					</td>
-					<td class="hidden px-4 py-3 whitespace-nowrap tabular-nums sm:table-cell">
-						{formatDMY(invoice.startDate)} – {formatDMY(invoice.endDate)}
+					<!-- Breaks after the dash when the row is short of room, so the actions still fit. -->
+					<td class="hidden px-4 py-3 tabular-nums md:table-cell md:max-lg:px-3">
+						<span class="whitespace-nowrap">{formatDMY(invoice.startDate)} –</span>
+						<span class="whitespace-nowrap">{formatDMY(invoice.endDate)}</span>
 					</td>
 					<td
-						class="self-start px-4 pt-1.5 text-right font-medium tabular-nums sm:py-3 sm:font-normal"
+						class="self-start px-4 pt-1.5 text-right font-medium tabular-nums md:py-3 md:font-normal md:max-lg:px-3"
 					>
 						{formatMoney(due(invoice), invoice.currency)}
 					</td>
 					<td
-						class="col-span-2 col-start-1 row-start-2 self-center justify-self-start px-4 py-1.5 whitespace-nowrap sm:py-3"
+						class="col-span-2 col-start-1 row-start-2 self-center justify-self-start px-4 py-1.5 whitespace-nowrap md:py-3 md:max-lg:px-3"
 					>
 						<!-- The date beside the status it dates, rather than in small type under it. -->
 						<span class="inline-flex items-center gap-2">
@@ -87,7 +90,7 @@
 					</td>
 					<!-- Shares the status's line on a phone, so the amount alone sets the column's width. -->
 					<td
-						class="col-span-2 col-start-1 row-start-2 justify-self-end px-2 py-1.5 sm:px-4 sm:py-3"
+						class="col-span-2 col-start-1 row-start-2 justify-self-end px-2 py-1.5 md:px-3 md:py-3 lg:px-4"
 					>
 						<div class="flex justify-end gap-1">
 							{#if invoice.status === 'draft'}
