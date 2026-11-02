@@ -318,7 +318,7 @@
 					payeeName={me?.name}
 					payeeAddress={settings.payeeAddress ?? me?.address ?? undefined}
 					payeeCountry={settings.payeeCountry ?? me?.country ?? undefined}
-					collectiveSlug={settings.collectiveSlug}
+					collectiveSlug={draft.collective}
 					title={draft.title}
 					itemDescription={draft.itemDescription}
 					cents={draft.cents}

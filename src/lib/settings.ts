@@ -17,6 +17,10 @@ export const SettingsSchema = v.object({
 	hourlyRate: v.pipe(v.number('Enter a number'), v.minValue(0, 'Rate cannot be negative')),
 	currency: v.pipe(v.string(), v.regex(/^[A-Z]{3}$/, 'Use a three-letter code like USD')),
 
+	/**
+	 * The one collective every invoice went to, before each client had its own. Only read to give
+	 * Open Collective clients without a collective this one; see `adoptCollective`.
+	 */
 	collectiveSlug: v.pipe(v.optional(v.string(), ''), v.trim()),
 	payoutMethodId: optionalText,
 	payoutMethodLabel: optionalText,
@@ -39,24 +43,41 @@ export const DEFAULT_SETTINGS: Settings = v.parse(SettingsSchema, {
 	currency: 'USD'
 });
 
-export type SubmitRequirement =
-	'Open Collective connection' | 'payout method' | 'collective' | 'hourly rate';
+export type SettingsRequirement = 'Open Collective connection' | 'payout method' | 'hourly rate';
 
-/** What is still missing before an invoice can be sent to Open Collective. */
-export function missingForSubmit({
+export type SubmitRequirement = SettingsRequirement | 'collective';
+
+/** What settings still lack before any invoice can be sent to Open Collective. */
+export function missingFromSettings({
 	settings,
 	connected
 }: {
 	settings: Settings;
 	/** Whether `getMe()` found an account. */
 	connected: boolean;
-}): SubmitRequirement[] {
-	const missing: SubmitRequirement[] = [];
+}): SettingsRequirement[] {
+	const missing: SettingsRequirement[] = [];
 	if (!connected) missing.push('Open Collective connection');
 	if (!settings.payoutMethodId) missing.push('payout method');
-	if (!settings.collectiveSlug) missing.push('collective');
 	if (!(settings.hourlyRate > 0)) missing.push('hourly rate');
 	return missing;
+}
+
+/** What is still missing before this invoice can be sent to its client's collective. */
+export function missingForSubmit({
+	settings,
+	connected,
+	collective
+}: {
+	settings: Settings;
+	connected: boolean;
+	/** The collective the invoice goes to, from its client. */
+	collective: string | undefined;
+}): SubmitRequirement[] {
+	return [
+		...missingFromSettings({ settings, connected }),
+		...(collective ? [] : ['collective' as const])
+	];
 }
 
 /**

@@ -7,7 +7,7 @@
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import { nextPeriod, toIsoDate } from '#lib/format.js';
 	import { getSettings } from '#lib/settings.remote.js';
-	import { missingForSubmit } from '#lib/settings.js';
+	import { missingFromSettings } from '#lib/settings.js';
 	import { CircleAlert, RefreshCw, TriangleAlert } from '@lucide/svelte';
 	import { getExpenses, getMe } from '#lib/opencollective.remote.js';
 	import { isHttpError } from '@sveltejs/kit';
@@ -19,7 +19,8 @@
 		lastInvoicedEnd,
 		type Client
 	} from '#lib/worklog.js';
-	import { openWorkLog, type WorkLogStore } from '#lib/worklog-store.svelte.js';
+	import { openWorkLogWithSettings } from '#lib/open-work-log.js';
+	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import { lastInvoicedEnd as lastExpenseEnd } from './expenses';
 	import EmailInvoicesTable from './EmailInvoicesTable.svelte';
 	import NextInvoice from './NextInvoice.svelte';
@@ -36,14 +37,11 @@
 	const accountError = $derived(meQuery.error ?? settingsQuery.error);
 
 	const missing = $derived(
-		me !== undefined && settings ? missingForSubmit({ settings, connected: me !== null }) : []
+		me !== undefined && settings ? missingFromSettings({ settings, connected: me !== null }) : []
 	);
 
 	// Not awaited, so a slow or failing list never blocks starting an invoice.
-	const expensesQuery = $derived(
-		me && settings?.collectiveSlug ? getExpenses(settings.collectiveSlug) : undefined
-	);
-	const expenses = $derived(expensesQuery?.current);
+	const expensesQuery = $derived(me ? getExpenses() : undefined);
 	const loading = $derived(expensesQuery?.loading ?? false);
 	const loadError = $derived.by(() => {
 		const error = expensesQuery?.error;
@@ -56,10 +54,21 @@
 	 */
 	let store = $state<WorkLogStore>();
 	onMount(async () => {
-		const { hourlyRate, currency, collectiveSlug } = await getSettings();
-		store = await openWorkLog({ rate: hourlyRate, currency, collective: collectiveSlug });
+		store = (await openWorkLogWithSettings()).store;
 	});
 	const clients = $derived(store ? activeClients(store.data.clients) : []);
+	/** Where your clients are invoiced, archived ones too, so their past expenses still show. */
+	const collectives = $derived(
+		new Set(
+			store?.data.clients.flatMap((client) =>
+				client.openCollective && client.collective ? [client.collective] : []
+			)
+		)
+	);
+	/** Only those sent to your clients, not expenses you sent to other collectives. */
+	const expenses = $derived(
+		expensesQuery?.current?.filter((expense) => collectives.has(expense.collective))
+	);
 	const showExpenses = $derived(
 		clients.length === 0 || clients.some((other) => other.openCollective)
 	);
@@ -87,7 +96,8 @@
 			const period = nextPeriod({
 				lastEnd: byEmail
 					? lastInvoicedEnd({ invoices: work.data.invoices, clientId: client.id })
-					: expenses && lastExpenseEnd(expenses),
+					: expenses &&
+						lastExpenseEnd(expenses.filter((expense) => expense.collective === client?.collective)),
 				frequency: client && invoiceFrequency(client)
 			});
 			return {
@@ -201,7 +211,7 @@
 				<section aria-labelledby="history-heading">
 					<div class="mb-3 flex items-center justify-between gap-3">
 						<h2 id="history-heading" class="text-lg">
-							Sent to {settings?.collectiveSlug || 'Open Collective'}
+							Sent to {collectives.size === 1 ? [...collectives][0] : 'Open Collective'}
 						</h2>
 						<!-- Always rendered so its space is kept, but only shown once you are known to be connected. -->
 						<Button
@@ -236,7 +246,11 @@
 							No expenses yet. Start the first one above and it will show up here once submitted.
 						</p>
 					{:else}
-						<ExpensesTable {expenses} highlightUrl={page.state.submittedUrl} />
+						<ExpensesTable
+							{expenses}
+							showCollective={collectives.size > 1}
+							highlightUrl={page.state.submittedUrl}
+						/>
 					{/if}
 				</section>
 			{/if}

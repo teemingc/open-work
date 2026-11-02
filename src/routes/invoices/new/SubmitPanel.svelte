@@ -26,11 +26,29 @@
 		onsubmitted: (url: string | undefined) => void;
 	} = $props();
 
-	const missing = $derived(missingForSubmit({ settings, connected: me !== null }));
-	const problems = $derived([
-		...missing.map((item) => `Add your ${item} in settings`),
-		...(draft.needsClient ? ['Choose the client this invoice bills'] : []),
-		...(draft.startDate <= draft.endDate ? [] : ['Make the period end on or after it starts'])
+	const missing = $derived(
+		missingForSubmit({ settings, connected: me !== null, collective: draft.collective })
+	);
+	/** Each with where it is fixed, if that is somewhere else. */
+	const problems: { text: string; href?: string }[] = $derived([
+		...missing.flatMap((item) => {
+			if (item !== 'collective')
+				return [{ text: `Add your ${item} in settings`, href: resolve('/settings/invoicing') }];
+			// Choosing the client comes first; its collective is asked for once it is chosen.
+			if (draft.needsClient) return [];
+			return [
+				{
+					text: draft.client
+						? `Choose the collective ${draft.client.name} is invoiced through`
+						: 'Add a client invoiced through Open Collective',
+					href: resolve('/settings/clients')
+				}
+			];
+		}),
+		...(draft.needsClient ? [{ text: 'Choose the client this invoice bills' }] : []),
+		...(draft.startDate <= draft.endDate
+			? []
+			: [{ text: 'Make the period end on or after it starts' }])
 	]);
 	const fields = submitExpense.fields;
 	const notes = $derived(
@@ -85,13 +103,14 @@
 
 	{#if problems.length > 0}
 		<ul class="space-y-1 text-sm text-muted-foreground">
-			{#each problems as problem (problem)}
+			{#each problems as problem (problem.text)}
 				<li class="flex items-start gap-1.5">
 					<CircleAlert size={15} class="mt-0.5 shrink-0" />
-					{#if problem.endsWith('in settings')}
-						<a href={resolve('settings')} class="underline hover:text-foreground">{problem}</a>
+					{#if problem.href}
+						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above -->
+						<a href={problem.href} class="underline hover:text-foreground">{problem.text}</a>
 					{:else}
-						{problem}
+						{problem.text}
 					{/if}
 				</li>
 			{/each}
@@ -135,7 +154,7 @@
 		<Dialog.Header>
 			<Dialog.Title>Submit this expense?</Dialog.Title>
 			<Dialog.Description>
-				This sends a real expense request to the {settings.collectiveSlug} collective on Open Collective.
+				This sends a real expense request to the {draft.collective} collective on Open Collective.
 			</Dialog.Description>
 		</Dialog.Header>
 
@@ -160,7 +179,7 @@
 		{/each}
 
 		<form {...enhanced}>
-			<input {...fields.collectiveSlug.as('hidden', settings.collectiveSlug)} />
+			<input {...fields.collectiveSlug.as('hidden', draft.collective ?? '')} />
 			<input {...fields.payoutMethodId.as('hidden', settings.payoutMethodId ?? '')} />
 			<input {...fields.title.as('hidden', draft.title)} />
 			<input {...fields.itemDescription.as('hidden', draft.itemDescription)} />

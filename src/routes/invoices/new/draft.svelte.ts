@@ -63,6 +63,8 @@ export class Draft {
 	client = $derived.by(() => (this.clientId ? this.#store.client(this.clientId) : undefined));
 	/** Invoiced by email, so saved in the work log rather than submitted to Open Collective. */
 	byEmail = $derived.by(() => this.client !== undefined && !this.client.openCollective);
+	/** The collective on Open Collective the invoice is sent to. */
+	collective = $derived.by(() => (this.byEmail ? undefined : this.client?.collective));
 	number = $derived.by(
 		() =>
 			this.numberOverride ??

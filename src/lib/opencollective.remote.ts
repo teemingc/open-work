@@ -1,5 +1,4 @@
 import { form, query } from '$app/server';
-import * as v from 'valibot';
 import { buildExpense, SubmitExpenseSchema } from '#lib/server/expense.js';
 import {
 	CREATE_EXPENSE_MUTATION,
@@ -25,6 +24,8 @@ export interface Expense {
 	currency: string;
 	/** The amount in the collective's currency, for sorting expenses made in different currencies. */
 	sortCents: number;
+	/** The collective it was sent to. */
+	collective: string;
 	url: string;
 }
 
@@ -44,8 +45,6 @@ export interface Account {
 	country: string | null;
 	payoutMethods: PayoutMethod[];
 }
-
-const collectiveSlug = v.pipe(v.string(), v.regex(/^[a-z0-9][a-z0-9-]*$/i, 'Invalid account slug'));
 
 async function fetchMe(token: string): Promise<NonNullable<MeResult['me']>> {
 	const { me } = await graphql<MeResult>({ token, query: ME_QUERY });
@@ -78,8 +77,11 @@ export const getMe = query(async (): Promise<Account | null> => {
 	}
 });
 
-/** Expenses you have requested from a collective, newest first. */
-export const getExpenses = query(collectiveSlug, async (slug): Promise<Expense[]> => {
+/**
+ * Expenses you have requested from every collective, newest first. One list rather than one per
+ * collective, so the requests to Open Collective stay few however many clients you invoice.
+ */
+export const getExpenses = query(async (): Promise<Expense[]> => {
 	const token = requireToken();
 	try {
 		const me = await fetchMe(token);
@@ -92,7 +94,6 @@ export const getExpenses = query(collectiveSlug, async (slug): Promise<Expense[]
 				query: EXPENSES_QUERY,
 				variables: {
 					fromAccount: { slug: me.slug },
-					account: { slug },
 					limit: EXPENSES_PAGE,
 					offset: nodes.length
 				}
@@ -109,6 +110,7 @@ export const getExpenses = query(collectiveSlug, async (slug): Promise<Expense[]
 			amountInCents: expense.amountV2.valueInCents,
 			currency: expense.amountV2.currency,
 			sortCents: expense.inCollectiveCurrency?.valueInCents ?? expense.amountV2.valueInCents,
+			collective: expense.account.slug,
 			url: expenseUrl({ collectiveSlug: expense.account.slug, legacyId: expense.legacyId })
 		}));
 	} catch (err) {
@@ -131,7 +133,7 @@ export const submitExpense = form(SubmitExpenseSchema, async (input) => {
 		});
 
 		// Send the updated list back with this response.
-		void getExpenses(input.collectiveSlug).refresh();
+		void getExpenses().refresh();
 
 		return {
 			status: createExpense.status,

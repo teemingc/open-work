@@ -8,9 +8,12 @@
 
 	let {
 		expenses,
+		showCollective = false,
 		highlightUrl
 	}: {
 		expenses: Expense[];
+		/** Names the collective under each title, when they were sent to more than one. */
+		showCollective?: boolean;
 		/** Briefly marks this expense, such as one just submitted. */
 		highlightUrl?: string;
 	} = $props();
@@ -90,6 +93,9 @@
 							<span class="sr-only">(opens in a new tab)</span>
 						</a>
 						<!-- eslint-enable svelte/no-navigation-without-resolve -->
+						{#if showCollective}
+							<p class="text-xs text-muted-foreground">{expense.collective}</p>
+						{/if}
 					</td>
 					<td class="px-4 py-3 whitespace-nowrap tabular-nums">
 						{formatDMY(toIsoDate(new Date(expense.createdAt)))}

@@ -154,11 +154,11 @@ export const indexedDbBackend: WorkLogBackend = {
 export interface WorkLogDefaults {
 	rate: number;
 	currency: string;
-	/** The collective you invoice, from settings. */
+	/** The collective settings named before each client had its own. */
 	collective?: string;
 }
 
-/** Starts you off with the collective you invoice as a client, if settings name one. */
+/** Starts you off with the collective you invoiced as a client, if settings named one. */
 function starterLog({ rate, currency, collective }: WorkLogDefaults): WorkLogData {
 	if (!collective) return emptyWorkLog();
 	return {
@@ -170,6 +170,7 @@ function starterLog({ rate, currency, collective }: WorkLogDefaults): WorkLogDat
 				rate,
 				currency,
 				openCollective: true,
+				collective,
 				updatedAt: nowIso()
 			}
 		]
@@ -305,6 +306,19 @@ export class WorkLogStore {
 		this.data.clients.push(created);
 		this.#save();
 		return created;
+	}
+
+	/**
+	 * Gives Open Collective clients without a collective the one settings named for every
+	 * invoice, before each client had its own.
+	 */
+	adoptCollective(collective: string) {
+		const at = nowIso();
+		const orphans = this.data.clients.filter(
+			(client) => client.openCollective && !client.collective
+		);
+		for (const client of orphans) Object.assign(client, { collective, updatedAt: at });
+		if (orphans.length > 0) this.#save();
 	}
 
 	updateClient(client: Client) {

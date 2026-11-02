@@ -4,7 +4,6 @@
 	import { page } from '$app/state';
 	import { dashboardSearch } from '#lib/dashboard-search.svelte.js';
 	import { getMe } from '#lib/opencollective.remote.js';
-	import { getSettings } from '#lib/settings.remote.js';
 	import logo from '#lib/assets/favicon.svg';
 	import { Briefcase, ChartLine, Clock, FileText, Settings, Trophy } from '@lucide/svelte';
 
@@ -14,9 +13,6 @@
 	const meQuery = getMe();
 	/** Only an unconnected Open Collective account marks Settings; `undefined` is still loading. */
 	const needsSetup = $derived(meQuery.current === null);
-	const settingsQuery = getSettings();
-	/** The collective you invoice from, which the collective link leads to. */
-	const collectiveSlug = $derived(settingsQuery.current?.collectiveSlug);
 
 	/** The pages for freelancers doing open work, kept under Work so visitors see what is public. */
 	const WORK_PATHS = ['/worklog', '/invoices', '/settings'] as const;
@@ -76,14 +72,11 @@
 
 	/**
 	 * `page` when the link leads to the page you are on, `true` when you are elsewhere in its
-	 * section, such as another collective's page. The collective link leads to your own collective,
-	 * or to the search on the home page when none is set.
+	 * section, such as a collective's page. The collective link leads to the search on the home
+	 * page, as each client can be invoiced through a different collective.
 	 */
 	function current(path: '/collective' | '/contributors' | WorkPath): 'page' | 'true' | undefined {
-		if (path === '/collective') {
-			if (pathname === (collectiveSlug ? `/collective/${collectiveSlug}` : '/')) return 'page';
-			if (pathname === '/') return 'true';
-		}
+		if (path === '/collective' && pathname === '/') return 'page';
 		if (pathname === path) return path === '/collective' ? 'true' : 'page';
 		if (pathname.startsWith(`${path}/`)) return 'true';
 		return undefined;
@@ -116,13 +109,7 @@
 				showWorkRow ? '-mb-px pt-0.5' : '-mb-[3px]'
 			]}
 		>
-			<a
-				href={collectiveSlug
-					? resolve(`/collective/[handle]${dashboardSearch()}`, { handle: collectiveSlug })
-					: resolve(`/${dashboardSearch()}`)}
-				aria-current={current('/collective')}
-				class={LINK}
-			>
+			<a href={resolve(`/${dashboardSearch()}`)} aria-current={current('/collective')} class={LINK}>
 				<ChartLine size={15} />
 				<span class="max-[560px]:sr-only">Collectives</span>
 			</a>

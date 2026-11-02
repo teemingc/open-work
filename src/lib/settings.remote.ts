@@ -58,6 +58,11 @@ export const restoreSettings = command(SettingsSchema, async (settings) => {
 	writeSettings(settings);
 });
 
+/** Clear the one collective every invoice went to, once the work log's clients have taken it. */
+export const forgetCollective = command(async () => {
+	writeSettings({ ...(await getSettings()), collectiveSlug: '' });
+});
+
 /** Forget the Open Collective connection in this browser. */
 export const disconnect = form(async () => {
 	clearToken(getRequestEvent().cookies);

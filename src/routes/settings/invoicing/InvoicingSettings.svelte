@@ -13,7 +13,11 @@
 	import { oauthErrorMessage } from '#lib/oauth-error.js';
 	import { getMe } from '#lib/opencollective.remote.js';
 	import { disconnect, getSettings, saveSettings } from '#lib/settings.remote.js';
-	import { DEFAULT_SETTINGS, missingForSubmit, type SubmitRequirement } from '#lib/settings.js';
+	import {
+		DEFAULT_SETTINGS,
+		missingFromSettings,
+		type SettingsRequirement
+	} from '#lib/settings.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import type { Client } from '#lib/worklog.js';
 	import { CircleAlert, CircleCheck, TriangleAlert } from '@lucide/svelte';
@@ -23,10 +27,9 @@
 	const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD', 'MYR', 'SGD'];
 
 	/** Where each missing requirement is fixed on this page. */
-	const REQUIREMENT_FIELDS: Record<SubmitRequirement, { id: string; text: string }> = {
+	const REQUIREMENT_FIELDS: Record<SettingsRequirement, { id: string; text: string }> = {
 		'Open Collective connection': { id: 'oc-connection', text: 'Connect Open Collective' },
 		'payout method': { id: 'payout-method', text: 'Choose a payout method' },
-		collective: { id: 'collective', text: 'Enter the collective you invoice' },
 		'hourly rate': { id: 'rate', text: 'Set your hourly rate' }
 	};
 
@@ -43,7 +46,7 @@
 	}
 
 	const [me, settings] = $derived(await Promise.all([getMe(), getSettings()]));
-	const missing = $derived(missingForSubmit({ settings, connected: me !== null }));
+	const missing = $derived(missingFromSettings({ settings, connected: me !== null }));
 
 	const fields = saveSettings.fields;
 	const values = $derived(fields.value());
@@ -61,7 +64,7 @@
 	Beside each field the warning above lists, until it is filled in. The same dot as on the
 	Invoicing tab, which shows while Open Collective is not connected.
 -->
-{#snippet needed(requirement: SubmitRequirement)}
+{#snippet needed(requirement: SettingsRequirement)}
 	{#if missing.includes(requirement)}
 		<span class="size-1.5 shrink-0 rounded-full bg-attention" title="Needed to submit invoices">
 			<span class="sr-only">(needed to submit invoices)</span>
@@ -93,7 +96,6 @@
 <SettingsForm
 	{settings}
 	shown={[
-		'collectiveSlug',
 		'payoutMethodId',
 		'payoutMethodLabel',
 		'invoiceNote',
@@ -107,7 +109,7 @@
 	{#snippet children({ save })}
 		<SettingsSection
 			title="Open Collective"
-			description="Lists the expenses you have sent and lets you submit new ones straight to the collective."
+			description="Lists the expenses you have sent and lets you submit new ones straight to each client's collective."
 		>
 			<div class="space-y-1.5" id="oc-connection">
 				{#if me}
@@ -178,28 +180,12 @@
 				</Select.Root>
 			</div>
 
-			<div class="grid gap-5 sm:grid-cols-2">
-				<div class="space-y-1.5">
-					<Label for="collective">Collective{@render needed('collective')}</Label>
-					<Input
-						id="collective"
-						{...fields.collectiveSlug.as('text')}
-						placeholder="your-project"
-						aria-describedby="collective-hint"
-					/>
-					<p id="collective-hint" class="text-xs text-muted-foreground">
-						{values.collectiveSlug
-							? `opencollective.com/${values.collectiveSlug}`
-							: 'The slug from its Open Collective address'}
-					</p>
-				</div>
-				<div class="space-y-1.5">
-					<Label for="invoice-note">Invoice note</Label>
-					<Input id="invoice-note" {...fields.invoiceNote.as('text')} autocomplete="off" />
-					<p class="text-xs text-muted-foreground">
-						Optional. Added to every invoice, for example a tax number.
-					</p>
-				</div>
+			<div class="space-y-1.5">
+				<Label for="invoice-note">Invoice note</Label>
+				<Input id="invoice-note" {...fields.invoiceNote.as('text')} autocomplete="off" />
+				<p class="text-xs text-muted-foreground">
+					Optional. Added to every invoice, for example a tax number.
+				</p>
 			</div>
 
 			<div class="grid gap-5 sm:grid-cols-[1fr_8rem]">

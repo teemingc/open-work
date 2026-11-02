@@ -10,6 +10,7 @@ const expense = (id: string, patch: Partial<Expense>): Expense => ({
 	amountInCents: 100,
 	currency: 'USD',
 	sortCents: 100,
+	collective: 'svelte',
 	url: '',
 	...patch
 });

@@ -16,7 +16,7 @@
 		payeeName?: string;
 		payeeAddress?: string;
 		payeeCountry?: string;
-		collectiveSlug: string;
+		collectiveSlug?: string;
 		title: string;
 		itemDescription: string;
 		cents: number;
@@ -64,7 +64,7 @@
 			{title}
 		</h2>
 		<p class="mt-1 text-[13px] text-neutral-700">
-			Collective: {collectiveSlug}<br />
+			{#if collectiveSlug}Collective: {collectiveSlug}<br />{/if}
 			Date: {today}
 		</p>
 

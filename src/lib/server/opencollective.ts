@@ -237,13 +237,8 @@ export interface CreateExpenseResult {
 }
 
 export const EXPENSES_QUERY = /* GraphQL */ `
-	query Expenses(
-		$fromAccount: AccountReferenceInput!
-		$account: AccountReferenceInput!
-		$limit: Int!
-		$offset: Int!
-	) {
-		expenses(fromAccount: $fromAccount, account: $account, limit: $limit, offset: $offset) {
+	query Expenses($fromAccount: AccountReferenceInput!, $limit: Int!, $offset: Int!) {
+		expenses(fromAccount: $fromAccount, limit: $limit, offset: $offset) {
 			totalCount
 			nodes {
 				id

@@ -1,18 +1,7 @@
 <script lang="ts">
 	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
-	import { getSettings } from '#lib/settings.remote.js';
-	import { openWorkLog } from '#lib/worklog-store.svelte.js';
+	import { openWorkLogWithSettings } from '#lib/open-work-log.js';
 	import WorkLog from './WorkLog.svelte';
-
-	async function open() {
-		const settings = await getSettings();
-		const store = await openWorkLog({
-			rate: settings.hourlyRate,
-			currency: settings.currency,
-			collective: settings.collectiveSlug
-		});
-		return { settings, store };
-	}
 </script>
 
 <svelte:head>
@@ -30,7 +19,7 @@
 	server sends these skeletons and the browser fills them in.
 -->
 <svelte:boundary>
-	<WorkLog data={await open()} />
+	<WorkLog data={await openWorkLogWithSettings()} />
 
 	{#snippet pending()}
 		<!--
