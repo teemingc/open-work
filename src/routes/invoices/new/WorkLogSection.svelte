@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ClientName from '#lib/components/ClientName.svelte';
 	import { resolve } from '$app/paths';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
@@ -60,11 +61,13 @@
 				onValueChange={(id) => draft.chooseClient(id)}
 			>
 				<Select.Trigger id="invoice-client" class="w-full">
-					{client?.name ?? 'Choose one'}
+					{#if client}<ClientName {client} />{:else}Choose one{/if}
 				</Select.Trigger>
 				<Select.Content>
 					{#each clients as option (option.id)}
-						<Select.Item value={option.id}>{option.name}</Select.Item>
+						<Select.Item value={option.id} label={option.name}
+							><ClientName client={option} /></Select.Item
+						>
 					{/each}
 				</Select.Content>
 			</Select.Root>

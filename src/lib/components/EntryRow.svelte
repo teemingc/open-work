@@ -2,6 +2,7 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
 	import WorkItem from '#lib/components/WorkItem.svelte';
+	import ClientName from '#lib/components/ClientName.svelte';
 	import { formatHours, formatTime } from '#lib/format.js';
 	import { entryHours, type WorkLogEntry } from '#lib/worklog.js';
 	import { Ellipsis, Pencil, Trash2 } from '@lucide/svelte';
@@ -19,7 +20,7 @@
 		entry: WorkLogEntry;
 		organization?: string;
 		/** Named beside the time when the list mixes clients. */
-		client?: { name: string; color: string };
+		client?: { name: string; color: string; logo?: string };
 		/** The entry's own rate, when it has one. */
 		rate?: string;
 		onedit: () => void;
@@ -53,14 +54,18 @@
 		>
 			{#if time}<span class="whitespace-nowrap">{time}</span>{/if}
 			{#if client}
-				<span class="inline-flex min-w-0 items-center gap-1.5">
-					<span
-						class="size-2 shrink-0 rounded-full"
-						style:background-color={client.color}
-						aria-hidden="true"
-					></span>
-					<span class="truncate">{client.name}</span>
-				</span>
+				{#if client.logo}
+					<ClientName {client} />
+				{:else}
+					<span class="inline-flex min-w-0 items-center gap-1.5">
+						<span
+							class="size-2 shrink-0 rounded-full"
+							style:background-color={client.color}
+							aria-hidden="true"
+						></span>
+						<span class="truncate">{client.name}</span>
+					</span>
+				{/if}
 			{/if}
 		</p>
 	{/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ClientName from '#lib/components/ClientName.svelte';
 	import { resolve } from '$app/paths';
 	import * as Alert from '#lib/components/ui/alert/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
@@ -151,7 +152,7 @@
 				<h1 class="font-display text-3xl">{invoice.number || 'Invoice'}</h1>
 				<p class="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
 					<StatusBadge status={invoice.status.toUpperCase()} />
-					<span>{client.name}</span>
+					<ClientName {client} />
 					<span class="tabular-nums">
 						{invoice.status === 'paid' && invoice.paidOn
 							? `Paid ${formatDMY(invoice.paidOn)}`

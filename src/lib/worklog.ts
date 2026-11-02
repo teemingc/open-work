@@ -87,6 +87,14 @@ const ClientSchema = v.object({
 	frequency: v.optional(FrequencySchema),
 	/** The percentage of each month's expected hours meant for this client. */
 	targetShare: v.optional(v.pipe(v.number(), v.minValue(0), v.maxValue(100))),
+	/** The client's Open Collective account, like "svelte", where its logo and colour can come from. */
+	collective: v.optional(v.string()),
+	/** A hex colour like "#ff5119". Unset takes the colour of the client's place in the list. */
+	color: v.optional(v.pipe(v.string(), v.hexColor())),
+	/** The client's website, like "zenos.com", where its logo and colour come from otherwise. */
+	website: v.optional(v.string()),
+	/** The client's logo: an Open Collective address, or an image from its website kept whole. */
+	logo: v.optional(v.pipe(v.string(), v.url())),
 	/** Kept for the time logged for it, but no longer offered for new work or invoices. */
 	archived: v.optional(v.boolean()),
 	/** For clients invoiced by email: where the invoice goes. */

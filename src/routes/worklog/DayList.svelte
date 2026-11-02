@@ -6,7 +6,7 @@
 	import { formatHours, formatMoney, parseIsoDate } from '#lib/format.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import { clientChoices, type MonthSummary } from '#lib/worklog.js';
-	import { clientColor } from './colors';
+	import { clientColor } from '#lib/client-colors.js';
 	import EntryForm from '#lib/components/EntryForm.svelte';
 
 	let {
@@ -102,7 +102,8 @@
 										{organization}
 										client={{
 											name: client?.name ?? 'Unknown client',
-											color: clientColor(clientIndex.get(entry.clientId) ?? 0)
+											color: clientColor(client, clientIndex.get(entry.clientId) ?? 0),
+											logo: client?.logo
 										}}
 										rate={entry.rate !== undefined && client
 											? formatMoney(entry.rate, client.currency)

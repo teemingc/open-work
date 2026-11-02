@@ -12,6 +12,7 @@ import {
 	type SearchMatch
 } from '#lib/collective-search.js';
 import { getToken } from '#lib/server/session.js';
+import { iconData } from '#lib/server/icon-data.js';
 import {
 	backerHistory,
 	lastMonthKeys,
@@ -669,6 +670,36 @@ export const getGivingNow = query(v.pipe(v.array(Slug), v.maxLength(20)), async 
 		)
 	)
 );
+
+/** A collective's logo, kept whole as a website's icon is, to mark a client by. */
+const logos = perKey({
+	cacheKey: (handle) => `logo:v1:${handle}`,
+	// Asked for once, when you link a client to its collective.
+	maxAgeMs: 24 * CACHE_MS,
+	load: async (handle, ask): Promise<{ logo: string }> => {
+		let result: { account: { imageUrl: string | null } | null };
+		try {
+			result = await ask({
+				query: /* GraphQL */ `
+					query Logo($slug: String!) {
+						account(slug: $slug, throwIfMissing: false) {
+							imageUrl(height: 64)
+						}
+					}
+				`,
+				variables: { slug: handle }
+			});
+		} catch (err) {
+			toHttpError(err);
+		}
+		if (!result.account) missing(handle);
+		const logo = result.account.imageUrl && (await iconData(result.account.imageUrl));
+		if (!logo) error(404, `${handle} has no logo on Open Collective.`);
+		return { logo };
+	}
+});
+
+export const getCollectiveLogo = query(Slug, (handle) => logos(slug(handle)));
 
 export type CollectiveStats = Awaited<ReturnType<typeof getCollectiveStats>>;
 
