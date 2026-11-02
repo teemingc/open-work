@@ -6,7 +6,7 @@
 	import { formatHours, formatMoney, parseIsoDate } from '#lib/format.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import { clientChoices, type MonthSummary } from '#lib/worklog.js';
-	import { clientColor } from './colors';
+	import { clientColor } from '#lib/client-colors.js';
 	import EntryForm from '#lib/components/EntryForm.svelte';
 
 	let {
@@ -41,7 +41,7 @@
 				...day,
 				entries: store.data.entries.filter((entry) => entry.date === day.date)
 			}))
-			.filter((day) => day.entries.length > 0 || day.kind === 'holiday' || day.kind === 'leave')
+			.filter((day) => day.entries.length > 0 || day.kind === 'holiday')
 			.reverse()
 	);
 </script>
@@ -61,9 +61,9 @@
 							<span class="font-medium tabular-nums"
 								>{dayFormat.format(parseIsoDate(day.date))}</span
 							>
-							{#if day.name || day.kind === 'holiday' || day.kind === 'leave'}
+							{#if day.kind === 'holiday'}
 								<span class="ml-1.5 text-muted-foreground">
-									{day.kind === 'leave' ? 'Leave' : 'Holiday'}{day.name ? `: ${day.name}` : ''}
+									Holiday{day.name ? `: ${day.name}` : ''}
 								</span>
 							{/if}
 						</h3>
@@ -102,7 +102,8 @@
 										{organization}
 										client={{
 											name: client?.name ?? 'Unknown client',
-											color: clientColor(clientIndex.get(entry.clientId) ?? 0)
+											color: clientColor(client, clientIndex.get(entry.clientId) ?? 0),
+											logo: client?.logo
 										}}
 										rate={entry.rate !== undefined && client
 											? formatMoney(entry.rate, client.currency)

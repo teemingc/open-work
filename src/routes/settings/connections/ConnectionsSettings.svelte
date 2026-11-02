@@ -12,11 +12,12 @@
 	import { getMe } from '#lib/opencollective.remote.js';
 	import { disconnect, saveSettings } from '#lib/settings.remote.js';
 	import type { Settings } from '#lib/settings.js';
+	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import { Check, CircleAlert, CircleCheck } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import ChipInput from './ChipInput.svelte';
 
-	let { settings }: { settings: Settings } = $props();
+	let { data }: { data: { settings: Settings; store: WorkLogStore } } = $props();
 
 	// Open Collective connection, kept in a server cookie by the OAuth flow
 	const me = $derived(await getMe());
@@ -24,7 +25,7 @@
 
 	const fields = saveSettings.fields;
 	const values = $derived(fields.value());
-	const repositories = $state(untrack(() => [...settings.repositories]));
+	const repositories = $state(untrack(() => [...data.settings.repositories]));
 
 	let verifying = $state(false);
 	let githubMessage = $state<{ ok: boolean; text: string } | undefined>();
@@ -53,7 +54,11 @@
 <!-- Lives outside the settings form, which its button below submits through `form`. -->
 <form {...disconnect} id="disconnect-form"></form>
 
-<SettingsForm {settings} shown={['githubToken', 'githubUsername', 'organization', 'repositories']}>
+<SettingsForm
+	settings={data.settings}
+	store={data.store}
+	shown={['githubToken', 'githubUsername', 'organization', 'repositories']}
+>
 	{#snippet children({ save })}
 		<SettingsSection
 			title="Open Collective"

@@ -25,7 +25,7 @@ export const SettingsSchema = v.object({
 
 	/**
 	 * Moved into the work log's invoicing details, which emailed invoices share: read only to move
-	 * them there, then cleared. See `moveToWorkLog`.
+	 * them there, then cleared. See `moveToInvoicing`.
 	 */
 	invoiceNote: optionalText,
 	payeeAddress: optionalText,
@@ -75,42 +75,21 @@ export function upgradeSettings(raw: Record<string, unknown>): Record<string, un
 	return rest;
 }
 
-const BACKUP_VERSION = 4;
-
-/** Backup file contents, with only the parts given. The GitHub token is left out. */
-export function exportBackup({
-	settings,
-	workLog
-}: {
-	settings?: Settings;
-	workLog?: unknown;
-}): string {
-	const { githubToken: _githubToken, ...rest } = settings ?? {};
-	void _githubToken;
-	return JSON.stringify(
-		{ version: BACKUP_VERSION, data: { settings: settings && rest, workLog } },
-		null,
-		2
-	);
-}
+/** The last version of the settings-only backup, before settings moved into the work log's. */
+const BACKUP_VERSION = 3;
 
 /**
- * What a backup file holds, so a file with only one part restores only that part. Backups
- * before version 4 hold only settings, and a work log backup from before they were combined
- * is the bare log. Throws if the file is not JSON.
+ * A settings-only backup, in the format used before settings moved into the work log's, for
+ * moving settings without the work log. The GitHub token is left out.
  */
-export function readBackup(json: string): { settings?: Settings; workLog?: unknown } {
-	const parsed = JSON.parse(json) as { data?: { settings?: unknown; workLog?: unknown } };
-	if (!parsed.data) return { workLog: parsed };
-	if (!parsed.data.settings && parsed.data.workLog === undefined) throw new Error('Empty backup');
-	return {
-		settings: parsed.data.settings ? parseBackup(json) : undefined,
-		workLog: parsed.data.workLog
-	};
+export function exportSettingsBackup(settings: Settings): string {
+	const { githubToken: _githubToken, ...rest } = settings;
+	void _githubToken;
+	return JSON.stringify({ version: BACKUP_VERSION, data: { settings: rest } }, null, 2);
 }
 
 /**
- * Settings from a backup file, or from what older versions kept in localStorage. Invoices and
+ * Settings from an old settings backup file, or from what older versions kept in localStorage. Invoices and
  * the Open Collective token they stored are dropped. Throws if the data is not valid.
  */
 export function parseBackup(json: string): Settings {
@@ -129,5 +108,5 @@ export function parseBackup(json: string): Settings {
 	});
 }
 
-/** Where versions before the settings cookie kept everything. */
+/** Where versions before the settings cookie kept everything, settings included. */
 export const LEGACY_STORAGE_KEY = 'oc-invoice-data';

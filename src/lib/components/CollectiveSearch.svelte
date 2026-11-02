@@ -5,7 +5,7 @@
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import { collectiveLogo, SUGGESTED_COLLECTIVES } from '#lib/collective-suggestions.js';
 	import RetryableError from '#lib/components/RetryableError.svelte';
-	import { Search } from '@lucide/svelte';
+	import { Mail, Search } from '@lucide/svelte';
 	import { Command as CommandPrimitive } from 'bits-ui';
 	import { dashboardSearch } from '#lib/dashboard-search.svelte.js';
 	import { readRecentCollectives } from '#lib/recent-collectives.js';
@@ -17,17 +17,30 @@
 		slug,
 		field = false,
 		id,
-		onchoose
+		onchoose,
+		email,
+		onemail,
+		busy = false,
+		invalid = false
 	}: {
 		/** The placeholder, like "Find another collective". */
 		name: string;
-		/** The slug of the collective on screen, left out of the recent list. */
+		/** The slug of the collective on screen, left out of the recent list, or the one chosen. */
 		slug?: string;
 		/** Full width and larger, for a page with no collective yet. */
 		field?: boolean;
 		id?: string;
-		/** Called with the chosen collective, which then stays in the field, instead of opening it. */
-		onchoose?: (match: CollectiveMatch) => void;
+		/**
+		 * Picks a collective instead of opening it, showing `slug` while closed. Clearing the field
+		 * and leaving it picks none.
+		 */
+		onchoose?: (match: CollectiveMatch | undefined) => void;
+		/** The email address chosen instead of a collective, shown while closed when no `slug` is. */
+		email?: string;
+		/** Offers an email address, once one is typed, as a choice besides the collectives. */
+		onemail?: (email: string) => void;
+		busy?: boolean;
+		invalid?: boolean;
 	} = $props();
 
 	/** Wait for a pause in typing, so each keystroke is not a request to Open Collective. */
@@ -35,8 +48,7 @@
 	const MAX_RECENT = 5;
 
 	let open = $state(false);
-	/** What is typed. As a field, it shows the chosen collective until you type over it. */
-	let term = $derived(onchoose ? (slug ?? '') : '');
+	let term = $state('');
 	let searched = $state('');
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let input = $state<HTMLInputElement | null>(null);
@@ -44,6 +56,14 @@
 	const listId = $props.id();
 
 	const results = $derived(searched.length >= 2 ? searchCollectives(searched) : undefined);
+
+	/** Typing an address searches no collectives, as no slug has an `@` in it. */
+	const typingEmail = $derived(!!onemail && term.includes('@'));
+	const address = $derived(
+		typingEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(term.trim()) ? term.trim() : undefined
+	);
+	const shown = $derived(slug ?? email ?? '');
+	const showsEmail = $derived(open ? typingEmail : !slug && !!email);
 
 	/** Collectives you visited, newest first. Read as the list opens, so it holds still while open. */
 	let recent: CollectiveMatch[] = $state.raw([]);
@@ -53,6 +73,7 @@
 		recent = readRecentCollectives()
 			.filter((item) => item.slug !== slug)
 			.slice(0, MAX_RECENT);
+		if (onchoose) term = shown;
 		open = true;
 	}
 
@@ -60,23 +81,35 @@
 		term = value;
 		show();
 		clearTimeout(timer);
-		timer = setTimeout(() => (searched = value.trim().toLowerCase()), DEBOUNCE_MS);
+		timer = setTimeout(
+			() => (searched = onemail && value.includes('@') ? '' : value.trim().toLowerCase()),
+			DEBOUNCE_MS
+		);
+	}
+
+	function close() {
+		open = false;
+		clearTimeout(timer);
+		term = '';
+		searched = '';
 	}
 
 	function choose(match: CollectiveMatch) {
-		open = false;
-		clearTimeout(timer);
-		term = onchoose ? match.slug : '';
-		searched = '';
+		close();
 		input?.blur();
-		if (onchoose) return onchoose(match);
+		if (onchoose) onchoose(match);
 		// The chart settings carry over, so the next collective is shown the same way.
-		void goto(resolve(`/collective/[handle]${dashboardSearch()}`, { handle: match.slug }));
+		else void goto(resolve(`/collective/[handle]${dashboardSearch()}`, { handle: match.slug }));
 	}
 
 	/** Close once focus leaves the search, but not when it moves into the list being clicked. */
 	function leave(event: FocusEvent & { currentTarget: HTMLElement }) {
-		if (!event.currentTarget.contains(event.relatedTarget as Node | null)) open = false;
+		if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+		if (!open) return;
+		if (onchoose && shown && !term.trim()) onchoose(undefined);
+		// A whole address left in the field is as good as picking it.
+		else if (address && address !== email) onemail?.(address);
+		close();
 	}
 </script>
 
@@ -101,13 +134,16 @@
 		<label
 			class={[
 				'flex items-center rounded-md border bg-card shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50',
+				invalid && 'border-destructive ring-destructive/20 dark:ring-destructive/40',
 				field ? 'h-11 gap-2.5 px-3.5' : 'h-9 gap-2 px-3'
 			]}
 		>
-			<Search class={['shrink-0 text-muted-foreground', field ? 'size-4.5' : 'size-4']} />
+			{const Icon = $derived(showsEmail ? Mail : Search)}
+			<Icon class={['shrink-0 text-muted-foreground', field ? 'size-4.5' : 'size-4']} />
 			<!-- 16px text at least on phones: iOS Safari zooms in on focusing anything smaller. -->
 			<CommandPrimitive.Input
 				bind:ref={input}
+				{id}
 				value={term}
 				placeholder={name}
 				autocomplete="off"
@@ -127,21 +163,23 @@
 			>
 				<!--
 					Bits UI always marks the input expanded and points it at a viewport this search does not
-					use, so both are set here, after its props, to say whether the list is open and where.
+					use, so both are set here, after its props, to say whether the list is open and where. The
+					value is set here too, as Bits UI clears its own on mount, hiding a chosen collective.
 				-->
 				{#snippet child({ props })}
 					<input
 						{...props}
-						{id}
-						value={term}
 						aria-expanded={open}
 						aria-controls={open ? listId : undefined}
+						aria-invalid={invalid || undefined}
+						value={onchoose && !open ? shown : term}
 					/>
 				{/snippet}
 			</CommandPrimitive.Input>
+			{#if busy}<Spinner class="shrink-0 text-muted-foreground" />{/if}
 		</label>
 
-		{#if open}
+		{#if open && !(typingEmail && !address)}
 			<!--
 				Focusable, so clicking an item keeps focus inside the search instead of closing it first.
 				Grows down out of the field like the site's popovers, and closes at once.
@@ -151,7 +189,20 @@
 				class="absolute top-full left-0 z-50 mt-1 w-full origin-top animate-in rounded-md border bg-popover text-popover-foreground shadow-md duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] fade-in-0 outline-none zoom-in-95 slide-in-from-top-2"
 			>
 				<Command.List id={listId} class="p-1">
-					{#if searched.length < 2}
+					{#if address}
+						<Command.Item
+							value={address}
+							onSelect={() => {
+								const chosen = address;
+								close();
+								input?.blur();
+								onemail?.(chosen);
+							}}
+						>
+							<Mail />
+							<span class="truncate">Email {address}</span>
+						</Command.Item>
+					{:else if searched.length < 2}
 						{#if recent.length > 0}
 							<Command.Group heading="Recent">
 								{#each recent as match (match.slug)}

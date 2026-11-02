@@ -4,19 +4,20 @@
 	import { Label } from '#lib/components/ui/label/index.js';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import { isWeekday, parseDaysOff } from '#lib/worklog.js';
+	import { formatLongDate } from '#lib/format.js';
+	import { isWeekday, observedHolidays, parseDaysOff } from '#lib/worklog.js';
 	import { ClipboardPaste, Plus, Trash2, Upload } from '@lucide/svelte';
 
-	let { store, kind, year }: { store: WorkLogStore; kind: 'holidays' | 'leave'; year: string } =
-		$props();
+	let { store, year }: { store: WorkLogStore; year: string } = $props();
 
 	const id = $props.id();
-	const noun = $derived(kind === 'holidays' ? 'holiday' : 'day of leave');
 	const days = $derived(
-		store.data[kind]
+		store.data.holidays
 			.map((day, index) => ({ day, index }))
 			.filter(({ day }) => day.date.startsWith(year))
 	);
+
+	const replacedOn = $derived(observedHolidays(store.data).replacedOn);
 
 	let pasted = $state('');
 	let message = $state<string | undefined>();
@@ -25,7 +26,7 @@
 
 	function importText(text: string) {
 		const { days: parsed, skipped } = parseDaysOff(text);
-		const added = store.addDaysOff({ kind, days: parsed });
+		const added = store.addHolidays(parsed);
 		const replaced = parsed.length - added;
 		message =
 			`Added ${added}${replaced ? `, updated ${replaced}` : ''}.` +
@@ -46,13 +47,10 @@
 <div class="space-y-3">
 	{#if days.length === 0}
 		<p class="text-sm text-muted-foreground">
-			No {kind === 'holidays' ? 'holidays' : 'leave'} in {year} yet.
+			No holidays in {year} yet.
 		</p>
 	{:else}
-		<ul
-			class="divide-y rounded-lg border"
-			aria-label="{kind === 'holidays' ? 'Holidays' : 'Leave'} in {year}"
-		>
+		<ul class="divide-y rounded-lg border" aria-label="Holidays in {year}">
 			{#each days as { day, index } (day.date)}
 				<li class="flex flex-wrap items-center gap-2 p-2">
 					<Input
@@ -62,26 +60,31 @@
 						value={day.date}
 						onchange={(event) => {
 							const date = event.currentTarget.value;
-							if (date) store.updateDayOff({ kind, index, day: { ...day, date } });
+							if (date) store.updateHoliday({ index, day: { ...day, date } });
 						}}
 					/>
 					<Input
 						aria-label="Name"
 						class="min-w-0 flex-1"
 						value={day.name}
-						placeholder={kind === 'holidays' ? 'Name' : 'Note (optional)'}
+						placeholder="Name"
 						onchange={(event) =>
-							store.updateDayOff({ kind, index, day: { ...day, name: event.currentTarget.value } })}
+							store.updateHoliday({ index, day: { ...day, name: event.currentTarget.value } })}
 					/>
 					{#if !isWeekday(day.date)}
-						<span class="text-xs text-muted-foreground">Weekend, not counted</span>
+						{const replacement = $derived(replacedOn.get(day.date))}
+						<span class="text-xs text-muted-foreground">
+							{replacement
+								? `Weekend, off on ${formatLongDate(replacement)}`
+								: 'Weekend, not counted'}
+						</span>
 					{/if}
 					<Button
 						variant="ghost"
 						size="icon"
 						class="size-8"
 						aria-label="Remove {day.name || day.date}"
-						onclick={() => store.removeDayOff({ kind, date: day.date })}
+						onclick={() => store.removeHoliday(day.date)}
 					>
 						<Trash2 size={14} />
 					</Button>
@@ -95,7 +98,7 @@
 		onsubmit={(event) => {
 			event.preventDefault();
 			if (!newDate) return;
-			store.addDaysOff({ kind, days: [{ date: newDate, name: newName.trim() }] });
+			store.addHolidays([{ date: newDate, name: newName.trim() }]);
 			newDate = '';
 			newName = '';
 		}}
@@ -105,10 +108,10 @@
 			<Input id="{id}-date" type="date" required bind:value={newDate} class="block w-40" />
 		</div>
 		<div class="min-w-40 flex-1 space-y-1.5">
-			<Label for="{id}-name">{kind === 'holidays' ? 'Name' : 'Note'}</Label>
+			<Label for="{id}-name">Name</Label>
 			<Input id="{id}-name" bind:value={newName} />
 		</div>
-		<Button type="submit" variant="outline" disabled={!newDate}><Plus /> Add {noun}</Button>
+		<Button type="submit" variant="outline" disabled={!newDate}><Plus /> Add holiday</Button>
 	</form>
 
 	<details class="text-sm">

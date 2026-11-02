@@ -6,7 +6,6 @@
 	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import { nextPeriod, toIsoDate } from '#lib/format.js';
-	import { getSettings } from '#lib/settings.remote.js';
 	import { missingForSubmit } from '#lib/settings.js';
 	import { CircleAlert, RefreshCw, TriangleAlert } from '@lucide/svelte';
 	import { getExpenses, getMe } from '#lib/opencollective.remote.js';
@@ -30,21 +29,19 @@
 	// Read without `await`, so the page shows straight away with one set of skeletons while your
 	// account, settings and expenses load, rather than a page spinner followed by more spinners.
 	const meQuery = getMe();
-	const settingsQuery = getSettings();
 	/** `undefined` while loading, `null` when not connected. */
 	const me = $derived(meQuery.current);
-	const settings = $derived(settingsQuery.current);
-	const ready = $derived(me !== undefined && settings !== undefined);
-	const accountError = $derived(meQuery.error ?? settingsQuery.error);
-
 	/**
-	 * The work log, in this browser's IndexedDB: your clients, how often each is invoiced, and
-	 * the invoices sent by email.
+	 * The work log, in this browser's IndexedDB: your settings, your clients, how often each is
+	 * invoiced, and the invoices sent by email.
 	 */
 	let store = $state<WorkLogStore>();
 	onMount(async () => {
 		({ store } = await openWorkLogWithSettings());
 	});
+	const settings = $derived(store?.settings);
+	const ready = $derived(me !== undefined && settings !== undefined);
+	const accountError = $derived(meQuery.error);
 
 	const missing = $derived(
 		me !== undefined && settings

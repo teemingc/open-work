@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import { dashboardSearch } from '#lib/dashboard-search.svelte.js';
 	import { getMe } from '#lib/opencollective.remote.js';
-	import { getSettings } from '#lib/settings.remote.js';
+	import { getCollectiveSlug } from '#lib/settings.remote.js';
 	import logo from '#lib/assets/favicon.svg';
 	import { Briefcase, ChartLine, Clock, FileText, Settings, Trophy } from '@lucide/svelte';
 
@@ -14,9 +14,9 @@
 	const meQuery = getMe();
 	/** Only an unconnected Open Collective account marks Settings; `undefined` is still loading. */
 	const needsSetup = $derived(meQuery.current === null);
-	const settingsQuery = getSettings();
+	const collectiveQuery = getCollectiveSlug();
 	/** The collective you invoice from, which the collective link leads to. */
-	const collectiveSlug = $derived(settingsQuery.current?.collectiveSlug);
+	const collectiveSlug = $derived(collectiveQuery.current);
 
 	/** The pages for freelancers doing open work, kept under Work so visitors see what is public. */
 	const WORK_PATHS = ['/worklog', '/invoices', '/settings'] as const;

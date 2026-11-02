@@ -4,7 +4,16 @@
  * last; a deletion wins over any edit made before it.
  */
 
-import type { DayOff, Invoice, Tombstone, WorkLogData, WorkLogEntry } from './worklog';
+import { DEFAULT_SETTINGS } from './settings';
+import {
+	emptyInvoicing,
+	type DayOff,
+	type FieldStamps,
+	type Invoice,
+	type Tombstone,
+	type WorkLogData,
+	type WorkLogEntry
+} from './worklog';
 
 /** How long a deletion is remembered. A device offline for longer could bring a record back. */
 const TOMBSTONE_DAYS = 180;
@@ -20,6 +29,52 @@ function newer<T extends { updatedAt?: string }>(a: T, b: T): T {
 	const right = b.updatedAt ?? '';
 	if (left !== right) return left > right ? a : b;
 	return JSON.stringify(a) >= JSON.stringify(b) ? a : b;
+}
+
+/** JSON for comparing values, with `undefined` as an empty string. */
+function json(value: unknown): string {
+	return JSON.stringify(value) ?? '';
+}
+
+/**
+ * Each field from whichever copy changed it last. A field never changed loses to one that was.
+ * Between two never changed, a field that is set beats one left as in `blank`, so a new device's
+ * defaults never replace what you set elsewhere.
+ */
+export function mergeFields<T extends Record<string, unknown>>({
+	ours,
+	theirs,
+	blank
+}: {
+	ours: { value?: T; at: FieldStamps };
+	theirs: { value?: T; at: FieldStamps };
+	blank: T;
+}): { value?: T; at: FieldStamps } {
+	if (!theirs.value) return ours;
+	if (!ours.value) return theirs;
+	const value: Record<string, unknown> = { ...ours.value };
+	const theirValue: Record<string, unknown> = { ...theirs.value };
+	const blanks: Record<string, unknown> = { ...blank };
+	const at: FieldStamps = {};
+	for (const key of new Set([...Object.keys(value), ...Object.keys(theirValue)])) {
+		const mine = ours.at[key] ?? '';
+		const yours = theirs.at[key] ?? '';
+		const [a, b, empty] = [json(value[key]), json(theirValue[key]), json(blanks[key])];
+		// Ties are broken by content, so every device picks the same one.
+		const take =
+			yours > mine || (yours === mine && a !== b && (a === empty || (b !== empty && b > a)));
+		if (take) value[key] = theirValue[key];
+		const stamp = take ? yours : mine;
+		if (stamp) at[key] = stamp;
+	}
+	return { value: value as T, at };
+}
+
+/** When each invoice detail last changed, counting a copy that stamped them all at once. */
+export function invoicingStamps(data: WorkLogData): FieldStamps {
+	const all = data.invoicingUpdatedAt;
+	const legacy = all && data.invoicing ? Object.keys(data.invoicing).map((key) => [key, all]) : [];
+	return { ...Object.fromEntries(legacy), ...data.invoicingFieldsUpdatedAt };
 }
 
 function mergeRecords<T extends { updatedAt?: string }>({
@@ -81,10 +136,20 @@ export function mergeWorkLogs({
 
 	const allowance =
 		(theirs.allowanceUpdatedAt ?? '') > (ours.allowanceUpdatedAt ?? '') ? theirs : ours;
-	const invoicing =
-		(theirs.invoicingUpdatedAt ?? '') > (ours.invoicingUpdatedAt ?? '') ? theirs : ours;
+	const replace =
+		(theirs.replaceHolidaysUpdatedAt ?? '') > (ours.replaceHolidaysUpdatedAt ?? '') ? theirs : ours;
+	const invoicing = mergeFields({
+		ours: { value: ours.invoicing, at: invoicingStamps(ours) },
+		theirs: { value: theirs.invoicing, at: invoicingStamps(theirs) },
+		blank: emptyInvoicing()
+	});
 	const schedule =
 		(theirs.scheduleUpdatedAt ?? '') > (ours.scheduleUpdatedAt ?? '') ? theirs : ours;
+	const settings = mergeFields({
+		ours: { value: ours.settings, at: ours.settingsUpdatedAt ?? {} },
+		theirs: { value: theirs.settings, at: theirs.settingsUpdatedAt ?? {} },
+		blank: DEFAULT_SETTINGS
+	});
 
 	return {
 		version: 1,
@@ -106,12 +171,6 @@ export function mergeWorkLogs({
 			key: (day) => day.date,
 			deletedAt: deletedAt('holiday')
 		}).sort(byDate),
-		leave: mergeRecords({
-			ours: ours.leave,
-			theirs: theirs.leave,
-			key: (day) => day.date,
-			deletedAt: deletedAt('leave')
-		}).sort(byDate),
 		invoices: mergeRecords({
 			ours: ours.invoices,
 			theirs: theirs.invoices,
@@ -129,8 +188,12 @@ export function mergeWorkLogs({
 		}),
 		allowance: allowance.allowance,
 		allowanceUpdatedAt: allowance.allowanceUpdatedAt,
-		invoicing: invoicing.invoicing,
-		invoicingUpdatedAt: invoicing.invoicingUpdatedAt,
+		replaceHolidays: replace.replaceHolidays,
+		replaceHolidaysUpdatedAt: replace.replaceHolidaysUpdatedAt,
+		invoicing: invoicing.value,
+		invoicingFieldsUpdatedAt: invoicing.at,
+		settings: settings.value,
+		settingsUpdatedAt: settings.at,
 		updatedAt: newer({ updatedAt: ours.updatedAt }, { updatedAt: theirs.updatedAt }).updatedAt,
 		deleted: [...tombstones.values()]
 	};
@@ -166,7 +229,6 @@ export function removedBy({
 		...missing('entry', current.entries, next.entries, (entry) => entry.id),
 		...missing('client', current.clients, next.clients, (client) => client.id),
 		...missing('holiday', current.holidays, next.holidays, (day) => day.date),
-		...missing('leave', current.leave, next.leave, (day) => day.date),
 		...missing('invoice', current.invoices, next.invoices, (invoice) => invoice.id),
 		...missing('deduction', current.deductions, next.deductions, (deduction) => deduction.id)
 	];

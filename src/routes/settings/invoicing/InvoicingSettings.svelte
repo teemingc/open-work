@@ -8,7 +8,7 @@
 	import SettingsForm from '#lib/components/SettingsForm.svelte';
 	import SettingsSection from '#lib/components/SettingsSection.svelte';
 	import { getMe } from '#lib/opencollective.remote.js';
-	import { getSettings, saveSettings } from '#lib/settings.remote.js';
+	import { saveSettings } from '#lib/settings.remote.js';
 	import { missingForSubmit, type SubmitRequirement } from '#lib/settings.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import { openCollectiveRate, type Client } from '#lib/worklog.js';
@@ -48,7 +48,8 @@
 		store.updateClient({ ...$state.snapshot(store.client(client.id) ?? client), ...patch });
 	}
 
-	const [me, settings] = $derived(await Promise.all([getMe(), getSettings()]));
+	const me = $derived(await getMe());
+	const settings = $derived(store.settings);
 	const missing = $derived(
 		missingForSubmit({
 			settings,
@@ -128,6 +129,7 @@
 
 <SettingsForm
 	{settings}
+	{store}
 	shown={['collectiveSlug', 'payoutMethodId', 'payoutMethodLabel', 'accountingCategoryId']}
 >
 	{#snippet children({ save })}
@@ -172,7 +174,7 @@
 					name="Find your collective"
 					slug={values.collectiveSlug || undefined}
 					onchoose={(match) => {
-						fields.collectiveSlug.set(match.slug);
+						fields.collectiveSlug.set(match?.slug ?? '');
 						void save();
 					}}
 				/>

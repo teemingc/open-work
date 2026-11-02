@@ -10,8 +10,8 @@
 	import { downloadJson } from '#lib/download.js';
 	import { driveSync, forgetDriveSync } from '#lib/drive-sync.svelte.js';
 	import { forgetRecentCollectives } from '#lib/recent-collectives.js';
-	import { clearAllData, getSettings, restoreSettings } from '#lib/settings.remote.js';
-	import { exportBackup, readBackup, type Settings } from '#lib/settings.js';
+	import { clearAllData } from '#lib/settings.remote.js';
+	import { exportSettingsBackup, parseBackup, type Settings } from '#lib/settings.js';
 	import {
 		forgetWorkLog,
 		validateWorkLog,
@@ -32,22 +32,53 @@
 	/** Which parts the next download holds. */
 	const exportParts = $state({ workLog: true, settings: true });
 
-	async function downloadBackup() {
+	function downloadBackup() {
+		const date = new Date().toISOString().slice(0, 10);
+		if (!exportParts.workLog) {
+			downloadJson({
+				text: exportSettingsBackup(store.settings),
+				name: `open-work-settings-${date}.json`
+			});
+			return;
+		}
+		const data = $state.snapshot(store.data);
+		if (!exportParts.settings) {
+			delete data.settings;
+			delete data.settingsUpdatedAt;
+		}
 		downloadJson({
-			text: exportBackup({
-				settings: exportParts.settings ? await getSettings() : undefined,
-				workLog: exportParts.workLog ? $state.snapshot(store.data) : undefined
-			}),
-			name: `open-work-backup-${new Date().toISOString().slice(0, 10)}.json`
+			text: JSON.stringify(data, null, '\t'),
+			name: `open-work-${exportParts.settings ? 'backup' : 'work-log'}-${date}.json`
 		});
 	}
 
 	/** The backup picked and what it holds, waiting for you to choose what replaces what is here. */
 	let pendingBackup = $state<
-		{ name: string; settings?: Settings; workLog?: WorkLogData; workLogError?: string } | undefined
+		{ name: string; settings?: Settings; workLog?: WorkLogData } | undefined
 	>();
 	const restoreParts = $state({ workLog: false, settings: false });
 	let backupMessage = $state<{ tone: 'ok' | 'error'; text: string } | undefined>();
+
+	/** A work log backup, which may hold settings, or a settings-only backup from before they joined it. */
+	function readBackup(text: string): { settings?: Settings; workLog?: WorkLogData } {
+		let raw: unknown;
+		try {
+			raw = JSON.parse(text);
+		} catch {
+			throw new WorkLogParseError('That file is not JSON.');
+		}
+		try {
+			const workLog = validateWorkLog(raw);
+			return { workLog, settings: workLog.settings };
+		} catch (error) {
+			try {
+				// These backups left the GitHub token out, so the one you have is kept.
+				return { settings: { ...parseBackup(text), githubToken: store.settings.githubToken } };
+			} catch {
+				throw error;
+			}
+		}
+	}
 
 	async function pickBackup(event: Event & { currentTarget: HTMLInputElement }) {
 		const input = event.currentTarget;
@@ -58,26 +89,15 @@
 		let backup: ReturnType<typeof readBackup>;
 		try {
 			backup = readBackup(await file.text());
-		} catch {
-			backupMessage = { tone: 'error', text: 'That file is not a backup.' };
+		} catch (error) {
+			const text =
+				error instanceof WorkLogParseError ? error.message : 'That file is not a backup.';
+			backupMessage = { tone: 'error', text };
 			return;
 		}
-		let workLog: WorkLogData | undefined;
-		let workLogError: string | undefined;
-		if (backup.workLog !== undefined) {
-			try {
-				workLog = validateWorkLog(backup.workLog);
-			} catch (error) {
-				workLogError = error instanceof WorkLogParseError ? error.message : 'It could not be read.';
-			}
-		}
-		if (!workLog && !backup.settings) {
-			backupMessage = { tone: 'error', text: workLogError ?? 'That file is not a backup.' };
-			return;
-		}
-		restoreParts.workLog = workLog !== undefined;
+		restoreParts.workLog = backup.workLog !== undefined;
 		restoreParts.settings = backup.settings !== undefined;
-		pendingBackup = { name: file.name, settings: backup.settings, workLog, workLogError };
+		pendingBackup = { name: file.name, ...backup };
 	}
 
 	const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -99,29 +119,22 @@
 		return parts.length ? parts.join(', ') : 'Nothing set';
 	}
 
-	async function restoreBackup({
-		settings,
-		workLog
-	}: {
-		settings?: Settings;
-		workLog?: WorkLogData;
-	}) {
+	function restoreBackup({ settings, workLog }: { settings?: Settings; workLog?: WorkLogData }) {
 		pendingBackup = undefined;
 		const restored: string[] = [];
-		try {
-			if (workLog && restoreParts.workLog) {
-				store.restore(workLog);
-				restored.push('the work log');
-			}
-			if (settings && restoreParts.settings) {
-				const { githubToken } = await getSettings();
-				await restoreSettings({ ...settings, githubToken });
-				restored.push('your settings');
-			}
-			backupMessage = { tone: 'ok', text: `Restored ${restored.join(' and ')}.` };
-		} catch {
-			backupMessage = { tone: 'error', text: 'Could not restore that backup.' };
+		if (workLog && restoreParts.workLog) {
+			// Without settings, the backup keeps the ones you have.
+			store.restore(
+				restoreParts.settings
+					? workLog
+					: { ...workLog, settings: undefined, settingsUpdatedAt: undefined }
+			);
+			restored.push('the work log');
+		} else if (settings && restoreParts.settings) {
+			store.setSettings(settings);
 		}
+		if (settings && restoreParts.settings) restored.push('your settings');
+		backupMessage = { tone: 'ok', text: `Restored ${restored.join(' and ')}.` };
 	}
 
 	let clearDialogOpen = $state(false);
@@ -255,9 +268,7 @@
 		<Dialog.Content>
 			<Dialog.Header>
 				<Dialog.Title>Restore from {pendingBackup?.name}?</Dialog.Title>
-				<Dialog.Description>
-					What you tick replaces what is here. Your GitHub token is kept.
-				</Dialog.Description>
+				<Dialog.Description>What you tick replaces what is here.</Dialog.Description>
 			</Dialog.Header>
 			{#if pendingBackup}
 				<div class="grid gap-3">
@@ -268,7 +279,7 @@
 						disabled: !pendingBackup.workLog,
 						detail: pendingBackup.workLog
 							? workLogSummary(pendingBackup.workLog)
-							: (pendingBackup.workLogError ?? 'Not in this file'),
+							: 'Not in this file',
 						onchange: (checked) => (restoreParts.workLog = checked)
 					})}
 					{@render part({
@@ -303,7 +314,6 @@
 			{backupMessage.text}
 		</p>
 	{/if}
-	<p class="text-xs text-muted-foreground">Backups never include your tokens.</p>
 </SettingsSection>
 
 <SettingsSection

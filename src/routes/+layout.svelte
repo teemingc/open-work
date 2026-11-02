@@ -3,10 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { navigating, page } from '$app/state';
 	import favicon from '#lib/assets/favicon.svg';
-	import { restoreSettings } from '#lib/settings.remote.js';
-	import { LEGACY_STORAGE_KEY, parseBackup } from '#lib/settings.js';
 	import { collectiveImageVersion, OG_IMAGE_VERSION } from '#lib/share-image.js';
-	import { onMount } from 'svelte';
 	import { getCollectiveStats } from '#lib/collective-stats.remote.js';
 	import Header from './Header.svelte';
 	import NavigationLoader from './NavigationLoader.svelte';
@@ -33,33 +30,6 @@
 		);
 		url.searchParams.set('v', ogVersion);
 		return url.href;
-	});
-
-	// Older versions kept settings in localStorage. Move them into the settings cookie once.
-	onMount(async () => {
-		let legacy: string | null;
-		try {
-			legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
-		} catch {
-			return;
-		}
-		if (!legacy) return;
-		let backup: ReturnType<typeof parseBackup> | undefined;
-		try {
-			backup = parseBackup(legacy);
-		} catch (error) {
-			console.error('Saved settings could not be read', error);
-		}
-		if (backup) {
-			try {
-				await restoreSettings(backup);
-			} catch (error) {
-				// Kept, to try again on the next visit.
-				console.error('Could not move saved settings', error);
-				return;
-			}
-		}
-		localStorage.removeItem(LEGACY_STORAGE_KEY);
 	});
 </script>
 

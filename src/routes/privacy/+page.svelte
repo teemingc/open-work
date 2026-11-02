@@ -42,9 +42,9 @@
 				Collective with an expense you submit.
 			</li>
 			<li>
-				<strong>Your settings</strong>, such as your payout method, collective and GitHub details,
-				are kept in a cookie in your browser. The server reads it on each request to fill in
-				invoices, and does not store it.
+				<strong>Your settings</strong>, such as your hourly rate, payout method, collective and
+				GitHub details, are kept with your work log, so they sync to your Google Drive with it. A
+				cookie in your browser holds only the collective you invoice, so the menu can link to it.
 			</li>
 			<li>
 				<strong>Your Open Collective connection</strong> is an access token kept in a cookie in your browser.

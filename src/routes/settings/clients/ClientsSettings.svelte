@@ -1,9 +1,16 @@
 <script lang="ts">
 	import SettingsSection from '#lib/components/SettingsSection.svelte';
+	import CollectiveSearch from '#lib/components/CollectiveSearch.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
+	import * as Popover from '#lib/components/ui/popover/index.js';
 	import * as Select from '#lib/components/ui/select/index.js';
+	import { Spinner } from '#lib/components/ui/spinner/index.js';
+	import { clientColor } from '#lib/client-colors.js';
+	import { getCollectiveLogo } from '#lib/collective-stats.remote.js';
+	import { logoColor } from './logo-color';
+	import { getSiteLook } from './site-look.remote';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import type { Settings } from '#lib/settings.js';
 	import { formatDMY, toIsoDate } from '#lib/format.js';
@@ -16,11 +23,19 @@
 		type InvoiceFrequency,
 		type RateChange
 	} from '#lib/worklog.js';
-	import { Archive, ArchiveRestore, ChevronRight, Plus, Trash2 } from '@lucide/svelte';
+	import {
+		Archive,
+		ArchiveRestore,
+		ChevronRight,
+		ImageOff,
+		Plus,
+		RotateCcw,
+		Trash2
+	} from '@lucide/svelte';
 	import { untrack } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD', 'MYR', 'SGD'];
-	const METHODS = { opencollective: 'Open Collective', email: 'Email' };
 	const FREQUENCIES: Record<InvoiceFrequency, string> = {
 		'twice-monthly': 'Twice a month',
 		monthly: 'Monthly'
@@ -49,6 +64,46 @@
 		store.updateClient({ ...latest(client), ...patch });
 	}
 
+	type LookSource = 'collective' | 'website';
+	/** The field each client's logo is being looked up from, and why a lookup failed. */
+	const looking = new SvelteMap<string, LookSource>();
+	const lookErrors = new SvelteMap<string, { source: LookSource; message: string }>();
+
+	/**
+	 * Saves where the client's logo comes from, then takes the logo found there and the colour it is
+	 * mostly drawn in, replacing what was there before.
+	 */
+	async function lookUp(
+		client: Client,
+		source: Partial<Pick<Client, LookSource>>,
+		load: () => Promise<{ logo: string }>
+	) {
+		lookErrors.delete(client.id);
+		changeClient(client, source);
+		const [[field, value]] = Object.entries(source) as [LookSource, string | undefined][];
+		if (!value) return;
+		looking.set(client.id, field);
+		try {
+			const { logo } = await load();
+			const color = await logoColor(logo).catch(() => null);
+			changeClient(client, { logo, ...(color ? { color } : {}) });
+		} catch (err) {
+			lookErrors.set(client.id, {
+				source: field,
+				message:
+					(err as { body?: { message?: string } }).body?.message ?? 'Could not find a logo there.'
+			});
+		} finally {
+			looking.delete(client.id);
+		}
+	}
+
+	function linkCollective(client: Client, collective: string) {
+		return lookUp(client, { collective: collective || undefined }, () =>
+			getCollectiveLogo(collective)
+		);
+	}
+
 	function changeRates(client: Client, change: (rates: RateChange[]) => void) {
 		const snapshot = latest(client);
 		const rates = snapshot.rates ?? [];
@@ -57,15 +112,114 @@
 	}
 </script>
 
+{#snippet lookupField({
+	client,
+	source,
+	placeholder,
+	onchange
+}: {
+	client: Client;
+	source: LookSource;
+	placeholder: string;
+	onchange: (value: string) => void;
+})}
+	{const failed = $derived(lookErrors.get(client.id)?.source === source)}
+	<div class="relative">
+		<Input
+			id="{client.id}-{source}"
+			class="pr-8"
+			inputmode={source === 'website' ? 'url' : undefined}
+			{placeholder}
+			value={client[source] ?? ''}
+			aria-invalid={failed || undefined}
+			onchange={(event) => onchange(event.currentTarget.value.trim())}
+		/>
+		{#if looking.get(client.id) === source}
+			<Spinner class="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground" />
+		{/if}
+	</div>
+	{#if failed}
+		<p role="alert" class="text-xs text-destructive">{lookErrors.get(client.id)?.message}</p>
+	{/if}
+{/snippet}
+
 <SettingsSection
 	title="Clients"
 	description="Who you work for, what they pay an hour, and how and how often you invoice them. Archive a client you no longer work for to keep its logged time."
 >
 	<ul class="space-y-3">
 		{#each clients as client (client.id)}
+			{const color = $derived(
+				clientColor(
+					client,
+					store.data.clients.findIndex(({ id }) => id === client.id)
+				)
+			)}
 			<li class="rounded-lg border bg-card">
 				<!-- The name heads the card, so each client reads as its own record rather than a row of equal fields. -->
 				<div class="flex items-center gap-2 border-b py-2 pr-2 pl-1.5">
+					<!-- The logo and colour are how the client is shown everywhere else, so they are changed from the mark itself. -->
+					<Popover.Root>
+						<Popover.Trigger
+							class="relative ml-0.5 grid size-9 shrink-0 place-items-center rounded-md outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[state=open]:bg-accent"
+							aria-label="Logo and colour of {client.name}"
+						>
+							{#if client.logo}
+								<img src={client.logo} alt="" class="size-7 rounded" />
+								<span
+									class="absolute right-0.5 bottom-0.5 size-3 rounded-full border-2 border-card"
+									style:background-color={color}
+								></span>
+							{:else}
+								<span class="size-6 rounded" style:background-color={color}></span>
+							{/if}
+						</Popover.Trigger>
+						<Popover.Content align="start" class="w-60 space-y-4">
+							<div class="space-y-1.5">
+								<Label for="{client.id}-color">Colour</Label>
+								<div class="flex items-center gap-1">
+									<!-- The picker sits unseen over the swatch, which can show a colour the picker cannot hold. -->
+									<div
+										class="relative h-9 flex-1 rounded-md border p-1.5 shadow-xs focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50"
+									>
+										<span class="block size-full rounded-sm" style:background-color={color}></span>
+										<input
+											id="{client.id}-color"
+											type="color"
+											class="absolute inset-0 size-full cursor-pointer opacity-0"
+											value={client.color ?? '#888888'}
+											onchange={(event) =>
+												changeClient(client, { color: event.currentTarget.value })}
+										/>
+									</div>
+									{#if client.color}
+										<Button
+											variant="ghost"
+											size="icon"
+											class="text-muted-foreground"
+											aria-label="Go back to the colour of {client.name}'s place in the list"
+											onclick={() => changeClient(client, { color: undefined })}
+										>
+											<RotateCcw />
+										</Button>
+									{/if}
+								</div>
+							</div>
+							{#if client.logo}
+								<div class="flex items-center gap-3 border-t pt-4">
+									<img src={client.logo} alt="" class="size-9 shrink-0 rounded-md border p-1" />
+									<Button
+										variant="outline"
+										size="sm"
+										class="flex-1"
+										onclick={() => changeClient(client, { logo: undefined })}
+									>
+										<ImageOff /> Remove logo
+									</Button>
+								</div>
+							{/if}
+						</Popover.Content>
+					</Popover.Root>
 					<Label for="{client.id}-name" class="sr-only">Name</Label>
 					<Input
 						id="{client.id}-name"
@@ -148,42 +302,6 @@
 						</div>
 					</div>
 					<div class="space-y-1.5">
-						<Label for="{client.id}-method">Invoiced through</Label>
-						<Select.Root
-							type="single"
-							value={client.openCollective ? 'opencollective' : 'email'}
-							onValueChange={(method) =>
-								changeClient(client, { openCollective: method === 'opencollective' })}
-						>
-							<Select.Trigger id="{client.id}-method" class="w-full">
-								{client.openCollective ? METHODS.opencollective : METHODS.email}
-							</Select.Trigger>
-							<Select.Content>
-								{#each Object.entries(METHODS) as [value, label] (value)}
-									<Select.Item {value}>{label}</Select.Item>
-								{/each}
-							</Select.Content>
-						</Select.Root>
-					</div>
-					<div class="space-y-1.5">
-						<Label for="{client.id}-frequency">How often</Label>
-						<Select.Root
-							type="single"
-							value={invoiceFrequency(client)}
-							onValueChange={(frequency) =>
-								changeClient(client, { frequency: frequency as InvoiceFrequency })}
-						>
-							<Select.Trigger id="{client.id}-frequency" class="w-full">
-								{FREQUENCIES[invoiceFrequency(client)]}
-							</Select.Trigger>
-							<Select.Content>
-								{#each Object.entries(FREQUENCIES) as [value, label] (value)}
-									<Select.Item {value}>{label}</Select.Item>
-								{/each}
-							</Select.Content>
-						</Select.Root>
-					</div>
-					<div class="space-y-1.5">
 						<Label for="{client.id}-share">Share of hours</Label>
 						<!-- The unit sits in the field, and only once there is a number for it to qualify. -->
 						<div class="relative">
@@ -211,6 +329,60 @@
 								aria-hidden="true">%</span
 							>
 						</div>
+					</div>
+					<!-- Whom the invoice goes to says how it is sent: a collective on Open Collective, or an email. -->
+					{const failed = $derived(lookErrors.get(client.id)?.source === 'collective')}
+					<div class="space-y-1.5">
+						<Label for="{client.id}-invoice-to">Invoice to</Label>
+						<CollectiveSearch
+							id="{client.id}-invoice-to"
+							name="Collective or email"
+							slug={client.openCollective ? client.collective : undefined}
+							email={client.openCollective ? undefined : client.email}
+							busy={looking.get(client.id) === 'collective'}
+							invalid={failed}
+							onchoose={(match) => {
+								changeClient(client, match ? { openCollective: true } : { email: undefined });
+								void linkCollective(client, match?.slug ?? '');
+							}}
+							onemail={(email) => {
+								lookErrors.delete(client.id);
+								changeClient(client, { openCollective: false, email, collective: undefined });
+							}}
+						/>
+						{#if failed}
+							<p role="alert" class="text-xs text-destructive">
+								{lookErrors.get(client.id)?.message}
+							</p>
+						{/if}
+					</div>
+					<div class="space-y-1.5">
+						<Label for="{client.id}-frequency">How often</Label>
+						<Select.Root
+							type="single"
+							value={invoiceFrequency(client)}
+							onValueChange={(frequency) =>
+								changeClient(client, { frequency: frequency as InvoiceFrequency })}
+						>
+							<Select.Trigger id="{client.id}-frequency" class="w-full">
+								{FREQUENCIES[invoiceFrequency(client)]}
+							</Select.Trigger>
+							<Select.Content>
+								{#each Object.entries(FREQUENCIES) as [value, label] (value)}
+									<Select.Item {value}>{label}</Select.Item>
+								{/each}
+							</Select.Content>
+						</Select.Root>
+					</div>
+					<div class="space-y-1.5 lg:col-span-2">
+						<Label for="{client.id}-website">Website</Label>
+						{@render lookupField({
+							client,
+							source: 'website',
+							placeholder: 'None',
+							onchange: (website) =>
+								lookUp(client, { website: website || undefined }, () => getSiteLook(website))
+						})}
 					</div>
 					<details class="group col-span-2 lg:col-span-4" open={(client.rates?.length ?? 0) > 0}>
 						<summary

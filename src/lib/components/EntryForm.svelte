@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ClientName from '#lib/components/ClientName.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
@@ -65,7 +66,6 @@
 	const timed = $derived(!!rowStart && !!rowEnd);
 	const hours = $derived(entryHours({ start: rowStart, end: rowEnd, hours: rowHours }));
 	const client = $derived(clients.find((other) => other.id === rowClient));
-	const clientName = $derived(client?.name);
 	const clientRate = $derived(client && rowDate ? rateOn(client, rowDate) : undefined);
 	const ownRate = $derived(typeof rowRate === 'number' && rowRate >= 0 ? rowRate : undefined);
 	const canSave = $derived(
@@ -118,10 +118,12 @@
 	<div class="space-y-1.5">
 		<Label for="{id}-client">Client</Label>
 		<Select.Root type="single" bind:value={rowClient}>
-			<Select.Trigger id="{id}-client" class="w-full">{clientName ?? 'Choose one'}</Select.Trigger>
+			<Select.Trigger id="{id}-client" class="w-full"
+				>{#if client}<ClientName {client} />{:else}Choose one{/if}</Select.Trigger
+			>
 			<Select.Content>
 				{#each clients as client (client.id)}
-					<Select.Item value={client.id}>{client.name}</Select.Item>
+					<Select.Item value={client.id} label={client.name}><ClientName {client} /></Select.Item>
 				{/each}
 			</Select.Content>
 		</Select.Root>

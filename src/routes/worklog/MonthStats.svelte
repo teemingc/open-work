@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ClientName from '#lib/components/ClientName.svelte';
 	import StatStrip, { type Stat } from '#lib/components/StatStrip.svelte';
 	import { formatHours, formatMoney } from '#lib/format.js';
 	import { converted, type MonthSummary, type WorkLogData } from '#lib/worklog.js';
@@ -104,7 +105,7 @@
 				{#each summary.clients as { client, hours, amount, rate, mixedRates, target } (client.id)}
 					{const local = $derived(converted({ data, amounts: { [client.currency]: amount } }))}
 					<tr>
-						<td class="px-3 py-2">{client.name}</td>
+						<td class="px-3 py-2"><ClientName {client} /></td>
 						<!--
 							The hours and the target they count towards share a cell, with a bar under them, so
 							progress reads at a glance instead of as two numbers to compare.

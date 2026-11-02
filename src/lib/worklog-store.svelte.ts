@@ -4,6 +4,7 @@ import {
 	insertionIndex,
 	mergeDaysOff,
 	nowIso,
+	type FieldStamps,
 	orderedDeductions,
 	WorkLogSchema,
 	type Allowance,
@@ -17,7 +18,8 @@ import {
 	type WorkLogData,
 	type WorkLogEntry
 } from './worklog';
-import { mergeWorkLogs, removedBy, sameWorkLog } from './worklog-merge';
+import { invoicingStamps, mergeWorkLogs, removedBy, sameWorkLog } from './worklog-merge';
+import { DEFAULT_SETTINGS, type Settings } from './settings';
 
 /** Where this browser keeps the work log. */
 export interface WorkLogBackend {
@@ -37,6 +39,31 @@ const LEGACY_STORAGE_KEY = 'invoicer:worklog';
 const DB_NAME = 'open-work';
 const DB_STORE = 'worklog';
 const DB_KEY = 'log';
+
+/** Every field of `value` stamped as changed `at`. */
+function stampAll(value: object, at: string): FieldStamps {
+	return Object.fromEntries(Object.keys(value).map((key) => [key, at]));
+}
+
+/** `stamps`, with each field `next` changes from `current` stamped as changed now. */
+function restamp({
+	current = {},
+	next,
+	stamps
+}: {
+	current?: object;
+	next: object;
+	stamps: FieldStamps;
+}): FieldStamps {
+	const at = nowIso();
+	const before: Record<string, unknown> = { ...current };
+	const after: Record<string, unknown> = { ...next };
+	const restamped = { ...stamps };
+	for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+		if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) restamped[key] = at;
+	}
+	return restamped;
+}
 const CHANNEL = 'open-work:worklog';
 
 export class WorkLogParseError extends Error {}
@@ -177,9 +204,6 @@ function starterLog({ rate, currency, collective }: WorkLogDefaults): WorkLogDat
 	};
 }
 
-type DayOffKind = 'holidays' | 'leave';
-const TOMBSTONE_KIND = { holidays: 'holiday', leave: 'leave' } as const;
-
 /**
  * The work log, saved after every change. Mutate it only through these methods: each one
  * stamps what it changed, and deletions are remembered, so copies on other devices merge.
@@ -190,6 +214,7 @@ export class WorkLogStore {
 	saveError = $state<string | undefined>();
 	#backend: WorkLogBackend;
 	#listeners: (() => void)[] = [];
+	#replacedListeners: (() => void)[] = [];
 	/** Saves in the order they were made, so an older one never lands after a newer one. */
 	#writes: Promise<void> = Promise.resolve();
 
@@ -218,6 +243,16 @@ export class WorkLogStore {
 		return () => {
 			this.#listeners = this.#listeners.filter((other) => other !== listener);
 		};
+	}
+
+	/** Resolves once every change so far is kept in this browser. */
+	saved(): Promise<void> {
+		return this.#writes;
+	}
+
+	/** Calls back after another copy replaces this one, from Drive or a backup. */
+	onReplace(listener: () => void) {
+		this.#replacedListeners.push(listener);
 	}
 
 	#save() {
@@ -382,6 +417,23 @@ export class WorkLogStore {
 		this.#save();
 	}
 
+	/* Settings */
+
+	/** Your settings, or the defaults before you have any. */
+	get settings(): Settings {
+		return this.data.settings ?? DEFAULT_SETTINGS;
+	}
+
+	setSettings(settings: Settings) {
+		this.data.settingsUpdatedAt = restamp({
+			current: this.data.settings,
+			next: settings,
+			stamps: this.data.settingsUpdatedAt ?? {}
+		});
+		this.data.settings = settings;
+		this.#save();
+	}
+
 	/* Schedule */
 
 	setSchedule({ hoursPerDay, exchange }: Pick<WorkLogData, 'hoursPerDay' | 'exchange'>) {
@@ -396,6 +448,12 @@ export class WorkLogStore {
 	setAllowance(allowance: Allowance | undefined) {
 		this.data.allowance = allowance;
 		this.data.allowanceUpdatedAt = nowIso();
+		this.#save();
+	}
+
+	setReplaceHolidays(replace: boolean) {
+		this.data.replaceHolidays = replace;
+		this.data.replaceHolidaysUpdatedAt = nowIso();
 		this.#save();
 	}
 
@@ -443,8 +501,13 @@ export class WorkLogStore {
 	/* Invoices by email */
 
 	setInvoicing(invoicing: Invoicing) {
+		this.data.invoicingFieldsUpdatedAt = restamp({
+			current: this.data.invoicing,
+			next: invoicing,
+			stamps: invoicingStamps(this.data)
+		});
+		this.data.invoicingUpdatedAt = undefined;
 		this.data.invoicing = invoicing;
-		this.data.invoicingUpdatedAt = nowIso();
 		this.#save();
 	}
 
@@ -453,38 +516,25 @@ export class WorkLogStore {
 		return days.map((day) => ({ ...day, updatedAt }));
 	}
 
-	addDaysOff({ kind, days }: { kind: DayOffKind; days: DayOff[] }): number {
-		const added = mergeDaysOff({ list: this.data[kind], days: this.#stampDays(days) });
+	addHolidays(days: DayOff[]): number {
+		const added = mergeDaysOff({ list: this.data.holidays, days: this.#stampDays(days) });
 		this.#save();
 		return added;
 	}
 
-	updateDayOff({ kind, index, day }: { kind: DayOffKind; index: number; day: DayOff }) {
-		const list = this.data[kind];
+	updateHoliday({ index, day }: { index: number; day: DayOff }) {
+		const list = this.data.holidays;
 		const [previous] = list.splice(index, 1);
-		if (previous && previous.date !== day.date) this.#bury(TOMBSTONE_KIND[kind], previous.date);
+		if (previous && previous.date !== day.date) this.#bury('holiday', previous.date);
 		mergeDaysOff({ list, days: this.#stampDays([day]) });
 		this.#save();
 	}
 
-	removeDayOff({ kind, date }: { kind: DayOffKind; date: string }) {
-		const index = this.data[kind].findIndex((day) => day.date === date);
+	removeHoliday(date: string) {
+		const index = this.data.holidays.findIndex((day) => day.date === date);
 		if (index === -1) return;
-		this.data[kind].splice(index, 1);
-		this.#bury(TOMBSTONE_KIND[kind], date);
-		this.#save();
-	}
-
-	/** Swap a set of days for others in one save, like moving or deleting a stretch of leave. */
-	replaceDaysOff({ kind, dates, days }: { kind: DayOffKind; dates: string[]; days: DayOff[] }) {
-		const list = this.data[kind];
-		const kept = days.map((day) => day.date);
-		for (const date of dates) {
-			const index = list.findIndex((day) => day.date === date);
-			if (index !== -1) list.splice(index, 1);
-			if (!kept.includes(date)) this.#bury(TOMBSTONE_KIND[kind], date);
-		}
-		mergeDaysOff({ list, days: this.#stampDays(days) });
+		this.data.holidays.splice(index, 1);
+		this.#bury('holiday', date);
 		this.#save();
 	}
 
@@ -494,6 +544,7 @@ export class WorkLogStore {
 	adopt(data: WorkLogData) {
 		this.data = data;
 		this.#write();
+		for (const listener of this.#replacedListeners) listener();
 	}
 
 	/** Delete the log from this browser, after any saves still on their way. */
@@ -517,15 +568,22 @@ export class WorkLogStore {
 			entries: backup.entries.map(stamp),
 			clients: backup.clients.map(stamp),
 			holidays: backup.holidays.map(stamp),
-			leave: backup.leave.map(stamp),
 			invoices: backup.invoices.map(stamp),
 			deductions: backup.deductions.map(stamp),
 			scheduleUpdatedAt: at,
-			invoicingUpdatedAt: at,
+			invoicingUpdatedAt: undefined,
+			invoicingFieldsUpdatedAt: backup.invoicing && stampAll(backup.invoicing, at),
 			allowanceUpdatedAt: at,
+			replaceHolidaysUpdatedAt: at,
+			// A backup from before settings were in the log keeps the ones you have.
+			settings: backup.settings ?? this.data.settings,
+			settingsUpdatedAt: backup.settings
+				? stampAll(backup.settings, at)
+				: this.data.settingsUpdatedAt,
 			deleted: [...backup.deleted, ...gone]
 		};
 		this.#save();
+		for (const listener of this.#replacedListeners) listener();
 	}
 }
 
@@ -535,7 +593,7 @@ let opening: Promise<WorkLogStore> | undefined;
  * The one work log for this browser, opened on first use. Pages open it in their `load`, so
  * it is ready before anything renders and no edit can land before the saved log is read.
  */
-export function openWorkLog(defaults: WorkLogDefaults): Promise<WorkLogStore> {
+export function openWorkLog(defaults: () => Promise<WorkLogDefaults>): Promise<WorkLogStore> {
 	opening ??= (async () => {
 		// Ask the browser not to clear the log to free space.
 		void navigator.storage?.persist?.();
@@ -549,7 +607,7 @@ export function openWorkLog(defaults: WorkLogDefaults): Promise<WorkLogStore> {
 		}
 		const store = new WorkLogStore({
 			backend: indexedDbBackend,
-			data: data ?? starterLog(defaults)
+			data: data ?? starterLog(await defaults())
 		});
 		// A log that could not be read stays as it is until you change something, so it can be recovered.
 		if (!data && !unreadable) store.adopt(store.data);

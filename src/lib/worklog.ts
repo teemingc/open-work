@@ -5,6 +5,7 @@
 
 import * as v from 'valibot';
 import { addDays, formatDMY, parseIsoDate, toIsoDate } from './format';
+import { SettingsSchema } from './settings';
 
 /* ---------------------------------- Shape ---------------------------------- */
 
@@ -35,6 +36,11 @@ export type RateChange = v.InferOutput<typeof RateChangeSchema>;
 
 /** When a record last changed, so two copies of the log can merge record by record. */
 const UpdatedAt = v.optional(v.string());
+
+/** When each field of a group of settings last changed, so devices merge them field by field. */
+const FieldStamps = v.record(v.string(), v.string());
+
+export type FieldStamps = v.InferOutput<typeof FieldStamps>;
 
 const FrequencySchema = v.picklist(['monthly', 'twice-monthly']);
 
@@ -87,6 +93,14 @@ const ClientSchema = v.object({
 	frequency: v.optional(FrequencySchema),
 	/** The percentage of each month's expected hours meant for this client. */
 	targetShare: v.optional(v.pipe(v.number(), v.minValue(0), v.maxValue(100))),
+	/** The client's Open Collective account, like "svelte", where its logo and colour can come from. */
+	collective: v.optional(v.string()),
+	/** A hex colour like "#ff5119". Unset takes the colour of the client's place in the list. */
+	color: v.optional(v.pipe(v.string(), v.hexColor())),
+	/** The client's website, like "zenos.com", where its logo and colour come from otherwise. */
+	website: v.optional(v.string()),
+	/** The client's logo: an Open Collective address, or an image from its website kept whole. */
+	logo: v.optional(v.pipe(v.string(), v.url())),
 	/** Kept for the time logged for it, but no longer offered for new work or invoices. */
 	archived: v.optional(v.boolean()),
 	/** For clients invoiced by email: where the invoice goes. */
@@ -130,7 +144,7 @@ export type WorkLogEntry = v.InferOutput<typeof EntrySchema>;
 
 const DayOffSchema = v.object({ date: IsoDate, name: v.string(), updatedAt: UpdatedAt });
 
-/** A public holiday or a day of leave. */
+/** A public holiday. */
 export type DayOff = v.InferOutput<typeof DayOffSchema>;
 
 const InvoiceStatusSchema = v.picklist(['draft', 'sent', 'paid']);
@@ -293,6 +307,7 @@ const AllowanceSchema = v.object({
 export type Allowance = v.InferOutput<typeof AllowanceSchema>;
 
 const TombstoneSchema = v.object({
+	// 'leave' is from when days of leave were recorded, kept so older logs still read.
 	kind: v.picklist(['entry', 'client', 'holiday', 'leave', 'invoice', 'deduction']),
 	/** The entry's or client's id, or the day off's date. */
 	id: v.string(),
@@ -307,7 +322,6 @@ export const WorkLogSchema = v.object({
 	clients: v.array(ClientSchema),
 	entries: v.array(EntrySchema),
 	holidays: v.array(DayOffSchema),
-	leave: v.array(DayOffSchema),
 	invoices: v.optional(v.array(InvoiceSchema), []),
 	hoursPerDay: v.optional(v.pipe(v.number(), v.minValue(0), v.maxValue(24)), 8),
 	/** Shows totals in a second currency, like USD earnings in MYR. */
@@ -321,10 +335,20 @@ export const WorkLogSchema = v.object({
 	invoicing: v.optional(InvoicingSchema),
 	/** When your invoice details last changed. */
 	invoicingUpdatedAt: v.optional(v.string()),
+	/** When each of your invoice details last changed. Replaces `invoicingUpdatedAt`. */
+	invoicingFieldsUpdatedAt: v.optional(FieldStamps),
 	deductions: v.optional(v.array(DeductionSchema), []),
 	allowance: v.optional(AllowanceSchema),
 	/** When the days-off allowance last changed. */
 	allowanceUpdatedAt: v.optional(v.string()),
+	/** Whether a public holiday on a weekend gives the next working day off instead. */
+	replaceHolidays: v.optional(v.boolean(), true),
+	/** When `replaceHolidays` last changed. */
+	replaceHolidaysUpdatedAt: v.optional(v.string()),
+	/** Your settings, kept with the work log so they sync with it. */
+	settings: v.optional(SettingsSchema),
+	/** When each of your settings last changed. */
+	settingsUpdatedAt: v.optional(FieldStamps),
 	/** Records deleted here, so a copy that still has them does not bring them back. */
 	deleted: v.optional(v.array(TombstoneSchema), [])
 });
@@ -337,10 +361,10 @@ export function emptyWorkLog(): WorkLogData {
 		clients: [],
 		entries: [],
 		holidays: [],
-		leave: [],
 		invoices: [],
 		deductions: [],
 		hoursPerDay: 8,
+		replaceHolidays: true,
 		deleted: []
 	};
 }
@@ -956,12 +980,12 @@ export function isWeekday(date: string): boolean {
 	return day !== 0 && day !== 6;
 }
 
-export type DayKind = 'work' | 'weekend' | 'holiday' | 'leave';
+export type DayKind = 'work' | 'weekend' | 'holiday';
 
 export interface DaySummary {
 	date: string;
 	kind: DayKind;
-	/** The holiday's or leave's name. */
+	/** The holiday's name. */
 	name?: string;
 	expected: number;
 	logged: number;
@@ -987,7 +1011,6 @@ export interface MonthSummary {
 	days: DaySummary[];
 	weekdays: number;
 	holidays: number;
-	leave: number;
 	workingDays: number;
 	expected: number;
 	logged: number;
@@ -1015,20 +1038,13 @@ export function summarizeMonth({
 	month: string;
 	today: string;
 }): MonthSummary {
-	const holidays = new Map(data.holidays.map((day) => [day.date, day.name]));
-	const leave = new Map(data.leave.map((day) => [day.date, day.name]));
+	const holidays = observedHolidays(data).dates;
 	const entries = data.entries.filter((entry) => monthOf(entry.date) === month);
 
 	let cumulativeExpected = 0;
 	let cumulativeLogged = 0;
 	const days = monthDates(month).map((date): DaySummary => {
-		const kind: DayKind = !isWeekday(date)
-			? 'weekend'
-			: holidays.has(date)
-				? 'holiday'
-				: leave.has(date)
-					? 'leave'
-					: 'work';
+		const kind: DayKind = !isWeekday(date) ? 'weekend' : holidays.has(date) ? 'holiday' : 'work';
 		const byClient: Record<string, number> = {};
 		for (const entry of entries) {
 			if (entry.date !== date) continue;
@@ -1041,7 +1057,7 @@ export function summarizeMonth({
 		return {
 			date,
 			kind,
-			name: holidays.get(date) ?? leave.get(date),
+			name: holidays.get(date),
 			expected,
 			logged,
 			byClient,
@@ -1079,7 +1095,6 @@ export function summarizeMonth({
 		days,
 		weekdays,
 		holidays: days.filter((day) => day.kind === 'holiday').length,
-		leave: days.filter((day) => day.kind === 'leave').length,
 		workingDays,
 		expected,
 		logged,
@@ -1162,44 +1177,31 @@ export function parseDaysOff(text: string): { days: DayOff[]; skipped: string[] 
 	return { days, skipped };
 }
 
-/** Every weekday from `from` to `to`, both included. */
-export function weekdaysBetween({ from, to }: { from: string; to: string }): string[] {
-	const dates: string[] = [];
-	const day = parseIsoDate(from <= to ? from : to);
-	const last = from <= to ? to : from;
-	while (toIsoDate(day) <= last) {
-		const date = toIsoDate(day);
-		if (isWeekday(date)) dates.push(date);
-		day.setDate(day.getDate() + 1);
-	}
-	return dates;
-}
-
-export interface DayOffRange {
-	from: string;
-	to: string;
-	name: string;
-	dates: string[];
-}
-
 /**
- * Days off that follow each other with the same name, as one range. A weekend in between does
- * not break a range, so a Thursday to the next Tuesday is one stretch of leave.
+ * Public holidays by the date they are taken off. With `replaceHolidays`, one on a weekend also
+ * gives a weekday that is not already a holiday: the one before for a Saturday, as most employers in
+ * Malaysia give the Friday, and the one after for a Sunday. `replacedOn` maps each such holiday to
+ * that weekday.
  */
-export function groupDaysOff(days: DayOff[]): DayOffRange[] {
-	const ranges: DayOffRange[] = [];
-	for (const day of [...days].sort((a, b) => a.date.localeCompare(b.date))) {
-		const last = ranges.at(-1);
-		const next = last && weekdaysBetween({ from: last.to, to: day.date });
-		// Joined when nothing but the weekend sits between the two days.
-		if (last && last.name === day.name && next && next.length <= 2 && next[0] === last.to) {
-			last.to = day.date;
-			last.dates.push(day.date);
-		} else {
-			ranges.push({ from: day.date, to: day.date, name: day.name, dates: [day.date] });
-		}
+export function observedHolidays(data: Pick<WorkLogData, 'holidays' | 'replaceHolidays'>): {
+	dates: Map<string, string>;
+	replacedOn: Map<string, string>;
+} {
+	const sorted = [...data.holidays].sort((a, b) => a.date.localeCompare(b.date));
+	const dates = new Map(
+		sorted.filter((day) => isWeekday(day.date)).map((day) => [day.date, day.name])
+	);
+	const replacedOn = new Map<string, string>();
+	if (!data.replaceHolidays) return { dates, replacedOn };
+	for (const day of sorted) {
+		if (isWeekday(day.date)) continue;
+		const step = parseIsoDate(day.date).getDay() === 6 ? -1 : 1;
+		let next = addDays(day.date, step);
+		while (!isWeekday(next) || dates.has(next)) next = addDays(next, step);
+		dates.set(next, day.name ? `${day.name} (replacement)` : 'Replacement holiday');
+		replacedOn.set(day.date, next);
 	}
-	return ranges;
+	return { dates, replacedOn };
 }
 
 /** Add days off, replacing any on the same date, kept in date order. */
@@ -1335,9 +1337,9 @@ export function monthProjection({
 }
 
 /**
- * Your days off this year against your allowance. Leave comes out of it, and public holidays if
- * you count them. So do hours short of what you expected in the months you logged, as days at your
- * hours a day, and hours over give days back. This month counts only up to today.
+ * Your days off this year against your allowance: hours short of what you expected, as days at
+ * your hours a day, from the month you first logged, and public holidays if you count them. Hours
+ * over give days back. This month counts only up to today.
  */
 export function daysOffBudget({
 	data,
@@ -1350,7 +1352,6 @@ export function daysOffBudget({
 }):
 	| {
 			allowance: number;
-			leave: number;
 			holidays: number;
 			short: number;
 			used: number;
@@ -1360,23 +1361,25 @@ export function daysOffBudget({
 	const allowance = data.allowance;
 	if (!allowance) return undefined;
 	const prefix = String(year);
-	const weekdays = (days: DayOff[]) =>
-		days.filter((day) => day.date.startsWith(prefix) && isWeekday(day.date)).length;
-	const leave = weekdays(data.leave);
-	const holidays = allowance.holidays ? weekdays(data.holidays) : 0;
+	const holidays = allowance.holidays
+		? [...observedHolidays(data).dates.keys()].filter((date) => date.startsWith(prefix)).length
+		: 0;
 	const lastMonth = today.startsWith(prefix) ? Number(today.slice(5, 7)) : 12;
+	const firstMonth = data.entries.reduce(
+		(first, entry) => (monthOf(entry.date) < first ? monthOf(entry.date) : first),
+		'9999-12'
+	);
 	let shortHours = 0;
 	for (let index = 1; index <= lastMonth; index++) {
 		const month = `${prefix}-${String(index).padStart(2, '0')}`;
+		if (month < firstMonth) continue;
 		const summary = summarizeMonth({ data, month, today });
-		if (summary.logged === 0) continue;
 		shortHours += summary.expectedSoFar - summary.logged;
 	}
 	const short = data.hoursPerDay > 0 ? Math.round((shortHours / data.hoursPerDay) * 10) / 10 : 0;
-	const used = Math.round((leave + holidays + short) * 10) / 10;
+	const used = Math.round((holidays + short) * 10) / 10;
 	return {
 		allowance: allowance.days,
-		leave,
 		holidays,
 		short,
 		used,

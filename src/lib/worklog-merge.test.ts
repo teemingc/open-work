@@ -7,6 +7,7 @@ import {
 	type WorkLogEntry
 } from './worklog';
 import { mergeWorkLogs, removedBy, sameWorkLog } from './worklog-merge';
+import { DEFAULT_SETTINGS } from './settings';
 
 const now = new Date('2026-10-18T12:00:00Z');
 const at = (hour: number) => `2026-10-18T${String(hour).padStart(2, '0')}:00:00.000Z`;
@@ -130,6 +131,57 @@ describe('mergeWorkLogs', () => {
 		expect(merged.invoicing?.name).toBe('Old');
 	});
 
+	it('keeps settings changed elsewhere over a new device’s defaults', () => {
+		const changed = log({
+			settings: { ...DEFAULT_SETTINGS, hourlyRate: 60 },
+			settingsUpdatedAt: { hourlyRate: at(9) }
+		});
+		const defaults = log({ settings: DEFAULT_SETTINGS });
+		expect(mergeWorkLogs({ ours: defaults, theirs: changed, now }).settings?.hourlyRate).toBe(60);
+		expect(mergeWorkLogs({ ours: changed, theirs: defaults, now }).settings?.hourlyRate).toBe(60);
+	});
+
+	it('takes only the settings a device changed', () => {
+		const set = log({
+			settings: { ...DEFAULT_SETTINGS, hourlyRate: 60, collectiveSlug: 'svelte' },
+			settingsUpdatedAt: { hourlyRate: at(9), collectiveSlug: at(9) }
+		});
+		const fresh = log({
+			settings: { ...DEFAULT_SETTINGS, hourlyRate: 80 },
+			settingsUpdatedAt: { hourlyRate: at(10) }
+		});
+		const merged = mergeWorkLogs({ ours: set, theirs: fresh, now });
+		expect(merged.settings).toMatchObject({ hourlyRate: 80, collectiveSlug: 'svelte' });
+		expect(merged.settingsUpdatedAt).toEqual({ hourlyRate: at(10), collectiveSlug: at(9) });
+	});
+
+	it('fills settings never changed anywhere from whichever copy has them set', () => {
+		const set = log({ settings: { ...DEFAULT_SETTINGS, collectiveSlug: 'svelte' } });
+		const defaults = log({ settings: DEFAULT_SETTINGS });
+		for (const [ours, theirs] of [
+			[set, defaults],
+			[defaults, set]
+		]) {
+			expect(mergeWorkLogs({ ours, theirs, now }).settings?.collectiveSlug).toBe('svelte');
+		}
+	});
+
+	it('merges invoice details stamped all at once field by field', () => {
+		const merged = mergeWorkLogs({
+			ours: log({
+				invoicing: { ...emptyInvoicing(), name: 'Old', email: 'me@example.com' },
+				invoicingUpdatedAt: at(9)
+			}),
+			theirs: log({
+				invoicing: { ...emptyInvoicing(), name: 'New' },
+				invoicingFieldsUpdatedAt: { name: at(10) }
+			}),
+			now
+		});
+		expect(merged.invoicing).toMatchObject({ name: 'New', email: 'me@example.com' });
+		expect(merged.invoicingUpdatedAt).toBeUndefined();
+	});
+
 	it('gives the same result whichever copy is ours', () => {
 		const a = log({
 			entries: [entry('x', at(9), { hours: 1 }), entry('y', at(9))],
@@ -158,12 +210,12 @@ describe('mergeWorkLogs', () => {
 	it('remembers what a restored backup no longer has', () => {
 		const current = log({
 			entries: [entry('kept', at(9)), entry('dropped', at(9))],
-			leave: [{ date: '2026-07-20', name: '' }]
+			holidays: [{ date: '2026-07-20', name: '' }]
 		});
 		const backup = log({ entries: [entry('kept', at(8))] });
 		expect(removedBy({ current, next: backup, at: at(12) })).toEqual([
 			{ kind: 'entry', id: 'dropped', at: at(12) },
-			{ kind: 'leave', id: '2026-07-20', at: at(12) }
+			{ kind: 'holiday', id: '2026-07-20', at: at(12) }
 		]);
 	});
 });

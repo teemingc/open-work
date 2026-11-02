@@ -55,7 +55,7 @@ export const PAGES: Record<string, { title: string; description: string; motif: 
 	},
 	'settings/time-off': {
 		title: 'Time off',
-		description: 'Public holidays, the days you took off, and how many you have a year.',
+		description: 'Public holidays, and how many days off you have a year.',
 		motif: 'hours'
 	},
 	'settings/connections': {

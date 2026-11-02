@@ -6,7 +6,7 @@
 	import { formatHours, parseIsoDate } from '#lib/format.js';
 	import type { Client, MonthSummary } from '#lib/worklog.js';
 	import { scaleBand, scaleTime } from 'd3-scale';
-	import { clientColor } from './colors';
+	import { clientColor } from '#lib/client-colors.js';
 
 	let {
 		chart,
@@ -46,7 +46,7 @@
 	/** Only clients with time this month get a series. */
 	const shownClients = $derived(
 		clients
-			.map((client, index) => ({ client, color: clientColor(index) }))
+			.map((client, index) => ({ client, color: clientColor(client, index) }))
 			.filter(({ client }) => summary.clients.some((total) => total.client.id === client.id))
 	);
 	const dailyConfig = $derived(

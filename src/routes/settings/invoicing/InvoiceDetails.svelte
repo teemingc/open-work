@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ClientName from '#lib/components/ClientName.svelte';
 	import SettingsSection from '#lib/components/SettingsSection.svelte';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
@@ -115,7 +116,7 @@
 	{#each clients as client (client.id)}
 		{const category = $derived(client.tax?.category ?? 'outside-scope')}
 		<fieldset class="space-y-4 border-t pt-5">
-			<legend class="float-left mb-3 w-full font-medium">{client.name}</legend>
+			<legend class="float-left mb-3 w-full font-medium"><ClientName {client} /></legend>
 			<div class="clear-both grid gap-3 sm:grid-cols-2">
 				{@render field({
 					id: `${client.id}-legal-name`,

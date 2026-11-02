@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SettingsSkeleton from '#lib/components/SettingsSkeleton.svelte';
-	import { getSettings } from '#lib/settings.remote.js';
+	import { openWorkLogWithSettings } from '#lib/open-work-log.js';
 	import ConnectionsSettings from './ConnectionsSettings.svelte';
 </script>
 
@@ -11,8 +11,9 @@
 	<meta property="og:description" content="Connect Open Collective and find your work on GitHub." />
 </svelte:head>
 
+<!-- The settings live with the work log in this browser's IndexedDB, so the server sends skeletons in their place. -->
 <svelte:boundary>
-	<ConnectionsSettings settings={await getSettings()} />
+	<ConnectionsSettings data={await openWorkLogWithSettings()} />
 
 	{#snippet pending()}
 		<SettingsSkeleton label="Loading connections" heights={['h-23', 'h-64']} />

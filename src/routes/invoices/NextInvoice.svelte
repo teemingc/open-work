@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ClientName from '#lib/components/ClientName.svelte';
 	import { resolve } from '$app/paths';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Popover from '#lib/components/ui/popover/index.js';
@@ -85,7 +86,7 @@
 	<!-- In a column of its own, so every client's dates line up like a ledger. -->
 	{#if client && showName}
 		<div class="min-w-0">
-			<h3 id={labelId} class="truncate font-display text-lg leading-tight">{client.name}</h3>
+			<h3 id={labelId} class="font-display text-lg leading-tight"><ClientName {client} /></h3>
 			<p class="mt-0.5 text-xs text-muted-foreground">
 				{client.openCollective ? 'Open Collective' : 'Email'}, {invoiceFrequency(client) ===
 				'monthly'
