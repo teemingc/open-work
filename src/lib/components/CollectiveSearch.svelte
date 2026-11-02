@@ -5,10 +5,11 @@
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import { collectiveLogo, SUGGESTED_COLLECTIVES } from '#lib/collective-suggestions.js';
 	import RetryableError from '#lib/components/RetryableError.svelte';
-	import { Mail, Search } from '@lucide/svelte';
+	import { Mail, Search, X } from '@lucide/svelte';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import { Command as CommandPrimitive } from 'bits-ui';
 	import { dashboardSearch } from '#lib/dashboard-search.svelte.js';
-	import { readRecentCollectives } from '#lib/recent-collectives.js';
+	import { forgetCollective, readRecentCollectives } from '#lib/recent-collectives.js';
 	import type { CollectiveMatch } from '#lib/collective-search.js';
 	import { searchCollectives } from '#lib/collective-stats.remote.js';
 
@@ -67,6 +68,14 @@
 
 	/** Collectives you visited, newest first. Read as the list opens, so it holds still while open. */
 	let recent: CollectiveMatch[] = $state.raw([]);
+	/** The item moved to with the arrow keys or pointer. */
+	let highlighted = $state('');
+	const showsRecent = $derived(open && !typingEmail && searched.length < 2 && recent.length > 0);
+
+	function forget(match: CollectiveMatch) {
+		forgetCollective(match.slug);
+		recent = recent.filter((item) => item.slug !== match.slug);
+	}
 
 	function show() {
 		if (open) return;
@@ -113,7 +122,7 @@
 	}
 </script>
 
-{#snippet item(match: CollectiveMatch)}
+{#snippet item(match: CollectiveMatch, removable = false)}
 	<Command.Item value={match.slug} onSelect={() => choose(match)}>
 		{#if match.imageUrl}
 			<img src={match.imageUrl} alt="" class="size-5 rounded" loading="lazy" />
@@ -122,12 +131,30 @@
 		{/if}
 		<span class="truncate">{match.name}</span>
 		<span class="ml-auto truncate text-xs text-muted-foreground">{match.slug}</span>
+		{#if removable}
+			<Button
+				type="button"
+				variant="ghost"
+				size="icon"
+				class="-my-1 size-6 shrink-0"
+				tabindex={-1}
+				aria-label="Remove {match.name} from recent"
+				onpointerdown={(event) => event.preventDefault()}
+				onclick={(event) => {
+					event.stopPropagation();
+					forget(match);
+				}}
+			>
+				<X size={12} />
+			</Button>
+		{/if}
 	</Command.Item>
 {/snippet}
 
 <div class="relative w-full" onfocusout={leave}>
 	<Command.Root
 		shouldFilter={false}
+		bind:value={highlighted}
 		label="Search Open Collective"
 		class="h-auto overflow-visible bg-transparent"
 	>
@@ -154,6 +181,12 @@
 					if (event.key === 'Escape' && open) {
 						event.preventDefault();
 						open = false;
+					}
+					// Like a browser's own suggestions, Shift+Delete forgets the one highlighted.
+					const match = recent.find((item) => item.slug === highlighted);
+					if (event.key === 'Delete' && event.shiftKey && showsRecent && match) {
+						event.preventDefault();
+						forget(match);
 					}
 				}}
 				class={[
@@ -206,7 +239,7 @@
 						{#if recent.length > 0}
 							<Command.Group heading="Recent">
 								{#each recent as match (match.slug)}
-									{@render item(match)}
+									{@render item(match, true)}
 								{/each}
 							</Command.Group>
 						{:else}

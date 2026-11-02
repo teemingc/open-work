@@ -13,6 +13,7 @@
 		activeClients,
 		clientChoices,
 		monthOf,
+		taskNames,
 		totalHours,
 		type WorkLogEntry
 	} from '#lib/worklog.js';
@@ -125,6 +126,7 @@
 				clients={clientChoices({ clients: store.data.clients, clientId: entry.clientId })}
 				{organization}
 				{entry}
+				tasks={taskNames(store.data.entries)}
 				date={entry.date}
 				onsave={(changes) => {
 					store.updateEntry({ ...changes, id: entry.id });

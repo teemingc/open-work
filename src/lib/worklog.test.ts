@@ -32,6 +32,7 @@ import {
 	rateOn,
 	refUrl,
 	summarizeMonth,
+	taskNames,
 	totalHours,
 	WORK_LOG_HEADER,
 	WorkLogSchema,
@@ -173,6 +174,16 @@ describe('notes', () => {
 		expect(
 			entriesFor({ entries, clientId: 'svelte', startDate: '2026-10-01', endDate: '2026-10-15' })
 		).toEqual([entries[0]]);
+	});
+
+	it('suggests each logged task once, the most recent first', () => {
+		const task = (text: string): WorkRef => ({ kind: 'task', text });
+		const entries = [
+			entry({ date: '2026-10-05', items: [task('Mon full-time maintainers meeting'), pr(1)] }),
+			entry({ date: '2026-10-07', items: [task('Triage')] }),
+			entry({ date: '2026-10-12', items: [task('Mon full-time maintainers meeting')] })
+		];
+		expect(taskNames(entries)).toEqual(['Mon full-time maintainers meeting', 'Triage']);
 	});
 
 	it('skips found items already logged that day', () => {

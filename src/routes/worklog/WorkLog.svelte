@@ -15,6 +15,7 @@
 		monthDates,
 		monthOf,
 		summarizeMonth,
+		taskNames,
 		unloggedItems
 	} from '#lib/worklog.js';
 	import {
@@ -219,6 +220,7 @@
 							<EntryForm
 								{clients}
 								organization={settings.organization}
+								tasks={taskNames(store.data.entries)}
 								date={defaultDate}
 								clientId={githubClient?.id}
 								onsave={(entry) => (justAdded = store.addEntry(entry).id)}

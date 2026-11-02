@@ -27,6 +27,17 @@ export function rememberCollective({ slug, name, imageUrl }: CollectiveMatch) {
 	}
 }
 
+export function forgetCollective(slug: string) {
+	try {
+		localStorage.setItem(
+			RECENT_KEY,
+			JSON.stringify(readRecentCollectives().filter((item) => item.slug !== slug))
+		);
+	} catch {
+		// Nothing was remembered.
+	}
+}
+
 export function forgetRecentCollectives() {
 	try {
 		localStorage.removeItem(RECENT_KEY);

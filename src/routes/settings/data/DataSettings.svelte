@@ -9,6 +9,7 @@
 	import SettingsSection from '#lib/components/SettingsSection.svelte';
 	import { downloadJson } from '#lib/download.js';
 	import { driveSync, forgetDriveSync } from '#lib/drive-sync.svelte.js';
+	import { forgetHiddenTasks } from '#lib/hidden-tasks.svelte.js';
 	import { forgetRecentCollectives } from '#lib/recent-collectives.js';
 	import { clearAllData } from '#lib/settings.remote.js';
 	import { exportSettingsBackup, parseBackup, type Settings } from '#lib/settings.js';
@@ -145,6 +146,7 @@
 		await submit();
 		forgetDriveSync();
 		forgetRecentCollectives();
+		forgetHiddenTasks();
 		try {
 			await forgetWorkLog();
 		} catch {

@@ -525,6 +525,19 @@ export function entriesFor({
 	);
 }
 
+/** Task names logged before, each once, the most recently logged first. */
+export function taskNames(entries: WorkLogEntry[]): string[] {
+	const latest = new Map<string, string>();
+	for (const entry of entries) {
+		for (const item of entry.items) {
+			if (item.kind !== 'task') continue;
+			const date = latest.get(item.text);
+			if (!date || entry.date > date) latest.set(item.text, entry.date);
+		}
+	}
+	return [...latest].sort(([, a], [, b]) => b.localeCompare(a)).map(([text]) => text);
+}
+
 /** Found items not yet logged on their day, each once. */
 export function unloggedItems<T extends { date: string; ref: WorkRef }>({
 	entries,

@@ -5,7 +5,7 @@
 	import EntryRow from '#lib/components/EntryRow.svelte';
 	import { formatHours, formatMoney, parseIsoDate } from '#lib/format.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import { clientChoices, type MonthSummary } from '#lib/worklog.js';
+	import { clientChoices, taskNames, type MonthSummary } from '#lib/worklog.js';
 	import { clientColor } from '#lib/client-colors.js';
 	import EntryForm from '#lib/components/EntryForm.svelte';
 
@@ -88,6 +88,7 @@
 											})}
 											{organization}
 											{entry}
+											tasks={taskNames(store.data.entries)}
 											date={entry.date}
 											onsave={(changes) => {
 												store.updateEntry({ ...changes, id: entry.id });

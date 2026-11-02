@@ -5,6 +5,7 @@
 	import { Label } from '#lib/components/ui/label/index.js';
 	import * as Select from '#lib/components/ui/select/index.js';
 	import WorkItem from '#lib/components/WorkItem.svelte';
+	import { hiddenTasks, hideTask, showTask } from '#lib/hidden-tasks.svelte.js';
 	import { formatHours } from '#lib/format.js';
 	import {
 		describeRef,
@@ -18,11 +19,13 @@
 	import { snapshot } from '$app/navigation';
 	import { Plus, X } from '@lucide/svelte';
 	import { untrack } from 'svelte';
+	import SuggestInput from './SuggestInput.svelte';
 	import TimeInput from './TimeInput.svelte';
 
 	let {
 		clients,
 		organization,
+		tasks = [],
 		entry,
 		date,
 		clientId,
@@ -31,6 +34,8 @@
 	}: {
 		clients: Client[];
 		organization?: string;
+		/** Task names to suggest while typing an item. */
+		tasks?: string[];
 		/** The entry being edited. Without one, the form adds a new entry. */
 		entry?: WorkLogEntry;
 		/** Starting values for a new entry. */
@@ -111,6 +116,7 @@
 
 	function addItem(): boolean {
 		if (!parsed) return false;
+		if (parsed.kind === 'task') showTask(parsed.text);
 		const key = refKey(parsed);
 		if (!items.some((item) => refKey(item) === key)) items.push(parsed);
 		itemText = '';
@@ -199,17 +205,26 @@
 	<div class="col-span-2 space-y-1.5">
 		<Label for="{id}-item">What you worked on</Label>
 		<div class="flex gap-2">
-			<Input
+			<SuggestInput
 				id="{id}-item"
 				bind:value={itemText}
+				suggestions={tasks.filter(
+					(task) =>
+						!hiddenTasks.has(task) &&
+						!items.some((item) => item.kind === 'task' && item.text === task)
+				)}
+				onpick={(task) => {
+					itemText = task;
+					addItem();
+				}}
+				onremove={hideTask}
 				placeholder="owner/repo/pull/123, or a task like a meeting"
-				autocomplete="off"
 				spellcheck={false}
 				aria-describedby="{id}-item-hint"
 				aria-invalid={itemText.trim() !== '' && !parsed}
 				onkeydown={(event) => {
 					// Enter adds the item; saving the entry is its own button.
-					if (event.key === 'Enter' && itemText.trim()) {
+					if (event.key === 'Enter' && !event.defaultPrevented && itemText.trim()) {
 						event.preventDefault();
 						addItem();
 					}
