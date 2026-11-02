@@ -12,7 +12,7 @@
 	import { formatMoney } from '#lib/format.js';
 	import { oauthErrorMessage } from '#lib/oauth-error.js';
 	import { getMe } from '#lib/opencollective.remote.js';
-	import { disconnect, getSettings, saveSettings } from '#lib/settings.remote.js';
+	import { disconnect, saveSettings } from '#lib/settings.remote.js';
 	import { DEFAULT_SETTINGS, missingForSubmit, type SubmitRequirement } from '#lib/settings.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import type { Client } from '#lib/worklog.js';
@@ -42,7 +42,8 @@
 		store.updateClient({ ...$state.snapshot(store.client(client.id) ?? client), ...patch });
 	}
 
-	const [me, settings] = $derived(await Promise.all([getMe(), getSettings()]));
+	const me = $derived(await getMe());
+	const settings = $derived(store.settings);
 	const missing = $derived(missingForSubmit({ settings, connected: me !== null }));
 
 	const fields = saveSettings.fields;
@@ -92,6 +93,7 @@
 
 <SettingsForm
 	{settings}
+	{store}
 	shown={[
 		'collectiveSlug',
 		'payoutMethodId',

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import * as Alert from '#lib/components/ui/alert/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
@@ -7,8 +6,8 @@
 	import { downloadJson } from '#lib/download.js';
 	import { forgetDriveSync } from '#lib/drive-sync.svelte.js';
 	import { forgetRecentCollectives } from '#lib/recent-collectives.js';
-	import { clearAllData, getSettings, restoreSettings } from '#lib/settings.remote.js';
-	import { exportBackup, parseBackup } from '#lib/settings.js';
+	import { clearAllData } from '#lib/settings.remote.js';
+	import { parseBackup } from '#lib/settings.js';
 	import {
 		forgetWorkLog,
 		WorkLogParseError,
@@ -41,13 +40,15 @@
 
 	async function restoreBackup(file: File) {
 		pendingBackup = undefined;
+		const text = await file.text();
 		try {
-			store.importJson(await file.text());
+			store.importJson(text);
 			backupMessage = {
 				tone: 'ok',
 				text: `Restored ${store.data.entries.length} entries for ${store.data.clients.length} clients.`
 			};
 		} catch (error) {
+			if (restoreOldSettingsBackup(text)) return;
 			backupMessage = {
 				tone: 'error',
 				text: error instanceof WorkLogParseError ? error.message : 'Could not read that file.'
@@ -55,30 +56,18 @@
 		}
 	}
 
-	let settingsMessage = $state<{ ok: boolean; text: string } | undefined>();
-
-	async function downloadSettings() {
-		downloadJson({
-			text: exportBackup(await getSettings()),
-			name: `invoice-settings-${new Date().toISOString().slice(0, 10)}.json`
-		});
-	}
-
-	async function importBackup(event: Event & { currentTarget: HTMLInputElement }) {
-		const input = event.currentTarget;
-		const file = input.files?.[0];
-		if (!file) return;
+	/** A settings-only backup from before settings were part of the work log's. */
+	function restoreOldSettingsBackup(text: string): boolean {
+		let settings;
 		try {
-			const { githubToken } = await getSettings();
-			await restoreSettings({
-				...parseBackup(await file.text()),
-				githubToken
-			});
-			settingsMessage = { ok: true, text: 'Backup restored. Your GitHub token was kept.' };
+			// These backups left the GitHub token out.
+			settings = { ...parseBackup(text), githubToken: store.settings.githubToken };
 		} catch {
-			settingsMessage = { ok: false, text: 'That file is not a valid backup.' };
+			return false;
 		}
-		input.value = '';
+		store.setSettings(settings);
+		backupMessage = { tone: 'ok', text: 'Settings restored. Your GitHub token was kept.' };
+		return true;
 	}
 
 	let clearDialogOpen = $state(false);
@@ -100,8 +89,8 @@
 </script>
 
 <SettingsSection
-	title="Work log backup"
-	description="A copy of the work log as a file, to keep or to move to a browser without Google Drive."
+	title="Backup"
+	description="A copy of the work log and your settings as a file, to keep or to move to a browser without Google Drive."
 >
 	<div class="flex flex-wrap gap-2">
 		<Button variant="outline" onclick={downloadWorkLog}><Download /> Download backup</Button>
@@ -123,9 +112,9 @@
 	>
 		<Dialog.Content>
 			<Dialog.Header>
-				<Dialog.Title>Replace your work log?</Dialog.Title>
+				<Dialog.Title>Replace your work log and settings?</Dialog.Title>
 				<Dialog.Description>
-					Everything in the work log is replaced with what is in {pendingBackup?.name}.
+					Your work log and settings are replaced with what is in {pendingBackup?.name}.
 				</Dialog.Description>
 			</Dialog.Header>
 			<Dialog.Footer>
@@ -144,33 +133,6 @@
 			{backupMessage.text}
 		</p>
 	{/if}
-</SettingsSection>
-
-<SettingsSection
-	title="Settings backup"
-	description="Download your settings to move them to another browser."
->
-	<div class="flex flex-wrap gap-2">
-		<Button type="button" variant="outline" onclick={downloadSettings}>
-			<Download /> Download backup
-		</Button>
-		<Button type="button" variant="outline" class="relative">
-			<Upload /> Restore backup
-			<input
-				type="file"
-				accept="application/json"
-				class="absolute inset-0 cursor-pointer opacity-0"
-				aria-label="Restore backup file"
-				onchange={importBackup}
-			/>
-		</Button>
-	</div>
-	{#if settingsMessage}
-		<Alert.Root variant={settingsMessage.ok ? 'default' : 'destructive'}>
-			<Alert.Description>{settingsMessage.text}</Alert.Description>
-		</Alert.Root>
-	{/if}
-	<p class="text-xs text-muted-foreground">Backups never include your tokens.</p>
 </SettingsSection>
 
 <SettingsSection title="Delete all data">

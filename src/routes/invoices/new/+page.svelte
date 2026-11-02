@@ -10,7 +10,6 @@
 	import DateRangeInput from '#lib/components/DateRangeInput.svelte';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import { formatDMY, formatHours, formatMoney, invoiceInfoText, nextPeriod } from '#lib/format.js';
-	import { driveSync } from '#lib/drive-sync.svelte.js';
 	import { defaultClient, invoiceFrequency, workLogText, type Client } from '#lib/worklog.js';
 	import { ArrowLeft, RotateCcw } from '@lucide/svelte';
 	import { untrack } from 'svelte';
@@ -46,8 +45,6 @@
 		currency: data.settings.currency
 	}));
 	const store = untrack(() => data.store);
-	// Pulls the latest log from Google Drive, if you sync it, before you invoice from it.
-	driveSync(store);
 	const clientId = page.url.searchParams.get('client') ?? undefined;
 	const invoiceId = page.url.searchParams.get('invoice');
 	const draft = new Draft({

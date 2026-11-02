@@ -71,17 +71,11 @@ export function upgradeSettings(raw: Record<string, unknown>): Record<string, un
 	return rest;
 }
 
+/** The last version of the settings-only backup, before settings moved into the work log's. */
 const BACKUP_VERSION = 3;
 
-/** Backup file contents. The GitHub token is left out. */
-export function exportBackup(settings: Settings): string {
-	const { githubToken: _githubToken, ...rest } = settings;
-	void _githubToken;
-	return JSON.stringify({ version: BACKUP_VERSION, data: { settings: rest } }, null, 2);
-}
-
 /**
- * Settings from a backup file, or from what older versions kept in localStorage. Invoices and
+ * Settings from an old settings backup file, or from what older versions kept in localStorage. Invoices and
  * the Open Collective token they stored are dropped. Throws if the data is not valid.
  */
 export function parseBackup(json: string): Settings {
@@ -100,5 +94,5 @@ export function parseBackup(json: string): Settings {
 	});
 }
 
-/** Where versions before the settings cookie kept everything. */
+/** Where versions before the settings cookie kept everything, settings included. */
 export const LEGACY_STORAGE_KEY = 'oc-invoice-data';

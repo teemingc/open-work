@@ -6,7 +6,6 @@
 	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import { nextPeriod, toIsoDate } from '#lib/format.js';
-	import { getSettings } from '#lib/settings.remote.js';
 	import { missingForSubmit } from '#lib/settings.js';
 	import { CircleAlert, RefreshCw, TriangleAlert } from '@lucide/svelte';
 	import { getExpenses, getMe } from '#lib/opencollective.remote.js';
@@ -19,7 +18,8 @@
 		lastInvoicedEnd,
 		type Client
 	} from '#lib/worklog.js';
-	import { openWorkLog, type WorkLogStore } from '#lib/worklog-store.svelte.js';
+	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
+	import { openWorkLogWithSettings } from '#lib/open-work-log.js';
 	import { lastInvoicedEnd as lastExpenseEnd } from './expenses';
 	import EmailInvoicesTable from './EmailInvoicesTable.svelte';
 	import NextInvoice from './NextInvoice.svelte';
@@ -28,12 +28,19 @@
 	// Read without `await`, so the page shows straight away with one set of skeletons while your
 	// account, settings and expenses load, rather than a page spinner followed by more spinners.
 	const meQuery = getMe();
-	const settingsQuery = getSettings();
 	/** `undefined` while loading, `null` when not connected. */
 	const me = $derived(meQuery.current);
-	const settings = $derived(settingsQuery.current);
+	/**
+	 * The work log, in this browser's IndexedDB: your settings, your clients, how often each is
+	 * invoiced, and the invoices sent by email.
+	 */
+	let store = $state<WorkLogStore>();
+	onMount(async () => {
+		({ store } = await openWorkLogWithSettings());
+	});
+	const settings = $derived(store?.settings);
 	const ready = $derived(me !== undefined && settings !== undefined);
-	const accountError = $derived(meQuery.error ?? settingsQuery.error);
+	const accountError = $derived(meQuery.error);
 
 	const missing = $derived(
 		me !== undefined && settings ? missingForSubmit({ settings, connected: me !== null }) : []
@@ -49,15 +56,6 @@
 		const error = expensesQuery?.error;
 		if (!error) return '';
 		return isHttpError(error) ? error.body.message : 'Failed to load your expenses.';
-	});
-	/**
-	 * The work log, in this browser's IndexedDB: your clients, how often each is invoiced, and
-	 * the invoices sent by email.
-	 */
-	let store = $state<WorkLogStore>();
-	onMount(async () => {
-		const { hourlyRate, currency, collectiveSlug } = await getSettings();
-		store = await openWorkLog({ rate: hourlyRate, currency, collective: collectiveSlug });
 	});
 	const clients = $derived(store ? activeClients(store.data.clients) : []);
 	const showExpenses = $derived(
