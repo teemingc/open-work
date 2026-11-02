@@ -218,6 +218,30 @@ export function emptyInvoicing(): Invoicing {
 	return v.parse(InvoicingSchema, {});
 }
 
+/** The address on one line without its country, as an Open Collective expense takes it. */
+export function addressLine(address: Address): string {
+	return [
+		address.street,
+		address.extra,
+		[address.postcode, address.city].map((part) => part.trim()).join(' '),
+		address.region
+	]
+		.map((part) => part.trim())
+		.filter(Boolean)
+		.join(', ');
+}
+
+/** Your notes, and your tax number unless the notes already give it. Said on every invoice. */
+export function invoicingNotes(invoicing: Invoicing): string {
+	const taxId = invoicing.taxId.trim();
+	return [
+		invoicing.notes.trim(),
+		...(taxId && !invoicing.notes.includes(taxId) ? [`Income tax number: ${taxId}`] : [])
+	]
+		.filter(Boolean)
+		.join('\n');
+}
+
 const BandSchema = v.object({
 	/** The top of the band; unset for the last band, which has no top. */
 	upTo: v.optional(v.pipe(v.number(), v.minValue(0))),
@@ -606,6 +630,11 @@ export function invoiceFrequency(
 /** The clients you can log new work for and invoice. */
 export function activeClients(clients: Client[]): Client[] {
 	return clients.filter((client) => !client.archived);
+}
+
+/** The rate of the client invoiced through Open Collective, or 0 when there is none. */
+export function openCollectiveRate(clients: Client[]): number {
+	return defaultClient(clients.filter((client) => client.openCollective))?.rate ?? 0;
 }
 
 /** The client a new invoice bills: the one invoiced through Open Collective, or the only one. */

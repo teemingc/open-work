@@ -1,34 +1,40 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
 	import * as Alert from '#lib/components/ui/alert/index.js';
-	import { Button } from '#lib/components/ui/button/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
 	import * as Select from '#lib/components/ui/select/index.js';
-	import { Spinner } from '#lib/components/ui/spinner/index.js';
+	import CollectiveSearch from '#lib/components/CollectiveSearch.svelte';
 	import SettingsForm from '#lib/components/SettingsForm.svelte';
 	import SettingsSection from '#lib/components/SettingsSection.svelte';
-	import { formatMoney } from '#lib/format.js';
-	import { oauthErrorMessage } from '#lib/oauth-error.js';
 	import { getMe } from '#lib/opencollective.remote.js';
-	import { disconnect, getSettings, saveSettings } from '#lib/settings.remote.js';
-	import { DEFAULT_SETTINGS, missingForSubmit, type SubmitRequirement } from '#lib/settings.js';
+	import { getSettings, saveSettings } from '#lib/settings.remote.js';
+	import { missingForSubmit, type SubmitRequirement } from '#lib/settings.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import type { Client } from '#lib/worklog.js';
-	import { CircleAlert, CircleCheck, TriangleAlert } from '@lucide/svelte';
+	import { openCollectiveRate, type Client } from '#lib/worklog.js';
+	import { CircleCheck, TriangleAlert } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import InvoiceDetails from './InvoiceDetails.svelte';
+	import YourDetails from './YourDetails.svelte';
 
-	const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD', 'MYR', 'SGD'];
-
-	/** Where each missing requirement is fixed on this page. */
-	const REQUIREMENT_FIELDS: Record<SubmitRequirement, { id: string; text: string }> = {
-		'Open Collective connection': { id: 'oc-connection', text: 'Connect Open Collective' },
+	/** Where each missing requirement is fixed, in the order the warning lists them. */
+	const REQUIREMENT_FIELDS: Record<
+		SubmitRequirement,
+		{ id?: string; text: string; page?: '/settings/connections' | '/settings/clients' }
+	> = {
+		'Open Collective connection': {
+			id: 'oc-connection',
+			text: 'Connect Open Collective',
+			page: '/settings/connections'
+		},
 		'payout method': { id: 'payout-method', text: 'Choose a payout method' },
-		collective: { id: 'collective', text: 'Enter the collective you invoice' },
-		'hourly rate': { id: 'rate', text: 'Set your hourly rate' }
+		collective: { id: 'collective', text: 'Choose the collective you invoice' },
+		'hourly rate': {
+			text: 'Give your Open Collective client an hourly rate',
+			page: '/settings/clients'
+		}
 	};
+	const REQUIREMENTS = Object.keys(REQUIREMENT_FIELDS) as SubmitRequirement[];
 
 	let { store: storeProp }: { store: WorkLogStore } = $props();
 
@@ -43,18 +49,32 @@
 	}
 
 	const [me, settings] = $derived(await Promise.all([getMe(), getSettings()]));
-	const missing = $derived(missingForSubmit({ settings, connected: me !== null }));
+	const missing = $derived(
+		missingForSubmit({
+			settings,
+			connected: me !== null,
+			rate: openCollectiveRate(store.data.clients)
+		})
+	);
+	/**
+	 * Everything the warning has listed while the page is open. A requirement once met stays,
+	 * ticked off, so the warning keeps its height and the fields below it do not jump up.
+	 */
+	const missingAtOpen = untrack(() => missing);
+	const listed = $derived(
+		REQUIREMENTS.filter(
+			(requirement) => missingAtOpen.includes(requirement) || missing.includes(requirement)
+		)
+	);
 
 	const fields = saveSettings.fields;
 	const values = $derived(fields.value());
 
-	// Open Collective connection, kept in a server cookie by the OAuth flow
 	const payoutMethods = $derived(me?.payoutMethods ?? []);
 	const payoutLabel = $derived(
 		payoutMethods.find((method) => method.id === values.payoutMethodId)?.label ??
 			values.payoutMethodLabel
 	);
-	const connectError = $derived(oauthErrorMessage(page.url.searchParams.get('oc_error')));
 </script>
 
 <!--
@@ -69,17 +89,33 @@
 	{/if}
 {/snippet}
 
-{#if missing.length > 0}
-	<Alert.Root variant="warning" class="mb-8">
-		<TriangleAlert />
-		<Alert.Title>Still needed before you can submit invoices</Alert.Title>
+{#if listed.length > 0}
+	<Alert.Root variant={missing.length > 0 ? 'warning' : 'default'} class="mb-8">
+		{#if missing.length > 0}<TriangleAlert />{:else}<CircleCheck class="text-status-paid" />{/if}
+		<Alert.Title>
+			{missing.length > 0
+				? 'Still needed before you can submit invoices'
+				: 'Ready to submit invoices'}
+		</Alert.Title>
 		<Alert.Description>
-			<ul class="mt-1 list-disc space-y-0.5 pl-5">
-				{#each missing as requirement (requirement)}
-					<li>
-						<a href="#{REQUIREMENT_FIELDS[requirement].id}" class="font-medium underline">
-							{REQUIREMENT_FIELDS[requirement].text}
-						</a>
+			<ul class="mt-1 space-y-0.5">
+				{#each listed as requirement (requirement)}
+					{const { id, text, page } = REQUIREMENT_FIELDS[requirement]}
+					<li class="flex items-center gap-1.5">
+						{#if missing.includes(requirement)}
+							<span class="size-1.5 shrink-0 rounded-full bg-attention"></span>
+							{#if page}
+								<a href="{resolve(page)}{id ? `#${id}` : ''}" class="font-medium underline">
+									{text}
+								</a>
+							{:else}
+								<a href="#{id}" class="font-medium underline">{text}</a>
+							{/if}
+						{:else}
+							<CircleCheck size={14} class="shrink-0 text-status-paid" />
+							<span class="line-through">{text}</span>
+							<span class="sr-only">(done)</span>
+						{/if}
 					</li>
 				{/each}
 			</ul>
@@ -87,67 +123,18 @@
 	</Alert.Root>
 {/if}
 
-<!-- Lives outside the settings form, which its button below submits through `form`. -->
-<form {...disconnect} id="disconnect-form"></form>
+<!-- First: Open Collective expenses and emailed invoices are both from you. -->
+<YourDetails {store} />
 
 <SettingsForm
 	{settings}
-	shown={[
-		'collectiveSlug',
-		'payoutMethodId',
-		'payoutMethodLabel',
-		'invoiceNote',
-		'payeeAddress',
-		'payeeCountry',
-		'accountingCategoryId',
-		'hourlyRate',
-		'currency'
-	]}
+	shown={['collectiveSlug', 'payoutMethodId', 'payoutMethodLabel', 'accountingCategoryId']}
 >
 	{#snippet children({ save })}
 		<SettingsSection
 			title="Open Collective"
-			description="Lists the expenses you have sent and lets you submit new ones straight to the collective."
+			description="Where your expenses go and how you are paid."
 		>
-			<div class="space-y-1.5" id="oc-connection">
-				{#if me}
-					<!-- The account, then a separate action to leave it. -->
-					<div
-						class="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2"
-					>
-						<div class="flex min-w-0 items-center gap-2.5">
-							<CircleCheck size={18} class="shrink-0 text-status-paid" />
-							<div class="min-w-0">
-								<p class="truncate text-sm font-medium">{me.name}</p>
-								<p class="truncate text-xs text-muted-foreground">Connected as @{me.slug}</p>
-							</div>
-						</div>
-						<Button
-							type="submit"
-							form="disconnect-form"
-							variant="outline"
-							size="sm"
-							disabled={disconnect.pending > 0}
-						>
-							{#if disconnect.pending > 0}<Spinner />{/if}
-							Disconnect
-						</Button>
-					</div>
-				{:else}
-					<div class="flex items-center gap-2">
-						<Button href={resolve('/auth/connect')} data-sveltekit-reload variant="outline">
-							Connect
-						</Button>
-						{@render needed('Open Collective connection')}
-					</div>
-				{/if}
-				{#if connectError}
-					<p class="flex items-start gap-1.5 text-sm text-destructive" role="alert">
-						<CircleAlert size={15} class="mt-0.5 shrink-0" />{connectError}
-					</p>
-				{/if}
-			</div>
-
 			<div class="space-y-1.5">
 				<Label for="payout-method">Payout method{@render needed('payout method')}</Label>
 				<input {...fields.payoutMethodId.as('hidden', values.payoutMethodId ?? '')} />
@@ -165,8 +152,7 @@
 					disabled={payoutMethods.length === 0}
 				>
 					<Select.Trigger id="payout-method" class="w-full">
-						{payoutLabel ??
-							(payoutMethods.length === 0 ? 'Connect to load your methods' : 'Choose one')}
+						{payoutLabel ?? (me ? 'Choose one' : 'Connect Open Collective to load your methods')}
 					</Select.Trigger>
 					<Select.Content>
 						{#each payoutMethods as method (method.id)}
@@ -178,51 +164,21 @@
 				</Select.Root>
 			</div>
 
-			<div class="grid gap-5 sm:grid-cols-2">
-				<div class="space-y-1.5">
-					<Label for="collective">Collective{@render needed('collective')}</Label>
-					<Input
-						id="collective"
-						{...fields.collectiveSlug.as('text')}
-						placeholder="your-project"
-						aria-describedby="collective-hint"
-					/>
-					<p id="collective-hint" class="text-xs text-muted-foreground">
-						{values.collectiveSlug
-							? `opencollective.com/${values.collectiveSlug}`
-							: 'The slug from its Open Collective address'}
-					</p>
-				</div>
-				<div class="space-y-1.5">
-					<Label for="invoice-note">Invoice note</Label>
-					<Input id="invoice-note" {...fields.invoiceNote.as('text')} autocomplete="off" />
-					<p class="text-xs text-muted-foreground">
-						Optional. Added to every invoice, for example a tax number.
-					</p>
-				</div>
-			</div>
-
-			<div class="grid gap-5 sm:grid-cols-[1fr_8rem]">
-				<div class="space-y-1.5">
-					<Label for="address">Your address</Label>
-					<Input id="address" {...fields.payeeAddress.as('text')} autocomplete="street-address" />
-					{#if me?.address}
-						<p class="text-xs text-muted-foreground">
-							Leave empty to use your Open Collective address: {me.address}
-						</p>
-					{/if}
-				</div>
-				<div class="space-y-1.5">
-					<Label for="country">Country code</Label>
-					<Input id="country" {...fields.payeeCountry.as('text')} maxlength={2} class="uppercase" />
-					{#each fields.payeeCountry.issues() ?? [] as issue (issue.message)}
-						<p class="text-xs text-destructive">{issue.message}</p>
-					{:else}
-						<p class="text-xs text-muted-foreground">
-							Two letters{#if me?.country}, or empty for {me.country}{/if}
-						</p>
-					{/each}
-				</div>
+			<div class="space-y-1.5">
+				<Label for="collective">Collective{@render needed('collective')}</Label>
+				<input {...fields.collectiveSlug.as('hidden', values.collectiveSlug ?? '')} />
+				<CollectiveSearch
+					id="collective"
+					name="Find your collective"
+					slug={values.collectiveSlug || undefined}
+					onchoose={(match) => {
+						fields.collectiveSlug.set(match.slug);
+						void save();
+					}}
+				/>
+				{#if values.collectiveSlug}
+					<p class="text-xs text-muted-foreground">opencollective.com/{values.collectiveSlug}</p>
+				{/if}
 			</div>
 
 			<details class="text-sm">
@@ -238,42 +194,6 @@
 					</p>
 				</div>
 			</details>
-		</SettingsSection>
-
-		<SettingsSection title="Billing" description="Copied into each new invoice when you start it.">
-			<div class="grid gap-5 sm:grid-cols-2">
-				<div class="space-y-1.5">
-					<Label for="rate">Hourly rate{@render needed('hourly rate')}</Label>
-					<Input id="rate" {...fields.hourlyRate.as('number')} min="0" step="0.01" />
-					{#each fields.hourlyRate.issues() ?? [] as issue (issue.message)}
-						<p class="text-xs text-destructive">{issue.message}</p>
-					{/each}
-				</div>
-				<div class="space-y-1.5">
-					<Label for="currency">Currency</Label>
-					<input {...fields.currency.as('hidden', values.currency ?? DEFAULT_SETTINGS.currency)} />
-					<Select.Root
-						type="single"
-						value={values.currency}
-						onValueChange={(code) => {
-							fields.currency.set(code);
-							void save();
-						}}
-					>
-						<Select.Trigger id="currency" class="w-full">{values.currency}</Select.Trigger>
-						<Select.Content>
-							{#each CURRENCIES as code (code)}
-								<Select.Item value={code}>{code}</Select.Item>
-							{/each}
-						</Select.Content>
-					</Select.Root>
-				</div>
-			</div>
-			{#if Number(values.hourlyRate) > 0 && values.currency}
-				<p class="text-sm text-muted-foreground">
-					40 hours comes to {formatMoney(40 * Number(values.hourlyRate), values.currency)}.
-				</p>
-			{/if}
 		</SettingsSection>
 	{/snippet}
 </SettingsForm>

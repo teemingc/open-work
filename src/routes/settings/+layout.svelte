@@ -24,7 +24,7 @@
 
 	// Read without `await`, like the header, so the tabs never wait on Open Collective.
 	const meQuery = getMe();
-	/** Invoicing is where Open Collective is connected, so it carries the header's dot. */
+	/** Connections is where Open Collective is connected, so it carries the header's dot. */
 	const needsSetup = $derived(meQuery.current === null);
 
 	/** Where you came from, named as the header names it. */
@@ -98,7 +98,7 @@
 				class="inline-flex h-full items-center gap-1.5 rounded-md border border-transparent px-3 text-sm font-medium whitespace-nowrap text-foreground transition-[color,box-shadow] hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none aria-[current=page]:bg-background aria-[current=page]:shadow-sm dark:text-muted-foreground dark:aria-[current=page]:border-input dark:aria-[current=page]:bg-input/30 dark:aria-[current=page]:text-foreground"
 			>
 				{tab.label}
-				{#if tab.path === '/settings/invoicing' && needsSetup}
+				{#if tab.path === '/settings/connections' && needsSetup}
 					<span class="size-1.5 rounded-full bg-attention" title="Setup unfinished"></span>
 					<span class="sr-only">(setup unfinished)</span>
 				{/if}

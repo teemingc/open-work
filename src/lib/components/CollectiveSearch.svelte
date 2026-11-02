@@ -15,7 +15,9 @@
 	let {
 		name,
 		slug,
-		field = false
+		field = false,
+		id,
+		onchoose
 	}: {
 		/** The placeholder, like "Find another collective". */
 		name: string;
@@ -23,6 +25,9 @@
 		slug?: string;
 		/** Full width and larger, for a page with no collective yet. */
 		field?: boolean;
+		id?: string;
+		/** Called with the chosen collective, which then stays in the field, instead of opening it. */
+		onchoose?: (match: CollectiveMatch) => void;
 	} = $props();
 
 	/** Wait for a pause in typing, so each keystroke is not a request to Open Collective. */
@@ -30,7 +35,8 @@
 	const MAX_RECENT = 5;
 
 	let open = $state(false);
-	let term = $state('');
+	/** What is typed. As a field, it shows the chosen collective until you type over it. */
+	let term = $derived(onchoose ? (slug ?? '') : '');
 	let searched = $state('');
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let input = $state<HTMLInputElement | null>(null);
@@ -60,9 +66,10 @@
 	function choose(match: CollectiveMatch) {
 		open = false;
 		clearTimeout(timer);
-		term = '';
+		term = onchoose ? match.slug : '';
 		searched = '';
 		input?.blur();
+		if (onchoose) return onchoose(match);
 		// The chart settings carry over, so the next collective is shown the same way.
 		void goto(resolve(`/collective/[handle]${dashboardSearch()}`, { handle: match.slug }));
 	}
@@ -123,7 +130,13 @@
 					use, so both are set here, after its props, to say whether the list is open and where.
 				-->
 				{#snippet child({ props })}
-					<input {...props} aria-expanded={open} aria-controls={open ? listId : undefined} />
+					<input
+						{...props}
+						{id}
+						value={term}
+						aria-expanded={open}
+						aria-controls={open ? listId : undefined}
+					/>
 				{/snippet}
 			</CommandPrimitive.Input>
 		</label>

@@ -14,21 +14,22 @@ export const SettingsSchema = v.object({
 	/** Repository names to include. Empty means everything in the organization. */
 	repositories: v.optional(v.array(v.pipe(v.string(), v.trim(), v.nonEmpty())), []),
 
+	/** The rate and currency a new client starts with. */
 	hourlyRate: v.pipe(v.number('Enter a number'), v.minValue(0, 'Rate cannot be negative')),
 	currency: v.pipe(v.string(), v.regex(/^[A-Z]{3}$/, 'Use a three-letter code like USD')),
 
 	collectiveSlug: v.pipe(v.optional(v.string(), ''), v.trim()),
 	payoutMethodId: optionalText,
 	payoutMethodLabel: optionalText,
-	/** Free text added to every invoice, such as a tax number. */
+	accountingCategoryId: optionalText,
+
+	/**
+	 * Moved into the work log's invoicing details, which emailed invoices share: read only to move
+	 * them there, then cleared. See `moveToWorkLog`.
+	 */
 	invoiceNote: optionalText,
 	payeeAddress: optionalText,
-	payeeCountry: v.pipe(
-		optionalText,
-		v.transform((value) => value?.toUpperCase()),
-		v.check((value) => !value || /^[A-Z]{2}$/.test(value), 'Use two letters like MY')
-	),
-	accountingCategoryId: optionalText
+	payeeCountry: optionalText
 });
 
 export type Settings = v.InferOutput<typeof SettingsSchema>;
@@ -45,17 +46,20 @@ export type SubmitRequirement =
 /** What is still missing before an invoice can be sent to Open Collective. */
 export function missingForSubmit({
 	settings,
-	connected
+	connected,
+	rate
 }: {
 	settings: Settings;
 	/** Whether `getMe()` found an account. */
 	connected: boolean;
+	/** The Open Collective client's hourly rate. Unknown while the work log opens. */
+	rate: number | undefined;
 }): SubmitRequirement[] {
 	const missing: SubmitRequirement[] = [];
 	if (!connected) missing.push('Open Collective connection');
 	if (!settings.payoutMethodId) missing.push('payout method');
 	if (!settings.collectiveSlug) missing.push('collective');
-	if (!(settings.hourlyRate > 0)) missing.push('hourly rate');
+	if (rate !== undefined && !(rate > 0)) missing.push('hourly rate');
 	return missing;
 }
 
@@ -71,13 +75,38 @@ export function upgradeSettings(raw: Record<string, unknown>): Record<string, un
 	return rest;
 }
 
-const BACKUP_VERSION = 3;
+const BACKUP_VERSION = 4;
 
-/** Backup file contents. The GitHub token is left out. */
-export function exportBackup(settings: Settings): string {
-	const { githubToken: _githubToken, ...rest } = settings;
+/** Backup file contents, with only the parts given. The GitHub token is left out. */
+export function exportBackup({
+	settings,
+	workLog
+}: {
+	settings?: Settings;
+	workLog?: unknown;
+}): string {
+	const { githubToken: _githubToken, ...rest } = settings ?? {};
 	void _githubToken;
-	return JSON.stringify({ version: BACKUP_VERSION, data: { settings: rest } }, null, 2);
+	return JSON.stringify(
+		{ version: BACKUP_VERSION, data: { settings: settings && rest, workLog } },
+		null,
+		2
+	);
+}
+
+/**
+ * What a backup file holds, so a file with only one part restores only that part. Backups
+ * before version 4 hold only settings, and a work log backup from before they were combined
+ * is the bare log. Throws if the file is not JSON.
+ */
+export function readBackup(json: string): { settings?: Settings; workLog?: unknown } {
+	const parsed = JSON.parse(json) as { data?: { settings?: unknown; workLog?: unknown } };
+	if (!parsed.data) return { workLog: parsed };
+	if (!parsed.data.settings && parsed.data.workLog === undefined) throw new Error('Empty backup');
+	return {
+		settings: parsed.data.settings ? parseBackup(json) : undefined,
+		workLog: parsed.data.workLog
+	};
 }
 
 /**

@@ -49,10 +49,11 @@ export function parseWorkLog(json: string): WorkLogData {
 	} catch {
 		throw new WorkLogParseError('That file is not JSON.');
 	}
-	return validate(raw);
+	return validateWorkLog(raw);
 }
 
-function validate(raw: unknown): WorkLogData {
+/** A work log read from anywhere, filling in fields added since it was written. */
+export function validateWorkLog(raw: unknown): WorkLogData {
 	const result = v.safeParse(WorkLogSchema, raw);
 	if (!result.success) {
 		const issue = result.issues[0];
@@ -101,7 +102,7 @@ export const indexedDbBackend: WorkLogBackend = {
 	async load() {
 		const db = await openDatabase();
 		const stored = await request(db.transaction(DB_STORE).objectStore(DB_STORE).get(DB_KEY));
-		if (stored !== undefined) return validate(stored);
+		if (stored !== undefined) return validateWorkLog(stored);
 
 		// Move a log from an earlier version, which kept it in localStorage.
 		let legacy: string | null = null;
@@ -489,10 +490,6 @@ export class WorkLogStore {
 
 	/* Backups and sync */
 
-	exportJson(): string {
-		return JSON.stringify($state.snapshot(this.data), null, '\t');
-	}
-
 	/** Take a copy merged with another device's, without counting it as a change of yours. */
 	adopt(data: WorkLogData) {
 		this.data = data;
@@ -508,11 +505,10 @@ export class WorkLogStore {
 	}
 
 	/**
-	 * Replace everything with a backup. Throws `WorkLogParseError` for anything else. The backup
-	 * counts as the newest change, so it also replaces what other devices have when they sync.
+	 * Replace everything with a backup. The backup counts as the newest change, so it also
+	 * replaces what other devices have when they sync.
 	 */
-	importJson(json: string) {
-		const backup = parseWorkLog(json);
+	restore(backup: WorkLogData) {
 		const at = nowIso();
 		const stamp = <T extends object>(record: T): T => ({ ...record, updatedAt: at });
 		const gone = removedBy({ current: $state.snapshot(this.data), next: backup, at });

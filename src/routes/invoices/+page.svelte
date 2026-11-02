@@ -17,9 +17,11 @@
 		availableCredit,
 		invoiceFrequency,
 		lastInvoicedEnd,
+		openCollectiveRate,
 		type Client
 	} from '#lib/worklog.js';
-	import { openWorkLog, type WorkLogStore } from '#lib/worklog-store.svelte.js';
+	import { openWorkLogWithSettings } from '#lib/open-work-log.js';
+	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import { lastInvoicedEnd as lastExpenseEnd } from './expenses';
 	import EmailInvoicesTable from './EmailInvoicesTable.svelte';
 	import NextInvoice from './NextInvoice.svelte';
@@ -35,8 +37,23 @@
 	const ready = $derived(me !== undefined && settings !== undefined);
 	const accountError = $derived(meQuery.error ?? settingsQuery.error);
 
+	/**
+	 * The work log, in this browser's IndexedDB: your clients, how often each is invoiced, and
+	 * the invoices sent by email.
+	 */
+	let store = $state<WorkLogStore>();
+	onMount(async () => {
+		({ store } = await openWorkLogWithSettings());
+	});
+
 	const missing = $derived(
-		me !== undefined && settings ? missingForSubmit({ settings, connected: me !== null }) : []
+		me !== undefined && settings
+			? missingForSubmit({
+					settings,
+					connected: me !== null,
+					rate: store && openCollectiveRate(store.data.clients)
+				})
+			: []
 	);
 
 	// Not awaited, so a slow or failing list never blocks starting an invoice.
@@ -49,15 +66,6 @@
 		const error = expensesQuery?.error;
 		if (!error) return '';
 		return isHttpError(error) ? error.body.message : 'Failed to load your expenses.';
-	});
-	/**
-	 * The work log, in this browser's IndexedDB: your clients, how often each is invoiced, and
-	 * the invoices sent by email.
-	 */
-	let store = $state<WorkLogStore>();
-	onMount(async () => {
-		const { hourlyRate, currency, collectiveSlug } = await getSettings();
-		store = await openWorkLog({ rate: hourlyRate, currency, collective: collectiveSlug });
 	});
 	const clients = $derived(store ? activeClients(store.data.clients) : []);
 	const showExpenses = $derived(

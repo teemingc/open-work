@@ -36,13 +36,15 @@
 		<h2>What is kept, and where</h2>
 		<ul>
 			<li>
-				<strong>Your work log</strong> is stored in this browser (IndexedDB). It is not sent to or kept
-				on our server, except in passing on its way to your Google Drive when Drive sync is on.
+				<strong>Your work log</strong>, with your clients and the name, address and tax numbers your
+				invoices are from, is stored in this browser (IndexedDB). It is not sent to or kept on our
+				server, except in passing on its way to your Google Drive when Drive sync is on, or to Open
+				Collective with an expense you submit.
 			</li>
 			<li>
-				<strong>Your settings</strong>, such as your name, address, hourly rate, payout method and
-				GitHub details, are kept in a cookie in your browser. The server reads it on each request to
-				fill in invoices, and does not store it.
+				<strong>Your settings</strong>, such as your payout method, collective and GitHub details,
+				are kept in a cookie in your browser. The server reads it on each request to fill in
+				invoices, and does not store it.
 			</li>
 			<li>
 				<strong>Your Open Collective connection</strong> is an access token kept in a cookie in your browser.
@@ -69,7 +71,7 @@
 			<li>
 				<strong>What we ask for:</strong> your basic profile (name, email address and picture), to
 				show who you are signed in as, and the <code>drive.appdata</code> scope, which lets the app read
-				and write files in a hidden folder of your Drive set aside for this app.
+				and write files in a folder of your Drive set aside for this app.
 			</li>
 			<li>
 				<strong>How it is used:</strong> the app keeps one file there, <code>work-log.json</code>,

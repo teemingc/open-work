@@ -47,11 +47,22 @@ export const saveSettings = form(
 	v.object({ ...v.partial(SettingsSchema).entries, shown: v.array(v.picklist(SETTING_KEYS)) }),
 	async ({ shown, ...submitted }) => {
 		const next: Record<string, unknown> = { ...(await getSettings()) };
-		for (const key of shown) next[key] = submitted[key];
+		// An emptied number arrives as undefined, so it goes back to its default rather than failing.
+		for (const key of shown) next[key] = submitted[key] ?? DEFAULT_SETTINGS[key];
 		writeSettings(v.parse(SettingsSchema, next));
 		return { saved: true };
 	}
 );
+
+/** Forget the settings `moveToWorkLog` moved into the work log, so they are not moved again. */
+export const forgetMovedSettings = command(async () => {
+	writeSettings({
+		...(await getSettings()),
+		invoiceNote: undefined,
+		payeeAddress: undefined,
+		payeeCountry: undefined
+	});
+});
 
 /** Replace every setting at once, from a backup or from what older versions kept in the browser. */
 export const restoreSettings = command(SettingsSchema, async (settings) => {

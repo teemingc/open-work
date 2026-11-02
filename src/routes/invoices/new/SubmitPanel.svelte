@@ -16,6 +16,7 @@
 		me,
 		settings,
 		invoiceInfo,
+		payee,
 		onsubmitted
 	}: {
 		draft: Draft;
@@ -23,10 +24,14 @@
 		me: Account | null;
 		settings: Settings;
 		invoiceInfo?: string;
+		/** Your address and country, from your invoicing details or else your Open Collective profile. */
+		payee: { address?: string; country?: string };
 		onsubmitted: (url: string | undefined) => void;
 	} = $props();
 
-	const missing = $derived(missingForSubmit({ settings, connected: me !== null }));
+	const missing = $derived(
+		missingForSubmit({ settings, connected: me !== null, rate: draft.rate })
+	);
 	const problems = $derived([
 		...missing.map((item) => `Add your ${item} in settings`),
 		...(draft.needsClient ? ['Choose the client this invoice bills'] : []),
@@ -168,8 +173,8 @@
 			<input {...fields.currency.as('hidden', draft.currency)} />
 			<input {...fields.invoiceInfo.as('hidden', invoiceInfo ?? '')} />
 			<input {...fields.notesHtml.as('hidden', notes ? workLogToHtml(notes) : '')} />
-			<input {...fields.address.as('hidden', settings.payeeAddress ?? me?.address ?? '')} />
-			<input {...fields.country.as('hidden', settings.payeeCountry ?? me?.country ?? '')} />
+			<input {...fields.address.as('hidden', payee.address ?? '')} />
+			<input {...fields.country.as('hidden', payee.country ?? '')} />
 			<input {...fields.accountingCategoryId.as('hidden', settings.accountingCategoryId ?? '')} />
 
 			<Dialog.Footer>

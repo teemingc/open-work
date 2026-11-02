@@ -3,7 +3,7 @@ import { getRequestEvent } from '$app/server';
 import { betterAuth } from 'better-auth';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
 
-/** Lets the app keep one hidden file in the user's Drive, out of sight of other apps and the user. */
+/** Lets the app keep one file in the app's own folder of the user's Drive, which no other app can reach. */
 export const DRIVE_APPDATA_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 
 /** Whether Google sign-in is set up on this server. */

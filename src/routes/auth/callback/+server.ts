@@ -16,7 +16,7 @@ export const GET: RequestHandler = async ({ cookies, url, fetch }) => {
 	cookies.delete(STATE_COOKIE, stateCookieOptions);
 
 	const fail = (code: OAuthError): never => {
-		redirect(303, `/settings/invoicing?${new URLSearchParams({ oc_error: code })}`);
+		redirect(303, `/settings/connections?${new URLSearchParams({ oc_error: code })}`);
 	};
 
 	if (url.searchParams.has('error')) fail('denied');
@@ -48,5 +48,5 @@ export const GET: RequestHandler = async ({ cookies, url, fetch }) => {
 	if (!body.access_token) fail('denied');
 
 	setToken({ cookies, token: body.access_token!, maxAge: body.expires_in });
-	redirect(303, '/settings/invoicing');
+	redirect(303, '/settings/connections');
 };

@@ -1,84 +1,127 @@
 <script lang="ts">
-	import * as Alert from '#lib/components/ui/alert/index.js';
+	import { resolve } from '$app/paths';
+	import DriveSyncStatus from '#lib/components/DriveSyncStatus.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
+	import { Label } from '#lib/components/ui/label/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import SettingsSection from '#lib/components/SettingsSection.svelte';
 	import { downloadJson } from '#lib/download.js';
-	import { forgetDriveSync } from '#lib/drive-sync.svelte.js';
+	import { driveSync, forgetDriveSync } from '#lib/drive-sync.svelte.js';
 	import { forgetRecentCollectives } from '#lib/recent-collectives.js';
 	import { clearAllData, getSettings, restoreSettings } from '#lib/settings.remote.js';
-	import { exportBackup, parseBackup } from '#lib/settings.js';
+	import { exportBackup, readBackup, type Settings } from '#lib/settings.js';
 	import {
 		forgetWorkLog,
+		validateWorkLog,
 		WorkLogParseError,
 		type WorkLogStore
 	} from '#lib/worklog-store.svelte.js';
-	import { CircleAlert, Download, Upload } from '@lucide/svelte';
+	import type { WorkLogData } from '#lib/worklog.js';
+	import { CircleAlert, Cloud, Download, LogOut, RefreshCw, Upload } from '@lucide/svelte';
 	import { untrack } from 'svelte';
+	import { signInWithGoogle, signOutOfGoogle } from './auth-client';
 
 	let { store: storeProp }: { store: WorkLogStore } = $props();
 
 	// The same store for the page's whole life, so it is read once, not tracked.
 	const store = untrack(() => storeProp);
+	const sync = driveSync(store);
 
-	function downloadWorkLog() {
+	/** Which parts the next download holds. */
+	const exportParts = $state({ workLog: true, settings: true });
+
+	async function downloadBackup() {
 		downloadJson({
-			text: store.exportJson(),
-			name: `work-log-${new Date().toISOString().slice(0, 10)}.json`
+			text: exportBackup({
+				settings: exportParts.settings ? await getSettings() : undefined,
+				workLog: exportParts.workLog ? $state.snapshot(store.data) : undefined
+			}),
+			name: `open-work-backup-${new Date().toISOString().slice(0, 10)}.json`
 		});
 	}
 
-	/** The backup picked, waiting for you to confirm it replaces the log. */
-	let pendingBackup = $state<File | undefined>();
+	/** The backup picked and what it holds, waiting for you to choose what replaces what is here. */
+	let pendingBackup = $state<
+		{ name: string; settings?: Settings; workLog?: WorkLogData; workLogError?: string } | undefined
+	>();
+	const restoreParts = $state({ workLog: false, settings: false });
 	let backupMessage = $state<{ tone: 'ok' | 'error'; text: string } | undefined>();
 
-	function pickBackup(event: Event) {
-		const input = event.currentTarget as HTMLInputElement;
-		pendingBackup = input.files?.[0];
-		input.value = '';
-	}
-
-	async function restoreBackup(file: File) {
-		pendingBackup = undefined;
-		try {
-			store.importJson(await file.text());
-			backupMessage = {
-				tone: 'ok',
-				text: `Restored ${store.data.entries.length} entries for ${store.data.clients.length} clients.`
-			};
-		} catch (error) {
-			backupMessage = {
-				tone: 'error',
-				text: error instanceof WorkLogParseError ? error.message : 'Could not read that file.'
-			};
-		}
-	}
-
-	let settingsMessage = $state<{ ok: boolean; text: string } | undefined>();
-
-	async function downloadSettings() {
-		downloadJson({
-			text: exportBackup(await getSettings()),
-			name: `invoice-settings-${new Date().toISOString().slice(0, 10)}.json`
-		});
-	}
-
-	async function importBackup(event: Event & { currentTarget: HTMLInputElement }) {
+	async function pickBackup(event: Event & { currentTarget: HTMLInputElement }) {
 		const input = event.currentTarget;
 		const file = input.files?.[0];
-		if (!file) return;
-		try {
-			const { githubToken } = await getSettings();
-			await restoreSettings({
-				...parseBackup(await file.text()),
-				githubToken
-			});
-			settingsMessage = { ok: true, text: 'Backup restored. Your GitHub token was kept.' };
-		} catch {
-			settingsMessage = { ok: false, text: 'That file is not a valid backup.' };
-		}
 		input.value = '';
+		if (!file) return;
+		backupMessage = undefined;
+		let backup: ReturnType<typeof readBackup>;
+		try {
+			backup = readBackup(await file.text());
+		} catch {
+			backupMessage = { tone: 'error', text: 'That file is not a backup.' };
+			return;
+		}
+		let workLog: WorkLogData | undefined;
+		let workLogError: string | undefined;
+		if (backup.workLog !== undefined) {
+			try {
+				workLog = validateWorkLog(backup.workLog);
+			} catch (error) {
+				workLogError = error instanceof WorkLogParseError ? error.message : 'It could not be read.';
+			}
+		}
+		if (!workLog && !backup.settings) {
+			backupMessage = { tone: 'error', text: workLogError ?? 'That file is not a backup.' };
+			return;
+		}
+		restoreParts.workLog = workLog !== undefined;
+		restoreParts.settings = backup.settings !== undefined;
+		pendingBackup = { name: file.name, settings: backup.settings, workLog, workLogError };
+	}
+
+	const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+	function workLogSummary(data: WorkLogData) {
+		return [
+			count(data.entries.length, 'entry', 'entries'),
+			count(data.clients.length, 'client', 'clients'),
+			count(data.invoices.length, 'invoice', 'invoices')
+		].join(', ');
+	}
+
+	function settingsSummary(settings: Settings) {
+		const parts = [
+			settings.collectiveSlug && `collective ${settings.collectiveSlug}`,
+			settings.payoutMethodLabel && `paid to ${settings.payoutMethodLabel}`,
+			settings.githubUsername && `GitHub ${settings.githubUsername}`
+		].filter(Boolean);
+		return parts.length ? parts.join(', ') : 'Nothing set';
+	}
+
+	async function restoreBackup({
+		settings,
+		workLog
+	}: {
+		settings?: Settings;
+		workLog?: WorkLogData;
+	}) {
+		pendingBackup = undefined;
+		const restored: string[] = [];
+		try {
+			if (workLog && restoreParts.workLog) {
+				store.restore(workLog);
+				restored.push('the work log');
+			}
+			if (settings && restoreParts.settings) {
+				const { githubToken } = await getSettings();
+				await restoreSettings({ ...settings, githubToken });
+				restored.push('your settings');
+			}
+			backupMessage = { tone: 'ok', text: `Restored ${restored.join(' and ')}.` };
+		} catch {
+			backupMessage = { tone: 'error', text: 'Could not restore that backup.' };
+		}
 	}
 
 	let clearDialogOpen = $state(false);
@@ -100,11 +143,99 @@
 </script>
 
 <SettingsSection
-	title="Work log backup"
-	description="A copy of the work log as a file, to keep or to move to a browser without Google Drive."
+	title="Google Drive"
+	description="Sign in with Google to sync app data to your Google Drive."
 >
+	{#if sync.state === 'unavailable'}
+		<p class="text-sm text-muted-foreground">
+			Google sign-in is not set up on this server, so the work log stays in this browser.
+		</p>
+	{:else}
+		{#if sync.account}
+			<p class="text-sm">
+				Signed in as <span class="font-medium">{sync.account.email}</span>
+			</p>
+		{/if}
+		<!-- Signed out, the sign-in button already says the log is not in Drive. -->
+		{#if sync.state !== 'signed-out'}<DriveSyncStatus {sync} />{/if}
+		<div class="flex flex-wrap gap-2">
+			{#if sync.account}
+				<Button
+					variant="outline"
+					disabled={sync.state === 'syncing'}
+					onclick={() => sync.syncNow()}
+				>
+					<RefreshCw /> Sync now
+				</Button>
+				<Button
+					variant="ghost"
+					onclick={async () => {
+						await signOutOfGoogle();
+						sync.stop();
+					}}
+				>
+					<LogOut /> Sign out
+				</Button>
+			{:else if sync.state === 'signed-out' || sync.state === 'error'}
+				<Button variant="outline" onclick={() => signInWithGoogle(resolve('/settings/data'))}>
+					<Cloud /> Sign in with Google
+				</Button>
+			{/if}
+		</div>
+	{/if}
+</SettingsSection>
+
+{#snippet part({
+	id,
+	label,
+	checked,
+	disabled = false,
+	detail,
+	onchange
+}: {
+	id: string;
+	label: string;
+	checked: boolean;
+	disabled?: boolean;
+	detail?: string;
+	onchange: (checked: boolean) => void;
+})}
+	<div class="flex items-start gap-2.5">
+		<Checkbox {id} {checked} {disabled} onCheckedChange={onchange} class="mt-0.5" />
+		<div class="grid gap-0.5">
+			<Label for={id} class={disabled ? 'text-muted-foreground' : ''}>{label}</Label>
+			{#if detail}<p class="text-xs text-muted-foreground">{detail}</p>{/if}
+		</div>
+	</div>
+{/snippet}
+
+<SettingsSection
+	title="Backup"
+	description="Your work log and settings as a file, to keep or to move to another browser."
+>
+	<div class="flex flex-wrap gap-x-6 gap-y-2">
+		{@render part({
+			id: 'export-work-log',
+			label: 'Work log',
+			checked: exportParts.workLog,
+			detail: workLogSummary(store.data),
+			onchange: (checked) => (exportParts.workLog = checked)
+		})}
+		{@render part({
+			id: 'export-settings',
+			label: 'Settings',
+			checked: exportParts.settings,
+			onchange: (checked) => (exportParts.settings = checked)
+		})}
+	</div>
 	<div class="flex flex-wrap gap-2">
-		<Button variant="outline" onclick={downloadWorkLog}><Download /> Download backup</Button>
+		<Button
+			variant="outline"
+			disabled={!exportParts.workLog && !exportParts.settings}
+			onclick={downloadBackup}
+		>
+			<Download /> Download backup
+		</Button>
 		<Button variant="outline" onclick={() => document.getElementById('restore-file')?.click()}>
 			<Upload /> Restore a backup
 		</Button>
@@ -123,15 +254,43 @@
 	>
 		<Dialog.Content>
 			<Dialog.Header>
-				<Dialog.Title>Replace your work log?</Dialog.Title>
+				<Dialog.Title>Restore from {pendingBackup?.name}?</Dialog.Title>
 				<Dialog.Description>
-					Everything in the work log is replaced with what is in {pendingBackup?.name}.
+					What you tick replaces what is here. Your GitHub token is kept.
 				</Dialog.Description>
 			</Dialog.Header>
+			{#if pendingBackup}
+				<div class="grid gap-3">
+					{@render part({
+						id: 'restore-work-log',
+						label: 'Work log',
+						checked: restoreParts.workLog,
+						disabled: !pendingBackup.workLog,
+						detail: pendingBackup.workLog
+							? workLogSummary(pendingBackup.workLog)
+							: (pendingBackup.workLogError ?? 'Not in this file'),
+						onchange: (checked) => (restoreParts.workLog = checked)
+					})}
+					{@render part({
+						id: 'restore-settings',
+						label: 'Settings',
+						checked: restoreParts.settings,
+						disabled: !pendingBackup.settings,
+						detail: pendingBackup.settings
+							? settingsSummary(pendingBackup.settings)
+							: 'Not in this file',
+						onchange: (checked) => (restoreParts.settings = checked)
+					})}
+				</div>
+			{/if}
 			<Dialog.Footer>
-				<Button variant="outline" onclick={() => (pendingBackup = undefined)}>Keep my log</Button>
-				<Button variant="destructive" onclick={() => pendingBackup && restoreBackup(pendingBackup)}>
-					Replace
+				<Button variant="outline" onclick={() => (pendingBackup = undefined)}>Cancel</Button>
+				<Button
+					variant="destructive"
+					disabled={!restoreParts.workLog && !restoreParts.settings}
+					onclick={() => pendingBackup && restoreBackup(pendingBackup)}
+				>
+					Restore
 				</Button>
 			</Dialog.Footer>
 		</Dialog.Content>
@@ -144,36 +303,13 @@
 			{backupMessage.text}
 		</p>
 	{/if}
-</SettingsSection>
-
-<SettingsSection
-	title="Settings backup"
-	description="Download your settings to move them to another browser."
->
-	<div class="flex flex-wrap gap-2">
-		<Button type="button" variant="outline" onclick={downloadSettings}>
-			<Download /> Download backup
-		</Button>
-		<Button type="button" variant="outline" class="relative">
-			<Upload /> Restore backup
-			<input
-				type="file"
-				accept="application/json"
-				class="absolute inset-0 cursor-pointer opacity-0"
-				aria-label="Restore backup file"
-				onchange={importBackup}
-			/>
-		</Button>
-	</div>
-	{#if settingsMessage}
-		<Alert.Root variant={settingsMessage.ok ? 'default' : 'destructive'}>
-			<Alert.Description>{settingsMessage.text}</Alert.Description>
-		</Alert.Root>
-	{/if}
 	<p class="text-xs text-muted-foreground">Backups never include your tokens.</p>
 </SettingsSection>
 
-<SettingsSection title="Delete all data">
+<SettingsSection
+	title="Delete all data"
+	description="Removes your settings and work log from this browser and signs you out of Open Collective and Google. The copy in your Google Drive and your expenses on Open Collective stay."
+>
 	<div>
 		<Button variant="destructive" onclick={() => (clearDialogOpen = true)}>Delete all data</Button>
 	</div>
