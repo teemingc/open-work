@@ -176,9 +176,6 @@ function starterLog({ rate, currency, collective }: WorkLogDefaults): WorkLogDat
 	};
 }
 
-type DayOffKind = 'holidays' | 'leave';
-const TOMBSTONE_KIND = { holidays: 'holiday', leave: 'leave' } as const;
-
 /**
  * The work log, saved after every change. Mutate it only through these methods: each one
  * stamps what it changed, and deletions are remembered, so copies on other devices merge.
@@ -398,6 +395,12 @@ export class WorkLogStore {
 		this.#save();
 	}
 
+	setReplaceHolidays(replace: boolean) {
+		this.data.replaceHolidays = replace;
+		this.data.replaceHolidaysUpdatedAt = nowIso();
+		this.#save();
+	}
+
 	/** A new deduction, taken after the others. */
 	addDeduction(deduction: Omit<Deduction, 'id' | 'updatedAt' | 'order'>): Deduction {
 		const order = Math.max(0, ...this.data.deductions.map((other) => other.order + 1));
@@ -452,38 +455,25 @@ export class WorkLogStore {
 		return days.map((day) => ({ ...day, updatedAt }));
 	}
 
-	addDaysOff({ kind, days }: { kind: DayOffKind; days: DayOff[] }): number {
-		const added = mergeDaysOff({ list: this.data[kind], days: this.#stampDays(days) });
+	addHolidays(days: DayOff[]): number {
+		const added = mergeDaysOff({ list: this.data.holidays, days: this.#stampDays(days) });
 		this.#save();
 		return added;
 	}
 
-	updateDayOff({ kind, index, day }: { kind: DayOffKind; index: number; day: DayOff }) {
-		const list = this.data[kind];
+	updateHoliday({ index, day }: { index: number; day: DayOff }) {
+		const list = this.data.holidays;
 		const [previous] = list.splice(index, 1);
-		if (previous && previous.date !== day.date) this.#bury(TOMBSTONE_KIND[kind], previous.date);
+		if (previous && previous.date !== day.date) this.#bury('holiday', previous.date);
 		mergeDaysOff({ list, days: this.#stampDays([day]) });
 		this.#save();
 	}
 
-	removeDayOff({ kind, date }: { kind: DayOffKind; date: string }) {
-		const index = this.data[kind].findIndex((day) => day.date === date);
+	removeHoliday(date: string) {
+		const index = this.data.holidays.findIndex((day) => day.date === date);
 		if (index === -1) return;
-		this.data[kind].splice(index, 1);
-		this.#bury(TOMBSTONE_KIND[kind], date);
-		this.#save();
-	}
-
-	/** Swap a set of days for others in one save, like moving or deleting a stretch of leave. */
-	replaceDaysOff({ kind, dates, days }: { kind: DayOffKind; dates: string[]; days: DayOff[] }) {
-		const list = this.data[kind];
-		const kept = days.map((day) => day.date);
-		for (const date of dates) {
-			const index = list.findIndex((day) => day.date === date);
-			if (index !== -1) list.splice(index, 1);
-			if (!kept.includes(date)) this.#bury(TOMBSTONE_KIND[kind], date);
-		}
-		mergeDaysOff({ list, days: this.#stampDays(days) });
+		this.data.holidays.splice(index, 1);
+		this.#bury('holiday', date);
 		this.#save();
 	}
 
@@ -521,12 +511,12 @@ export class WorkLogStore {
 			entries: backup.entries.map(stamp),
 			clients: backup.clients.map(stamp),
 			holidays: backup.holidays.map(stamp),
-			leave: backup.leave.map(stamp),
 			invoices: backup.invoices.map(stamp),
 			deductions: backup.deductions.map(stamp),
 			scheduleUpdatedAt: at,
 			invoicingUpdatedAt: at,
 			allowanceUpdatedAt: at,
+			replaceHolidaysUpdatedAt: at,
 			deleted: [...backup.deleted, ...gone]
 		};
 		this.#save();

@@ -59,7 +59,6 @@
 				.reduce((sum, { summary }) => sum + summary.expected, 0),
 			logged: months.reduce((sum, { summary }) => sum + summary.logged, 0),
 			holidays: months.reduce((sum, { summary }) => sum + summary.holidays, 0),
-			leave: months.reduce((sum, { summary }) => sum + summary.leave, 0),
 			amounts,
 			inExchange: converted({ data, amounts })
 		};
@@ -104,7 +103,7 @@
 			{:else}
 				{formatHours(totals.logged)} h logged against {formatHours(totals.expected)} h expected in the
 				months you logged, with {totals.holidays}
-				{totals.holidays === 1 ? 'holiday' : 'holidays'} and {totals.leave} days of leave.
+				{totals.holidays === 1 ? 'holiday' : 'holidays'}.
 				{money(totals.amounts)}{#if totals.inExchange !== undefined && data.exchange}
 					({formatMoney(totals.inExchange, data.exchange.to)}){/if} earned.
 			{/if}

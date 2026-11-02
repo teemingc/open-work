@@ -14,7 +14,6 @@ import {
 	emptyWorkLog,
 	entriesFor,
 	entryHours,
-	groupDaysOff,
 	entryRate,
 	insertionIndex,
 	availableCredit,
@@ -27,6 +26,7 @@ import {
 	lastInvoicedEnd,
 	suggestedInvoiceNumber,
 	mergeDaysOff,
+	observedHolidays,
 	parseDaysOff,
 	parseRef,
 	rateOn,
@@ -38,7 +38,6 @@ import {
 	unloggedItems,
 	withCurrentRate,
 	withRates,
-	weekdaysBetween,
 	workLogText,
 	type Client,
 	type DayOff,
@@ -226,7 +225,7 @@ describe('month summary', () => {
 		expect(month.neededPerDay).toBe(10.93);
 	});
 
-	it('takes holidays and leave off the working days', () => {
+	it('takes holidays off the working days', () => {
 		const month = summarizeMonth({
 			data: {
 				...data,
@@ -234,16 +233,39 @@ describe('month summary', () => {
 					{ date: '2026-10-02', name: 'Holiday' },
 					{ date: '2026-10-04', name: 'On a Sunday' }
 				],
-				leave: [{ date: '2026-10-05', name: '' }]
+				replaceHolidays: false
 			},
 			month: '2026-10',
 			today: '2026-10-31'
 		});
 		expect(month.holidays).toBe(1);
-		expect(month.leave).toBe(1);
-		expect(month.workingDays).toBe(20);
+		expect(month.workingDays).toBe(21);
 		expect(month.days[1]).toMatchObject({ kind: 'holiday', name: 'Holiday', expected: 0 });
 		expect(month.days[3].kind).toBe('weekend');
+	});
+
+	it('takes the Friday before a Saturday holiday off, and the Monday after a Sunday one', () => {
+		const holidays = [
+			{ date: '2026-10-02', name: 'Friday' },
+			{ date: '2026-10-03', name: 'Saturday' },
+			{ date: '2026-10-05', name: 'Monday' },
+			{ date: '2026-10-04', name: 'Sunday' }
+		];
+		expect(observedHolidays({ holidays, replaceHolidays: true }).replacedOn).toEqual(
+			new Map([
+				// Friday the 2nd is a holiday already, and so is Monday the 5th.
+				['2026-10-03', '2026-10-01'],
+				['2026-10-04', '2026-10-06']
+			])
+		);
+		const month = summarizeMonth({
+			data: { ...data, holidays },
+			month: '2026-10',
+			today: '2026-10-31'
+		});
+		expect(month.holidays).toBe(4);
+		expect(month.workingDays).toBe(18);
+		expect(month.days[0]).toMatchObject({ kind: 'holiday', name: 'Saturday (replacement)' });
 	});
 
 	it('totals each client and converts the earnings', () => {
@@ -670,38 +692,6 @@ describe('days off', () => {
 		]);
 	});
 
-	it('lists the weekdays in a range of leave', () => {
-		// Thursday 23 July to Tuesday 28 July 2026
-		expect(weekdaysBetween({ from: '2026-07-23', to: '2026-07-28' })).toEqual([
-			'2026-07-23',
-			'2026-07-24',
-			'2026-07-27',
-			'2026-07-28'
-		]);
-		expect(weekdaysBetween({ from: '2026-07-28', to: '2026-07-27' })).toEqual([
-			'2026-07-27',
-			'2026-07-28'
-		]);
-	});
-
-	it('shows days off that follow each other as one range, across a weekend', () => {
-		const day = (date: string, name = 'Trip'): DayOff => ({ date, name });
-		expect(
-			groupDaysOff([
-				day('2026-07-27'),
-				day('2026-07-23'),
-				day('2026-07-24'),
-				day('2026-07-28'),
-				day('2026-07-30'),
-				day('2026-07-31', 'Other')
-			]).map(({ from, to, dates }) => [from, to, dates.length])
-		).toEqual([
-			['2026-07-23', '2026-07-28', 4],
-			['2026-07-30', '2026-07-30', 1],
-			['2026-07-31', '2026-07-31', 1]
-		]);
-	});
-
 	it('moves to the next month', () => {
 		expect(addMonths('2026-12', 1)).toBe('2027-01');
 		expect(addMonths('2026-01', -1)).toBe('2025-12');
@@ -800,27 +790,26 @@ describe('projections', () => {
 });
 
 describe('days-off budget', () => {
-	it('takes leave, counted holidays and hours short off the allowance', () => {
+	it('takes counted holidays and hours short off the allowance', () => {
 		const data: WorkLogData = {
 			...emptyWorkLog(),
 			clients: [svelte],
 			allowance: { days: 14, holidays: true },
-			leave: [
-				{ date: '2026-11-02', name: '' },
-				{ date: '2026-11-03', name: '' },
-				{ date: '2026-11-07', name: 'A Saturday' }
-			],
 			holidays: [{ date: '2026-12-25', name: 'Christmas' }],
 			entries: [entry({ date: '2026-10-01', hours: 12 })]
 		};
 		// By the 12th, October expected 64 hours: 52 short is 6.5 days.
 		expect(daysOffBudget({ data, year: 2026, today: '2026-10-12' })).toEqual({
 			allowance: 14,
-			leave: 2,
 			holidays: 1,
 			short: 6.5,
-			used: 9.5,
-			left: 4.5
+			used: 7.5,
+			left: 6.5
+		});
+		// November logged nothing, so all 21 of its days count, but nothing before October does.
+		expect(daysOffBudget({ data, year: 2026, today: '2026-11-30' })).toMatchObject({
+			short: 41.5,
+			used: 42.5
 		});
 		expect(
 			daysOffBudget({ data: { ...data, allowance: undefined }, year: 2026, today: '2026-10-12' })

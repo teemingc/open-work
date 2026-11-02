@@ -41,7 +41,7 @@
 				...day,
 				entries: store.data.entries.filter((entry) => entry.date === day.date)
 			}))
-			.filter((day) => day.entries.length > 0 || day.kind === 'holiday' || day.kind === 'leave')
+			.filter((day) => day.entries.length > 0 || day.kind === 'holiday')
 			.reverse()
 	);
 </script>
@@ -61,9 +61,9 @@
 							<span class="font-medium tabular-nums"
 								>{dayFormat.format(parseIsoDate(day.date))}</span
 							>
-							{#if day.name || day.kind === 'holiday' || day.kind === 'leave'}
+							{#if day.kind === 'holiday'}
 								<span class="ml-1.5 text-muted-foreground">
-									{day.kind === 'leave' ? 'Leave' : 'Holiday'}{day.name ? `: ${day.name}` : ''}
+									Holiday{day.name ? `: ${day.name}` : ''}
 								</span>
 							{/if}
 						</h3>

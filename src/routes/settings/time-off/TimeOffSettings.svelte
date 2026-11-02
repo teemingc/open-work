@@ -7,7 +7,6 @@
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import { untrack } from 'svelte';
 	import DaysOffEditor from './DaysOffEditor.svelte';
-	import LeaveEditor from './LeaveEditor.svelte';
 
 	let { data }: { data: { store: WorkLogStore } } = $props();
 
@@ -19,9 +18,7 @@
 		[
 			...new Set([
 				String(new Date().getFullYear()),
-				...[...store.data.holidays, ...store.data.leave, ...store.data.entries].map((item) =>
-					item.date.slice(0, 4)
-				)
+				...[...store.data.holidays, ...store.data.entries].map((item) => item.date.slice(0, 4))
 			])
 		].sort()
 	);
@@ -29,7 +26,7 @@
 
 <SettingsSection title="Year">
 	<div class="space-y-1.5">
-		<Label for="year">Holidays and leave for</Label>
+		<Label for="year">Holidays for</Label>
 		<Select.Root type="single" bind:value={year}>
 			<Select.Trigger id="year" class="w-32">{year}</Select.Trigger>
 			<Select.Content>
@@ -46,18 +43,26 @@
 
 <SettingsSection
 	title="Public holidays"
-	description="Weekday holidays are taken off the working days. Import your country's or state's list, then fix anything that differs."
+	description="Holidays are taken off the working days. Import your country's or state's list, then fix anything that differs."
 >
-	<DaysOffEditor {store} kind="holidays" {year} />
-</SettingsSection>
-
-<SettingsSection title="Leave" description="Days you took off.">
-	<LeaveEditor {store} {year} />
+	<div class="space-y-4">
+		<div class="flex items-center gap-2">
+			<Checkbox
+				id="replace-holidays"
+				checked={store.data.replaceHolidays}
+				onCheckedChange={(replace) => store.setReplaceHolidays(replace)}
+			/>
+			<Label for="replace-holidays" class="font-normal">
+				Take a working day off for a holiday on a weekend
+			</Label>
+		</div>
+		<DaysOffEditor {store} {year} />
+	</div>
 </SettingsSection>
 
 <SettingsSection
 	title="Days off a year"
-	description="Leave, and hours short of what a month expects, come out of it."
+	description="Hours short of what a month expects come out of it."
 >
 	<div class="flex flex-wrap items-end gap-4">
 		<div class="w-32 space-y-1.5">

@@ -158,12 +158,12 @@ describe('mergeWorkLogs', () => {
 	it('remembers what a restored backup no longer has', () => {
 		const current = log({
 			entries: [entry('kept', at(9)), entry('dropped', at(9))],
-			leave: [{ date: '2026-07-20', name: '' }]
+			holidays: [{ date: '2026-07-20', name: '' }]
 		});
 		const backup = log({ entries: [entry('kept', at(8))] });
 		expect(removedBy({ current, next: backup, at: at(12) })).toEqual([
 			{ kind: 'entry', id: 'dropped', at: at(12) },
-			{ kind: 'leave', id: '2026-07-20', at: at(12) }
+			{ kind: 'holiday', id: '2026-07-20', at: at(12) }
 		]);
 	});
 });

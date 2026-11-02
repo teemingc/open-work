@@ -83,6 +83,8 @@ export function mergeWorkLogs({
 		(theirs.allowanceUpdatedAt ?? '') > (ours.allowanceUpdatedAt ?? '') ? theirs : ours;
 	const invoicing =
 		(theirs.invoicingUpdatedAt ?? '') > (ours.invoicingUpdatedAt ?? '') ? theirs : ours;
+	const replace =
+		(theirs.replaceHolidaysUpdatedAt ?? '') > (ours.replaceHolidaysUpdatedAt ?? '') ? theirs : ours;
 	const schedule =
 		(theirs.scheduleUpdatedAt ?? '') > (ours.scheduleUpdatedAt ?? '') ? theirs : ours;
 
@@ -106,12 +108,6 @@ export function mergeWorkLogs({
 			key: (day) => day.date,
 			deletedAt: deletedAt('holiday')
 		}).sort(byDate),
-		leave: mergeRecords({
-			ours: ours.leave,
-			theirs: theirs.leave,
-			key: (day) => day.date,
-			deletedAt: deletedAt('leave')
-		}).sort(byDate),
 		invoices: mergeRecords({
 			ours: ours.invoices,
 			theirs: theirs.invoices,
@@ -129,6 +125,8 @@ export function mergeWorkLogs({
 		}),
 		allowance: allowance.allowance,
 		allowanceUpdatedAt: allowance.allowanceUpdatedAt,
+		replaceHolidays: replace.replaceHolidays,
+		replaceHolidaysUpdatedAt: replace.replaceHolidaysUpdatedAt,
 		invoicing: invoicing.invoicing,
 		invoicingUpdatedAt: invoicing.invoicingUpdatedAt,
 		updatedAt: newer({ updatedAt: ours.updatedAt }, { updatedAt: theirs.updatedAt }).updatedAt,
@@ -166,7 +164,6 @@ export function removedBy({
 		...missing('entry', current.entries, next.entries, (entry) => entry.id),
 		...missing('client', current.clients, next.clients, (client) => client.id),
 		...missing('holiday', current.holidays, next.holidays, (day) => day.date),
-		...missing('leave', current.leave, next.leave, (day) => day.date),
 		...missing('invoice', current.invoices, next.invoices, (invoice) => invoice.id),
 		...missing('deduction', current.deductions, next.deductions, (deduction) => deduction.id)
 	];
