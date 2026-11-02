@@ -253,7 +253,8 @@
 							aria-label="Archive {client.name}"
 							onclick={() => changeClient(client, { archived: true })}
 						>
-							<Archive /> Archive
+							<!-- The button keeps its name when the narrowest screens leave only its icon. -->
+							<Archive /> <span class="max-[359px]:hidden">Archive</span>
 						</Button>
 					{:else}
 						<Button
@@ -267,11 +268,11 @@
 									: `${client.name} has logged time, so it stays.`;
 							}}
 						>
-							<Trash2 /> Remove
+							<Trash2 /> <span class="max-[359px]:hidden">Remove</span>
 						</Button>
 					{/if}
 				</div>
-				<div class="grid grid-cols-2 gap-x-3 gap-y-4 p-3 lg:grid-cols-4">
+				<div class="grid gap-x-3 gap-y-4 p-3 sm:grid-cols-2 lg:grid-cols-4">
 					<div class="space-y-1.5">
 						<Label for="{client.id}-rate">Per hour</Label>
 						<!-- The currency is part of the rate, so it is attached to it rather than a field of its own. -->
@@ -405,7 +406,7 @@
 					<!-- Opened once, for a client with rate changes. An `open` attribute would be set again on
 						every change to the client, opening it straight after you close it. -->
 					<details
-						class="group col-span-2 lg:col-span-4"
+						class="group sm:col-span-2 lg:col-span-4"
 						{@attach (details) => {
 							details.open = untrack(() => (client.rates?.length ?? 0) > 0);
 						}}
@@ -444,8 +445,9 @@
 								</div>
 							{/if}
 							{#each client.rates ?? [] as change, index (index)}
-								<div class="grid grid-cols-[1fr_7rem_auto] items-end gap-3">
-									<div class="space-y-1.5">
+								<!-- The rate and its button go under the date when a row is too narrow for all three. -->
+								<div class="flex flex-wrap items-end gap-3">
+									<div class="min-w-36 flex-1 space-y-1.5">
 										<Label for="{client.id}-rate-{index}-from">From</Label>
 										<Input
 											id="{client.id}-rate-{index}-from"
@@ -457,7 +459,7 @@
 											}}
 										/>
 									</div>
-									<div class="space-y-1.5">
+									<div class="w-20 space-y-1.5 sm:w-28">
 										<Label for="{client.id}-rate-{index}-rate">Per hour</Label>
 										<Input
 											id="{client.id}-rate-{index}-rate"

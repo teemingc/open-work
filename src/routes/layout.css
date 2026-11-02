@@ -331,6 +331,42 @@
 }
 
 /*
+ * A ledger too wide for its space turns each row into a short record: its first cell as the title,
+ * then each figure on its own line beside its column head, taken from the cell's `data-label`. Used
+ * with a variant, like `max-sm:ledger-stacked`, so each table stacks where it stops fitting. Its
+ * selectors outweigh the cells' own padding and alignment utilities.
+ */
+@utility ledger-stacked {
+	& thead {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+	& tr {
+		display: block;
+		padding-block: 0.5rem;
+	}
+	& :is(td, th) {
+		display: block;
+		padding-block: 0.125rem;
+		text-align: right;
+	}
+	& tr > :first-child {
+		text-align: left;
+		font-weight: 500;
+	}
+	& [data-label]::before {
+		content: attr(data-label);
+		float: left;
+		margin-right: 1rem;
+		color: var(--muted-foreground);
+	}
+}
+
+/*
  * Reduced motion keeps fades and colour changes but nothing moves: enters and exits from
  * tw-animate-css lose their zoom and slide, and the few hover and press movements are gated with
  * `motion-safe:` where they are declared.

@@ -46,9 +46,13 @@
 	}
 </script>
 
-<div class="animate-in overflow-x-auto rounded-xl border bg-card duration-300 fade-in">
+<!--
+	Narrower than a tablet, each expense takes two lines instead of scrolling sideways: what it is and
+	its amount, then its status and date.
+-->
+<div class="animate-in overflow-hidden rounded-xl border bg-card duration-300 fade-in">
 	<table class="ledger text-sm">
-		<thead>
+		<thead class="max-md:sr-only">
 			<tr>
 				{#each COLUMNS as column (column.key)}
 					<th
@@ -79,17 +83,23 @@
 		</thead>
 		<tbody>
 			{#each shown as expense (expense.id)}
-				<tr class={['hover:bg-accent/50', expense.url === highlightUrl && 'just-submitted']}>
-					<td class="px-4 py-3">
+				<tr
+					class={[
+						'grid grid-cols-[minmax(0,1fr)_auto] items-center py-1.5 hover:bg-accent/50 md:table-row md:py-0',
+						expense.url === highlightUrl && 'just-submitted'
+					]}
+				>
+					<td class="px-4 pt-1.5 md:py-3">
 						<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
 						<a
 							href={expense.url}
 							target="_blank"
 							rel="noopener noreferrer"
-							class="inline-flex items-center gap-1.5 font-medium hover:underline"
+							class="inline-flex items-start gap-1.5 font-medium hover:underline"
 						>
 							{expense.title}
-							<ExternalLink size={13} class="shrink-0 text-muted-foreground" />
+							<!-- Beside the first line rather than the middle, when the title wraps. -->
+							<ExternalLink size={13} class="mt-[0.3em] shrink-0 text-muted-foreground" />
 							<span class="sr-only">(opens in a new tab)</span>
 						</a>
 						<!-- eslint-enable svelte/no-navigation-without-resolve -->
@@ -97,13 +107,19 @@
 							<p class="text-xs text-muted-foreground">{expense.collective}</p>
 						{/if}
 					</td>
-					<td class="px-4 py-3 whitespace-nowrap tabular-nums">
+					<td
+						class="col-start-2 row-start-2 px-4 py-1.5 text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums md:py-3 md:text-left md:text-sm md:text-foreground"
+					>
 						{formatDMY(toIsoDate(new Date(expense.createdAt)))}
 					</td>
-					<td class="px-4 py-3 text-right tabular-nums">
+					<td
+						class="self-start px-4 pt-1.5 text-right font-medium tabular-nums md:py-3 md:font-normal"
+					>
 						{formatMoney(expense.amountInCents / 100, expense.currency)}
 					</td>
-					<td class="px-4 py-3"><StatusBadge status={expense.status} /></td>
+					<td class="col-start-1 row-start-2 px-4 py-1.5 md:py-3"
+						><StatusBadge status={expense.status} /></td
+					>
 				</tr>
 			{/each}
 		</tbody>

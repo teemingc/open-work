@@ -19,7 +19,8 @@
 <span class="inline-flex min-w-0 items-center gap-1.5" title={describeRef(ref)}>
 	<Icon size={14} class="shrink-0 text-muted-foreground" aria-hidden="true" />
 	{#if url}
-		<span class="truncate">
+		<!-- Positioned, so it clips the link's hidden text too rather than letting it widen the page. -->
+		<span class="relative truncate">
 			<span class="text-muted-foreground">{repository}</span>
 			<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
 			<a href={url} target="_blank" rel="noreferrer" class="hover:underline"

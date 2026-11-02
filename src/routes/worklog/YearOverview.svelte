@@ -171,7 +171,7 @@
 			</LazyChart>
 
 			<div class="-mx-3 overflow-x-auto">
-				<table class="ledger text-sm">
+				<table class="ledger text-sm max-sm:ledger-stacked">
 					<caption class="sr-only">Hours and earnings by month</caption>
 					<thead class="text-xs">
 						<tr>
@@ -192,11 +192,17 @@
 										{shortMonth.format(monthDate(month))}
 									</a>
 								</td>
-								<td class="px-3 py-2 text-right">{summary.workingDays}</td>
-								<td class="px-3 py-2 text-right">{formatHours(summary.expected)}</td>
-								<td class="px-3 py-2 text-right">{formatHours(summary.logged)}</td>
+								<td data-label="Working days" class="px-3 py-2 text-right">{summary.workingDays}</td
+								>
+								<td data-label="Expected" class="px-3 py-2 text-right"
+									>{formatHours(summary.expected)}</td
+								>
+								<td data-label="Logged" class="px-3 py-2 text-right"
+									>{formatHours(summary.logged)}</td
+								>
 								{#if summary.logged > 0}
 									<td
+										data-label="Difference"
 										class="px-3 py-2 text-right {difference >= 0
 											? 'text-status-paid'
 											: 'text-destructive'}"
@@ -205,9 +211,11 @@
 									</td>
 								{:else}
 									<!-- Nothing logged is not a shortfall: the month may predate using the app. -->
-									<td class="px-3 py-2 text-right text-muted-foreground">—</td>
+									<td data-label="Difference" class="px-3 py-2 text-right text-muted-foreground"
+										>—</td
+									>
 								{/if}
-								<td class="px-3 py-2 text-right">
+								<td data-label="Earned" class="px-3 py-2 text-right">
 									{inExchange !== undefined && data.exchange
 										? formatMoney(inExchange, data.exchange.to)
 										: money(summary.amounts)}

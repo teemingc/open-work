@@ -37,7 +37,7 @@
 	each invoice takes two lines instead of scrolling sideways:
 	what it is and what it is for, then where it is at and what to do next.
 -->
-<div class="animate-in overflow-hidden rounded-xl border bg-card duration-300 fade-in">
+<div class="@container animate-in overflow-hidden rounded-xl border bg-card duration-300 fade-in">
 	<table class="ledger text-sm">
 		<thead class="max-md:sr-only">
 			<tr>
@@ -62,9 +62,12 @@
 						>
 						<span class="block text-xs text-muted-foreground">
 							{store.client(invoice.clientId)?.name ?? 'Removed client'}
-							<span class="whitespace-nowrap tabular-nums md:hidden">
-								· {formatDMY(invoice.startDate)} – {formatDMY(invoice.endDate)}
-							</span>
+						</span>
+						<!-- A line of its own, so a narrow row never starts one with a stray separator. -->
+						<span
+							class="block text-xs whitespace-nowrap text-muted-foreground tabular-nums md:hidden"
+						>
+							{formatDMY(invoice.startDate)} – {formatDMY(invoice.endDate)}
 						</span>
 					</td>
 					<!-- Breaks after the dash when the row is short of room, so the actions still fit. -->
@@ -88,9 +91,12 @@
 							{/if}
 						</span>
 					</td>
-					<!-- Shares the status's line on a phone, so the amount alone sets the column's width. -->
+					<!--
+						Shares the status's line on a phone, so the amount alone sets the column's width, and
+						takes a line of its own when the two would overlap.
+					-->
 					<td
-						class="col-span-2 col-start-1 row-start-2 justify-self-end px-2 py-1.5 md:px-3 md:py-3 lg:px-4"
+						class="col-span-2 col-start-1 row-start-2 justify-self-end px-2 py-1.5 md:px-3 md:py-3 lg:px-4 @max-[24rem]:row-start-3"
 					>
 						<div class="flex justify-end gap-1">
 							{#if invoice.status === 'draft'}

@@ -119,6 +119,19 @@ export function formatMoney(amount: number, currency: string): string {
 	}
 }
 
+/** An amount without its currency, for a table that names the currency once. */
+export function formatAmount(amount: number, currency: string): string {
+	try {
+		return new Intl.NumberFormat('en-US', { style: 'currency', currency })
+			.formatToParts(amount)
+			.filter((part) => part.type !== 'currency' && part.type !== 'literal')
+			.map((part) => (part.type === 'minusSign' ? '−' : part.value))
+			.join('');
+	} catch {
+		return amount.toFixed(2);
+	}
+}
+
 export function formatHours(hours: number): string {
 	return Number.isInteger(hours) ? String(hours) : hours.toFixed(1).replace(/\.0$/, '');
 }

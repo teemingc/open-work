@@ -83,7 +83,7 @@
 
 {#if summary.clients.length > 0}
 	<div class="mt-4 overflow-x-auto rounded-lg border bg-card">
-		<table class="ledger text-sm">
+		<table class="ledger text-sm max-sm:ledger-stacked">
 			<caption class="sr-only">Hours and earnings by client</caption>
 			<thead class="text-xs">
 				<tr>
@@ -110,7 +110,10 @@
 							The hours and the target they count towards share a cell, with a bar under them, so
 							progress reads at a glance instead of as two numbers to compare.
 						-->
-						<td class="px-3 py-2 text-right whitespace-nowrap">
+						<td
+							data-label={targets ? 'Hours of target' : 'Hours'}
+							class="px-3 py-2 text-right whitespace-nowrap"
+						>
 							{formatHours(hours)}
 							{#if target !== undefined}
 								<span class="text-muted-foreground">/ {formatHours(target)}</span>
@@ -126,7 +129,7 @@
 							{/if}
 						</td>
 						{#if targets}
-							<td class="px-3 py-2 text-right whitespace-nowrap">
+							<td data-label="To log" class="px-3 py-2 text-right whitespace-nowrap">
 								{#if target === undefined}
 									<span class="text-muted-foreground">—</span>
 								{:else if hours >= target}
@@ -136,13 +139,15 @@
 								{/if}
 							</td>
 						{/if}
-						<td class="px-3 py-2 text-right">
+						<td data-label="Rate" class="px-3 py-2 text-right">
 							{#if mixedRates}<span class="text-muted-foreground">avg</span>{/if}
 							{formatMoney(rate, client.currency)}
 						</td>
-						<td class="px-3 py-2 text-right">{formatMoney(amount, client.currency)}</td>
+						<td data-label="Earned" class="px-3 py-2 text-right"
+							>{formatMoney(amount, client.currency)}</td
+						>
 						{#if data.exchange}
-							<td class="px-3 py-2 text-right">
+							<td data-label={data.exchange.to} class="px-3 py-2 text-right">
 								{local === undefined ? '—' : formatMoney(local, data.exchange.to)}
 							</td>
 						{/if}

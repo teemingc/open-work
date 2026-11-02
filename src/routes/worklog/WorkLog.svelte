@@ -108,8 +108,11 @@
 
 <div class="space-y-6">
 	<header class="space-y-2">
-		<!-- The month controls sit at the right edge, so they stay put as the month name changes length. -->
-		<div class="flex items-center justify-between gap-3">
+		<!--
+			The month controls sit at the right edge, so they stay put as the month name changes length,
+			and go under it on a screen too narrow for both.
+		-->
+		<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
 			<MonthPicker {month} current={monthOf(today)} label={monthName} />
 			<nav aria-label="Month" class="flex shrink-0 items-center rounded-md border bg-card">
 				<Button

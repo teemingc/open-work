@@ -52,7 +52,7 @@
 	</div>
 	<fieldset class="space-y-3">
 		<legend class="text-sm font-medium">Show earnings in another currency</legend>
-		<div class="grid grid-cols-3 gap-3">
+		<div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
 			<div class="space-y-1.5">
 				<Label for="exchange-to">Show in</Label>
 				<Select.Root
@@ -114,7 +114,7 @@
 					</Select.Content>
 				</Select.Root>
 			</div>
-			<div class="space-y-1.5">
+			<div class="col-span-2 space-y-1.5 sm:col-span-1">
 				<Label for="exchange-rate">Rate</Label>
 				<Input
 					id="exchange-rate"
