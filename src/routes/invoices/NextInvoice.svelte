@@ -202,7 +202,7 @@
 		type="submit"
 		size="lg"
 		class="mt-1 sm:mt-0"
-		variant={chosen && !due ? 'outline' : 'default'}
+		variant={pending || (chosen && !due) ? 'outline' : 'default'}
 		disabled={pending || !chosen}
 		aria-describedby={client && showName ? labelId : undefined}
 	>
