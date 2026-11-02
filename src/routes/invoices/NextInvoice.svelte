@@ -97,8 +97,18 @@
 	{/if}
 	<div class="min-w-0">
 		{#if pending}
-			<Skeleton class="h-8 w-72 max-w-full" />
-			<Skeleton class="mt-2 h-4 w-40" />
+			<!-- One line box each, in the dates' and summary's type, so loading doesn't move the row. -->
+			<!-- Two halves sized like the dates, so they wrap onto two lines where the dates would. -->
+			<div
+				class="flex flex-wrap gap-x-[0.25em] font-display text-xl leading-snug lg:text-[1.75rem]"
+			>
+				<div class="flex h-[1lh] items-center"><Skeleton class="h-[0.8em] w-[6.45em]" /></div>
+				<div class="flex h-[1lh] items-center"><Skeleton class="h-[0.8em] w-[6.25em]" /></div>
+			</div>
+			<div class="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-sm">
+				<div class="flex h-[1lh] items-center"><Skeleton class="h-[0.85em] w-[8.8em]" /></div>
+				<div class="flex h-[1lh] items-center"><Skeleton class="h-[0.85em] w-[9.6em]" /></div>
+			</div>
 		{:else}
 			<Popover.Root bind:open>
 				<Popover.Trigger>
@@ -192,7 +202,7 @@
 		type="submit"
 		size="lg"
 		class="mt-1 sm:mt-0"
-		variant={chosen && !due ? 'outline' : 'default'}
+		variant={pending || (chosen && !due) ? 'outline' : 'default'}
 		disabled={pending || !chosen}
 		aria-describedby={client && showName ? labelId : undefined}
 	>
