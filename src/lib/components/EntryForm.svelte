@@ -10,12 +10,12 @@
 		describeRef,
 		entryHours,
 		parseRef,
-		rateOn,
 		refKey,
 		type Client,
 		type WorkLogEntry,
 		type WorkRef
 	} from '#lib/worklog.js';
+	import { snapshot } from '$app/navigation';
 	import { Plus, X } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import TimeInput from './TimeInput.svelte';
@@ -40,15 +40,21 @@
 		oncancel?: () => void;
 	} = $props();
 
+	function now(): string {
+		const time = new Date();
+		return `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
+	}
+
 	// The form starts from these and then owns its values, so it can be edited and cancelled.
 	const initial = untrack(() => ({
 		date: entry?.date ?? date,
 		clientId: entry?.clientId ?? clientId ?? clients[0]?.id ?? '',
-		start: entry?.start ?? '',
-		end: entry?.end ?? '',
+		start: entry ? (entry.start ?? '') : now(),
+		end: entry ? (entry.end ?? '') : now(),
 		hours: entry?.hours,
 		rate: entry?.rate,
-		items: entry?.items ?? []
+		items: entry?.items ?? [],
+		editing: !!entry
 	}));
 
 	const id = $props.id();
@@ -56,8 +62,9 @@
 	let rowClient = $state(initial.clientId);
 	let rowStart = $state(initial.start);
 	let rowEnd = $state(initial.end);
+	// Until the end is changed by hand, it follows the start.
+	let endChanged = $state(initial.editing);
 	let rowHours = $state<number | undefined>(initial.hours);
-	let rowRate = $state<number | undefined>(initial.rate);
 	const items: WorkRef[] = $state([...initial.items]);
 	let itemText = $state('');
 
@@ -66,11 +73,41 @@
 	const timed = $derived(!!rowStart && !!rowEnd);
 	const hours = $derived(entryHours({ start: rowStart, end: rowEnd, hours: rowHours }));
 	const client = $derived(clients.find((other) => other.id === rowClient));
-	const clientRate = $derived(client && rowDate ? rateOn(client, rowDate) : undefined);
-	const ownRate = $derived(typeof rowRate === 'number' && rowRate >= 0 ? rowRate : undefined);
 	const canSave = $derived(
 		!!rowDate && !!rowClient && timesValid && (hours > 0 || items.length > 0 || !!parsed)
 	);
+
+	// A new entry being typed is kept through a reload, or when you come back to it, within this tab.
+	if (!initial.editing) {
+		snapshot({
+			id: 'new-entry',
+			capture: () => ({
+				date: rowDate,
+				clientId: rowClient,
+				start: rowStart,
+				end: rowEnd,
+				endChanged,
+				hours: rowHours,
+				items: $state.snapshot(items),
+				itemText
+			}),
+			restore: (value) => {
+				rowDate = value.date;
+				rowClient = value.clientId;
+				rowStart = value.start;
+				rowEnd = value.end;
+				endChanged = value.endChanged;
+				rowHours = value.hours;
+				items.splice(0, items.length, ...value.items);
+				itemText = value.itemText;
+			}
+		});
+	}
+
+	function changeStart(value: string) {
+		rowStart = value;
+		if (!endChanged || (value && rowEnd && rowEnd < value)) rowEnd = value;
+	}
 
 	function addItem(): boolean {
 		if (!parsed) return false;
@@ -89,15 +126,18 @@
 			clientId: rowClient,
 			...(timed ? { start: rowStart, end: rowEnd } : {}),
 			...(!timed && rowHours ? { hours: rowHours } : {}),
-			...(ownRate !== undefined ? { rate: ownRate } : {}),
+			// An entry given its own rate before rates were set only on the client keeps it.
+			...(initial.rate !== undefined && rowClient === initial.clientId
+				? { rate: initial.rate }
+				: {}),
 			items: $state.snapshot(items)
 		});
 		if (!entry) {
 			// The next block usually follows on the same day, for the same client.
-			rowStart = '';
-			rowEnd = '';
+			rowStart = now();
+			rowEnd = rowStart;
+			endChanged = false;
 			rowHours = undefined;
-			rowRate = undefined;
 			items.length = 0;
 		}
 	}
@@ -128,8 +168,18 @@
 			</Select.Content>
 		</Select.Root>
 	</div>
-	<TimeInput label="Start" bind:value={rowStart} />
-	<TimeInput label="End" bind:value={rowEnd} />
+	<TimeInput label="Start" bind:value={() => rowStart, changeStart} />
+	<TimeInput
+		label="End"
+		aside={timed && hours > 0 ? `${formatHours(hours)} h` : undefined}
+		bind:value={
+			() => rowEnd,
+			(value) => {
+				rowEnd = value;
+				endChanged = true;
+			}
+		}
+	/>
 
 	{#if !timed}
 		<div class="space-y-1.5">
@@ -145,19 +195,6 @@
 			/>
 		</div>
 	{/if}
-	<div class="space-y-1.5">
-		<Label for="{id}-rate">Rate per hour{client ? ` (${client.currency})` : ''}</Label>
-		<Input
-			id="{id}-rate"
-			type="number"
-			inputmode="decimal"
-			min="0"
-			step="0.01"
-			class="tabular-nums"
-			placeholder={clientRate === undefined ? undefined : String(clientRate)}
-			bind:value={rowRate}
-		/>
-	</div>
 
 	<div class="col-span-2 space-y-1.5">
 		<Label for="{id}-item">What you worked on</Label>
@@ -191,7 +228,7 @@
 			<span class="text-destructive">
 				That looks like a GitHub path but is missing a number, like owner/repo/pull/123.
 			</span>
-		{:else if parsed}
+		{:else if parsed && parsed.kind !== 'task'}
 			{describeRef(parsed)}
 		{/if}
 	</p>
@@ -219,9 +256,6 @@
 	{/if}
 
 	<div class="col-span-2 flex items-center justify-end gap-2">
-		{#if hours > 0}
-			<span class="mr-auto text-sm text-muted-foreground tabular-nums">{formatHours(hours)} h</span>
-		{/if}
 		{#if oncancel}
 			<Button type="button" variant="ghost" onclick={oncancel}>Cancel</Button>
 		{/if}
