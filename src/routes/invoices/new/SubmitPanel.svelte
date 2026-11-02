@@ -16,6 +16,7 @@
 		me,
 		settings,
 		invoiceInfo,
+		payee,
 		onsubmitted
 	}: {
 		draft: Draft;
@@ -23,17 +24,30 @@
 		me: Account | null;
 		settings: Settings;
 		invoiceInfo?: string;
+		/** Your address and country, from your invoicing details or else your Open Collective profile. */
+		payee: { address?: string; country?: string };
 		onsubmitted: (url: string | undefined) => void;
 	} = $props();
 
 	const missing = $derived(
-		missingForSubmit({ settings, connected: me !== null, collective: draft.collective })
+		missingForSubmit({
+			settings,
+			connected: me !== null,
+			rate: draft.rate,
+			collective: draft.collective
+		})
 	);
+	/** Where each requirement other than the collective is met. */
+	const SETTINGS_PAGES = {
+		'Open Collective connection': '/settings/connections',
+		'payout method': '/settings/invoicing',
+		'hourly rate': '/settings/clients'
+	} as const;
 	/** Each with where it is fixed, if that is somewhere else. */
 	const problems: { text: string; href?: string }[] = $derived([
 		...missing.flatMap((item) => {
 			if (item !== 'collective')
-				return [{ text: `Add your ${item} in settings`, href: resolve('/settings/invoicing') }];
+				return [{ text: `Add your ${item} in settings`, href: resolve(SETTINGS_PAGES[item]) }];
 			// Choosing the client comes first; its collective is asked for once it is chosen.
 			if (draft.needsClient) return [];
 			return [
@@ -187,8 +201,8 @@
 			<input {...fields.currency.as('hidden', draft.currency)} />
 			<input {...fields.invoiceInfo.as('hidden', invoiceInfo ?? '')} />
 			<input {...fields.notesHtml.as('hidden', notes ? workLogToHtml(notes) : '')} />
-			<input {...fields.address.as('hidden', settings.payeeAddress ?? me?.address ?? '')} />
-			<input {...fields.country.as('hidden', settings.payeeCountry ?? me?.country ?? '')} />
+			<input {...fields.address.as('hidden', payee.address ?? '')} />
+			<input {...fields.country.as('hidden', payee.country ?? '')} />
 			<input {...fields.accountingCategoryId.as('hidden', settings.accountingCategoryId ?? '')} />
 
 			<Dialog.Footer>

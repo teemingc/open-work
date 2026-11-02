@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
 	endOfPeriod,
 	formatLongDate,
-	invoiceInfoText,
 	invoiceTitle,
 	lineItemDescription,
 	nextPeriod,
@@ -40,12 +39,6 @@ describe('invoice text', () => {
 	it('computes cents without floating point drift', () => {
 		expect(totalCents({ hours: 41, rate: 40 })).toBe(164000);
 		expect(totalCents({ hours: 12.5, rate: 33.33 })).toBe(41663);
-	});
-
-	it('builds the invoice information line only when there is a number', () => {
-		expect(invoiceInfoText('  Tax income number: IG123 ')).toBe('Tax income number: IG123');
-		expect(invoiceInfoText('')).toBeUndefined();
-		expect(invoiceInfoText(undefined)).toBeUndefined();
 	});
 });
 

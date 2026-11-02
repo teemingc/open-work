@@ -16,6 +16,7 @@
 		availableCredit,
 		invoiceFrequency,
 		lastInvoicedEnd,
+		openCollectiveRate,
 		type Client
 	} from '#lib/worklog.js';
 	import { openWorkLogWithSettings } from '#lib/open-work-log.js';
@@ -43,7 +44,13 @@
 	const accountError = $derived(meQuery.error);
 
 	const missing = $derived(
-		me !== undefined && settings ? missingFromSettings({ settings, connected: me !== null }) : []
+		me !== undefined && settings
+			? missingFromSettings({
+					settings,
+					connected: me !== null,
+					rate: store && openCollectiveRate(store.data.clients)
+				})
+			: []
 	);
 
 	// Not awaited, so a slow or failing list never blocks starting an invoice.

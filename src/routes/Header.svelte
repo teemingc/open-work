@@ -125,7 +125,7 @@
 	</div>
 
 	{#if showWorkRow}
-		<div class="border-t">
+		<div class="border-t" data-work-row>
 			<nav
 				aria-label="Work"
 				class="mx-auto flex h-11 max-w-6xl items-stretch justify-end text-sm sm:px-6"

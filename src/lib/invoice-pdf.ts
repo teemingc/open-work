@@ -11,6 +11,7 @@ import {
 	DEFAULT_LINE_ITEM,
 	invoiceDates,
 	invoiceTotals,
+	invoicingNotes,
 	type Address,
 	type Client,
 	type Invoice,
@@ -362,14 +363,7 @@ export async function drawInvoicePdf({
 	if (totals.category === 'reverse-charge') {
 		paragraph({ text: 'Reverse charge: the customer accounts for the VAT on this invoice.' });
 	}
-	// Your notes, and your tax number unless the notes already give it.
-	const taxId = invoicing.taxId.trim();
-	const notes = [
-		invoicing.notes.trim(),
-		...(taxId && !invoicing.notes.includes(taxId) ? [`Income tax number: ${taxId}`] : [])
-	]
-		.filter(Boolean)
-		.join('\n');
+	const notes = invoicingNotes(invoicing);
 	if (notes) paragraph({ text: notes });
 
 	// How to pay: any opening words first, then a table of labels and values, the account's own

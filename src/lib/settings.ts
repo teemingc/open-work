@@ -14,6 +14,7 @@ export const SettingsSchema = v.object({
 	/** Repository names to include. Empty means everything in the organization. */
 	repositories: v.optional(v.array(v.pipe(v.string(), v.trim(), v.nonEmpty())), []),
 
+	/** The rate and currency a new client starts with. */
 	hourlyRate: v.pipe(v.number('Enter a number'), v.minValue(0, 'Rate cannot be negative')),
 	currency: v.pipe(v.string(), v.regex(/^[A-Z]{3}$/, 'Use a three-letter code like USD')),
 
@@ -24,15 +25,15 @@ export const SettingsSchema = v.object({
 	collectiveSlug: v.pipe(v.optional(v.string(), ''), v.trim()),
 	payoutMethodId: optionalText,
 	payoutMethodLabel: optionalText,
-	/** Free text added to every invoice, such as a tax number. */
+	accountingCategoryId: optionalText,
+
+	/**
+	 * Moved into the work log's invoicing details, which emailed invoices share: read only to move
+	 * them there, then cleared. See `moveToInvoicing`.
+	 */
 	invoiceNote: optionalText,
 	payeeAddress: optionalText,
-	payeeCountry: v.pipe(
-		optionalText,
-		v.transform((value) => value?.toUpperCase()),
-		v.check((value) => !value || /^[A-Z]{2}$/.test(value), 'Use two letters like MY')
-	),
-	accountingCategoryId: optionalText
+	payeeCountry: optionalText
 });
 
 export type Settings = v.InferOutput<typeof SettingsSchema>;
@@ -50,16 +51,19 @@ export type SubmitRequirement = SettingsRequirement | 'collective';
 /** What settings still lack before any invoice can be sent to Open Collective. */
 export function missingFromSettings({
 	settings,
-	connected
+	connected,
+	rate
 }: {
 	settings: Settings;
 	/** Whether `getMe()` found an account. */
 	connected: boolean;
+	/** The Open Collective client's hourly rate. Unknown while the work log opens. */
+	rate: number | undefined;
 }): SettingsRequirement[] {
 	const missing: SettingsRequirement[] = [];
 	if (!connected) missing.push('Open Collective connection');
 	if (!settings.payoutMethodId) missing.push('payout method');
-	if (!(settings.hourlyRate > 0)) missing.push('hourly rate');
+	if (rate !== undefined && !(rate > 0)) missing.push('hourly rate');
 	return missing;
 }
 
@@ -67,15 +71,18 @@ export function missingFromSettings({
 export function missingForSubmit({
 	settings,
 	connected,
+	rate,
 	collective
 }: {
 	settings: Settings;
 	connected: boolean;
+	/** The invoice's hourly rate. */
+	rate: number | undefined;
 	/** The collective the invoice goes to, from its client. */
 	collective: string | undefined;
 }): SubmitRequirement[] {
 	return [
-		...missingFromSettings({ settings, connected }),
+		...missingFromSettings({ settings, connected, rate }),
 		...(collective ? [] : ['collective' as const])
 	];
 }
@@ -94,6 +101,16 @@ export function upgradeSettings(raw: Record<string, unknown>): Record<string, un
 
 /** The last version of the settings-only backup, before settings moved into the work log's. */
 const BACKUP_VERSION = 3;
+
+/**
+ * A settings-only backup, in the format used before settings moved into the work log's, for
+ * moving settings without the work log. The GitHub token is left out.
+ */
+export function exportSettingsBackup(settings: Settings): string {
+	const { githubToken: _githubToken, ...rest } = settings;
+	void _githubToken;
+	return JSON.stringify({ version: BACKUP_VERSION, data: { settings: rest } }, null, 2);
+}
 
 /**
  * Settings from an old settings backup file, or from what older versions kept in localStorage. Invoices and

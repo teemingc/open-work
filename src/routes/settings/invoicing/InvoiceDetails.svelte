@@ -77,55 +77,9 @@
 
 <SettingsSection
 	title="Invoices by email"
-	description="Who the invoices you email are from and to, and how you are paid."
+	description="How you are paid, and who each invoice you email goes to."
 >
 	<fieldset class="space-y-4">
-		<legend class="mb-3 font-medium">You</legend>
-		<div class="grid gap-3 sm:grid-cols-3">
-			{@render field({
-				id: 'invoice-name',
-				label: 'Name',
-				value: invoicing.name,
-				save: (name) => change({ name })
-			})}
-			{@render field({
-				id: 'invoice-email',
-				label: 'Email',
-				type: 'email',
-				value: invoicing.email,
-				save: (email) => change({ email })
-			})}
-			{@render field({
-				id: 'invoice-phone',
-				label: 'Phone',
-				type: 'tel',
-				value: invoicing.phone,
-				save: (phone) => change({ phone })
-			})}
-		</div>
-		<AddressFields
-			id="invoice-address"
-			address={invoicing.address}
-			onchange={(address) => change({ address })}
-		/>
-		<div class="grid gap-3 sm:grid-cols-2">
-			{@render field({
-				id: 'invoice-tax-id',
-				label: 'Income tax number',
-				value: invoicing.taxId,
-				save: (taxId) => change({ taxId })
-			})}
-			{@render field({
-				id: 'invoice-vat-id',
-				label: 'VAT number',
-				placeholder: 'If you have one',
-				value: invoicing.vatId,
-				save: (vatId) => change({ vatId })
-			})}
-		</div>
-	</fieldset>
-
-	<fieldset class="space-y-4 border-t pt-5">
 		<legend class="float-left mb-3 w-full font-medium">How you are paid</legend>
 		<div class="clear-both grid gap-3 sm:grid-cols-2">
 			{@render field({
@@ -155,16 +109,6 @@
 				placeholder="The bank's name and address, or a routing number"
 				value={invoicing.payment}
 				onchange={(event) => change({ payment: event.currentTarget.value.trim() })}
-			/>
-		</div>
-		<div class="space-y-1.5">
-			<Label for="invoice-notes">Notes</Label>
-			<Textarea
-				id="invoice-notes"
-				class="min-h-20"
-				placeholder="Your tax status, or anything else every invoice should say"
-				value={invoicing.notes}
-				onchange={(event) => change({ notes: event.currentTarget.value.trim() })}
 			/>
 		</div>
 	</fieldset>

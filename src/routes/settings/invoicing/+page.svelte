@@ -9,11 +9,11 @@
 	<meta property="og:title" content="Invoicing · Settings · Open Work" />
 	<meta
 		name="description"
-		content="Connect Open Collective, and set who the invoices you email are from and how you are paid."
+		content="Set who your invoices are from, where they go and how you are paid."
 	/>
 	<meta
 		property="og:description"
-		content="Connect Open Collective, and set who the invoices you email are from and how you are paid."
+		content="Set who your invoices are from, where they go and how you are paid."
 	/>
 </svelte:head>
 

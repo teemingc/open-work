@@ -74,7 +74,7 @@
 	<div class="mt-4 inline-flex flex-wrap gap-2">
 		{#if details.connect}
 			<Button
-				href="{resolve('/settings/invoicing')}#oc-connection"
+				href="{resolve('/settings/connections')}#oc-connection"
 				size={prominent ? 'lg' : 'sm'}
 				class="grow"
 			>

@@ -41,8 +41,12 @@ const SETTING_KEYS = Object.keys(SettingsSchema.entries) as (keyof Settings)[];
 export const saveSettings = form(
 	v.object({ ...v.partial(SettingsSchema).entries, shown: v.array(v.picklist(SETTING_KEYS)) }),
 	async ({ shown, ...submitted }) => {
+		// An emptied number arrives as undefined, so it goes back to its default rather than failing.
 		const settings: Partial<Settings> = Object.fromEntries(
-			shown.map((key) => [key, v.parse(SettingsSchema.entries[key], submitted[key])])
+			shown.map((key) => [
+				key,
+				v.parse(SettingsSchema.entries[key], submitted[key] ?? DEFAULT_SETTINGS[key])
+			])
 		);
 		return { saved: true, settings };
 	}

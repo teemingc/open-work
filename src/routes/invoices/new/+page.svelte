@@ -9,8 +9,16 @@
 	import { Label } from '#lib/components/ui/label/index.js';
 	import DateRangeInput from '#lib/components/DateRangeInput.svelte';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
-	import { formatDMY, formatHours, formatMoney, invoiceInfoText, nextPeriod } from '#lib/format.js';
-	import { defaultClient, invoiceFrequency, workLogText, type Client } from '#lib/worklog.js';
+	import { formatDMY, formatHours, formatMoney, nextPeriod } from '#lib/format.js';
+	import {
+		addressLine,
+		defaultClient,
+		emptyInvoicing,
+		invoiceFrequency,
+		invoicingNotes,
+		workLogText,
+		type Client
+	} from '#lib/worklog.js';
 	import { ArrowLeft, RotateCcw } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { Draft, type DraftData } from './draft.svelte';
@@ -57,7 +65,13 @@
 	const notes = $derived(
 		workLogText({ entries: draft.entries, organization: settings.organization })
 	);
-	const invoiceInfo = $derived(invoiceInfoText(settings.invoiceNote));
+	/** What every invoice says about you, sent to Open Collective as well as on emailed ones. */
+	const invoicing = $derived(store.data.invoicing ?? emptyInvoicing());
+	const invoiceInfo = $derived(invoicingNotes(invoicing) || undefined);
+	const payee = $derived({
+		address: addressLine(invoicing.address) || me?.address || undefined,
+		country: invoicing.address.country.trim() || me?.country || undefined
+	});
 
 	/**
 	 * Binds a number field to an override. While you type, the field keeps exactly what you
@@ -296,8 +310,9 @@
 								{:else}
 									No invoice note.
 
-									<a href={resolve('settings')} class="font-medium text-foreground underline"
-										>Add it in settings</a
+									<a
+										href="{resolve('/settings/invoicing')}#invoice-notes"
+										class="font-medium text-foreground underline">Add it in settings</a
 									>
 								{/if}
 							</p>
@@ -313,8 +328,8 @@
 			{:else}
 				<InvoiceSheet
 					payeeName={me?.name}
-					payeeAddress={settings.payeeAddress ?? me?.address ?? undefined}
-					payeeCountry={settings.payeeCountry ?? me?.country ?? undefined}
+					payeeAddress={payee.address}
+					payeeCountry={payee.country}
 					collectiveSlug={draft.collective}
 					title={draft.title}
 					itemDescription={draft.itemDescription}
@@ -324,7 +339,7 @@
 					workLog={notes}
 				/>
 
-				<SubmitPanel {draft} {me} {settings} {invoiceInfo} onsubmitted={onSubmitted} />
+				<SubmitPanel {draft} {me} {settings} {invoiceInfo} {payee} onsubmitted={onSubmitted} />
 			{/if}
 		</aside>
 	</div>

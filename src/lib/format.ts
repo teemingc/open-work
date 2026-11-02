@@ -166,11 +166,6 @@ export function lineItemDescription({
 	return `${formatHours(hours)} hours of work from ${formatLongDate(startDate)} to ${formatLongDate(endDate)} at ${averaged ? 'an average rate' : 'a rate'} of ${rate} ${currency} per hour`;
 }
 
-/** The note for Open Collective's "Additional invoice information", if there is one. */
-export function invoiceInfoText(note: string | undefined): string | undefined {
-	return note?.trim() || undefined;
-}
-
 /* ---------------------------------- Work log ---------------------------------- */
 
 function escapeHtml(text: string): string {

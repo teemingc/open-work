@@ -2,14 +2,18 @@
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
 	import type { Address } from '#lib/worklog.js';
+	import type { FullAutoFill } from 'svelte/elements';
 
 	let {
 		id,
 		address,
+		own = false,
 		onchange
 	}: {
 		/** Prefixes each field's id. */
 		id: string;
+		/** Your own address, which the browser may fill in. A client's is left to you. */
+		own?: boolean;
 		address: Address | undefined;
 		onchange: (address: Address) => void;
 	} = $props();
@@ -21,6 +25,8 @@
 	function change(patch: Partial<Address>) {
 		onchange({ ...$state.snapshot(current), ...patch });
 	}
+
+	const fill = (token: FullAutoFill) => (own ? token : 'off');
 
 	const countryName = $derived.by(() => {
 		if (!/^[A-Z]{2}$/.test(current.country)) return undefined;
@@ -37,7 +43,7 @@
 		<Label for="{id}-street">Street</Label>
 		<Input
 			id="{id}-street"
-			autocomplete="off"
+			autocomplete={fill('address-line1')}
 			value={current.street}
 			onchange={(event) => change({ street: event.currentTarget.value.trim() })}
 		/>
@@ -48,7 +54,7 @@
 		>
 		<Input
 			id="{id}-extra"
-			autocomplete="off"
+			autocomplete={fill('address-line2')}
 			value={current.extra}
 			onchange={(event) => change({ extra: event.currentTarget.value.trim() })}
 		/>
@@ -57,7 +63,7 @@
 		<Label for="{id}-postcode">Postcode</Label>
 		<Input
 			id="{id}-postcode"
-			autocomplete="off"
+			autocomplete={fill('postal-code')}
 			value={current.postcode}
 			onchange={(event) => change({ postcode: event.currentTarget.value.trim() })}
 		/>
@@ -66,7 +72,7 @@
 		<Label for="{id}-city">City</Label>
 		<Input
 			id="{id}-city"
-			autocomplete="off"
+			autocomplete={fill('address-level2')}
 			value={current.city}
 			onchange={(event) => change({ city: event.currentTarget.value.trim() })}
 		/>
@@ -75,7 +81,7 @@
 		<Label for="{id}-region">State</Label>
 		<Input
 			id="{id}-region"
-			autocomplete="off"
+			autocomplete={fill('address-level1')}
 			value={current.region}
 			onchange={(event) => change({ region: event.currentTarget.value.trim() })}
 		/>
@@ -84,7 +90,7 @@
 		<Label for="{id}-country">Country</Label>
 		<Input
 			id="{id}-country"
-			autocomplete="off"
+			autocomplete={fill('country')}
 			maxlength={2}
 			placeholder="MY"
 			class="uppercase"

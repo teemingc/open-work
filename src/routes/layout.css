@@ -269,6 +269,13 @@
 		scroll-padding-top: 5rem;
 	}
 	/*
+		The Work row adds its 45px below the masthead. Its pages link to fields, so there is also room
+		for the label above one.
+	*/
+	html:has([data-work-row]) {
+		scroll-padding-top: 9.5rem;
+	}
+	/*
 		A column at least as tall as the window, so the footer sits at its bottom on short pages
 		rather than following the content up and down as skeletons give way to it.
 	*/

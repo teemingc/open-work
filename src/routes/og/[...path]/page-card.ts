@@ -44,8 +44,7 @@ export const PAGES: Record<string, { title: string; description: string; motif: 
 	},
 	'settings/invoicing': {
 		title: 'Invoicing',
-		description:
-			'Connect Open Collective, and set who the invoices you email are from and how you are paid.',
+		description: 'Set who your invoices are from, where they go and how you are paid.',
 		motif: 'invoices'
 	},
 	'settings/hours': {
@@ -61,12 +60,13 @@ export const PAGES: Record<string, { title: string; description: string; motif: 
 	},
 	'settings/connections': {
 		title: 'Connections',
-		description: 'Find your work on GitHub and keep the work log in Google Drive.',
+		description: 'Connect Open Collective and find your work on GitHub.',
 		motif: 'tiles'
 	},
 	'settings/data': {
 		title: 'Data',
-		description: 'Back up the work log and your settings, or delete everything.',
+		description:
+			'Keep the work log in Google Drive, back it up with your settings, or delete everything.',
 		motif: 'tiles'
 	},
 	privacy: {

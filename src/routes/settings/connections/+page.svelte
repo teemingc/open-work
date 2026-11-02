@@ -7,21 +7,15 @@
 <svelte:head>
 	<title>Connections · Settings · Open Work</title>
 	<meta property="og:title" content="Connections · Settings · Open Work" />
-	<meta
-		name="description"
-		content="Find your work on GitHub and keep the work log in Google Drive."
-	/>
-	<meta
-		property="og:description"
-		content="Find your work on GitHub and keep the work log in Google Drive."
-	/>
+	<meta name="description" content="Connect Open Collective and find your work on GitHub." />
+	<meta property="og:description" content="Connect Open Collective and find your work on GitHub." />
 </svelte:head>
 
-<!-- The work log lives in this browser's IndexedDB, so the server sends skeletons in its place. -->
+<!-- The settings live with the work log in this browser's IndexedDB, so the server sends skeletons in their place. -->
 <svelte:boundary>
 	<ConnectionsSettings data={await openWorkLogWithSettings()} />
 
 	{#snippet pending()}
-		<SettingsSkeleton label="Loading connections" heights={['h-64', 'h-23']} />
+		<SettingsSkeleton label="Loading connections" heights={['h-23', 'h-64']} />
 	{/snippet}
 </svelte:boundary>

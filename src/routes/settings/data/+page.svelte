@@ -9,11 +9,11 @@
 	<meta property="og:title" content="Data · Settings · Open Work" />
 	<meta
 		name="description"
-		content="Back up the work log and your settings, or delete everything."
+		content="Keep the work log in Google Drive, back it up with your settings, or delete everything."
 	/>
 	<meta
 		property="og:description"
-		content="Back up the work log and your settings, or delete everything."
+		content="Keep the work log in Google Drive, back it up with your settings, or delete everything."
 	/>
 </svelte:head>
 

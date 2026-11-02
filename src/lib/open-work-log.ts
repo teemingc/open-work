@@ -2,6 +2,41 @@ import { driveSync } from '#lib/drive-sync.svelte.js';
 import { forgetLegacySettings, getLegacySettings } from '#lib/settings.remote.js';
 import { DEFAULT_SETTINGS, LEGACY_STORAGE_KEY, parseBackup, type Settings } from '#lib/settings.js';
 import { openWorkLog, type WorkLogStore } from '#lib/worklog-store.svelte.js';
+import { emptyInvoicing } from '#lib/worklog.js';
+
+/** How earlier versions put the tax number in the invoice note. */
+const TAX_NOTE = /^tax income number:\s*(\S.*)$/i;
+
+/**
+ * Your address and invoice note, which settings kept for Open Collective until emailed invoices
+ * gave the work log its own, moved there. Fills only what is empty, then forgets them in settings.
+ */
+function moveToInvoicing(store: WorkLogStore) {
+	const { invoiceNote, payeeAddress, payeeCountry } = store.settings;
+	if (!invoiceNote && !payeeAddress && !payeeCountry) return;
+
+	const current = store.data.invoicing ?? emptyInvoicing();
+	const invoicing = { ...current, address: { ...current.address } };
+	const { address } = invoicing;
+	if (payeeAddress && !address.street && !address.city && !address.postcode) {
+		address.street = payeeAddress;
+	}
+	if (payeeCountry && !address.country) address.country = payeeCountry.toUpperCase();
+	const taxId = invoiceNote?.match(TAX_NOTE)?.[1].trim();
+	if (taxId) {
+		invoicing.taxId ||= taxId;
+	} else if (invoiceNote) {
+		invoicing.notes ||= invoiceNote;
+	}
+
+	if (JSON.stringify(invoicing) !== JSON.stringify(current)) store.setInvoicing(invoicing);
+	store.setSettings({
+		...store.settings,
+		invoiceNote: undefined,
+		payeeAddress: undefined,
+		payeeCountry: undefined
+	});
+}
 
 /** Settings that earlier versions kept in localStorage, and later in a cookie. */
 async function legacySettings(): Promise<Settings | null> {
@@ -66,6 +101,7 @@ export async function openWorkLogWithSettings(): Promise<{
 		if (!store.data.settings) await moveLegacySettings(store);
 		moveCollective(store);
 	}
+	moveToInvoicing(store);
 	driveSync(store);
 	return { settings: store.settings, store };
 }
