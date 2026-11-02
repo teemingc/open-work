@@ -241,18 +241,8 @@ export const EXPENSES_QUERY = /* GraphQL */ `
 		expenses(fromAccount: $fromAccount, limit: $limit, offset: $offset) {
 			totalCount
 			nodes {
-				id
-				legacyId
 				description
 				status
-				createdAt
-				amountV2 {
-					valueInCents
-					currency
-				}
-				inCollectiveCurrency: amountV2(currencySource: ACCOUNT) {
-					valueInCents
-				}
 				account {
 					slug
 				}
@@ -265,14 +255,8 @@ export interface ExpensesResult {
 	expenses: {
 		totalCount: number;
 		nodes: {
-			id: string;
-			legacyId: number;
 			description: string;
 			status: string;
-			createdAt: string;
-			amountV2: { valueInCents: number; currency: string };
-			/** The same amount in the collective's currency, so amounts can be compared. */
-			inCollectiveCurrency: { valueInCents: number } | null;
 			account: { slug: string };
 		}[];
 	};

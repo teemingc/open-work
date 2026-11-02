@@ -1,13 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
 	import * as Alert from '#lib/components/ui/alert/index.js';
-	import { Button } from '#lib/components/ui/button/index.js';
-	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
-	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import { nextPeriod, toIsoDate } from '#lib/format.js';
 	import { missingFromSettings } from '#lib/settings.js';
-	import { CircleAlert, RefreshCw, TriangleAlert } from '@lucide/svelte';
+	import { CircleAlert, TriangleAlert } from '@lucide/svelte';
 	import { getExpenses, getMe } from '#lib/opencollective.remote.js';
 	import { isHttpError } from '@sveltejs/kit';
 	import { onMount } from 'svelte';
@@ -24,7 +20,6 @@
 	import { lastInvoicedEnd as lastExpenseEnd } from './expenses';
 	import EmailInvoicesTable from './EmailInvoicesTable.svelte';
 	import NextInvoice from './NextInvoice.svelte';
-	import ExpensesTable from './ExpensesTable.svelte';
 
 	// Read without `await`, so the page shows straight away with one set of skeletons while your
 	// account, settings and expenses load, rather than a page spinner followed by more spinners.
@@ -55,7 +50,6 @@
 
 	// Not awaited, so a slow or failing list never blocks starting an invoice.
 	const expensesQuery = $derived(me ? getExpenses() : undefined);
-	const loading = $derived(expensesQuery?.loading ?? false);
 	const loadError = $derived.by(() => {
 		const error = expensesQuery?.error;
 		if (!error) return '';
@@ -130,19 +124,6 @@
 	/>
 </svelte:head>
 
-{#snippet tableSkeleton()}
-	<div class="space-y-px overflow-hidden rounded-xl border bg-card" aria-busy="true">
-		{#each [0, 1, 2, 3] as row (row)}
-			<div class="flex items-center gap-4 px-4 py-3">
-				<Skeleton class="h-4 flex-1" />
-				<Skeleton class="h-4 w-20" />
-				<Skeleton class="h-4 w-16" />
-				<Skeleton class="h-5 w-20 rounded-full" />
-			</div>
-		{/each}
-	</div>
-{/snippet}
-
 <div class="space-y-8">
 	<h1>Invoices</h1>
 
@@ -173,7 +154,7 @@
 				</Alert.Root>
 			{/if}
 
-			<!-- Titled like the sections below it, so the page reads as three equal parts. -->
+			<!-- Titled like the section below it, so the page reads as equal parts. -->
 			<section aria-labelledby="next-heading">
 				<h2 id="next-heading" class="mb-3 text-lg">
 					Next invoice{(nextInvoices?.length ?? 0) > 1 ? 's' : ''}
@@ -208,54 +189,6 @@
 						</p>
 					{:else}
 						<EmailInvoicesTable {store} />
-					{/if}
-				</section>
-			{/if}
-
-			{#if showExpenses}
-				<section aria-labelledby="history-heading">
-					<div class="mb-3 flex items-center justify-between gap-3">
-						<h2 id="history-heading" class="text-lg">
-							Sent to {collectives.size === 1 ? [...collectives][0] : 'Open Collective'}
-						</h2>
-						<!-- Always rendered so its space is kept, but only shown once you are known to be connected. -->
-						<Button
-							variant="ghost"
-							size="sm"
-							class={me ? '' : 'invisible'}
-							onclick={() => expensesQuery?.refresh()}
-							disabled={!expensesQuery || loading}
-						>
-							<!-- Only spins for a refresh: the first load shows skeletons below instead. -->
-							{#if loading && expenses}<Spinner />{:else}<RefreshCw />{/if}
-							Refresh
-						</Button>
-					</div>
-
-					{#if expensesPending}
-						{@render tableSkeleton()}
-					{:else if !me}
-						<p class="rounded-xl border border-dashed bg-card/50 p-6 text-sm text-muted-foreground">
-							<a href={resolve('settings')} class="font-medium text-foreground underline"
-								>Connect Open Collective</a
-							>
-
-							to see the expenses you have already sent.
-						</p>
-					{:else if loadError}
-						<p class="flex items-start gap-1.5 text-sm text-destructive" role="alert">
-							<CircleAlert size={15} class="mt-0.5 shrink-0" />{loadError}
-						</p>
-					{:else if !expenses || expenses.length === 0}
-						<p class="rounded-xl border border-dashed bg-card/50 p-6 text-sm text-muted-foreground">
-							No expenses yet. Start the first one above and it will show up here once submitted.
-						</p>
-					{:else}
-						<ExpensesTable
-							{expenses}
-							showCollective={collectives.size > 1}
-							highlightUrl={page.state.submittedUrl}
-						/>
 					{/if}
 				</section>
 			{/if}

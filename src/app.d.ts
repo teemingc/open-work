@@ -18,10 +18,7 @@ declare global {
 		}
 		// interface Locals {}
 		// interface PageData {}
-		interface PageState {
-			/** The expense just submitted, so the list can point it out. */
-			submittedUrl?: string;
-		}
+		// interface PageState {}
 	}
 }
 

@@ -144,10 +144,10 @@
 		goto(resolve('/invoices/[id]', { id: savedInvoiceId }), { replace: true });
 	}
 
-	function onSubmitted(submittedUrl: string | undefined) {
+	function onSubmitted() {
 		submitted = true;
 		// Replace this entry so Back cannot bring the sent draft back for a second submit.
-		goto(resolve('/invoices'), { replace: true, state: { submittedUrl } });
+		goto(resolve('/invoices'), { replace: true });
 	}
 </script>
 

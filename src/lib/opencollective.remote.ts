@@ -16,17 +16,10 @@ import { getToken, requireToken } from '#lib/server/session.js';
 
 /** An expense you requested from a collective, as Open Collective reports it. */
 export interface Expense {
-	id: string;
 	title: string;
 	status: string;
-	createdAt: string;
-	amountInCents: number;
-	currency: string;
-	/** The amount in the collective's currency, for sorting expenses made in different currencies. */
-	sortCents: number;
 	/** The collective it was sent to. */
 	collective: string;
-	url: string;
 }
 
 /** Plenty for one page: a maintainer invoicing twice a month sends about 24 a year. */
@@ -103,15 +96,9 @@ export const getExpenses = query(async (): Promise<Expense[]> => {
 			if (expenses.nodes.length === 0) break;
 		}
 		return nodes.map((expense) => ({
-			id: expense.id,
 			title: expense.description,
 			status: expense.status,
-			createdAt: expense.createdAt,
-			amountInCents: expense.amountV2.valueInCents,
-			currency: expense.amountV2.currency,
-			sortCents: expense.inCollectiveCurrency?.valueInCents ?? expense.amountV2.valueInCents,
-			collective: expense.account.slug,
-			url: expenseUrl({ collectiveSlug: expense.account.slug, legacyId: expense.legacyId })
+			collective: expense.account.slug
 		}));
 	} catch (err) {
 		toHttpError(err);
