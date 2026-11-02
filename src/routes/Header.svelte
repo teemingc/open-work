@@ -22,29 +22,41 @@
 	const WORK_PATHS = ['/worklog', '/invoices', '/settings'] as const;
 	type WorkPath = (typeof WORK_PATHS)[number];
 
+	function isWork(pathname: string) {
+		return WORK_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+	}
+
 	/**
-	 * The page being navigated to, from the moment the link is clicked. The Work row opens or closes
-	 * with the click, rather than a moment later when a slow page arrives and pushes it down.
-	 * `page.url` would only change once the new page has finished its `await`s, after its
-	 * skeletons have shown.
+	 * The page being navigated to, from the moment the link is clicked. `page.url` would only change
+	 * once the new page has finished its `await`s, after its skeletons have shown.
 	 */
 	let pathname = $state(page.url.pathname);
+	const inWork = $derived(isWork(pathname));
+
+	/**
+	 * The Work row opens with the click, rather than a moment later when a slow page arrives and
+	 * pushes it down. It closes only once the next page has arrived, so the page you are leaving does
+	 * not jump up while it is still showing.
+	 */
+	let showWorkRow = $state(isWork(page.url.pathname));
 
 	beforeNavigate(({ to, type, complete }) => {
 		if (type === 'leave' || !to?.route.id) return;
 		pathname = to.url.pathname;
+		if (isWork(pathname)) showWorkRow = true;
 		// Back to where you are when the navigation is cancelled or fails.
-		complete.catch(() => (pathname = page.url.pathname));
+		complete.catch(() => {
+			pathname = page.url.pathname;
+			showWorkRow = isWork(pathname);
+		});
 	});
 
 	// Where you ended up, after a redirect.
 	afterNavigate(({ to }) => {
-		if (to) pathname = to.url.pathname;
+		if (!to) return;
+		pathname = to.url.pathname;
+		showWorkRow = isWork(pathname);
 	});
-
-	const inWork = $derived(
-		WORK_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
-	);
 
 	/**
 	 * Icons alone on phones, each at least 40px wide so it is easy to tap. Below 560px the three
@@ -101,7 +113,7 @@
 			aria-label="Main"
 			class={[
 				'flex items-stretch text-sm min-[560px]:gap-2',
-				inWork ? '-mb-px pt-0.5' : '-mb-[3px]'
+				showWorkRow ? '-mb-px pt-0.5' : '-mb-[3px]'
 			]}
 		>
 			<a
@@ -125,7 +137,7 @@
 		</nav>
 	</div>
 
-	{#if inWork}
+	{#if showWorkRow}
 		<div class="border-t">
 			<nav
 				aria-label="Work"
