@@ -79,6 +79,8 @@ export function mergeWorkLogs({
 	}
 	const deletedAt = (kind: Kind) => (id: string) => tombstones.get(`${kind}:${id}`)?.at;
 
+	const allowance =
+		(theirs.allowanceUpdatedAt ?? '') > (ours.allowanceUpdatedAt ?? '') ? theirs : ours;
 	const invoicing =
 		(theirs.invoicingUpdatedAt ?? '') > (ours.invoicingUpdatedAt ?? '') ? theirs : ours;
 	const schedule =
@@ -119,6 +121,14 @@ export function mergeWorkLogs({
 		hoursPerDay: schedule.hoursPerDay,
 		exchange: schedule.exchange,
 		scheduleUpdatedAt: schedule.scheduleUpdatedAt,
+		deductions: mergeRecords({
+			ours: ours.deductions,
+			theirs: theirs.deductions,
+			key: (deduction) => deduction.id,
+			deletedAt: deletedAt('deduction')
+		}),
+		allowance: allowance.allowance,
+		allowanceUpdatedAt: allowance.allowanceUpdatedAt,
 		invoicing: invoicing.invoicing,
 		invoicingUpdatedAt: invoicing.invoicingUpdatedAt,
 		updatedAt: newer({ updatedAt: ours.updatedAt }, { updatedAt: theirs.updatedAt }).updatedAt,
@@ -157,6 +167,7 @@ export function removedBy({
 		...missing('client', current.clients, next.clients, (client) => client.id),
 		...missing('holiday', current.holidays, next.holidays, (day) => day.date),
 		...missing('leave', current.leave, next.leave, (day) => day.date),
-		...missing('invoice', current.invoices, next.invoices, (invoice) => invoice.id)
+		...missing('invoice', current.invoices, next.invoices, (invoice) => invoice.id),
+		...missing('deduction', current.deductions, next.deductions, (deduction) => deduction.id)
 	];
 }

@@ -74,8 +74,8 @@
 	{#if clients.length === 0}
 		<p class="text-sm text-muted-foreground">
 			Add the client you invoice in
-			<a href={resolve('/worklog/setup')} class="font-medium text-foreground underline"
-				>Clients and days off</a
+			<a href={resolve('/settings/clients')} class="font-medium text-foreground underline"
+				>Clients settings</a
 			>, then log your time.
 		</p>
 	{:else if days.length === 0}
@@ -117,7 +117,7 @@
 			<Dialog.Title>Edit entry</Dialog.Title>
 		</Dialog.Header>
 		{#if editing}
-			{const entry = editing}
+			{const entry = $derived(editing)}
 			<EntryForm
 				clients={clientChoices({ clients: store.data.clients, clientId: entry.clientId })}
 				{organization}

@@ -139,7 +139,7 @@
 					<FileText size={14} />
 					Invoices
 				</a>
-				<a href={resolve('/settings')} aria-current={current('/settings')} class={SUB_LINK}>
+				<a href={resolve('/settings/clients')} aria-current={current('/settings')} class={SUB_LINK}>
 					<Settings size={14} />
 					Settings
 					<!-- Always takes its space, so the nav does not move when it appears. Only on Settings, not

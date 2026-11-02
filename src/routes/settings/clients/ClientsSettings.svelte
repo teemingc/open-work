@@ -1,16 +1,10 @@
 <script lang="ts">
-	import { downloadJson } from '#lib/download.js';
-	import { resolve } from '$app/paths';
 	import SettingsSection from '#lib/components/SettingsSection.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
 	import * as Select from '#lib/components/ui/select/index.js';
-	import DriveSyncStatus from '#lib/components/DriveSyncStatus.svelte';
-	import { signInWithGoogle, signOutOfGoogle } from './auth-client';
-	import { driveSync } from '#lib/drive-sync.svelte.js';
-	import { WorkLogParseError, type WorkLogStore } from '#lib/worklog-store.svelte.js';
+	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import type { Settings } from '#lib/settings.js';
 	import { formatDMY, toIsoDate } from '#lib/format.js';
 	import {
@@ -22,22 +16,8 @@
 		type InvoiceFrequency,
 		type RateChange
 	} from '#lib/worklog.js';
-	import {
-		Archive,
-		ArchiveRestore,
-		ChevronRight,
-		Cloud,
-		Download,
-		LogOut,
-		Plus,
-		RefreshCw,
-		Trash2,
-		Upload
-	} from '@lucide/svelte';
+	import { Archive, ArchiveRestore, ChevronRight, Plus, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
-	import DaysOffEditor from './DaysOffEditor.svelte';
-	import InvoiceDetails from './InvoiceDetails.svelte';
-	import LeaveEditor from './LeaveEditor.svelte';
 
 	const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD', 'MYR', 'SGD'];
 	const METHODS = { opencollective: 'Open Collective', email: 'Email' };
@@ -45,34 +25,17 @@
 		'twice-monthly': 'Twice a month',
 		monthly: 'Monthly'
 	};
-	/** The "To" choice that turns the second currency off. */
-	const NO_CURRENCY = 'none';
 
 	let { data }: { data: { settings: Settings; store: WorkLogStore } } = $props();
 
 	// The same store for the page's whole life, so it is read once, not tracked.
 	const store = untrack(() => data.store);
-	const sync = driveSync(store);
-
-	let year = $state(String(new Date().getFullYear()));
-	const years = $derived(
-		[
-			...new Set([
-				String(new Date().getFullYear()),
-				...[...store.data.holidays, ...store.data.leave, ...store.data.entries].map((item) =>
-					item.date.slice(0, 4)
-				)
-			])
-		].sort()
-	);
 
 	let clientMessage = $state<string | undefined>();
 	const clients = $derived(store.data.clients.filter((client) => !client.archived));
 	const archived = $derived(store.data.clients.filter((client) => client.archived));
-	const emailed = $derived(clients.filter((client) => !client.openCollective));
 	/** Clients with logged time are archived rather than deleted, so no entry loses its client. */
 	const clientsWithTime = $derived(new Set(store.data.entries.map((entry) => entry.clientId)));
-	let backupMessage = $state<{ tone: 'ok' | 'error'; text: string } | undefined>();
 
 	/**
 	 * The client as stored right now. Edits build on this rather than on the copy the page drew,
@@ -91,38 +54,6 @@
 		const rates = snapshot.rates ?? [];
 		change(rates);
 		store.updateClient(withRates({ client: snapshot, rates }));
-	}
-
-	function downloadBackup() {
-		downloadJson({
-			text: store.exportJson(),
-			name: `work-log-${new Date().toISOString().slice(0, 10)}.json`
-		});
-	}
-
-	/** The backup picked, waiting for you to confirm it replaces the log. */
-	let pendingBackup = $state<File | undefined>();
-
-	function pickBackup(event: Event) {
-		const input = event.currentTarget as HTMLInputElement;
-		pendingBackup = input.files?.[0];
-		input.value = '';
-	}
-
-	async function restoreBackup(file: File) {
-		pendingBackup = undefined;
-		try {
-			store.importJson(await file.text());
-			backupMessage = {
-				tone: 'ok',
-				text: `Restored ${store.data.entries.length} entries for ${store.data.clients.length} clients.`
-			};
-		} catch (error) {
-			backupMessage = {
-				tone: 'error',
-				text: error instanceof WorkLogParseError ? error.message : 'Could not read that file.'
-			};
-		}
 	}
 </script>
 
@@ -417,248 +348,4 @@
 	>
 		<Plus /> Add a client
 	</Button>
-</SettingsSection>
-
-{#if emailed.length > 0}
-	<InvoiceDetails {store} clients={emailed} onchange={changeClient} />
-{/if}
-
-<SettingsSection
-	title="Expected hours"
-	description="How many hours you aim to work each working day."
->
-	<div class="grid gap-4 sm:grid-cols-2">
-		<div class="space-y-1.5">
-			<Label for="hours-per-day">Hours per working day</Label>
-			<Input
-				id="hours-per-day"
-				type="number"
-				inputmode="decimal"
-				min="0"
-				max="24"
-				step="0.5"
-				class="tabular-nums"
-				value={store.data.hoursPerDay}
-				onchange={(event) => {
-					const hoursPerDay = Number(event.currentTarget.value);
-					if (hoursPerDay >= 0 && hoursPerDay <= 24) {
-						store.setSchedule({ hoursPerDay, exchange: $state.snapshot(store.data.exchange) });
-					}
-				}}
-			/>
-		</div>
-	</div>
-	<fieldset class="space-y-3">
-		<legend class="text-sm font-medium">Show earnings in another currency</legend>
-		<div class="grid grid-cols-3 gap-3">
-			<div class="space-y-1.5">
-				<Label for="exchange-to">Show in</Label>
-				<Select.Root
-					type="single"
-					value={store.data.exchange?.to ?? NO_CURRENCY}
-					onValueChange={(to) => {
-						const current = store.data.exchange;
-						store.setSchedule({
-							hoursPerDay: store.data.hoursPerDay,
-							exchange:
-								to === NO_CURRENCY
-									? undefined
-									: {
-											from: current?.from ?? store.data.clients[0]?.currency ?? 'USD',
-											rate: current?.rate ?? 1,
-											to
-										}
-						});
-					}}
-				>
-					<Select.Trigger id="exchange-to" class="w-full">
-						{#if store.data.exchange}
-							{store.data.exchange.to}
-						{:else}
-							<span class="text-muted-foreground">None</span>
-						{/if}
-					</Select.Trigger>
-					<Select.Content>
-						<Select.Item value={NO_CURRENCY}>None</Select.Item>
-						{#each CURRENCIES as code (code)}
-							<Select.Item value={code}>{code}</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
-			</div>
-			<div class="space-y-1.5">
-				<Label for="exchange-from">Converted from</Label>
-				<Select.Root
-					type="single"
-					disabled={!store.data.exchange}
-					value={store.data.exchange?.from ?? ''}
-					onValueChange={(from) => {
-						const exchange = store.data.exchange;
-						if (exchange) {
-							store.setSchedule({
-								hoursPerDay: store.data.hoursPerDay,
-								exchange: { ...exchange, from }
-							});
-						}
-					}}
-				>
-					<Select.Trigger id="exchange-from" class="w-full">
-						{store.data.exchange?.from ?? '—'}
-					</Select.Trigger>
-					<Select.Content>
-						{#each CURRENCIES as code (code)}
-							<Select.Item value={code}>{code}</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
-			</div>
-			<div class="space-y-1.5">
-				<Label for="exchange-rate">Rate</Label>
-				<Input
-					id="exchange-rate"
-					type="number"
-					inputmode="decimal"
-					min="0"
-					step="0.01"
-					class="tabular-nums"
-					disabled={!store.data.exchange}
-					value={store.data.exchange?.rate ?? ''}
-					onchange={(event) => {
-						const rate = Number(event.currentTarget.value);
-						const exchange = store.data.exchange;
-						if (exchange && rate > 0) {
-							store.setSchedule({
-								hoursPerDay: store.data.hoursPerDay,
-								exchange: { ...exchange, rate }
-							});
-						}
-					}}
-				/>
-			</div>
-		</div>
-		<p class="text-xs text-muted-foreground">
-			{#if store.data.exchange}
-				1 {store.data.exchange.from} = {store.data.exchange.rate} {store.data.exchange.to}.
-			{:else}
-				Totals show in each client's currency only.
-			{/if}
-		</p>
-	</fieldset>
-</SettingsSection>
-
-<SettingsSection title="Year">
-	<div class="space-y-1.5">
-		<Label for="year">Holidays and leave for</Label>
-		<Select.Root type="single" bind:value={year}>
-			<Select.Trigger id="year" class="w-32">{year}</Select.Trigger>
-			<Select.Content>
-				{#each years as option (option)}
-					<Select.Item value={option}>{option}</Select.Item>
-				{/each}
-				<Select.Item value={String(Number(years.at(-1)) + 1)}
-					>{Number(years.at(-1)) + 1}</Select.Item
-				>
-			</Select.Content>
-		</Select.Root>
-	</div>
-</SettingsSection>
-
-<SettingsSection
-	title="Public holidays"
-	description="Weekday holidays are taken off the working days. Import your country's or state's list, then fix anything that differs."
->
-	<DaysOffEditor {store} kind="holidays" {year} />
-</SettingsSection>
-
-<SettingsSection title="Leave" description="Days you took off.">
-	<LeaveEditor {store} {year} />
-</SettingsSection>
-
-<SettingsSection
-	title="Google Drive"
-	description="Sign in with Google to keep the work log in your own Drive, in a hidden folder only this app can open, and use it on any device."
->
-	{#if sync.state === 'unavailable'}
-		<p class="text-sm text-muted-foreground">
-			Google sign-in is not set up on this server, so the work log stays in this browser.
-		</p>
-	{:else}
-		{#if sync.account}
-			<p class="text-sm">
-				Signed in as <span class="font-medium">{sync.account.email}</span>
-			</p>
-		{/if}
-		<DriveSyncStatus {sync} />
-		<div class="flex flex-wrap gap-2">
-			{#if sync.account}
-				<Button
-					variant="outline"
-					disabled={sync.state === 'syncing'}
-					onclick={() => sync.syncNow()}
-				>
-					<RefreshCw /> Sync now
-				</Button>
-				<Button
-					variant="ghost"
-					onclick={async () => {
-						await signOutOfGoogle();
-						sync.stop();
-					}}
-				>
-					<LogOut /> Sign out
-				</Button>
-			{:else if sync.state === 'signed-out' || sync.state === 'error'}
-				<Button variant="outline" onclick={() => signInWithGoogle(resolve('/worklog/setup'))}>
-					<Cloud /> Sign in with Google
-				</Button>
-			{/if}
-		</div>
-	{/if}
-</SettingsSection>
-
-<SettingsSection
-	title="Backup"
-	description="A copy of the work log as a file, to keep or to move to a browser without Google Drive."
->
-	<div class="flex flex-wrap gap-2">
-		<Button variant="outline" onclick={downloadBackup}><Download /> Download backup</Button>
-		<Button variant="outline" onclick={() => document.getElementById('restore-file')?.click()}>
-			<Upload /> Restore a backup
-		</Button>
-		<input
-			id="restore-file"
-			type="file"
-			accept=".json,application/json"
-			class="sr-only"
-			aria-label="Backup file"
-			tabindex="-1"
-			onchange={pickBackup}
-		/>
-	</div>
-	<Dialog.Root
-		bind:open={() => pendingBackup !== undefined, (open) => !open && (pendingBackup = undefined)}
-	>
-		<Dialog.Content>
-			<Dialog.Header>
-				<Dialog.Title>Replace your work log?</Dialog.Title>
-				<Dialog.Description>
-					Everything in the work log is replaced with what is in {pendingBackup?.name}.
-				</Dialog.Description>
-			</Dialog.Header>
-			<Dialog.Footer>
-				<Button variant="outline" onclick={() => (pendingBackup = undefined)}>Keep my log</Button>
-				<Button variant="destructive" onclick={() => pendingBackup && restoreBackup(pendingBackup)}>
-					Replace
-				</Button>
-			</Dialog.Footer>
-		</Dialog.Content>
-	</Dialog.Root>
-	{#if backupMessage}
-		<p
-			role={backupMessage.tone === 'error' ? 'alert' : 'status'}
-			class="text-sm {backupMessage.tone === 'error' ? 'text-destructive' : 'text-status-paid'}"
-		>
-			{backupMessage.text}
-		</p>
-	{/if}
 </SettingsSection>

@@ -36,11 +36,22 @@ export const getSettings = query(async (): Promise<Settings> => {
 	}
 });
 
-/** The settings page. It submits itself whenever a field changes. */
-export const saveSettings = form(SettingsSchema, async (settings) => {
-	writeSettings(settings);
-	return { saved: true };
-});
+const SETTING_KEYS = Object.keys(SettingsSchema.entries) as (keyof Settings)[];
+
+/**
+ * A settings page, which submits itself whenever a field changes. Each page shows only some of the
+ * settings, and names them in `shown`: those are replaced, so one left empty is cleared, and the
+ * rest are kept.
+ */
+export const saveSettings = form(
+	v.object({ ...v.partial(SettingsSchema).entries, shown: v.array(v.picklist(SETTING_KEYS)) }),
+	async ({ shown, ...submitted }) => {
+		const next: Record<string, unknown> = { ...(await getSettings()) };
+		for (const key of shown) next[key] = submitted[key];
+		writeSettings(v.parse(SettingsSchema, next));
+		return { saved: true };
+	}
+);
 
 /** Replace every setting at once, from a backup or from what older versions kept in the browser. */
 export const restoreSettings = command(SettingsSchema, async (settings) => {

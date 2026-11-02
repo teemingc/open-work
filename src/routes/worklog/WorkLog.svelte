@@ -32,6 +32,7 @@
 	import MonthCharts from './MonthCharts.svelte';
 	import MonthPicker from './MonthPicker.svelte';
 	import MonthStats from './MonthStats.svelte';
+	import TakeHome from './TakeHome.svelte';
 	import YearOverview from './YearOverview.svelte';
 
 	let { data }: { data: { settings: Settings; store: WorkLogStore } } = $props();
@@ -159,13 +160,8 @@
 					{#if fetching}<Spinner />{:else}<GitPullRequest />{/if}
 					<span class="max-sm:sr-only">Add from GitHub</span>
 				</Button>
-				<Button
-					variant="outline"
-					size="sm"
-					href={resolve('/worklog/setup')}
-					title="Clients and days off"
-				>
-					<Settings2 /> <span class="max-sm:sr-only">Clients and days off</span>
+				<Button variant="outline" size="sm" href={resolve('/settings/hours')} title="Settings">
+					<Settings2 /> <span class="max-sm:sr-only">Settings</span>
 				</Button>
 			</div>
 		</div>
@@ -176,7 +172,7 @@
 			<CircleAlert />
 			<Alert.Title>Your latest change was not saved</Alert.Title>
 			<Alert.Description>
-				{store.saveError} Download a backup from Clients and days off before closing this tab.
+				{store.saveError} Download a backup from Settings, under Data, before closing this tab.
 			</Alert.Description>
 		</Alert.Root>
 	{/if}
@@ -195,8 +191,9 @@
 		</p>
 	{/if}
 
-	<section aria-label="Summary">
+	<section aria-label="Summary" class="space-y-6">
 		<MonthStats {summary} data={store.data} {current} />
+		<TakeHome data={store.data} {summary} />
 	</section>
 
 	<!--
@@ -209,8 +206,8 @@
 			{#if clients.length === 0}
 				<p class="text-sm text-muted-foreground">
 					Add a client in
-					<a href={resolve('/worklog/setup')} class="font-medium text-foreground underline"
-						>Clients and days off</a
+					<a href={resolve('/settings/clients')} class="font-medium text-foreground underline"
+						>Clients settings</a
 					>
 					to start logging.
 				</p>

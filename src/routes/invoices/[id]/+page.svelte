@@ -226,7 +226,7 @@
 				<TriangleAlert />
 				<Alert.Title>
 					Add {missing.join(', ').replace(/, ([^,]*)$/, ' and $1')} to make this invoice.
-					<a href={resolve('/worklog/setup')} class="underline">Go to clients and days off</a>
+					<a href={resolve('/settings/invoicing')} class="underline">Go to Invoicing settings</a>
 				</Alert.Title>
 			</Alert.Root>
 		{:else}

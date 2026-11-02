@@ -4,8 +4,11 @@ import {
 	insertionIndex,
 	mergeDaysOff,
 	nowIso,
+	orderedDeductions,
 	WorkLogSchema,
+	type Allowance,
 	type Client,
+	type Deduction,
 	type DayOff,
 	type Invoice,
 	type InvoiceStatus,
@@ -225,6 +228,11 @@ export class WorkLogStore {
 	/** Keep in this browser without counting as a change of yours. */
 	#write() {
 		const snapshot = $state.snapshot(this.data);
+		// A log this browser could not read back would be replaced with a fresh one on the next visit.
+		if (!v.safeParse(WorkLogSchema, snapshot).success) {
+			this.saveError = 'That change could not be saved, as the work log would no longer open.';
+			return;
+		}
 		this.#writes = this.#writes
 			.then(() => this.#backend.save(snapshot))
 			.then(
@@ -382,6 +390,55 @@ export class WorkLogStore {
 		this.#save();
 	}
 
+	/* Days off and deductions */
+
+	setAllowance(allowance: Allowance | undefined) {
+		this.data.allowance = allowance;
+		this.data.allowanceUpdatedAt = nowIso();
+		this.#save();
+	}
+
+	/** A new deduction, taken after the others. */
+	addDeduction(deduction: Omit<Deduction, 'id' | 'updatedAt' | 'order'>): Deduction {
+		const order = Math.max(0, ...this.data.deductions.map((other) => other.order + 1));
+		const created = { ...deduction, order, id: crypto.randomUUID(), updatedAt: nowIso() };
+		this.data.deductions.push(created);
+		this.#save();
+		return created;
+	}
+
+	updateDeduction(deduction: Deduction) {
+		const index = this.data.deductions.findIndex((other) => other.id === deduction.id);
+		if (index === -1) return;
+		this.data.deductions[index] = { ...deduction, updatedAt: nowIso() };
+		this.#save();
+	}
+
+	/** Swap a deduction with the one before (-1) or after (1) it, so it is taken earlier or later. */
+	moveDeduction({ id, by }: { id: string; by: -1 | 1 }) {
+		const ordered = orderedDeductions(this.data.deductions);
+		const index = ordered.findIndex((deduction) => deduction.id === id);
+		const other = ordered[index + by];
+		if (index === -1 || !other) return;
+		// Renumbered in place, so equal orders from older copies come apart too.
+		const at = nowIso();
+		const swapped = [...ordered];
+		[swapped[index], swapped[index + by]] = [other, ordered[index]];
+		swapped.forEach((deduction, position) => {
+			const stored = this.data.deductions.find((one) => one.id === deduction.id)!;
+			if (stored.order !== position) Object.assign(stored, { order: position, updatedAt: at });
+		});
+		this.#save();
+	}
+
+	removeDeduction(id: string) {
+		const index = this.data.deductions.findIndex((deduction) => deduction.id === id);
+		if (index === -1) return;
+		this.data.deductions.splice(index, 1);
+		this.#bury('deduction', id);
+		this.#save();
+	}
+
 	/* Invoices by email */
 
 	setInvoicing(invoicing: Invoicing) {
@@ -466,8 +523,10 @@ export class WorkLogStore {
 			holidays: backup.holidays.map(stamp),
 			leave: backup.leave.map(stamp),
 			invoices: backup.invoices.map(stamp),
+			deductions: backup.deductions.map(stamp),
 			scheduleUpdatedAt: at,
 			invoicingUpdatedAt: at,
+			allowanceUpdatedAt: at,
 			deleted: [...backup.deleted, ...gone]
 		};
 		this.#save();
@@ -485,16 +544,19 @@ export function openWorkLog(defaults: WorkLogDefaults): Promise<WorkLogStore> {
 		// Ask the browser not to clear the log to free space.
 		void navigator.storage?.persist?.();
 		let data: WorkLogData | undefined;
+		let unreadable = false;
 		try {
 			data = await indexedDbBackend.load();
 		} catch (error) {
+			unreadable = true;
 			console.error('Could not read the saved work log', error);
 		}
 		const store = new WorkLogStore({
 			backend: indexedDbBackend,
 			data: data ?? starterLog(defaults)
 		});
-		if (!data) store.adopt(store.data);
+		// A log that could not be read stays as it is until you change something, so it can be recovered.
+		if (!data && !unreadable) store.adopt(store.data);
 		return store;
 	})();
 	return opening;

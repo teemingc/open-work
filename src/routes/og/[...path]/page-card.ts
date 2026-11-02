@@ -27,11 +27,6 @@ export const PAGES: Record<string, { title: string; description: string; motif: 
 		description: 'Log your hours and keep track of your pace for the month.',
 		motif: 'hours'
 	},
-	'worklog/setup': {
-		title: 'Clients and days off',
-		description: 'Set the clients you log hours for and the days you’ve taken off.',
-		motif: 'hours'
-	},
 	invoices: {
 		title: 'Invoices',
 		description: 'Send invoices to Open Collective in a few clicks, and keep track of each one.',
@@ -42,9 +37,36 @@ export const PAGES: Record<string, { title: string; description: string; motif: 
 		description: 'Send an invoice to Open Collective along with your work log.',
 		motif: 'invoices'
 	},
-	settings: {
-		title: 'Settings',
-		description: 'Connect to Open Collective to start sending invoices.',
+	'settings/clients': {
+		title: 'Clients',
+		description: 'Who you work for, what they pay an hour, and how often you invoice them.',
+		motif: 'hours'
+	},
+	'settings/invoicing': {
+		title: 'Invoicing',
+		description:
+			'Connect Open Collective, and set who the invoices you email are from and how you are paid.',
+		motif: 'invoices'
+	},
+	'settings/hours': {
+		title: 'Hours and pay',
+		description:
+			'The hours you aim to work, the currency earnings show in, and what comes out of them.',
+		motif: 'hours'
+	},
+	'settings/time-off': {
+		title: 'Time off',
+		description: 'Public holidays, the days you took off, and how many you have a year.',
+		motif: 'hours'
+	},
+	'settings/connections': {
+		title: 'Connections',
+		description: 'Find your work on GitHub and keep the work log in Google Drive.',
+		motif: 'tiles'
+	},
+	'settings/data': {
+		title: 'Data',
+		description: 'Back up the work log and your settings, or delete everything.',
 		motif: 'tiles'
 	},
 	privacy: {

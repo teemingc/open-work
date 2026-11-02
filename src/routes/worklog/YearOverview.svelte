@@ -5,7 +5,7 @@
 	import type { ChartConfig } from '#lib/components/ui/chart/chart-utils.js';
 	import LazyChart from '#lib/components/LazyChart.svelte';
 	import { formatHours, formatMoney } from '#lib/format.js';
-	import { converted, summarizeMonth, type WorkLogData } from '#lib/worklog.js';
+	import { converted, daysOffBudget, summarizeMonth, type WorkLogData } from '#lib/worklog.js';
 	import { scaleBand } from 'd3-scale';
 
 	let { data, year, today }: { data: WorkLogData; year: number; today: string } = $props();
@@ -31,6 +31,8 @@
 	 * A finished month that fell short of its expected hours draws its logged bar as `short`, in the
 	 * alarming colour; the month under way is not counted short until it ends.
 	 */
+	const budget = $derived(daysOffBudget({ data, year, today }));
+
 	const chartData = $derived(
 		months.map(({ month, summary }) => {
 			const short = month < today.slice(0, 7) && summary.logged < summary.expected;
@@ -88,6 +90,14 @@
 <Card.Root>
 	<Card.Header>
 		<Card.Title>{year} so far</Card.Title>
+		{#if budget}
+			<Card.Action class="text-right text-sm tabular-nums">
+				<span class={['font-semibold', budget.left < 0 && 'text-destructive']}>
+					{formatHours(budget.left)}
+				</span>
+				<span class="text-muted-foreground">of {formatHours(budget.allowance)} days off left</span>
+			</Card.Action>
+		{/if}
 		<Card.Description>
 			{#if totals.logged === 0}
 				Nothing logged in {year} yet. Each month's hours and earnings appear here as you log time.
@@ -161,7 +171,7 @@
 				{/snippet}
 			</LazyChart>
 
-			<div class="overflow-x-auto rounded-lg border bg-card">
+			<div class="-mx-3 overflow-x-auto">
 				<table class="ledger text-sm">
 					<caption class="sr-only">Hours and earnings by month</caption>
 					<thead class="text-xs">

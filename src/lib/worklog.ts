@@ -218,8 +218,58 @@ export function emptyInvoicing(): Invoicing {
 	return v.parse(InvoicingSchema, {});
 }
 
+const BandSchema = v.object({
+	/** The top of the band; unset for the last band, which has no top. */
+	upTo: v.optional(v.pipe(v.number(), v.minValue(0))),
+	/** Percent taken of the income within the band. */
+	rate: v.pipe(v.number(), v.minValue(0), v.maxValue(100))
+});
+
+/** One band of a progressive scale, like an income tax's. */
+export type Band = v.InferOutput<typeof BandSchema>;
+
+const DeductionKindSchema = v.picklist(['percent', 'fixed', 'bands']);
+
+/** A percentage of the income, a fixed amount, or a progressive scale of bands. */
+export type DeductionKind = v.InferOutput<typeof DeductionKindSchema>;
+
+const DeductionSchema = v.object({
+	id: v.string(),
+	updatedAt: UpdatedAt,
+	name: v.string(),
+	kind: DeductionKindSchema,
+	/** Percent, for `percent`. */
+	rate: v.optional(v.pipe(v.number(), v.minValue(0), v.maxValue(100))),
+	/** Taken each month, for `fixed`. */
+	amount: v.optional(v.pipe(v.number(), v.minValue(0))),
+	/** In order, for `bands`. */
+	bands: v.optional(v.array(BandSchema)),
+	/** For `bands`: the scale is for a year's income, so a month pays a twelfth of a year's. */
+	yearly: v.optional(v.boolean()),
+	/** Worked out on gross pay, or on what the deductions before it leave. */
+	base: v.optional(v.picklist(['gross', 'remaining']), 'gross'),
+	/** Where it comes among the deductions, lowest first. */
+	order: v.optional(v.number(), 0)
+});
+
+/**
+ * Something taken from what you earn, in your home currency, like income tax, a pension
+ * contribution or a tithe. Anyone can define their own.
+ */
+export type Deduction = v.InferOutput<typeof DeductionSchema>;
+
+const AllowanceSchema = v.object({
+	/** Days off a year. */
+	days: v.pipe(v.number(), v.minValue(0)),
+	/** Whether public holidays come out of the allowance too. */
+	holidays: v.optional(v.boolean(), false)
+});
+
+/** How many days off a year you allow yourself. */
+export type Allowance = v.InferOutput<typeof AllowanceSchema>;
+
 const TombstoneSchema = v.object({
-	kind: v.picklist(['entry', 'client', 'holiday', 'leave', 'invoice']),
+	kind: v.picklist(['entry', 'client', 'holiday', 'leave', 'invoice', 'deduction']),
 	/** The entry's or client's id, or the day off's date. */
 	id: v.string(),
 	at: v.string()
@@ -247,6 +297,10 @@ export const WorkLogSchema = v.object({
 	invoicing: v.optional(InvoicingSchema),
 	/** When your invoice details last changed. */
 	invoicingUpdatedAt: v.optional(v.string()),
+	deductions: v.optional(v.array(DeductionSchema), []),
+	allowance: v.optional(AllowanceSchema),
+	/** When the days-off allowance last changed. */
+	allowanceUpdatedAt: v.optional(v.string()),
 	/** Records deleted here, so a copy that still has them does not bring them back. */
 	deleted: v.optional(v.array(TombstoneSchema), [])
 });
@@ -261,6 +315,7 @@ export function emptyWorkLog(): WorkLogData {
 		holidays: [],
 		leave: [],
 		invoices: [],
+		deductions: [],
 		hoursPerDay: 8,
 		deleted: []
 	};
@@ -1138,4 +1193,164 @@ export function mergeDaysOff({ list, days }: { list: DayOff[]; days: DayOff[] })
 
 export function nowIso(): string {
 	return new Date().toISOString();
+}
+
+/* ---------------------------------- Take-home ---------------------------------- */
+
+/** An amount in your home currency: the exchange's, else the one currency you are paid in. */
+export function homeAmount({
+	data,
+	amounts
+}: {
+	data: WorkLogData;
+	amounts: Record<string, number>;
+}): { amount: number; currency: string } | undefined {
+	if (data.exchange) {
+		const amount = converted({ data, amounts });
+		return amount === undefined ? undefined : { amount, currency: data.exchange.to };
+	}
+	const currencies = Object.keys(amounts);
+	const currency = currencies[0] ?? activeClients(data.clients)[0]?.currency;
+	if (currencies.length > 1 || !currency) return undefined;
+	return { amount: round2(amounts[currency] ?? 0), currency };
+}
+
+/** What a progressive scale takes from `income`: each band's rate on the part within it. */
+export function bandsTax({ income, bands }: { income: number; bands: Band[] }): number {
+	const sorted = [...bands].sort((a, b) => (a.upTo ?? Infinity) - (b.upTo ?? Infinity));
+	let tax = 0;
+	let floor = 0;
+	for (const band of sorted) {
+		const top = band.upTo ?? Infinity;
+		if (income > floor) tax += ((Math.min(income, top) - floor) * band.rate) / 100;
+		floor = top;
+	}
+	return round2(tax);
+}
+
+/** Your deductions in the order they are taken. */
+export function orderedDeductions(deductions: Deduction[]): Deduction[] {
+	return [...deductions].sort((a, b) => a.order - b.order);
+}
+
+/** What each deduction takes from a month's gross pay, in order, and what is left. */
+export function takeHome({ gross, deductions }: { gross: number; deductions: Deduction[] }): {
+	lines: { deduction: Deduction; amount: number }[];
+	net: number;
+} {
+	let left = gross;
+	const lines = orderedDeductions(deductions).map((deduction) => {
+		const base = deduction.base === 'remaining' ? left : gross;
+		const raw =
+			deduction.kind === 'percent'
+				? (base * (deduction.rate ?? 0)) / 100
+				: deduction.kind === 'fixed'
+					? (deduction.amount ?? 0)
+					: deduction.yearly
+						? bandsTax({ income: base * 12, bands: deduction.bands ?? [] }) / 12
+						: bandsTax({ income: base, bands: deduction.bands ?? [] });
+		const amount = round2(Math.max(0, raw));
+		left = round2(left - amount);
+		return { deduction, amount };
+	});
+	return { lines, net: left };
+}
+
+/**
+ * The month's earnings so far, and where they could end if the hours still expected are worked:
+ * at each client's share of the hours (average), all at the lowest rate, or all at the highest.
+ * In your home currency, or `undefined` when the clients' currencies cannot be added up.
+ */
+export function monthProjection({
+	data,
+	summary
+}: {
+	data: WorkLogData;
+	summary: MonthSummary;
+}): { earned: number; low: number; average: number; high: number; currency: string } | undefined {
+	const earned = homeAmount({ data, amounts: summary.amounts });
+	if (!earned) return undefined;
+	const lastDay = monthDates(summary.month).at(-1)!;
+	const clients = activeClients(data.clients).flatMap((client) => {
+		const home = homeAmount({ data, amounts: { [client.currency]: rateOn(client, lastDay) } });
+		return home && home.currency === earned.currency ? [{ client, rate: home.amount }] : [];
+	});
+	if (clients.length === 0)
+		return {
+			...earned,
+			earned: earned.amount,
+			low: earned.amount,
+			average: earned.amount,
+			high: earned.amount
+		};
+	const rates = clients.map(({ rate }) => rate);
+	const mean = rates.reduce((sum, rate) => sum + rate, 0) / rates.length;
+	// Hours each client still has toward its share, then the rest at the clients' average rate.
+	let assigned = 0;
+	let byShare = 0;
+	for (const { client, rate } of clients) {
+		const total = summary.clients.find((other) => other.client.id === client.id);
+		if (total?.target === undefined) continue;
+		const left = Math.min(Math.max(0, total.target - total.hours), summary.remaining - assigned);
+		assigned += left;
+		byShare += left * rate;
+	}
+	const rest = Math.max(0, summary.remaining - assigned);
+	return {
+		currency: earned.currency,
+		earned: earned.amount,
+		low: round2(earned.amount + summary.remaining * Math.min(...rates)),
+		average: round2(earned.amount + byShare + rest * mean),
+		high: round2(earned.amount + summary.remaining * Math.max(...rates))
+	};
+}
+
+/**
+ * Your days off this year against your allowance. Leave comes out of it, and public holidays if
+ * you count them. So do hours short of what you expected in the months you logged, as days at your
+ * hours a day, and hours over give days back. This month counts only up to today.
+ */
+export function daysOffBudget({
+	data,
+	year,
+	today
+}: {
+	data: WorkLogData;
+	year: number;
+	today: string;
+}):
+	| {
+			allowance: number;
+			leave: number;
+			holidays: number;
+			short: number;
+			used: number;
+			left: number;
+	  }
+	| undefined {
+	const allowance = data.allowance;
+	if (!allowance) return undefined;
+	const prefix = String(year);
+	const weekdays = (days: DayOff[]) =>
+		days.filter((day) => day.date.startsWith(prefix) && isWeekday(day.date)).length;
+	const leave = weekdays(data.leave);
+	const holidays = allowance.holidays ? weekdays(data.holidays) : 0;
+	const lastMonth = today.startsWith(prefix) ? Number(today.slice(5, 7)) : 12;
+	let shortHours = 0;
+	for (let index = 1; index <= lastMonth; index++) {
+		const month = `${prefix}-${String(index).padStart(2, '0')}`;
+		const summary = summarizeMonth({ data, month, today });
+		if (summary.logged === 0) continue;
+		shortHours += summary.expectedSoFar - summary.logged;
+	}
+	const short = data.hoursPerDay > 0 ? Math.round((shortHours / data.hoursPerDay) * 10) / 10 : 0;
+	const used = Math.round((leave + holidays + short) * 10) / 10;
+	return {
+		allowance: allowance.days,
+		leave,
+		holidays,
+		short,
+		used,
+		left: Math.round((allowance.days - used) * 10) / 10
+	};
 }

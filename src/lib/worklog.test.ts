@@ -2,6 +2,11 @@ import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import {
 	activeClients,
+	bandsTax,
+	daysOffBudget,
+	monthProjection,
+	takeHome,
+	type Deduction,
 	addMonths,
 	clientChoices,
 	converted,
@@ -700,5 +705,125 @@ describe('days off', () => {
 	it('moves to the next month', () => {
 		expect(addMonths('2026-12', 1)).toBe('2027-01');
 		expect(addMonths('2026-01', -1)).toBe('2025-12');
+	});
+});
+
+describe('take-home', () => {
+	// A progressive scale like Malaysia's income tax, simplified.
+	const bands = [
+		{ upTo: 5000, rate: 0 },
+		{ upTo: 20000, rate: 1 },
+		{ upTo: 35000, rate: 3 },
+		{ rate: 8 }
+	];
+	const deduction = (partial: Partial<Deduction> & Pick<Deduction, 'kind'>): Deduction => ({
+		id: crypto.randomUUID(),
+		name: partial.kind,
+		base: 'gross',
+		order: 0,
+		...partial
+	});
+
+	it('taxes each band’s part of the income at its own rate', () => {
+		expect(bandsTax({ income: 3000, bands })).toBe(0);
+		expect(bandsTax({ income: 30000, bands })).toBe(450);
+		expect(bandsTax({ income: 40000, bands })).toBe(1000);
+	});
+
+	it('takes each deduction in order, from gross or from what is left', () => {
+		const { lines, net } = takeHome({
+			gross: 10000,
+			deductions: [
+				deduction({ name: 'Tithe', kind: 'percent', rate: 10, order: 2 }),
+				deduction({ name: 'Pension', kind: 'percent', rate: 11, order: 0 }),
+				// A yearly scale on what the pension leaves: 8900 a month is 106800 a year.
+				deduction({ name: 'Tax', kind: 'bands', bands, yearly: true, base: 'remaining', order: 1 })
+			]
+		});
+		expect(lines.map(({ deduction, amount }) => [deduction.name, amount])).toEqual([
+			['Pension', 1100],
+			['Tax', 528.67],
+			['Tithe', 1000]
+		]);
+		expect(net).toBe(7371.33);
+	});
+
+	it('can leave less than nothing, but takes nothing from nothing', () => {
+		expect(
+			takeHome({ gross: 100, deductions: [deduction({ kind: 'fixed', amount: 150 })] }).net
+		).toBe(-50);
+		expect(takeHome({ gross: 0, deductions: [deduction({ kind: 'percent', rate: 10 })] }).net).toBe(
+			0
+		);
+	});
+});
+
+describe('projections', () => {
+	const data: WorkLogData = {
+		...emptyWorkLog(),
+		clients: [svelte, zenos],
+		exchange: { from: 'USD', to: 'MYR', rate: 4 },
+		entries: [
+			entry({ date: '2026-10-01', hours: 7 }),
+			entry({ date: '2026-10-08', clientId: 'zenos', hours: 2 }),
+			entry({ date: '2026-10-12', hours: 3 })
+		]
+	};
+	const month = (log: WorkLogData) =>
+		monthProjection({
+			data: log,
+			summary: summarizeMonth({ data: log, month: '2026-10', today: '2026-10-12' })
+		});
+
+	it('ranges the hours still expected from the lowest rate to the highest', () => {
+		// 484 USD earned is 1936 MYR; 164 hours left at 160 or 168 MYR an hour.
+		expect(month(data)).toEqual({
+			currency: 'MYR',
+			earned: 1936,
+			low: 28176,
+			average: 28832,
+			high: 29488
+		});
+	});
+
+	it('averages at each client’s share of the hours', () => {
+		const shared = {
+			...data,
+			clients: [
+				{ ...svelte, targetShare: 50 },
+				{ ...zenos, targetShare: 50 }
+			]
+		};
+		// 78 hours left toward svelte's 88 at 160, and 86 toward zenos's at 168.
+		expect(month(shared)?.average).toBe(28864);
+	});
+});
+
+describe('days-off budget', () => {
+	it('takes leave, counted holidays and hours short off the allowance', () => {
+		const data: WorkLogData = {
+			...emptyWorkLog(),
+			clients: [svelte],
+			allowance: { days: 14, holidays: true },
+			leave: [
+				{ date: '2026-11-02', name: '' },
+				{ date: '2026-11-03', name: '' },
+				{ date: '2026-11-07', name: 'A Saturday' }
+			],
+			holidays: [{ date: '2026-12-25', name: 'Christmas' }],
+			entries: [entry({ date: '2026-10-01', hours: 12 })]
+		};
+		// By the 12th, October expected 64 hours: 52 short is 6.5 days.
+		expect(daysOffBudget({ data, year: 2026, today: '2026-10-12' })).toEqual({
+			allowance: 14,
+			leave: 2,
+			holidays: 1,
+			short: 6.5,
+			used: 9.5,
+			left: 4.5
+		});
+		expect(
+			daysOffBudget({ data: { ...data, allowance: undefined }, year: 2026, today: '2026-10-12' })
+		).toBe(undefined);
 	});
 });

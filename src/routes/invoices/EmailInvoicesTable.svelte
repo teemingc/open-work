@@ -49,7 +49,7 @@
 		</thead>
 		<tbody>
 			{#each invoices as invoice (invoice.id)}
-				{const on = invoice.paidOn ?? invoice.sentOn}
+				{const on = $derived(invoice.paidOn ?? invoice.sentOn)}
 				<tr
 					class="grid grid-cols-[minmax(0,1fr)_auto] items-center py-1.5 hover:bg-accent/50 sm:table-row sm:py-0"
 				>

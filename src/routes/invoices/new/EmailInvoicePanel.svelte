@@ -131,8 +131,8 @@
 			{#if missing.length > 0}
 				<li class="flex items-start gap-1.5">
 					<CircleAlert size={15} class="mt-0.5 shrink-0" />
-					<a href={resolve('/worklog/setup')} class="underline hover:text-foreground">
-						Add {missing.join(', ').replace(/, ([^,]*)$/, ' and $1')} in clients and days off
+					<a href={resolve('/settings/invoicing')} class="underline hover:text-foreground">
+						Add {missing.join(', ').replace(/, ([^,]*)$/, ' and $1')} in Invoicing settings
 					</a>
 				</li>
 			{/if}

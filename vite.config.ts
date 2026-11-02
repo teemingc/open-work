@@ -29,6 +29,8 @@ function warnOnPortFallback(): Plugin {
 
 export default defineConfig({
 	server: { port: DEV_PORT },
+	// Found only once the work log renders, which made the first visit bundle them and then reload the page.
+	optimizeDeps: { include: ['layerchart', 'layerchart/svg'] },
 	plugins: [
 		warnOnPortFallback(),
 		tailwindcss(),
