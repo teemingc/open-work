@@ -52,11 +52,14 @@
 	{:else}
 		<ul class="divide-y rounded-lg border" aria-label="Holidays in {year}">
 			{#each days as { day, index } (day.date)}
-				<li class="flex flex-wrap items-center gap-2 p-2">
+				<!-- The name has a line of its own on a phone, and the weekend note sits under it on any screen. -->
+				<li
+					class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 p-2 sm:grid-cols-[10rem_minmax(0,1fr)_auto]"
+				>
 					<Input
 						type="date"
 						aria-label="Date"
-						class="block w-40"
+						class="block w-40 sm:w-full"
 						value={day.date}
 						onchange={(event) => {
 							const date = event.currentTarget.value;
@@ -65,7 +68,7 @@
 					/>
 					<Input
 						aria-label="Name"
-						class="min-w-0 flex-1"
+						class="col-span-2 sm:col-span-1 sm:col-start-2 sm:row-start-1"
 						value={day.name}
 						placeholder="Name"
 						onchange={(event) =>
@@ -73,7 +76,7 @@
 					/>
 					{#if !isWeekday(day.date)}
 						{const replacement = $derived(replacedOn.get(day.date))}
-						<span class="text-xs text-muted-foreground">
+						<span class="col-span-2 text-xs text-muted-foreground sm:col-span-1 sm:col-start-2">
 							{replacement
 								? `Weekend, off on ${formatLongDate(replacement)}`
 								: 'Weekend, not counted'}
@@ -82,7 +85,7 @@
 					<Button
 						variant="ghost"
 						size="icon"
-						class="size-8"
+						class="col-start-2 row-start-1 size-8 justify-self-end sm:col-start-3"
 						aria-label="Remove {day.name || day.date}"
 						onclick={() => store.removeHoliday(day.date)}
 					>

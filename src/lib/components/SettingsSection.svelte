@@ -21,8 +21,9 @@
 -->
 <section
 	class={[
-		'grid gap-6 border-t py-8 first:border-t-0 first:pt-0 md:grid-cols-[14rem_1fr]',
-		action && 'grid-cols-[1fr_auto] md:gap-y-3'
+		'grid gap-6 border-t py-8 first:border-t-0 first:pt-0 md:grid-cols-[14rem_minmax(0,1fr)]',
+		// Columns that can shrink, so a long name truncates rather than widening the page.
+		action ? 'grid-cols-[minmax(0,1fr)_auto] md:gap-y-3' : 'grid-cols-[minmax(0,1fr)]'
 	]}
 >
 	<div class={action && 'md:row-span-2'}>

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import * as Card from '#lib/components/ui/card/index.js';
-	import { formatMoney } from '#lib/format.js';
+	import { formatAmount, formatMoney } from '#lib/format.js';
 	import { monthProjection, takeHome, type MonthSummary, type WorkLogData } from '#lib/worklog.js';
 
 	let { data, summary }: { data: WorkLogData; summary: MonthSummary } = $props();
@@ -20,6 +20,8 @@
 	const soFar = $derived(projection && takeHome({ gross: projection.earned, deductions }));
 	const projected = $derived(projection && takeHome({ gross: projection.average, deductions }));
 	const money = (amount: number) => formatMoney(amount, projection?.currency ?? 'USD');
+	// The table names the currency once, in its corner, so its figures fit a phone.
+	const amount = (value: number) => formatAmount(value, projection?.currency ?? 'USD');
 </script>
 
 {#if projection && soFar && projected}
@@ -31,39 +33,55 @@
 			</Card.Description>
 		</Card.Header>
 		<Card.Content>
-			<div class="-mx-3 overflow-x-auto">
-				<table class="ledger text-sm">
+			<div class="@container -mx-2 overflow-x-auto sm:-mx-3">
+				<table class="ledger text-sm @max-[15.5rem]:ledger-stacked">
 					<thead>
 						<tr>
-							<th scope="col" class="px-3 py-2 font-medium"><span class="sr-only">Line</span></th>
-							<th scope="col" class="px-3 py-2 text-right font-medium">So far</th>
-							<th scope="col" class="px-3 py-2 text-right font-medium">Projected</th>
+							<th scope="col" class="px-2 py-2 text-left font-normal sm:px-3"
+								><span class="sr-only">Line, in </span>{projection.currency}</th
+							>
+							<th scope="col" class="px-2 py-2 text-right font-medium sm:px-3">So far</th>
+							<th scope="col" class="px-2 py-2 text-right font-medium sm:px-3">Projected</th>
 						</tr>
 					</thead>
 					<tbody class="tabular-nums">
 						<tr>
-							<th scope="row" class="px-3 py-2 text-left font-normal">Gross</th>
-							<td class="px-3 py-2 text-right">{money(projection.earned)}</td>
-							<td class="px-3 py-2 text-right">{money(projection.average)}</td>
+							<th scope="row" class="px-2 py-2 text-left font-normal sm:px-3">Gross</th>
+							<td data-label="So far" class="px-2 py-2 text-right sm:px-3"
+								>{amount(projection.earned)}</td
+							>
+							<td data-label="Projected" class="px-2 py-2 text-right sm:px-3"
+								>{amount(projection.average)}</td
+							>
 						</tr>
 						{#each soFar.lines as line, index (line.deduction.id)}
 							<tr>
-								<th scope="row" class="px-3 py-2 text-left font-normal text-muted-foreground">
+								<th
+									scope="row"
+									class="px-2 py-2 text-left font-normal text-muted-foreground sm:px-3"
+								>
 									{line.deduction.name || 'Deduction'}
 									{#if line.deduction.kind === 'percent'}
 										<span class="tabular-nums">{line.deduction.rate}%</span>
 									{/if}
 								</th>
-								<td class="px-3 py-2 text-right text-muted-foreground">−{money(line.amount)}</td>
-								<td class="px-3 py-2 text-right text-muted-foreground">
-									−{money(projected.lines[index].amount)}
+								<td data-label="So far" class="px-2 py-2 text-right text-muted-foreground sm:px-3"
+									>−{amount(line.amount)}</td
+								>
+								<td
+									data-label="Projected"
+									class="px-2 py-2 text-right text-muted-foreground sm:px-3"
+								>
+									−{amount(projected.lines[index].amount)}
 								</td>
 							</tr>
 						{/each}
 						<tr class="font-semibold">
-							<th scope="row" class="px-3 py-2 text-left">Take-home</th>
-							<td class="px-3 py-2 text-right">{money(soFar.net)}</td>
-							<td class="px-3 py-2 text-right">{money(projected.net)}</td>
+							<th scope="row" class="px-2 py-2 text-left sm:px-3">Take-home</th>
+							<td data-label="So far" class="px-2 py-2 text-right sm:px-3">{amount(soFar.net)}</td>
+							<td data-label="Projected" class="px-2 py-2 text-right sm:px-3"
+								>{amount(projected.net)}</td
+							>
 						</tr>
 					</tbody>
 				</table>

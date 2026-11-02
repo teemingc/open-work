@@ -39,7 +39,7 @@
 <!-- Only the sides: a vertical margin here would cancel the spacing the sidebar gives each item. -->
 <figure class="mx-0 mt-0">
 	<div
-		class="rounded-sm border border-neutral-300 bg-white p-6 text-[15px] leading-snug text-neutral-900 shadow-[0_1px_0_rgb(0_0_0/0.04),0_12px_32px_-12px_rgb(30_41_59/0.25)]"
+		class="rounded-sm border border-neutral-300 bg-white p-4 text-[15px] leading-snug text-neutral-900 shadow-[0_1px_0_rgb(0_0_0/0.04),0_12px_32px_-12px_rgb(30_41_59/0.25)] sm:p-6"
 	>
 		<div class="grid grid-cols-2 gap-4 text-[13px]">
 			<div>
@@ -71,7 +71,10 @@
 		<table class="mt-5 w-full table-fixed border-collapse text-[13px]">
 			<thead>
 				<tr class="bg-slate-100 text-left">
-					<th class="w-[5.5rem] border border-neutral-200 p-2 font-semibold">Date</th>
+					<!-- The same as the date above, so a phone leaves it out to give the description room. -->
+					<th class="hidden w-[5.5rem] border border-neutral-200 p-2 font-semibold sm:table-cell"
+						>Date</th
+					>
 					<th class="border border-neutral-200 p-2 font-semibold">Description</th>
 					<th class="w-[5.5rem] border border-neutral-200 p-2 text-right font-semibold">
 						Amount
@@ -80,7 +83,7 @@
 			</thead>
 			<tbody>
 				<tr class="align-top">
-					<td class="border border-neutral-200 p-2">{today}</td>
+					<td class="hidden border border-neutral-200 p-2 sm:table-cell">{today}</td>
 					<td class="border border-neutral-200 p-2 break-words">{itemDescription}</td>
 					<td class="border border-neutral-200 p-2 text-right tabular-nums">{amount}</td>
 				</tr>
@@ -115,7 +118,15 @@
 									class={index === 0 && cells[0] === 'Date' ? 'font-semibold text-neutral-900' : ''}
 								>
 									{#each cells as cell, cellIndex (cellIndex)}
-										<td class="py-0.5 pr-3 align-top whitespace-nowrap">{cell}</td>
+										<!-- The work wraps, so a phone shows the whole line rather than scrolling sideways. -->
+										<td
+											class={[
+												'py-0.5 pr-3 align-top',
+												cellIndex < cells.length - 1 ? 'whitespace-nowrap' : 'break-words'
+											]}
+										>
+											{cell}
+										</td>
 									{/each}
 								</tr>
 							{/each}

@@ -176,7 +176,9 @@
 						<legend class="mb-2 text-sm font-medium">Bands ({currency})</legend>
 						{#each bands as band, bandIndex (bandIndex)}
 							{const from = $derived(bandIndex === 0 ? 0 : (bands[bandIndex - 1].upTo ?? 0))}
-							<div class="grid grid-cols-[minmax(0,1fr)_6rem_auto] items-end gap-2">
+							<div
+								class="grid grid-cols-[minmax(0,1fr)_4.5rem_auto] items-end gap-2 sm:grid-cols-[minmax(0,1fr)_6rem_auto]"
+							>
 								<div class="space-y-1.5">
 									<Label for="{deduction.id}-band-{bandIndex}-up-to" class="font-normal">
 										From {from.toLocaleString('en')} up to

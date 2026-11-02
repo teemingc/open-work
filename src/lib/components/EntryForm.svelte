@@ -46,8 +46,7 @@
 	} = $props();
 
 	function now(): string {
-		const time = new Date();
-		return `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
+		return `${String(new Date().getHours()).padStart(2, '0')}:00`;
 	}
 
 	// The form starts from these and then owns its values, so it can be edited and cancelled.
@@ -157,11 +156,12 @@
 		save();
 	}}
 >
-	<div class="space-y-1.5">
+	<!-- Date and client each take the full width on a phone, where a pair of them is too narrow to read. -->
+	<div class="col-span-2 space-y-1.5 sm:col-span-1">
 		<Label for="{id}-date">Date</Label>
 		<Input id="{id}-date" type="date" required bind:value={rowDate} class="block" />
 	</div>
-	<div class="space-y-1.5">
+	<div class="col-span-2 space-y-1.5 sm:col-span-1">
 		<Label for="{id}-client">Client</Label>
 		<Select.Root type="single" bind:value={rowClient}>
 			<Select.Trigger id="{id}-client" class="w-full"
@@ -231,7 +231,7 @@
 				}}
 			/>
 			<Button type="button" variant="outline" onclick={addItem} disabled={!parsed}>
-				<Plus /> Add item
+				<Plus /> <span class="max-sm:sr-only">Add item</span>
 			</Button>
 		</div>
 	</div>

@@ -70,7 +70,13 @@
 		</p>
 	{/if}
 
-	<ul class="col-start-1 min-w-0 space-y-0.5 sm:col-start-2 sm:row-start-1">
+	<!-- Under the time on a phone, the work takes the width of the hours and menu too. -->
+	<ul
+		class={[
+			'min-w-0 space-y-0.5 sm:col-span-1 sm:col-start-2 sm:row-start-1',
+			time || client ? 'col-span-3' : 'col-start-1'
+		]}
+	>
 		{#each entry.items as item, index (index)}
 			<li class="flex min-w-0"><WorkItem ref={item} {organization} /></li>
 		{/each}
