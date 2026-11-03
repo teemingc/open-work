@@ -17,11 +17,17 @@ export function chartPadding({
 	left = 48,
 	right = 8,
 	legend = false
-}: { left?: number; right?: number; legend?: boolean } = {}): {
+}: {
+	left?: number;
+	right?: number;
+	/** Whether there is a legend under the x-axis, or how tall it is once it wraps. */
+	legend?: boolean | number;
+} = {}): {
 	top: number;
 	right: number;
 	bottom: number;
 	left: number;
 } {
-	return { top: 18, right, bottom: legend ? 58 : 26, left: left + 6 };
+	const legendHeight = legend === true ? 20 : legend || 0;
+	return { top: 18, right, bottom: legendHeight ? 38 + legendHeight : 26, left: left + 6 };
 }

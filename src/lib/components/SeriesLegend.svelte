@@ -33,9 +33,12 @@
 		context,
 		classes,
 		details,
+		height = $bindable(),
 		...props
 	}: LegendProps & {
 		context: ReturnType<typeof getChartContext>;
+		/** How tall the legend is once it wraps, for the chart to leave that much room under its plot. */
+		height?: number;
 		/** More about a category, like what was spent on it, shown beside it in the legend. */
 		details?: Snippet<[key: string]>;
 	} = $props();
@@ -99,38 +102,45 @@
 	With details, hovering a category with a mouse opens them, and clicking still hides it. On a touch
 	screen, with no hover, tapping it opens them instead, with a button there to hide it.
 -->
-<Legend
-	onclick={(e, item) => {
-		if (details && e.detail !== 0 && !isMouse(e)) {
-			const same = detailsOpen && detailsKey === item.value;
-			detailsKey = item.value;
-			anchor = e.currentTarget as HTMLElement;
-			tapped = true;
-			detailsOpen = !same;
-			return true;
-		}
-		hide(item.value);
-		return highlight(e, item.value);
-	}}
-	onpointerenter={(e, item) => {
-		if (details && isMouse(e)) {
-			detailsKey = item.value;
-			anchor = e.currentTarget as HTMLElement;
-			tapped = false;
-			showDetails(true, 200);
-		}
-		return highlight(e, item.value);
-	}}
-	onpointerleave={(e) => {
-		if (details && isMouse(e)) showDetails(false, 200);
-	}}
-	classes={{
-		...classes,
-		items: cn('gap-x-1', classes?.items),
-		item: 'rounded-md px-2 py-0.5 transition-colors hover:bg-muted focus-visible:bg-muted'
-	}}
-	{...props}
-/>
+<!--
+	Under the plot, as wide as the chart, so a legend too long for one line wraps onto more instead
+	of running off both sides. The chart leaves room for every line through `height`.
+-->
+<div class="absolute inset-x-0 bottom-0 z-1" bind:clientHeight={height}>
+	<Legend
+		onclick={(e, item) => {
+			if (details && e.detail !== 0 && !isMouse(e)) {
+				const same = detailsOpen && detailsKey === item.value;
+				detailsKey = item.value;
+				anchor = e.currentTarget as HTMLElement;
+				tapped = true;
+				detailsOpen = !same;
+				return true;
+			}
+			hide(item.value);
+			return highlight(e, item.value);
+		}}
+		onpointerenter={(e, item) => {
+			if (details && isMouse(e)) {
+				detailsKey = item.value;
+				anchor = e.currentTarget as HTMLElement;
+				tapped = false;
+				showDetails(true, 200);
+			}
+			return highlight(e, item.value);
+		}}
+		onpointerleave={(e) => {
+			if (details && isMouse(e)) showDetails(false, 200);
+		}}
+		classes={{
+			...classes,
+			root: cn('w-full', classes?.root),
+			items: cn('flex-wrap justify-center gap-x-1 gap-y-0!', classes?.items),
+			item: 'rounded-md px-2 py-0.5 transition-colors hover:bg-muted focus-visible:bg-muted'
+		}}
+		{...props}
+	/>
+</div>
 
 {#if details}
 	<Popover.Root bind:open={detailsOpen}>

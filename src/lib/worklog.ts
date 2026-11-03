@@ -1349,6 +1349,155 @@ export function monthProjection({
 	};
 }
 
+/** Deductions set up enough to take something: one added but not yet given a rate, amount or bands takes nothing. */
+export function completeDeductions(deductions: Deduction[]): Deduction[] {
+	return deductions.filter((deduction) =>
+		deduction.kind === 'percent'
+			? deduction.rate !== undefined
+			: deduction.kind === 'fixed'
+				? deduction.amount !== undefined
+				: (deduction.bands?.length ?? 0) > 0
+	);
+}
+
+/**
+ * What each deduction takes from `months` months of gross pay, in order, and what is left. Unlike
+ * a month at a time, yearly bands are applied to the whole gross, as tax is charged on the year.
+ */
+export function yearTakeHome({
+	gross,
+	months,
+	deductions
+}: {
+	gross: number;
+	months: number;
+	deductions: Deduction[];
+}): { lines: { deduction: Deduction; amount: number }[]; net: number } {
+	let left = gross;
+	const lines = orderedDeductions(deductions).map((deduction) => {
+		const base = deduction.base === 'remaining' ? left : gross;
+		const raw =
+			deduction.kind === 'percent'
+				? (base * (deduction.rate ?? 0)) / 100
+				: deduction.kind === 'fixed'
+					? (deduction.amount ?? 0) * months
+					: deduction.yearly
+						? bandsTax({ income: base, bands: deduction.bands ?? [] })
+						: months > 0
+							? bandsTax({ income: base / months, bands: deduction.bands ?? [] }) * months
+							: 0;
+		const amount = round2(Math.max(0, raw));
+		left = round2(left - amount);
+		return { deduction, amount };
+	});
+	return { lines, net: left };
+}
+
+/** A year's hours against what you expected, and its earnings, from the first month you logged. */
+export interface YearSummary {
+	/** Each month counted, from January or the first month you logged, to December. */
+	months: MonthSummary[];
+	/** Expected over all the months counted. */
+	expected: number;
+	expectedSoFar: number;
+	logged: number;
+	/** Logged minus expected so far: positive when ahead. */
+	pace: number;
+	/** Hours still to log to reach the year's expected hours. */
+	remaining: number;
+	/** Working days left in the year, counting today. */
+	workingDaysLeft: number;
+	/** Hours a working day to end the year on target, catching up on any shortfall. */
+	neededPerDay: number;
+	/** Running totals by day through the year, with logged only up to today. */
+	days: { date: string; expected: number; logged: number | null }[];
+	/**
+	 * Earned so far in your home currency, and where the year could end if the hours still expected
+	 * are worked at each client's current rate and share. `undefined` when currencies cannot be added.
+	 */
+	earnings?: {
+		currency: string;
+		earned: number;
+		projected: number;
+		/** The months counted up to and including this one, and in all. */
+		monthsSoFar: number;
+		months: number;
+	};
+}
+
+export function summarizeYear({
+	data,
+	year,
+	today
+}: {
+	data: WorkLogData;
+	year: number;
+	today: string;
+}): YearSummary {
+	const firstLogged = data.entries.reduce(
+		(first, entry) => (monthOf(entry.date) < first ? monthOf(entry.date) : first),
+		'9999-12'
+	);
+	const thisMonth = monthOf(today);
+	const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`)
+		.filter((month) => month >= firstLogged)
+		.map((month) => summarizeMonth({ data, month, today }));
+
+	let expected = 0;
+	let logged = 0;
+	const days: YearSummary['days'] = [];
+	for (const summary of months) {
+		for (const day of summary.days) {
+			expected += day.expected;
+			logged = round2(logged + day.logged);
+			days.push({ date: day.date, expected, logged: day.date <= today ? logged : null });
+		}
+	}
+	const expectedSoFar = months.reduce((sum, summary) => sum + summary.expectedSoFar, 0);
+	const workingDaysLeft = months.reduce((sum, summary) => sum + summary.workingDaysLeft, 0);
+	const remaining = Math.max(0, round2(expected - logged));
+
+	let earnings: YearSummary['earnings'];
+	const amounts: Record<string, number> = {};
+	for (const summary of months) {
+		for (const [currency, amount] of Object.entries(summary.amounts)) {
+			amounts[currency] = round2((amounts[currency] ?? 0) + amount);
+		}
+	}
+	const earned = homeAmount({ data, amounts });
+	if (earned) {
+		let projected = 0;
+		for (const summary of months) {
+			// A month gone by is what you earned in it; this month and later add the hours still expected.
+			const month =
+				summary.month < thisMonth
+					? homeAmount({ data, amounts: summary.amounts })?.amount
+					: monthProjection({ data, summary })?.average;
+			projected += month ?? 0;
+		}
+		earnings = {
+			currency: earned.currency,
+			earned: earned.amount,
+			projected: round2(projected),
+			monthsSoFar: months.filter((summary) => summary.month <= thisMonth).length,
+			months: months.length
+		};
+	}
+
+	return {
+		months,
+		expected,
+		expectedSoFar,
+		logged,
+		pace: round2(logged - expectedSoFar),
+		remaining,
+		workingDaysLeft,
+		neededPerDay: workingDaysLeft > 0 ? round2(remaining / workingDaysLeft) : remaining,
+		days,
+		earnings
+	};
+}
+
 /**
  * Your days off this year against your allowance: hours short of what you expected, as days at
  * your hours a day, from the month you first logged, and public holidays if you count them. Hours

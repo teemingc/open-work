@@ -192,9 +192,14 @@
 								onfocusin={() => (highlighted = contributor.slug)}
 								onfocusout={() => (highlighted = null)}
 							>
-								<!-- Places moved since a year ago sit beside the place, as in a league table. -->
+								<!--
+									Places moved since a year ago sit beside the place, as in a league table, and under it
+									on phones so the name keeps its room.
+								-->
 								<td class="py-2.5 pr-1 pl-3 sm:pl-4">
-									<div class="flex items-center gap-2">
+									<div
+										class="flex items-center gap-2 max-sm:flex-col max-sm:items-end max-sm:gap-0"
+									>
 										<span class="w-6 text-right font-display text-xl text-primary">
 											{#if rank}
 												{rank}
@@ -202,7 +207,7 @@
 												<span class="sr-only">Not placed</span>
 											{/if}
 										</span>
-										<span class="w-8 text-xs">
+										<span class="text-xs sm:w-8">
 											{#if moved === null}
 												<!-- New to the ranking: marked where its movement would be, leaving the name its room. -->
 												{#if rank}
@@ -246,11 +251,13 @@
 												<img
 													src={contributor.imageUrl}
 													alt=""
-													class="size-6 shrink-0 rounded-full border bg-card object-cover"
+													class="size-6 shrink-0 rounded-full border bg-card object-cover max-[359px]:hidden"
 													loading="lazy"
 												/>
 											{:else}
-												<span class="size-6 shrink-0 rounded-full border bg-muted"></span>
+												<span
+													class="size-6 shrink-0 rounded-full border bg-muted max-[359px]:hidden"
+												></span>
 											{/if}
 											<span class="truncate">{contributor.name}</span>
 										</a>

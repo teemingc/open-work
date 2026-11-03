@@ -37,6 +37,9 @@
 		payouts: Payout[];
 	} = $props();
 
+	/** How tall the chart's legend is, so the plot leaves it room. */
+	let legendHeight = $state(20);
+
 	/** The averages need at least one month that is over. */
 	const tooNew = $derived(months.every((m) => m.partial));
 	/** This month so far, which a collective too new to forecast has alone. */
@@ -152,7 +155,7 @@
 			{#snippet children({ BarChart, Chart, Legend, legendMotion })}
 				<Chart.Container config={flowConfig} class="aspect-auto h-64 w-full cursor-pointer">
 					<BarChart
-						padding={chartPadding({ legend: true })}
+						padding={chartPadding({ legend: legendHeight })}
 						data={monthly}
 						x="month"
 						xScale={scaleBand().padding(0.2)}
@@ -179,7 +182,7 @@
 							<Chart.Tooltip labelFormatter={labelMonth} formatter={moneyRow} link={monthLink} />
 						{/snippet}
 						{#snippet legend({ context })}
-							<Legend {context} placement="bottom" />
+							<Legend {context} bind:height={legendHeight} />
 						{/snippet}
 					</BarChart>
 				</Chart.Container>
@@ -237,15 +240,53 @@
 
 <!--
 The charts above as figures, for screen readers and keyboards: each month opens its transactions.
-On phones the gain or loss, which is income less expenses, makes way for the rest, and the
-month and the contributions heading shorten, so the table fits without scrolling sideways. On
+On phones, too narrow for four columns of money, each month is a two-line entry instead: the
+balance it closed on beside the month, and what came in, went out and the change under it. On
 wide screens the table stops short of the card's edge, so a month stays near its figures. The
 month still in progress is ruled off with its figures in italics, as a ledger marks an entry not
 yet closed, and says how far its figures go.
 -->
 <details class="rounded-xl border bg-card text-sm">
 	<summary class="cursor-pointer px-4 py-3 font-medium">Monthly figures</summary>
-	<div class="overflow-x-auto border-t">
+	<ol class="divide-y border-t sm:hidden">
+		{#each shown as month (month.key)}
+			{const partial = $derived(month.key === partialKey)}
+			<li
+				class={[
+					'grid grid-cols-[1fr_auto] gap-x-3 px-4 py-2 tabular-nums',
+					partial && 'border-dashed italic'
+				]}
+			>
+				<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
+				<a
+					href={transactionsUrl({ slug: slug, month: month.key })}
+					target="_blank"
+					rel="noreferrer"
+					class="font-medium not-italic hover:underline"
+				>
+					{monthLabel({ key: month.key })}
+					{#if partial}
+						<span class="font-normal text-muted-foreground italic">to {dayMonth.format(now)}</span>
+					{/if}
+					<span class="sr-only">(opens in a new tab)</span>
+				</a>
+				<!-- eslint-enable svelte/no-navigation-without-resolve -->
+				<span class="text-right font-medium">
+					{money.format(month.balance)}<span class="sr-only"> balance</span>
+				</span>
+				<span class="text-xs text-muted-foreground">
+					<span class="text-chart-income">+{money.format(month.income)}</span> in ·
+					<span class="text-chart-expenses">−{money.format(month.expenses)}</span> out
+				</span>
+				<span
+					class={['text-right text-xs', month.net >= 0 ? 'text-status-paid' : 'text-destructive']}
+				>
+					{signed(Math.round(month.net))}
+				</span>
+			</li>
+		{/each}
+	</ol>
+	<div class="border-t max-sm:hidden">
 		<table class="ledger">
 			<caption class="sr-only">Contributions, expenses and balance by month</caption>
 			<thead class="text-xs">

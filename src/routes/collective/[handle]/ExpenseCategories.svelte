@@ -166,7 +166,7 @@
 				{#snippet children({ BarChart, Chart, Legend, legendMotion })}
 					<Chart.Container {config} class="aspect-auto h-72 w-full cursor-pointer">
 						<BarChart
-							padding={{ ...chartPadding({ legend: true }), bottom: 38 + legendHeight }}
+							padding={chartPadding({ legend: legendHeight })}
 							data={byCategory.rows}
 							x="month"
 							xScale={scaleBand().padding(0.2)}
@@ -191,18 +191,15 @@
 						>
 							{#snippet legend({ context })}
 								<!--
-									Category names are long, so the legend wraps and the plot makes room for every row.
-									Centred like the other charts' legends where a row holds several. On phones, where it
-									becomes a list, left-aligned so the swatches line up, and pulled out by each item's
-									padding so they line up with the title too.
+									On phones, where the long category names make it a list, left-aligned so the swatches
+									line up, and pulled out by each item's padding so they line up with the title too.
 								-->
-								<div class="absolute inset-x-0 bottom-0 z-1" bind:clientHeight={legendHeight}>
-									<Legend
-										{context}
-										classes={{ root: 'w-full', items: '-mx-2 flex-wrap sm:justify-center' }}
-										details={categoryDetails}
-									/>
-								</div>
+								<Legend
+									{context}
+									bind:height={legendHeight}
+									classes={{ items: '-mx-2 max-sm:justify-start' }}
+									details={categoryDetails}
+								/>
 							{/snippet}
 							{#snippet tooltip()}
 								<Chart.Tooltip

@@ -34,7 +34,6 @@
 	import MonthPicker from './MonthPicker.svelte';
 	import MonthStats from './MonthStats.svelte';
 	import TakeHome from './TakeHome.svelte';
-	import YearOverview from './YearOverview.svelte';
 
 	let { data }: { data: { settings: Settings; store: WorkLogStore } } = $props();
 
@@ -108,14 +107,22 @@
 </script>
 
 <div class="space-y-6">
-	<header class="space-y-2">
-		<!--
-			The month controls sit at the right edge, so they stay put as the month name changes length,
-			and go under it on a screen too narrow for both.
-		-->
-		<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+	<!--
+		The month controls sit at the right edge, so they stay put as the month name changes length. On
+		the narrowest phones, too narrow for both, the month has a row of its own, with the controls and buttons
+		under it and the sync status last.
+	-->
+	<header
+		class="grid grid-cols-[1fr_auto] items-center gap-2 min-[420px]:block min-[420px]:space-y-2"
+	>
+		<div
+			class="contents min-[420px]:flex min-[420px]:items-center min-[420px]:justify-between min-[420px]:gap-3"
+		>
 			<MonthPicker {month} current={monthOf(today)} label={monthName} />
-			<nav aria-label="Month" class="flex shrink-0 items-center rounded-md border bg-card">
+			<nav
+				aria-label="Month"
+				class="col-start-1 row-start-2 flex shrink-0 items-center justify-self-start rounded-md border bg-card"
+			>
 				<Button
 					variant="ghost"
 					size="icon"
@@ -148,10 +155,12 @@
 				</Button>
 			</nav>
 		</div>
-		<div class="flex items-center justify-between gap-2">
-			<DriveSyncStatus {sync} />
+		<div
+			class="contents min-[420px]:flex min-[420px]:items-center min-[420px]:justify-between min-[420px]:gap-2"
+		>
+			<div class="col-span-2 row-start-3"><DriveSyncStatus {sync} /></div>
 			<!-- Labels hide on narrow screens; the icons and their accessible names stay. -->
-			<div class="flex shrink-0 gap-2">
+			<div class="col-start-2 row-start-2 flex shrink-0 gap-2">
 				<Button
 					variant="outline"
 					size="sm"
@@ -237,7 +246,4 @@
 			<MonthCharts chart="daily" {summary} clients={store.data.clients} {today} />
 		</div>
 	</section>
-
-	<!-- The year across the page's full width: its table of months is the widest thing here. -->
-	<YearOverview data={store.data} year={Number(month.slice(0, 4))} {today} />
 </div>

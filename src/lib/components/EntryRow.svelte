@@ -52,7 +52,8 @@
 		<p
 			class="col-start-1 flex flex-wrap items-baseline gap-x-2 text-muted-foreground tabular-nums sm:flex-col"
 		>
-			{#if time}<span class="whitespace-nowrap">{time}</span>{/if}
+			<!-- Breaks only between the two times, so a narrow column never runs into the hours. -->
+			{#if time}<span>{time.replace(/ (AM|PM)/g, '\u00a0$1')}</span>{/if}
 			{#if client}
 				{#if client.logo}
 					<ClientName {client} />

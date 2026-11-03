@@ -53,7 +53,7 @@
 	<fieldset class="space-y-3">
 		<legend class="text-sm font-medium">Show earnings in another currency</legend>
 		<div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-			<div class="space-y-1.5">
+			<div class="flex flex-col gap-1.5">
 				<Label for="exchange-to">Show in</Label>
 				<Select.Root
 					type="single"
@@ -73,7 +73,7 @@
 						});
 					}}
 				>
-					<Select.Trigger id="exchange-to" class="w-full">
+					<Select.Trigger id="exchange-to" class="mt-auto w-full">
 						{#if store.data.exchange}
 							{store.data.exchange.to}
 						{:else}
@@ -88,7 +88,7 @@
 					</Select.Content>
 				</Select.Root>
 			</div>
-			<div class="space-y-1.5">
+			<div class="flex flex-col gap-1.5">
 				<Label for="exchange-from">Converted from</Label>
 				<Select.Root
 					type="single"
@@ -104,7 +104,7 @@
 						}
 					}}
 				>
-					<Select.Trigger id="exchange-from" class="w-full">
+					<Select.Trigger id="exchange-from" class="mt-auto w-full">
 						{store.data.exchange?.from ?? '—'}
 					</Select.Trigger>
 					<Select.Content>
@@ -114,7 +114,7 @@
 					</Select.Content>
 				</Select.Root>
 			</div>
-			<div class="col-span-2 space-y-1.5 sm:col-span-1">
+			<div class="col-span-2 flex flex-col gap-1.5 sm:col-span-1">
 				<Label for="exchange-rate">Rate</Label>
 				<Input
 					id="exchange-rate"

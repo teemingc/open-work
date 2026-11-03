@@ -36,6 +36,9 @@
 		unpaid: Unpaid[];
 	} = $props();
 
+	/** How tall the chart's legend is, so the plot leaves it room. */
+	let legendHeight = $state(20);
+
 	const money = $derived(moneyFormat(currency));
 	const compact = $derived(compactFormat(currency));
 
@@ -112,7 +115,7 @@
 				{#snippet children({ BarChart, Chart, Legend, legendMotion })}
 					<Chart.Container {config} class="aspect-auto h-64 w-full cursor-pointer">
 						<BarChart
-							padding={chartPadding({ legend: true })}
+							padding={chartPadding({ legend: legendHeight })}
 							data={rows}
 							onTooltipClick={link.click}
 							x="month"
@@ -146,7 +149,7 @@
 								/>
 							{/snippet}
 							{#snippet legend({ context })}
-								<Legend {context} placement="bottom" />
+								<Legend {context} bind:height={legendHeight} />
 							{/snippet}
 						</BarChart>
 					</Chart.Container>

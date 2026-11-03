@@ -6,6 +6,7 @@ import {
 	daysOffBudget,
 	monthProjection,
 	takeHome,
+	yearTakeHome,
 	type Deduction,
 	addMonths,
 	clientChoices,
@@ -32,6 +33,7 @@ import {
 	rateOn,
 	refUrl,
 	summarizeMonth,
+	summarizeYear,
 	taskNames,
 	totalHours,
 	WORK_LOG_HEADER,
@@ -749,6 +751,32 @@ describe('take-home', () => {
 		expect(net).toBe(7371.33);
 	});
 
+	it('taxes a year on its whole gross, and takes a monthly amount each month', () => {
+		const { lines, net } = yearTakeHome({
+			gross: 40000,
+			months: 4,
+			deductions: [
+				deduction({ name: 'Tithe', kind: 'percent', rate: 10, order: 0 }),
+				deduction({ name: 'Tax', kind: 'bands', bands, yearly: true, order: 1 }),
+				deduction({ name: 'Fee', kind: 'fixed', amount: 100, order: 2 })
+			]
+		});
+		expect(lines.map(({ deduction, amount }) => [deduction.name, amount])).toEqual([
+			['Tithe', 4000],
+			['Tax', 1000],
+			['Fee', 400]
+		]);
+		expect(net).toBe(34600);
+		// A monthly scale applies to the average month: 10000 a month takes 50, four times.
+		expect(
+			yearTakeHome({
+				gross: 40000,
+				months: 4,
+				deductions: [deduction({ kind: 'bands', bands })]
+			}).net
+		).toBe(39800);
+	});
+
 	it('can leave less than nothing, but takes nothing from nothing', () => {
 		expect(
 			takeHome({ gross: 100, deductions: [deduction({ kind: 'fixed', amount: 150 })] }).net
@@ -797,6 +825,55 @@ describe('projections', () => {
 		};
 		// 78 hours left toward svelte's 88 at 160, and 86 toward zenos's at 168.
 		expect(month(shared)?.average).toBe(28864);
+	});
+});
+
+describe('year', () => {
+	const data: WorkLogData = {
+		...emptyWorkLog(),
+		clients: [svelte, zenos],
+		exchange: { from: 'USD', to: 'MYR', rate: 4 },
+		entries: [
+			entry({ date: '2026-10-01', hours: 7 }),
+			entry({ date: '2026-10-08', clientId: 'zenos', hours: 2 }),
+			entry({ date: '2026-10-12', hours: 3 })
+		]
+	};
+	const year = summarizeYear({ data, year: 2026, today: '2026-10-12' });
+
+	it('counts from the first month logged, so starting partway through is not a shortfall', () => {
+		expect(year.months.map((summary) => summary.month)).toEqual(['2026-10', '2026-11', '2026-12']);
+		// 22, 21 and 23 working days at 8 hours; 64 of them expected by the 12th.
+		expect(year).toMatchObject({
+			expected: 528,
+			expectedSoFar: 64,
+			logged: 12,
+			pace: -52,
+			remaining: 516,
+			workingDaysLeft: 59,
+			neededPerDay: 8.75
+		});
+	});
+
+	it('runs the totals through the year, with logged only up to today', () => {
+		expect(year.days[0]).toEqual({ date: '2026-10-01', expected: 8, logged: 7 });
+		expect(year.days.find((day) => day.date === '2026-10-12')).toEqual({
+			date: '2026-10-12',
+			expected: 64,
+			logged: 12
+		});
+		expect(year.days.at(-1)).toEqual({ date: '2026-12-31', expected: 528, logged: null });
+	});
+
+	it('projects the hours still expected at the clients’ average rate', () => {
+		// October as projected for the month, then November's 168 and December's 184 hours at 164.
+		expect(year.earnings).toEqual({
+			currency: 'MYR',
+			earned: 1936,
+			projected: 86560,
+			monthsSoFar: 1,
+			months: 3
+		});
 	});
 });
 

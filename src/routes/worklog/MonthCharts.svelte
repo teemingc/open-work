@@ -21,6 +21,12 @@
 		today: string;
 	} = $props();
 
+	/** How tall the chart's legend is, so the plot leaves it room. */
+	let paceLegend = $state(20);
+
+	/** How tall the chart's legend is, so the plot leaves it room. */
+	let dailyLegend = $state(20);
+
 	const dayMonth = new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short' });
 	const weekdayDayMonth = new Intl.DateTimeFormat('en', {
 		weekday: 'short',
@@ -83,7 +89,7 @@
 				{#snippet children({ LineChart, Chart, Legend, legendMotion })}
 					<Chart.Container config={paceConfig} class="aspect-auto h-64 w-full">
 						<LineChart
-							padding={chartPadding({ left: 44, legend: true })}
+							padding={chartPadding({ left: 44, legend: paceLegend })}
 							x="date"
 							y="hours"
 							xScale={scaleTime()}
@@ -127,7 +133,7 @@
 								/>
 							{/snippet}
 							{#snippet legend({ context })}
-								<Legend {context} placement="bottom" />
+								<Legend {context} bind:height={paceLegend} />
 							{/snippet}
 						</LineChart>
 					</Chart.Container>
@@ -136,7 +142,8 @@
 		</Card.Content>
 	</Card.Root>
 {:else}
-	<Card.Root class="h-full">
+	<!-- Beside the day list, which is far taller: it keeps its own height and stays in view below the header. -->
+	<Card.Root class="lg:sticky lg:top-34 lg:self-start">
 		<Card.Header>
 			<Card.Title>Hours each day</Card.Title>
 			<Card.Description
@@ -150,7 +157,7 @@
 				{#snippet children({ BarChart, Chart, Legend, legendMotion })}
 					<Chart.Container config={dailyConfig} class="aspect-auto h-64 w-full">
 						<BarChart
-							padding={chartPadding({ left: 44, legend: shownClients.length > 1 })}
+							padding={chartPadding({ left: 44, legend: shownClients.length > 1 && dailyLegend })}
 							data={daily}
 							x="date"
 							xScale={scaleBand().padding(0.2)}
@@ -190,7 +197,7 @@
 							{/snippet}
 							{#snippet legend({ context })}
 								{#if shownClients.length > 1}
-									<Legend {context} placement="bottom" />
+									<Legend {context} bind:height={dailyLegend} />
 								{/if}
 							{/snippet}
 						</BarChart>

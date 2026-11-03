@@ -82,8 +82,56 @@
 <StatStrip {stats} />
 
 {#if summary.clients.length > 0}
-	<div class="mt-4 overflow-x-auto rounded-lg border bg-card">
-		<table class="ledger text-sm max-sm:ledger-stacked">
+	<!--
+		On phones each client is a short entry rather than a column of labels and values: what it
+		earned beside its name, its hours against the target under them, then the rate.
+	-->
+	<ul class="mt-4 divide-y rounded-lg border bg-card text-sm tabular-nums sm:hidden">
+		{#each summary.clients as { client, hours, amount, rate, mixedRates, target } (client.id)}
+			{const local = $derived(converted({ data, amounts: { [client.currency]: amount } }))}
+			<li class="space-y-1.5 px-4 py-3">
+				<div class="flex items-baseline justify-between gap-3">
+					<span class="min-w-0 font-medium"><ClientName {client} /></span>
+					<span class="shrink-0 font-medium">{formatMoney(amount, client.currency)}</span>
+				</div>
+				{#if target !== undefined}
+					<span class="block h-1 overflow-hidden rounded-full bg-border">
+						<span
+							class={[
+								'block h-full rounded-full',
+								hours >= target ? 'bg-status-paid' : 'bg-primary/70'
+							]}
+							style:width="{target > 0 ? Math.min(100, (hours / target) * 100) : 100}%"
+						></span>
+					</span>
+				{/if}
+				<div class="flex flex-wrap justify-between gap-x-3 text-xs text-muted-foreground">
+					<span>
+						<span class="text-foreground">{formatHours(hours)}</span>
+						{#if target !== undefined}
+							of {formatHours(target)} h ·
+							{#if hours >= target}
+								<span class="text-status-paid">reached</span>
+							{:else}
+								{formatHours(target - hours)} to log
+							{/if}
+						{:else}
+							h
+						{/if}
+					</span>
+					<span>
+						{#if mixedRates}avg{/if}
+						{formatMoney(rate, client.currency)}/h
+						{#if data.exchange && local !== undefined}
+							<span>· {formatMoney(local, data.exchange.to)}</span>
+						{/if}
+					</span>
+				</div>
+			</li>
+		{/each}
+	</ul>
+	<div class="mt-4 rounded-lg border bg-card max-sm:hidden">
+		<table class="ledger text-sm">
 			<caption class="sr-only">Hours and earnings by client</caption>
 			<thead class="text-xs">
 				<tr>

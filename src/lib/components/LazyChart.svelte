@@ -33,6 +33,7 @@
 		return Promise.all([
 			import('layerchart/svg').then(
 				({
+					AnnotationLine,
 					Area,
 					AreaChart,
 					Axis,
@@ -51,6 +52,7 @@
 					Threshold,
 					Tooltip
 				}) => ({
+					AnnotationLine,
 					Area,
 					AreaChart,
 					Axis,

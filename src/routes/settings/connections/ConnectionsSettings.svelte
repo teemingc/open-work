@@ -66,11 +66,11 @@
 		>
 			<div class="space-y-1.5" id="oc-connection">
 				{#if me}
-					<!-- The account, then a separate action to leave it. -->
+					<!-- The account, then a separate action to leave it, which goes under it when both do not fit. -->
 					<div
-						class="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2"
+						class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg border bg-background px-3 py-2"
 					>
-						<div class="flex min-w-0 items-center gap-2.5">
+						<div class="flex min-w-40 flex-1 items-center gap-2.5">
 							<CircleCheck size={18} class="shrink-0 text-status-paid" />
 							<div class="min-w-0">
 								<p class="truncate text-sm font-medium">{me.name}</p>
@@ -115,8 +115,14 @@
 		>
 			<div class="space-y-1.5">
 				<Label for="github-token">Personal access token</Label>
-				<div class="flex gap-2">
-					<Input id="github-token" {...fields.githubToken.as('password')} autocomplete="off" />
+				<!-- The button goes under the field when both do not fit, rather than squeezing it. -->
+				<div class="flex flex-wrap gap-2">
+					<Input
+						id="github-token"
+						{...fields.githubToken.as('password')}
+						autocomplete="off"
+						class="min-w-48 flex-1"
+					/>
 					<Button
 						type="button"
 						variant="outline"

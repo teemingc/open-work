@@ -51,6 +51,9 @@
 		backersOnly?: boolean;
 	} = $props();
 
+	/** How tall the chart's legend is, so the plot leaves it room. */
+	let legendHeight = $state(20);
+
 	const CONTRIBUTION_KINDS = ['CONTRIBUTION', 'ADDED_FUNDS', 'BALANCE_TRANSFER'];
 	/** Gave the most, then less, then least: fading shades of the income colour. */
 	/** The others' size tiers as recurring and one-off giving, recurring first, each with its totals. */
@@ -338,7 +341,7 @@
 							{#snippet children({ BarChart, Chart, Legend, legendMotion })}
 								<Chart.Container {config} class="aspect-auto h-full min-h-64 w-full cursor-pointer">
 									<BarChart
-										padding={chartPadding({ legend: true })}
+										padding={chartPadding({ legend: legendHeight })}
 										data={rows}
 										x="month"
 										xScale={scaleBand().padding(0.2)}
@@ -376,7 +379,7 @@
 											/>
 										{/snippet}
 										{#snippet legend({ context })}
-											<Legend {context} placement="bottom" />
+											<Legend {context} bind:height={legendHeight} />
 										{/snippet}
 									</BarChart>
 								</Chart.Container>
@@ -578,18 +581,21 @@
 			<Card.Content>
 				<ol class="flex flex-col gap-4 text-sm">
 					{#each backers as backer, index (backer.slug || backer.name)}
-						<li class="flex items-start gap-3">
+						<li class="flex items-start gap-2 sm:gap-3">
 							<!--
 							The share leads each row, so the column of figures reads as the breakdown. Nudged
 							down so the tops of its figures line up with the tops of the name's letters.
 						-->
 							<span
-								class="mt-0.5 w-13 shrink-0 text-right font-display text-xl leading-none font-medium text-(--heading) tabular-nums"
+								class="mt-0.5 w-10 shrink-0 text-right font-display text-base leading-none font-medium text-(--heading) tabular-nums sm:w-13 sm:text-xl"
 							>
 								{shareLabel(backer.amount)}
 							</span>
 							<div class="flex min-w-0 flex-1 flex-col gap-1.5">
-								<div class="flex items-baseline justify-between gap-3">
+								<!-- On phones the amount goes under the name, so the name is not cut short. -->
+								<div
+									class="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3"
+								>
 									{#if backer.slug}
 										<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
 										<a
@@ -600,7 +606,7 @@
 											})}
 											target="_blank"
 											rel="noreferrer"
-											class="flex min-w-0 items-center gap-2 font-medium hover:underline"
+											class="flex max-w-full min-w-0 items-center gap-2 font-medium hover:underline"
 										>
 											<!-- Their avatar or logo, as in "Expenses by recipient", or a blank disc without one. -->
 											{#if backer.imageUrl}
@@ -629,14 +635,14 @@
 											})}
 											target="_blank"
 											rel="noreferrer"
-											class="flex min-w-0 items-center gap-2 font-medium text-muted-foreground hover:text-foreground hover:underline"
+											class="flex max-w-full min-w-0 items-center gap-2 font-medium text-muted-foreground hover:text-foreground hover:underline"
 										>
 											<span
 												class="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
 											>
 												<Users class="size-3" aria-hidden="true" />
 											</span>
-											{backer.name}
+											<span class="min-w-0">{backer.name}</span>
 											<ExternalLink size={12} class="shrink-0" />
 											<span class="sr-only">(opens in a new tab)</span>
 										</a>
@@ -719,7 +725,9 @@
 									frequency, counted from its first contribution in these months.
 								-->
 										<!-- On phones the badge always takes its own line, rather than whichever line it fits on. -->
-										<span class="flex basis-full items-center gap-x-2 sm:basis-auto">
+										<span
+											class="flex basis-full flex-wrap items-center gap-x-2 gap-y-1 sm:basis-auto"
+										>
 											{#if backer.channel}
 												{const first = $derived(backer.history.first.slice(0, 7))}
 												{const active = $derived(months.filter((month) => month >= first).length)}
@@ -752,7 +760,9 @@
 													<Badge variant="outline">Stopped</Badge>
 												{/if}
 												{#if per}
-													<span>was {money.format(backer.history.lastAmount)} a {per}</span>
+													<span class="whitespace-nowrap"
+														>was {money.format(backer.history.lastAmount)} a {per}</span
+													>
 												{/if}
 											{:else if per}
 												<Badge variant="secondary"

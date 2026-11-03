@@ -29,6 +29,7 @@
 
 	/** Where you came from, named as the header names it. */
 	const PAGES = [
+		{ path: '/work', label: 'Overview' },
 		{ path: '/worklog', label: 'Work log' },
 		{ path: '/invoices', label: 'Invoices' },
 		{ path: '/contributors', label: 'Leaderboard' },
@@ -51,11 +52,6 @@
 			label: known?.label ?? 'Back'
 		};
 	});
-
-	/** Brings the current tab into view on phones, where the row scrolls sideways. */
-	function reveal(node: HTMLElement) {
-		node.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-	}
 </script>
 
 {#if back}
@@ -87,15 +83,19 @@
 	</p>
 </div>
 
-<!-- Links styled as tabs, so each page has its own address to link to and come back to. -->
-<nav aria-label="Settings" class="mb-8 [scrollbar-width:none] overflow-x-auto">
-	<div class="inline-flex h-9 items-center rounded-lg bg-muted p-[3px] text-muted-foreground">
+<!--
+	Links styled as tabs, so each page has its own address to link to and come back to. On phones,
+	where six do not fit in a row, they sit two to a row so every one stays in view.
+-->
+<nav aria-label="Settings" class="mb-8">
+	<div
+		class="grid grid-cols-2 gap-[3px] rounded-lg bg-muted p-[3px] text-muted-foreground sm:inline-flex sm:h-9 sm:items-center sm:gap-0"
+	>
 		{#each TABS as tab (tab.path)}
 			<a
 				href={resolve(tab.path)}
 				aria-current={page.url.pathname === tab.path ? 'page' : undefined}
-				{@attach page.url.pathname === tab.path && reveal}
-				class="inline-flex h-full items-center gap-1.5 rounded-md border border-transparent px-3 text-sm font-medium whitespace-nowrap text-foreground transition-[color,box-shadow] hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none aria-[current=page]:bg-background aria-[current=page]:shadow-sm dark:text-muted-foreground dark:aria-[current=page]:border-input dark:aria-[current=page]:bg-input/30 dark:aria-[current=page]:text-foreground"
+				class="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-transparent px-3 text-sm font-medium whitespace-nowrap text-foreground transition-[color,box-shadow] hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none aria-[current=page]:bg-background aria-[current=page]:shadow-sm sm:h-full dark:text-muted-foreground dark:aria-[current=page]:border-input dark:aria-[current=page]:bg-input/30 dark:aria-[current=page]:text-foreground"
 			>
 				{tab.label}
 				{#if tab.path === '/settings/connections' && needsSetup}

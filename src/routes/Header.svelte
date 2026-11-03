@@ -5,7 +5,15 @@
 	import { dashboardSearch } from '#lib/dashboard-search.svelte.js';
 	import { getMe } from '#lib/opencollective.remote.js';
 	import logo from '#lib/assets/favicon.svg';
-	import { Briefcase, ChartLine, Clock, FileText, Settings, Trophy } from '@lucide/svelte';
+	import {
+		Briefcase,
+		ChartLine,
+		Clock,
+		FileText,
+		LayoutDashboard,
+		Settings,
+		Trophy
+	} from '@lucide/svelte';
 
 	// Read without `await` so the header never waits on Open Collective. The query is kept for the
 	// header's whole life: a query nothing holds on to is dropped from the cache, and the header
@@ -15,7 +23,7 @@
 	const needsSetup = $derived(meQuery.current === null);
 
 	/** The pages for freelancers doing open work, kept under Work so visitors see what is public. */
-	const WORK_PATHS = ['/worklog', '/invoices', '/settings'] as const;
+	const WORK_PATHS = ['/work', '/worklog', '/invoices', '/settings'] as const;
 	type WorkPath = (typeof WORK_PATHS)[number];
 
 	function isWork(pathname: string) {
@@ -63,12 +71,12 @@
 		'relative flex min-w-10 items-center justify-center gap-1.5 border-b-2 border-transparent text-muted-foreground hover:text-foreground [&[aria-current]]:border-primary [&[aria-current]]:font-medium [&[aria-current]]:text-foreground min-[560px]:min-w-0 min-[560px]:px-3 min-[560px]:whitespace-nowrap [&>svg]:shrink-0';
 
 	/**
-	 * The Work row's links, labelled at every width: three short ones fit on any phone. On phones they
-	 * share the row's width, as tabs. Wider, they line up on the right under Work, with the same
+	 * The Work row's links. On phones they share the row's width, as tabs, with icons alone below
+	 * 380px, where four labels do not fit beside them. Wider, they line up on the right under Work, with the same
 	 * padding as the main links so the last labels end together.
 	 */
 	const SUB_LINK =
-		'relative -mb-[3px] flex items-center gap-1.5 max-sm:flex-1 max-sm:justify-center border-b-2 border-transparent px-3 whitespace-nowrap text-muted-foreground hover:text-foreground [&[aria-current]]:border-primary [&[aria-current]]:font-medium [&[aria-current]]:text-foreground [&>svg]:shrink-0';
+		'relative flex items-center gap-1.5 first:ml-auto max-sm:flex-1 max-sm:justify-center max-sm:px-1 border-b-2 border-transparent px-3 whitespace-nowrap text-muted-foreground hover:text-foreground [&[aria-current]]:border-primary [&[aria-current]]:font-medium [&[aria-current]]:text-foreground [&>svg]:shrink-0';
 
 	/**
 	 * `page` when the link leads to the page you are on, `true` when you are elsewhere in its
@@ -117,7 +125,7 @@
 				<Trophy size={15} />
 				<span class="max-[560px]:sr-only">Leaderboard</span>
 			</a>
-			<a href={resolve('/worklog')} aria-current={inWork ? 'true' : undefined} class={LINK}>
+			<a href={resolve('/work')} aria-current={inWork ? 'true' : undefined} class={LINK}>
 				<Briefcase size={15} />
 				<span class="max-[560px]:sr-only">Work</span>
 			</a>
@@ -128,19 +136,23 @@
 		<div class="border-t" data-work-row>
 			<nav
 				aria-label="Work"
-				class="mx-auto flex h-11 max-w-6xl items-stretch justify-end text-sm sm:px-6"
+				class="mx-auto -mb-[3px] flex h-[47px] max-w-6xl items-stretch text-sm sm:px-6"
 			>
+				<a href={resolve('/work')} aria-current={current('/work')} class={SUB_LINK}>
+					<LayoutDashboard size={14} />
+					<span class="max-[379px]:sr-only">Overview</span>
+				</a>
 				<a href={resolve('/worklog')} aria-current={current('/worklog')} class={SUB_LINK}>
 					<Clock size={14} />
-					Work log
+					<span class="max-[379px]:sr-only">Work log</span>
 				</a>
 				<a href={resolve('/invoices')} aria-current={current('/invoices')} class={SUB_LINK}>
 					<FileText size={14} />
-					Invoices
+					<span class="max-[379px]:sr-only">Invoices</span>
 				</a>
 				<a href={resolve('/settings/clients')} aria-current={current('/settings')} class={SUB_LINK}>
 					<Settings size={14} />
-					Settings
+					<span class="max-[379px]:sr-only">Settings</span>
 					<!-- Always takes its space, so the nav does not move when it appears. Only on Settings, not
 						on Work: visitors who never set up would otherwise be nagged on every page. -->
 					<span
