@@ -12,6 +12,7 @@
 	import {
 		activeClients,
 		clientChoices,
+		inDayOrder,
 		monthOf,
 		taskNames,
 		totalHours,
@@ -32,6 +33,7 @@
 			if (last?.date === entry.date) last.entries.push(entry);
 			else groups.push({ date: entry.date, entries: [entry] });
 		}
+		for (const group of groups) group.entries = inDayOrder(group.entries);
 		return groups;
 	});
 	/** The entry open in the edit dialog, and the one waiting for you to confirm its deletion. */

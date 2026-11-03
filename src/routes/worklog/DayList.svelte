@@ -5,7 +5,7 @@
 	import EntryRow from '#lib/components/EntryRow.svelte';
 	import { formatHours, formatMoney, parseIsoDate } from '#lib/format.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import { clientChoices, taskNames, type MonthSummary } from '#lib/worklog.js';
+	import { clientChoices, inDayOrder, taskNames, type MonthSummary } from '#lib/worklog.js';
 	import { clientColor } from '#lib/client-colors.js';
 	import EntryForm from '#lib/components/EntryForm.svelte';
 
@@ -39,7 +39,7 @@
 		summary.days
 			.map((day) => ({
 				...day,
-				entries: store.data.entries.filter((entry) => entry.date === day.date)
+				entries: inDayOrder(store.data.entries.filter((entry) => entry.date === day.date))
 			}))
 			.filter((day) => day.entries.length > 0 || day.kind === 'holiday')
 			.reverse()

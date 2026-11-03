@@ -508,6 +508,32 @@ export function totalHours(entries: Pick<WorkLogEntry, 'start' | 'end' | 'hours'
 	return round2(entries.reduce((sum, entry) => sum + entryHours(entry), 0));
 }
 
+/**
+ * One day's entries in the order they were worked. Work past midnight is logged on the day it
+ * carried on from, so the day starts after its longest break, taken as sleep, rather than at
+ * midnight. Entries without a start go last.
+ */
+export function inDayOrder<T extends Pick<WorkLogEntry, 'start' | 'end' | 'hours'>>(
+	entries: T[]
+): T[] {
+	const timed = entries
+		.filter((entry) => entry.start)
+		.sort((a, b) => a.start!.localeCompare(b.start!));
+	const untimed = entries.filter((entry) => !entry.start);
+	let wake = 0;
+	let longest = -Infinity;
+	timed.forEach((entry, i) => {
+		const next = (i + 1) % timed.length;
+		const end = minutes(entry.start!) + entryHours(entry) * 60;
+		const gap = minutes(timed[next].start!) + (next === 0 ? 24 * 60 : 0) - end;
+		if (gap > longest) {
+			longest = gap;
+			wake = next;
+		}
+	});
+	return [...timed.slice(wake), ...timed.slice(0, wake), ...untimed];
+}
+
 /** Where an entry goes to keep the log in date and start-time order. */
 export function insertionIndex({
 	entries,

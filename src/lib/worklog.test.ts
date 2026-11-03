@@ -18,6 +18,7 @@ import {
 	latestEnd,
 	entryRate,
 	insertionIndex,
+	inDayOrder,
 	availableCredit,
 	invoiceEmailHref,
 	invoiceTotals,
@@ -220,6 +221,33 @@ describe('notes', () => {
 		expect(insertionIndex({ entries, entry: { date: '2026-10-01', start: '12:00' } })).toBe(1);
 		expect(insertionIndex({ entries, entry: { date: '2026-10-02' } })).toBe(2);
 		expect(insertionIndex({ entries, entry: { date: '2026-11-01' } })).toBe(3);
+	});
+
+	it('orders a day from waking, with work past midnight at the end', () => {
+		const order = (entries: Pick<WorkLogEntry, 'start' | 'end' | 'hours'>[]) =>
+			inDayOrder(entries).map((entry) => entry.start ?? '-');
+		expect(
+			order([
+				{ start: '01:00', end: '02:00' },
+				{ start: '20:00', end: '22:00' },
+				{},
+				{ start: '12:00', end: '14:00' }
+			])
+		).toEqual(['12:00', '20:00', '01:00', '-']);
+		// Working past 09:00, so no fixed hour can split the day.
+		expect(
+			order([
+				{ start: '07:00', end: '10:00' },
+				{ start: '19:00', end: '21:00' },
+				{ start: '23:00', end: '02:00' }
+			])
+		).toEqual(['19:00', '23:00', '07:00']);
+		expect(
+			order([
+				{ start: '13:00', end: '15:00' },
+				{ start: '09:00', end: '12:00' }
+			])
+		).toEqual(['09:00', '13:00']);
 	});
 });
 
