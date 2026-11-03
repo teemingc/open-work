@@ -35,14 +35,26 @@ async function drive(token: string, url: string, init: RequestInit = {}): Promis
 	);
 }
 
-export async function findWorkLog(token: string): Promise<DriveFile | undefined> {
+function listWorkLogs(token: string): Promise<DriveFile[]> {
 	const url = new URL(FILES);
 	url.searchParams.set('spaces', 'appDataFolder');
 	url.searchParams.set('q', `name = '${FILE_NAME}' and trashed = false`);
 	url.searchParams.set('fields', 'files(id,modifiedTime)');
 	url.searchParams.set('orderBy', 'modifiedTime desc');
-	const { files } = (await (await drive(token, url.toString())).json()) as { files: DriveFile[] };
-	return files[0];
+	return drive(token, url.toString())
+		.then((response) => response.json())
+		.then((body) => (body as { files: DriveFile[] }).files);
+}
+
+export async function findWorkLog(token: string): Promise<DriveFile | undefined> {
+	return (await listWorkLogs(token))[0];
+}
+
+/** Delete every copy of the work log, so none is left to sync back. */
+export async function deleteWorkLog(token: string): Promise<void> {
+	for (const { id } of await listWorkLogs(token)) {
+		await drive(token, `${FILES}/${id}`, { method: 'DELETE' });
+	}
 }
 
 export async function readWorkLog(token: string, id: string): Promise<string> {

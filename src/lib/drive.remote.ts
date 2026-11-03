@@ -1,8 +1,7 @@
 import { command, getRequestEvent } from '$app/server';
-import { error } from '@sveltejs/kit';
 import * as v from 'valibot';
-import { getAuth, googleConfigured } from '#lib/server/auth.js';
-import { DriveError, findWorkLog, readWorkLog, writeWorkLog } from '#lib/server/drive.js';
+import { getAuth, googleConfigured, withDrive } from '#lib/server/auth.js';
+import { findWorkLog, readWorkLog, writeWorkLog } from '#lib/server/drive.js';
 
 export interface DriveStatus {
 	/** Google sign-in is set up on this server. */
@@ -23,35 +22,6 @@ export const getDriveStatus = command(async (): Promise<DriveStatus> => {
 		account: session ? { email: session.user.email, name: session.user.name } : null
 	};
 });
-
-/** A fresh Google access token from the encrypted account cookie, refreshed when it has expired. */
-async function accessToken(): Promise<string> {
-	if (!googleConfigured()) error(404, 'Google Drive sync is not set up on this server.');
-	try {
-		const { accessToken } = await getAuth().api.getAccessToken({
-			body: { useAccountCookie: true },
-			headers: getRequestEvent().request.headers
-		});
-		return accessToken;
-	} catch {
-		error(401, 'Sign in with Google again to keep syncing.');
-	}
-}
-
-async function withDrive<T>(fn: (token: string) => Promise<T>): Promise<T> {
-	const token = await accessToken();
-	try {
-		return await fn(token);
-	} catch (err) {
-		if (err instanceof DriveError) {
-			error(
-				err.status === 401 ? 401 : 502,
-				err.status === 401 ? 'Sign in with Google again to keep syncing.' : err.message
-			);
-		}
-		throw err;
-	}
-}
 
 /**
  * The work log saved in Drive, or null before the first sync. `version` is passed back when

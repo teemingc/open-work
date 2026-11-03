@@ -140,10 +140,19 @@
 
 	let clearDialogOpen = $state(false);
 	let clearError = $state<string>();
+	let deleteDrive = $state(false);
 
 	const clearEnhanced = clearAllData.enhance(async ({ submit }) => {
 		clearError = undefined;
-		await submit();
+		try {
+			await submit();
+		} catch (error) {
+			// Nothing was deleted or signed out, so it is safe to try again.
+			clearError =
+				(error as { body?: { message?: string } }).body?.message ??
+				'Could not delete the copy in your Google Drive.';
+			return;
+		}
 		forgetDriveSync();
 		forgetRecentCollectives();
 		forgetHiddenTasks();
@@ -331,7 +340,9 @@
 
 <SettingsSection
 	title="Delete all data"
-	description="Removes your settings and work log from this browser and signs you out of Open Collective and Google. The copy in your Google Drive and your expenses on Open Collective stay."
+	description={sync.account
+		? 'Removes your settings and work log from this browser, and the copy in your Google Drive if you choose, and signs you out of Open Collective and Google. Your expenses on Open Collective stay.'
+		: 'Removes your settings and work log from this browser and signs you out of Open Collective and Google. The copy in your Google Drive and your expenses on Open Collective stay.'}
 >
 	<div>
 		<Button variant="destructive" onclick={() => (clearDialogOpen = true)}>Delete all data</Button>
@@ -343,9 +354,15 @@
 		<Dialog.Header>
 			<Dialog.Title>Delete all data?</Dialog.Title>
 			<Dialog.Description>
-				This removes every setting and the work log kept in this browser, and signs you out of Open
-				Collective and Google. Expenses on Open Collective and the work log copy in your Google
-				Drive are not touched.
+				{#if sync.account && deleteDrive}
+					This removes every setting and the work log kept in this browser and in your Google Drive,
+					and signs you out of Open Collective and Google. Expenses on Open Collective are not
+					touched.
+				{:else}
+					This removes every setting and the work log kept in this browser, and signs you out of
+					Open Collective and Google. Expenses on Open Collective and the work log copy in your
+					Google Drive are not touched.
+				{/if}
 			</Dialog.Description>
 		</Dialog.Header>
 		{#if clearError}
@@ -353,7 +370,18 @@
 				<CircleAlert size={15} class="mt-0.5 shrink-0" />{clearError}
 			</p>
 		{/if}
-		<form {...clearEnhanced}>
+		<form {...clearEnhanced} class="grid gap-4">
+			{#if sync.account}
+				<div class="flex items-start gap-2.5">
+					<Checkbox
+						id="delete-drive"
+						name={clearAllData.fields.deleteDrive.as('checkbox').name}
+						bind:checked={deleteDrive}
+						class="mt-0.5"
+					/>
+					<Label for="delete-drive" class="leading-5">Also delete the copy in Google Drive</Label>
+				</div>
+			{/if}
 			<Dialog.Footer>
 				<Button type="button" variant="outline" onclick={() => (clearDialogOpen = false)}>
 					Keep my data

@@ -1,6 +1,7 @@
 import { command, form, getRequestEvent, query } from '$app/server';
 import * as v from 'valibot';
-import { getAuth, googleConfigured } from '#lib/server/auth.js';
+import { getAuth, googleConfigured, withDrive } from '#lib/server/auth.js';
+import { deleteWorkLog } from '#lib/server/drive.js';
 import { clearToken } from '#lib/server/session.js';
 import { DEFAULT_SETTINGS, SettingsSchema, upgradeSettings, type Settings } from '#lib/settings.js';
 import { getMe } from '#lib/opencollective.remote.js';
@@ -59,16 +60,22 @@ export const disconnect = form(async () => {
 });
 
 /**
- * Sign out of Open Collective and Google and delete the cookies kept for this app. The browser
- * deletes the work log, with your settings, itself.
+ * Sign out of Open Collective and Google and delete the cookies kept for this app, and with
+ * `deleteDrive`, the work log's copy in Google Drive first. The browser deletes the work log,
+ * with your settings, itself.
  */
-export const clearAllData = form(async () => {
-	const { cookies, request } = getRequestEvent();
-	cookies.delete(LEGACY_COOKIE, { path: '/' });
-	cookies.delete(COLLECTIVE_COOKIE, { path: '/' });
-	clearToken(cookies);
-	// Expires the encrypted session and Google token cookies.
-	if (googleConfigured()) await getAuth().api.signOut({ headers: request.headers });
-	getLegacySettings().set(null);
-	void getMe().refresh();
-});
+export const clearAllData = form(
+	v.object({ deleteDrive: v.optional(v.boolean(), false) }),
+	async ({ deleteDrive }) => {
+		const { cookies, request } = getRequestEvent();
+		// Before anything is signed out, so a failure leaves everything as it was.
+		if (deleteDrive) await withDrive(deleteWorkLog);
+		cookies.delete(LEGACY_COOKIE, { path: '/' });
+		cookies.delete(COLLECTIVE_COOKIE, { path: '/' });
+		clearToken(cookies);
+		// Expires the encrypted session and Google token cookies.
+		if (googleConfigured()) await getAuth().api.signOut({ headers: request.headers });
+		getLegacySettings().set(null);
+		void getMe().refresh();
+	}
+);

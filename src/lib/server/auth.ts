@@ -1,7 +1,9 @@
 import { BETTER_AUTH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } from '$app/env/private';
 import { getRequestEvent } from '$app/server';
+import { error } from '@sveltejs/kit';
 import { betterAuth } from 'better-auth';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
+import { DriveError } from '#lib/server/drive.js';
 
 /** Lets the app keep one file in the app's own folder of the user's Drive, which no other app can reach. */
 export const DRIVE_APPDATA_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
@@ -47,4 +49,34 @@ export function getAuth() {
 		instances.set(origin, auth);
 	}
 	return auth;
+}
+
+/** A fresh Google access token from the encrypted account cookie, refreshed when it has expired. */
+async function accessToken(): Promise<string> {
+	if (!googleConfigured()) error(404, 'Google Drive sync is not set up on this server.');
+	try {
+		const { accessToken } = await getAuth().api.getAccessToken({
+			body: { useAccountCookie: true },
+			headers: getRequestEvent().request.headers
+		});
+		return accessToken;
+	} catch {
+		error(401, 'Sign in with Google again to keep syncing.');
+	}
+}
+
+/** Run `fn` with a Google access token, turning Drive's errors into ones the browser can show. */
+export async function withDrive<T>(fn: (token: string) => Promise<T>): Promise<T> {
+	const token = await accessToken();
+	try {
+		return await fn(token);
+	} catch (err) {
+		if (err instanceof DriveError) {
+			error(
+				err.status === 401 ? 401 : 502,
+				err.status === 401 ? 'Sign in with Google again to keep syncing.' : err.message
+			);
+		}
+		throw err;
+	}
 }
