@@ -6,10 +6,11 @@
 	import * as Select from '#lib/components/ui/select/index.js';
 	import WorkItem from '#lib/components/WorkItem.svelte';
 	import { hiddenTasks, hideTask, showTask } from '#lib/hidden-tasks.svelte.js';
-	import { formatHours } from '#lib/format.js';
+	import { formatHours, toIsoDate } from '#lib/format.js';
 	import {
 		describeRef,
 		entryHours,
+		latestEnd,
 		parseRef,
 		refKey,
 		type Client,
@@ -26,6 +27,7 @@
 		clients,
 		organization,
 		tasks = [],
+		entries = [],
 		entry,
 		date,
 		clientId,
@@ -36,6 +38,8 @@
 		organization?: string;
 		/** Task names to suggest while typing an item. */
 		tasks?: string[];
+		/** Logged entries, so a new one doesn't start before the last one on its day ends. */
+		entries?: Pick<WorkLogEntry, 'date' | 'start' | 'end'>[];
 		/** The entry being edited. Without one, the form adds a new entry. */
 		entry?: WorkLogEntry;
 		/** Starting values for a new entry. */
@@ -45,16 +49,21 @@
 		oncancel?: () => void;
 	} = $props();
 
-	function now(): string {
-		return `${String(new Date().getHours()).padStart(2, '0')}:00`;
+	/** The current hour, or the end of today's last entry if that is later. */
+	function nextStart(day: string): string {
+		const today = new Date();
+		const now = `${String(today.getHours()).padStart(2, '0')}:00`;
+		if (day !== toIsoDate(today)) return now;
+		const last = latestEnd({ entries, date: day });
+		return last && last > now ? last : now;
 	}
 
 	// The form starts from these and then owns its values, so it can be edited and cancelled.
 	const initial = untrack(() => ({
 		date: entry?.date ?? date,
 		clientId: entry?.clientId ?? clientId ?? clients[0]?.id ?? '',
-		start: entry ? (entry.start ?? '') : now(),
-		end: entry ? (entry.end ?? '') : now(),
+		start: entry ? (entry.start ?? '') : nextStart(date),
+		end: entry ? (entry.end ?? '') : nextStart(date),
 		hours: entry?.hours,
 		rate: entry?.rate,
 		items: entry?.items ?? [],
@@ -139,7 +148,7 @@
 		});
 		if (!entry) {
 			// The next block usually follows on the same day, for the same client.
-			rowStart = now();
+			rowStart = nextStart(rowDate);
 			rowEnd = rowStart;
 			endChanged = false;
 			rowHours = undefined;

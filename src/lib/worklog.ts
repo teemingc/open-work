@@ -486,6 +486,22 @@ export function entryHours(entry: Pick<WorkLogEntry, 'start' | 'end' | 'hours'>)
 	return entry.hours ?? 0;
 }
 
+/** The latest time logged on a day, like "17:30". Entries running past midnight end on the next day. */
+export function latestEnd({
+	entries,
+	date
+}: {
+	entries: Pick<WorkLogEntry, 'date' | 'start' | 'end'>[];
+	date: string;
+}): string | undefined {
+	let latest: string | undefined;
+	for (const entry of entries) {
+		if (entry.date !== date || !entry.start || !entry.end || entry.end < entry.start) continue;
+		if (!latest || entry.end > latest) latest = entry.end;
+	}
+	return latest;
+}
+
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export function totalHours(entries: Pick<WorkLogEntry, 'start' | 'end' | 'hours'>[]): number {

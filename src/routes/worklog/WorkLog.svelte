@@ -233,6 +233,7 @@
 								{clients}
 								organization={settings.organization}
 								tasks={taskNames(store.data.entries)}
+								entries={store.data.entries}
 								date={defaultDate}
 								clientId={githubClient?.id}
 								onsave={(entry) => (justAdded = store.addEntry(entry).id)}

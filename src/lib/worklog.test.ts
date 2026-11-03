@@ -15,6 +15,7 @@ import {
 	emptyWorkLog,
 	entriesFor,
 	entryHours,
+	latestEnd,
 	entryRate,
 	insertionIndex,
 	availableCredit,
@@ -112,6 +113,18 @@ describe('hours', () => {
 		expect(entryHours({ hours: 1.5 })).toBe(1.5);
 		expect(entryHours({ start: '10:00', end: '11:00', hours: 5 })).toBe(1);
 		expect(entryHours({})).toBe(0);
+	});
+
+	it('finds the latest end on a day', () => {
+		const entries = [
+			{ date: '2026-11-04', start: '09:00', end: '12:30' },
+			{ date: '2026-11-04', start: '13:00', end: '15:00' },
+			{ date: '2026-11-04', hours: 2 },
+			{ date: '2026-11-04', start: '23:00', end: '01:00' },
+			{ date: '2026-11-05', start: '16:00', end: '18:00' }
+		];
+		expect(latestEnd({ entries, date: '2026-11-04' })).toBe('15:00');
+		expect(latestEnd({ entries, date: '2026-11-03' })).toBeUndefined();
 	});
 
 	it('adds up blocks', () => {
