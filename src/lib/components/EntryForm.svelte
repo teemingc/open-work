@@ -159,7 +159,6 @@
 
 <form
 	class="grid grid-cols-2 gap-3"
-	aria-label={entry ? 'Edit entry' : 'Log work'}
 	onsubmit={(event) => {
 		event.preventDefault();
 		save();
@@ -227,7 +226,6 @@
 					addItem();
 				}}
 				onremove={hideTask}
-				placeholder="owner/repo/pull/123, or a task like a meeting"
 				spellcheck={false}
 				aria-describedby="{id}-item-hint"
 				aria-invalid={itemText.trim() !== '' && !parsed}
@@ -254,11 +252,13 @@
 			</span>
 		{:else if parsed && parsed.kind !== 'task'}
 			{describeRef(parsed)}
+		{:else if !itemText.trim()}
+			A GitHub path like owner/repo/pull/123, or a task like a meeting.
 		{/if}
 	</p>
 
 	{#if items.length > 0}
-		<ul class="col-span-2 flex flex-wrap gap-1.5" aria-label="Items in this entry">
+		<ul class="col-span-2 flex flex-wrap gap-1.5">
 			{#each items as item, index (refKey(item))}
 				<li
 					class="flex max-w-full items-center gap-1 rounded-md border bg-background py-0.5 pr-0.5 pl-2 text-sm"
@@ -269,10 +269,10 @@
 						variant="ghost"
 						size="icon"
 						class="size-6"
-						aria-label="Remove {describeRef(item)}"
 						onclick={() => items.splice(index, 1)}
 					>
 						<X size={12} />
+						<span class="sr-only">Remove {describeRef(item)}</span>
 					</Button>
 				</li>
 			{/each}

@@ -41,9 +41,17 @@
 		store.setInvoicing({ ...$state.snapshot(invoicing), ...patch });
 	}
 
-	/** Empty goes back to the usual text, so a cleared field is never saved as blank. */
-	function text(event: Event & { currentTarget: HTMLInputElement | HTMLTextAreaElement }) {
-		return event.currentTarget.value.trim() || undefined;
+	/**
+	 * Fields show the usual text until changed. Empty or the usual text comes back empty, to save
+	 * as nothing, so a cleared field goes back to the usual text and keeps up with a change to it.
+	 */
+	function ownText(
+		event: Event & { currentTarget: HTMLInputElement | HTMLTextAreaElement },
+		usual: string
+	) {
+		const value = event.currentTarget.value.trim();
+		if (!value) event.currentTarget.value = usual;
+		return value === usual ? '' : value;
 	}
 </script>
 
@@ -52,14 +60,15 @@
 	label,
 	value,
 	save,
-	placeholder,
+	usual,
 	type = 'text'
 }: {
 	id: string;
 	label: string;
 	value: string;
 	save: (value: string) => void;
-	placeholder?: string;
+	/** Shown when the field is empty, and saved as empty. */
+	usual?: string;
 	type?: string;
 })}
 	<div class="space-y-1.5">
@@ -67,10 +76,10 @@
 		<Input
 			{id}
 			{type}
-			{placeholder}
 			autocomplete="off"
 			{value}
-			onchange={(event) => save(event.currentTarget.value.trim())}
+			onchange={(event) =>
+				save(usual === undefined ? event.currentTarget.value.trim() : ownText(event, usual))}
 		/>
 	</div>
 {/snippet}
@@ -106,7 +115,6 @@
 			<Textarea
 				id="invoice-payment"
 				class="min-h-20"
-				placeholder="The bank's name and address, or a routing number"
 				value={invoicing.payment}
 				onchange={(event) => change({ payment: event.currentTarget.value.trim() })}
 			/>
@@ -121,15 +129,14 @@
 				{@render field({
 					id: `${client.id}-legal-name`,
 					label: 'Legal name',
-					placeholder: client.name,
-					value: client.legalName ?? '',
+					value: client.legalName ?? client.name,
+					usual: client.name,
 					save: (legalName) => onchange(client, { legalName: legalName || undefined })
 				})}
 				{@render field({
 					id: `${client.id}-email`,
 					label: 'Email to',
 					type: 'email',
-					placeholder: 'accounts@example.com',
 					value: client.email ?? '',
 					save: (email) => onchange(client, { email: email || undefined })
 				})}
@@ -191,8 +198,8 @@
 				{@render field({
 					id: `${client.id}-line-item`,
 					label: 'Line item',
-					placeholder: DEFAULT_LINE_ITEM,
-					value: client.lineItem ?? '',
+					value: client.lineItem ?? DEFAULT_LINE_ITEM,
+					usual: DEFAULT_LINE_ITEM,
 					save: (lineItem) => onchange(client, { lineItem: lineItem || undefined })
 				})}
 				<div class="space-y-1.5">
@@ -203,14 +210,15 @@
 						inputmode="numeric"
 						min="0"
 						step="1"
-						placeholder={String(DEFAULT_PAYMENT_DAYS)}
 						class="tabular-nums"
-						value={client.paymentDays ?? ''}
+						value={client.paymentDays ?? DEFAULT_PAYMENT_DAYS}
 						onchange={(event) => {
 							const days = event.currentTarget.value.trim();
 							const paymentDays = Number(days);
-							if (!days) onchange(client, { paymentDays: undefined });
-							else if (Number.isInteger(paymentDays) && paymentDays >= 0) {
+							if (!days || paymentDays === DEFAULT_PAYMENT_DAYS) {
+								event.currentTarget.value = String(DEFAULT_PAYMENT_DAYS);
+								onchange(client, { paymentDays: undefined });
+							} else if (Number.isInteger(paymentDays) && paymentDays >= 0) {
 								onchange(client, { paymentDays });
 							}
 						}}
@@ -221,9 +229,11 @@
 				<Label for="{client.id}-subject">Email subject</Label>
 				<Input
 					id="{client.id}-subject"
-					placeholder={DEFAULT_EMAIL_SUBJECT}
-					value={client.emailSubject ?? ''}
-					onchange={(event) => onchange(client, { emailSubject: text(event) })}
+					value={client.emailSubject || DEFAULT_EMAIL_SUBJECT}
+					onchange={(event) =>
+						onchange(client, {
+							emailSubject: ownText(event, DEFAULT_EMAIL_SUBJECT) || undefined
+						})}
 				/>
 			</div>
 			<div class="space-y-1.5">
@@ -231,10 +241,12 @@
 				<Textarea
 					id="{client.id}-message"
 					class="min-h-28"
-					placeholder={DEFAULT_EMAIL_MESSAGE}
 					aria-describedby="{client.id}-message-hint"
-					value={client.emailMessage ?? ''}
-					onchange={(event) => onchange(client, { emailMessage: text(event) })}
+					value={client.emailMessage || DEFAULT_EMAIL_MESSAGE}
+					onchange={(event) =>
+						onchange(client, {
+							emailMessage: ownText(event, DEFAULT_EMAIL_MESSAGE) || undefined
+						})}
 				/>
 				<p id="{client.id}-message-hint" class="text-xs text-muted-foreground">
 					{'{number}'}, {'{period}'}, {'{amount}'} and {'{name}'} are filled in from each invoice.

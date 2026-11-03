@@ -12,6 +12,6 @@
 	{#if color}
 		<span class="size-2.5 shrink-0 rounded-[2px]" style:background={color}></span>
 	{/if}
-	<span class="max-w-44 min-w-0 flex-1 truncate text-muted-foreground">{name}</span>
+	<span class="max-w-44 min-w-0 flex-1 wrap-break-word text-muted-foreground">{name}</span>
 	<span class="font-medium text-foreground tabular-nums">{money.format(Math.abs(value))}</span>
 </div>

@@ -15,6 +15,7 @@
 
 	let {
 		name,
+		nameShown = true,
 		slug,
 		field = false,
 		id,
@@ -24,8 +25,13 @@
 		busy = false,
 		invalid = false
 	}: {
-		/** The placeholder, like "Find another collective". */
+		/** The field's name, like "Find another collective". */
 		name: string;
+		/**
+		 * Whether the name is shown above the field. Leave it out when `id` has a label of its own, or
+		 * when the name is a heading already on screen, like "Look up a collective".
+		 */
+		nameShown?: boolean;
 		/** The slug of the collective on screen, left out of the recent list, or the one chosen. */
 		slug?: string;
 		/** Full width and larger, for a page with no collective yet. */
@@ -55,6 +61,7 @@
 	let input = $state<HTMLInputElement | null>(null);
 	/** The list's id, which the input points to while the list is open. */
 	const listId = $props.id();
+	const inputId = $derived(id ?? `${listId}-input`);
 
 	const results = $derived(searched.length >= 2 ? searchCollectives(searched) : undefined);
 
@@ -129,8 +136,8 @@
 		{:else}
 			<span class="size-5 rounded bg-muted"></span>
 		{/if}
-		<span class="truncate">{match.name}</span>
-		<span class="ml-auto truncate text-xs text-muted-foreground">{match.slug}</span>
+		<span class="min-w-0 wrap-break-word">{match.name}</span>
+		<span class="ml-auto min-w-0 text-xs wrap-anywhere text-muted-foreground">{match.slug}</span>
 		{#if removable}
 			<Button
 				type="button"
@@ -138,7 +145,6 @@
 				size="icon"
 				class="-my-1 size-6 shrink-0"
 				tabindex={-1}
-				aria-label="Remove {match.name} from recent"
 				onpointerdown={(event) => event.preventDefault()}
 				onclick={(event) => {
 					event.stopPropagation();
@@ -146,6 +152,7 @@
 				}}
 			>
 				<X size={12} />
+				<span class="sr-only">Remove {match.name} from recent</span>
 			</Button>
 		{/if}
 	</Command.Item>
@@ -155,14 +162,17 @@
 	<Command.Root
 		shouldFilter={false}
 		bind:value={highlighted}
-		label="Search Open Collective"
+		label={name}
 		class="h-auto overflow-visible bg-transparent"
 	>
+		{#if nameShown && !id}
+			<label for={inputId} class="mb-1.5 block text-sm font-medium">{name}</label>
+		{/if}
 		<label
 			class={[
 				'flex items-center rounded-md border bg-card shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50',
 				invalid && 'border-destructive ring-destructive/20 dark:ring-destructive/40',
-				field ? 'h-11 gap-2.5 px-3.5' : 'h-9 gap-2 px-3'
+				field ? 'min-h-11 gap-2.5 px-3.5' : 'min-h-9 gap-2 px-3'
 			]}
 		>
 			{const Icon = $derived(showsEmail ? Mail : Search)}
@@ -170,9 +180,8 @@
 			<!-- 16px text at least on phones: iOS Safari zooms in on focusing anything smaller. -->
 			<CommandPrimitive.Input
 				bind:ref={input}
-				{id}
+				id={inputId}
 				value={term}
-				placeholder={name}
 				autocomplete="off"
 				oninput={(event) => type(event.currentTarget.value)}
 				onfocus={show}
@@ -190,7 +199,7 @@
 					}
 				}}
 				class={[
-					'h-full w-full min-w-0 bg-transparent text-base outline-hidden placeholder:text-muted-foreground',
+					'w-full min-w-0 self-stretch bg-transparent text-base outline-hidden',
 					!field && 'sm:text-sm'
 				]}
 			>
@@ -233,7 +242,7 @@
 							}}
 						>
 							<Mail />
-							<span class="truncate">Email {address}</span>
+							<span class="min-w-0 wrap-anywhere">Email {address}</span>
 						</Command.Item>
 					{:else if searched.length < 2}
 						{#if recent.length > 0}

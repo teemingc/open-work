@@ -105,7 +105,11 @@
 			{/if}
 		</div>
 		{#if result}
-			<nav aria-label="Rank by" class="flex shrink-0 rounded-md border bg-card p-0.5 text-sm">
+			<nav
+				aria-labelledby="rank-by-heading"
+				class="flex flex-wrap rounded-md border bg-card p-0.5 text-sm"
+			>
+				<h2 id="rank-by-heading" class="sr-only">Rank by</h2>
 				{#each RANK_BY as option (option.by)}
 					<a
 						href={resolve(`/contributors${option.search}`)}
@@ -200,14 +204,14 @@
 									<div
 										class="flex items-center gap-2 max-sm:flex-col max-sm:items-end max-sm:gap-0"
 									>
-										<span class="w-6 text-right font-display text-xl text-primary">
+										<span class="min-w-6 text-right font-display text-xl text-primary">
 											{#if rank}
 												{rank}
 											{:else}
 												<span class="sr-only">Not placed</span>
 											{/if}
 										</span>
-										<span class="text-xs sm:w-8">
+										<span class="text-xs sm:min-w-8">
 											{#if moved === null}
 												<!-- New to the ranking: marked where its movement would be, leaving the name its room. -->
 												{#if rank}
@@ -238,7 +242,7 @@
 								</td>
 								<!--
 									Below md, takes the room the other columns leave and no more: otherwise the longest
-									name sets its width, as a table cell won't shrink to truncate, and the table overflows
+									name sets its width, as a table cell won't shrink to wrap it, and the table overflows
 									a phone. Wider, the share column needs its quarter, and every name fits.
 								-->
 								<th scope="row" class="px-3 py-2.5 font-normal max-md:w-full max-md:max-w-0">
@@ -259,7 +263,7 @@
 													class="size-6 shrink-0 rounded-full border bg-muted max-[359px]:hidden"
 												></span>
 											{/if}
-											<span class="truncate">{contributor.name}</span>
+											<span class="min-w-0 wrap-break-word">{contributor.name}</span>
 										</a>
 									</div>
 								</th>
@@ -278,7 +282,7 @@
 													style:width="{(amount / most) * 100}%"
 												></div>
 											</div>
-											<span class="w-9 text-right text-muted-foreground">
+											<span class="min-w-9 text-right text-muted-foreground">
 												{percent.format(amount / sum)}
 											</span>
 										</div>

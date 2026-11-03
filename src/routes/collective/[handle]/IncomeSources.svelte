@@ -278,7 +278,7 @@
 				{:else}
 					<span class="size-4 shrink-0 rounded-full border bg-muted"></span>
 				{/if}
-				<span class="truncate text-muted-foreground">{backer.name}</span>
+				<span class="min-w-0 wrap-break-word text-muted-foreground">{backer.name}</span>
 				{#if stopped && topSlugs.has(backer.slug) && stoppedWhere(backer.slug) === 'everywhere'}
 					<span class="shrink-0 text-muted-foreground/70">everywhere</span>
 				{/if}
@@ -309,7 +309,7 @@
 		</Card.Header>
 	</Card.Root>
 {:else}
-	<!-- Cards may shrink below their longest name, which truncates instead of widening the page. -->
+	<!-- Cards may shrink below their longest name, which wraps instead of widening the page. -->
 	<div
 		class={[
 			'grid animate-in gap-4 duration-300 fade-in *:min-w-0',
@@ -485,10 +485,7 @@
 													{const x = $derived(context.xScale(change.month) ?? 0)}
 													{const y = $derived(context.yScale(change.active) ?? 0)}
 													{const offset = $derived((change.index + 1) * MARK_STEP)}
-													<g
-														class="pointer-events-none"
-														aria-label="{change.backer.name} {change.kind} contributing regularly"
-													>
+													<g class="pointer-events-none">
 														<LogoMark
 															{x}
 															y={change.below ? y + offset : y - offset}
@@ -587,7 +584,7 @@
 							down so the tops of its figures line up with the tops of the name's letters.
 						-->
 							<span
-								class="mt-0.5 w-10 shrink-0 text-right font-display text-base leading-none font-medium text-(--heading) tabular-nums sm:w-13 sm:text-xl"
+								class="mt-0.5 min-w-10 shrink-0 text-right font-display text-base leading-none font-medium text-(--heading) tabular-nums sm:min-w-13 sm:text-xl"
 							>
 								{shareLabel(backer.amount)}
 							</span>
@@ -619,7 +616,7 @@
 											{:else}
 												<span class="size-5 shrink-0 rounded-full border bg-muted"></span>
 											{/if}
-											<span class="truncate">{backer.name}</span>
+											<span class="min-w-0 wrap-break-word">{backer.name}</span>
 											<ExternalLink size={12} class="shrink-0 text-muted-foreground" />
 											<span class="sr-only">(opens in a new tab)</span>
 										</a>

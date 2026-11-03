@@ -60,7 +60,7 @@
 	id="main"
 	tabindex="-1"
 	data-navigating={navigating.to ? '' : undefined}
-	class="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-16 transition-opacity duration-200 outline-none data-navigating:opacity-40 data-navigating:delay-700 data-navigating:duration-500 sm:px-6"
+	class="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-16 transition-opacity duration-200 data-navigating:opacity-40 data-navigating:delay-700 data-navigating:duration-500 sm:px-6"
 >
 	{@render children()}
 </main>
@@ -70,7 +70,7 @@
 	like a ledger sheet. No name or mark: the sticky header already shows them.
 -->
 <footer
-	class="flex justify-center gap-6 border-t-[3px] border-double border-rule bg-card px-4 py-5 sm:px-6"
+	class="flex flex-wrap justify-center gap-x-6 gap-y-2 border-t-[3px] border-double border-rule bg-card px-4 py-5 sm:px-6"
 >
 	<a href={resolve('/privacy')} class="text-sm text-muted-foreground hover:text-foreground">
 		Privacy

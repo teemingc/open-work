@@ -20,7 +20,7 @@
 		type WorkLogStore
 	} from '#lib/worklog-store.svelte.js';
 	import type { WorkLogData } from '#lib/worklog.js';
-	import { CircleAlert, Cloud, Download, LogOut, RefreshCw, Upload } from '@lucide/svelte';
+	import { Check, CircleAlert, Cloud, Download, LogOut, RefreshCw, Upload } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { signInWithGoogle, signOutOfGoogle } from './auth-client';
 
@@ -218,7 +218,7 @@
 	<div class="flex items-start gap-2.5">
 		<Checkbox {id} {checked} {disabled} onCheckedChange={onchange} class="mt-0.5" />
 		<div class="grid gap-0.5">
-			<Label for={id} class={disabled ? 'text-muted-foreground' : ''}>{label}</Label>
+			<Label for={id} class={['leading-5', disabled && 'text-muted-foreground']}>{label}</Label>
 			{#if detail}<p class="text-xs text-muted-foreground">{detail}</p>{/if}
 		</div>
 	</div>
@@ -251,7 +251,11 @@
 		>
 			<Download /> Download backup
 		</Button>
-		<Button variant="outline" onclick={() => document.getElementById('restore-file')?.click()}>
+		<Button
+			id="restore-button"
+			variant="outline"
+			onclick={() => document.getElementById('restore-file')?.click()}
+		>
 			<Upload /> Restore a backup
 		</Button>
 		<input
@@ -259,7 +263,7 @@
 			type="file"
 			accept=".json,application/json"
 			class="sr-only"
-			aria-label="Backup file"
+			aria-labelledby="restore-button"
 			tabindex="-1"
 			onchange={pickBackup}
 		/>
@@ -311,8 +315,15 @@
 	{#if backupMessage}
 		<p
 			role={backupMessage.tone === 'error' ? 'alert' : 'status'}
-			class="text-sm {backupMessage.tone === 'error' ? 'text-destructive' : 'text-status-paid'}"
+			class="flex items-start gap-1.5 text-sm {backupMessage.tone === 'error'
+				? 'text-destructive'
+				: 'text-status-paid'}"
 		>
+			{#if backupMessage.tone === 'error'}
+				<CircleAlert size={15} class="mt-0.5 shrink-0" />
+			{:else}
+				<Check size={15} class="mt-0.5 shrink-0" />
+			{/if}
 			{backupMessage.text}
 		</p>
 	{/if}

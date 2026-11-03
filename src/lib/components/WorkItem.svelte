@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { describeRef, refCells, refUrl, type WorkRef } from '#lib/worklog.js';
+	import { refCells, refUrl, type WorkRef } from '#lib/worklog.js';
 	import { CalendarClock, CircleDot, GitPullRequest, ShieldAlert } from '@lucide/svelte';
 
 	let { ref, organization }: { ref: WorkRef; organization?: string } = $props();
@@ -16,11 +16,12 @@
 	const [repository, item] = $derived(refCells({ ref, organization }));
 </script>
 
-<span class="inline-flex min-w-0 items-center gap-1.5" title={describeRef(ref)}>
-	<Icon size={14} class="shrink-0 text-muted-foreground" aria-hidden="true" />
+<span class="inline-flex min-w-0 items-baseline gap-1.5">
+	<Icon size={14} class="shrink-0 self-center text-muted-foreground" aria-hidden="true" />
 	{#if url}
-		<!-- Positioned, so it clips the link's hidden text too rather than letting it widen the page. -->
-		<span class="relative truncate">
+		<!-- Wraps rather than truncating, so the whole reference shows. Positioned, so the link's hidden
+			text cannot widen the page. -->
+		<span class="relative min-w-0 wrap-break-word">
 			<span class="text-muted-foreground">{repository}</span>
 			<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
 			<a href={url} target="_blank" rel="noreferrer" class="hover:underline"
@@ -29,6 +30,6 @@
 			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		</span>
 	{:else}
-		<span class="truncate">{item}</span>
+		<span class="min-w-0 wrap-break-word">{item}</span>
 	{/if}
 </span>

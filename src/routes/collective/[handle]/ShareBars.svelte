@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import LazyChart from '#lib/components/LazyChart.svelte';
 	import { TooltipLink } from '#lib/tooltip-link.svelte.js';
@@ -56,11 +57,20 @@
 	const amount = (row: Row | Rest) =>
 		'rest' in row ? row.rest.reduce((sum, other) => sum + other.recent, 0) : row.recent;
 
+	/**
+	 * The root font size in pixels, so rows grow with the text when the browser's font size is
+	 * raised. Read once on the client, as it only changes with that setting.
+	 */
+	let rem = $state(16);
+	onMount(() => {
+		rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+	});
+
 	/** Room right of the months for how long they last, more for the rest's "up to 10 months". */
-	const label = $derived(rows.some((row) => 'rest' in row) ? 108 : 88);
+	const label = $derived((rows.some((row) => 'rest' in row) ? 6.75 : 5.5) * rem);
 
 	/** Each row: the name on one line, the months under it with how long they last at the end. */
-	const ROW = 40;
+	const ROW = $derived(2.5 * rem);
 	/** Room left of the name and months for the logo. */
 	const INSET = 24;
 	/** A year of a project's average spending, one cell a month. */
@@ -180,12 +190,12 @@
 							-->
 							{#each { length: MONTHS }, index (index)}
 								{const x = $derived(INSET + index * (cell + GAP))}
-								<rect {x} y={top + 24} width={cell} height="8" rx="2" class="fill-muted" />
+								<rect {x} y={top + 1.5 * rem} width={cell} height="8" rx="2" class="fill-muted" />
 								{#if stopped && (index === 0 || part(most, index) > 0)}
 									<!-- Hatched as what is not there, the months it would pay for if it gave again. -->
 									<rect
 										{x}
-										y={top + 24}
+										y={top + 1.5 * rem}
 										width={index === 0
 											? Math.max(3, cell * part(most, index))
 											: cell * part(most, index)}
@@ -198,7 +208,7 @@
 								{:else if !stopped}
 									<rect
 										{x}
-										y={top + 24}
+										y={top + 1.5 * rem}
 										width={cell * part(most, index)}
 										height="8"
 										rx="2"
@@ -206,7 +216,7 @@
 									/>
 									<rect
 										{x}
-										y={top + 24}
+										y={top + 1.5 * rem}
 										width={index === 0
 											? Math.max(3, cell * part(least, index))
 											: cell * part(least, index)}
@@ -220,33 +230,33 @@
 								<!-- One mark in the logo column like every other row; the tooltip shows their logos. -->
 								<LogoMark
 									x={8}
-									y={top + 13}
+									y={top + 0.8125 * rem}
 									r={8}
 									name=""
 									imageUrl={null}
 									recurring={false}
 									mark="+"
 								/>
-								<text x={INSET} y={top + 17} font-size="13" class="fill-foreground"
+								<text x={INSET} y={top + 1.0625 * rem} font-size="0.8125rem" class="fill-foreground"
 									>{row.rest.length} other collectives{@render given(row)}</text
 								>
 							{:else}
 								<LogoMark
 									x={8}
-									y={top + 13}
+									y={top + 0.8125 * rem}
 									r={8}
 									name={row.name}
 									imageUrl={row.imageUrl}
 									recurring={row.monthly > 0}
 								/>
-								<text x={INSET} y={top + 17} font-size="13" class="fill-foreground"
+								<text x={INSET} y={top + 1.0625 * rem} font-size="0.8125rem" class="fill-foreground"
 									>{row.name}{@render given(row)}</text
 								>
 							{/if}
 							<text
 								x={context.width}
-								y={top + 32}
-								font-size="13"
+								y={top + 2 * rem}
+								font-size="0.8125rem"
 								text-anchor="end"
 								class="fill-foreground font-medium tabular-nums"
 								>{'rest' in row

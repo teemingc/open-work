@@ -5,7 +5,8 @@
 	let { label, heights }: { label: string; heights: string[] } = $props();
 </script>
 
-<div aria-busy="true" aria-label={label}>
+<div aria-busy="true">
+	<p class="sr-only">{label}</p>
 	{#each heights as height, index (index)}
 		<div class="grid gap-6 border-t py-8 first:border-t-0 first:pt-0 md:grid-cols-[14rem_1fr]">
 			<div class="space-y-2">

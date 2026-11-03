@@ -89,12 +89,11 @@
 			A band across the full card width, so each group reads as a run like a stacked bar. Hovering
 			a square picks out its group, as hovering its row below does; on touch, tapping does. One
 			listener for the band, read from the square under the pointer, rather than one on each of
-			the hundred squares.
+			the hundred squares. Screen readers get the same figures from the list below.
 		-->
 		<div
 			class="grid aspect-[4/1] w-full grid-cols-20 gap-0.5 select-none [-webkit-touch-callout:none] @xl:aspect-[25/4] @xl:grid-cols-25"
-			role="img"
-			aria-label={groups.map((group, index) => `${group.label}: ${counts[index]}%`).join(', ')}
+			aria-hidden="true"
 			onpointerover={(event) => {
 				const group = (event.target as HTMLElement).dataset.group;
 				if (group !== undefined) hovered = Number(group);
@@ -122,11 +121,11 @@
 					onpointerleave={leave}
 				>
 					<span class="size-2.5 shrink-0 rounded-[2px] {group.swatch}" aria-hidden="true"></span>
-					<span class="min-w-0 flex-1 truncate">{group.label}</span>
+					<span class="min-w-0 flex-1 wrap-break-word">{group.label}</span>
 					<span class="text-muted-foreground tabular-nums">
 						{percent.format(total ? group.amount / total : 0)}
 					</span>
-					<span class="w-20 text-right tabular-nums">{money.format(group.amount)}</span>
+					<span class="min-w-20 text-right tabular-nums">{money.format(group.amount)}</span>
 				</li>
 			{/each}
 		</ul>

@@ -120,20 +120,20 @@
 					onpointerdown={(event) => event.preventDefault()}
 					onclick={() => pick(suggestion)}
 				>
-					<span class="truncate">{suggestion}</span>
+					<span class="min-w-0 wrap-break-word">{suggestion}</span>
 					<Button
 						type="button"
 						variant="ghost"
 						size="icon"
 						class="ml-auto size-6 shrink-0"
 						tabindex={-1}
-						aria-label="Remove {suggestion} from suggestions"
 						onclick={(event) => {
 							event.stopPropagation();
 							remove(suggestion);
 						}}
 					>
 						<X size={12} />
+						<span class="sr-only">Remove {suggestion} from suggestions</span>
 					</Button>
 				</li>
 			{/each}

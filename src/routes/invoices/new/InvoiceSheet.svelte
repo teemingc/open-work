@@ -39,9 +39,9 @@
 <!-- Only the sides: a vertical margin here would cancel the spacing the sidebar gives each item. -->
 <figure class="mx-0 mt-0">
 	<div
-		class="rounded-sm border border-neutral-300 bg-white p-4 text-[15px] leading-snug text-neutral-900 shadow-[0_1px_0_rgb(0_0_0/0.04),0_12px_32px_-12px_rgb(30_41_59/0.25)] sm:p-6"
+		class="rounded-sm border border-neutral-300 bg-white p-4 text-[0.9375rem] leading-snug text-neutral-900 shadow-[0_1px_0_rgb(0_0_0/0.04),0_12px_32px_-12px_rgb(30_41_59/0.25)] sm:p-6"
 	>
-		<div class="grid grid-cols-2 gap-4 text-[13px]">
+		<div class="grid grid-cols-2 gap-4 text-[0.8125rem]">
 			<div>
 				<p class="font-semibold">From</p>
 				<p class="mt-1 text-neutral-700">
@@ -63,12 +63,12 @@
 		<h2 class="mt-7 text-lg leading-tight font-semibold underline underline-offset-2">
 			{title}
 		</h2>
-		<p class="mt-1 text-[13px] text-neutral-700">
+		<p class="mt-1 text-[0.8125rem] text-neutral-700">
 			{#if collectiveSlug}Collective: {collectiveSlug}<br />{/if}
 			Date: {today}
 		</p>
 
-		<table class="mt-5 w-full table-fixed border-collapse text-[13px]">
+		<table class="mt-5 w-full table-fixed border-collapse text-[0.8125rem]">
 			<thead>
 				<tr class="bg-slate-100 text-left">
 					<!-- The same as the date above, so a phone leaves it out to give the description room. -->
@@ -90,7 +90,9 @@
 			</tbody>
 		</table>
 
-		<dl class="mt-4 ml-auto w-48 rounded border border-neutral-200 text-[13px]">
+		<dl
+			class="mt-4 ml-auto w-full rounded border border-neutral-200 text-[0.8125rem] sm:w-fit sm:min-w-48"
+		>
 			<div class="flex justify-between px-3 py-1.5">
 				<dt>Subtotal</dt>
 				<dd class="tabular-nums">{amount}</dd>
@@ -102,16 +104,16 @@
 		</dl>
 
 		{#if invoiceInfo}
-			<p class="mt-5 text-right text-[13px] text-neutral-700 italic">{invoiceInfo}</p>
+			<p class="mt-5 text-right text-[0.8125rem] text-neutral-700 italic">{invoiceInfo}</p>
 		{/if}
 
 		<div class="mt-6 border-t border-dashed border-neutral-300 pt-4">
-			<p class="text-[13px] font-semibold">Additional notes</p>
+			<p class="text-[0.8125rem] font-semibold">Additional notes</p>
 			{#if logRows.length === 0}
-				<p class="mt-1 text-[13px] text-neutral-500 italic">The work log will appear here.</p>
+				<p class="mt-1 text-[0.8125rem] text-neutral-500 italic">The work log will appear here.</p>
 			{:else}
 				<div class="mt-2 max-h-56 overflow-auto">
-					<table class="w-full text-left text-[12px] text-neutral-700">
+					<table class="w-full text-left text-xs text-neutral-700">
 						<tbody>
 							{#each logRows as cells, index (index)}
 								<tr

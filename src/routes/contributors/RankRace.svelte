@@ -263,11 +263,15 @@
 	}
 </script>
 
+<!-- Read in place of the chart, which is hidden from screen readers. -->
+<p class="sr-only">
+	Each top contributor's place by the year, from {years[0]} to {partialYear}. The table below has
+	the figures.
+</p>
 <div
 	class={['race', { intro }]}
 	style:--row="{ROW}px"
-	role="img"
-	aria-label="Each top contributor's place by the year, from {years[0]} to {partialYear}. The table below has the figures."
+	aria-hidden="true"
 	onpointerdown={scrub}
 	onpointermove={scrub}
 	onpointercancel={cancelScrub}
@@ -419,7 +423,6 @@
 							style:left="{at.x}%"
 							style:top="{y(at.rank)}px"
 							style:--tint={line.color}
-							title={line.contributor.name}
 							data-slug={slug}
 							onpointerenter={(event) => follow(event, slug)}
 							onpointerleave={unfollow}
@@ -503,7 +506,7 @@
 		right: 6px;
 		translate: 0 -50%;
 		font-family: var(--font-display);
-		font-size: 11px;
+		font-size: 0.6875rem;
 		color: var(--muted-foreground);
 	}
 	.year {
@@ -513,13 +516,13 @@
 		flex-direction: column;
 		align-items: center;
 		font-family: var(--font-display);
-		font-size: 13px;
+		font-size: 0.8125rem;
 		line-height: 1.1;
 		color: var(--heading);
 	}
 	.note {
 		font-family: var(--font-serif);
-		font-size: 11px;
+		font-size: 0.6875rem;
 		color: var(--muted-foreground);
 	}
 
@@ -557,7 +560,7 @@
 	}
 	.dot-rank {
 		font-family: var(--font-display);
-		font-size: 10px;
+		font-size: 0.625rem;
 		fill: var(--primary-foreground);
 		opacity: 0;
 		pointer-events: none;
@@ -614,7 +617,7 @@
 		/* Its whole row, so the pointer passes from one name straight to the next without a gap between. */
 		height: var(--row);
 		max-width: calc(var(--names) + 22px);
-		font-size: 12px;
+		font-size: 0.75rem;
 		color: var(--muted-foreground);
 	}
 	.label.current,

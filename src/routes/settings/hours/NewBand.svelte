@@ -5,7 +5,18 @@
 	import type { Band } from '#lib/worklog.js';
 	import { Plus } from '@lucide/svelte';
 
-	let { id, from, onadd }: { id: string; from: number; onadd: (band: Band) => void } = $props();
+	let {
+		id,
+		from,
+		hint,
+		onadd
+	}: {
+		id: string;
+		from: number;
+		/** The id of the text saying what an empty top means. */
+		hint?: string;
+		onadd: (band: Band) => void;
+	} = $props();
 
 	let upTo = $state<number | null>(null);
 	let rate = $state<number | null>(null);
@@ -27,7 +38,7 @@
 			type="number"
 			inputmode="decimal"
 			min={from}
-			placeholder="Any amount"
+			aria-describedby={hint}
 			class="tabular-nums"
 			bind:value={upTo}
 		/>
@@ -46,7 +57,8 @@
 			bind:value={rate}
 		/>
 	</div>
-	<Button type="submit" variant="outline" size="icon" aria-label="Add the band">
+	<Button type="submit" variant="outline" size="icon">
 		<Plus size={16} />
+		<span class="sr-only">Add the band</span>
 	</Button>
 </form>

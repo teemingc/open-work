@@ -8,6 +8,7 @@
 	import {
 		Briefcase,
 		ChartLine,
+		CircleAlert,
 		Clock,
 		FileText,
 		LayoutDashboard,
@@ -63,20 +64,20 @@
 	});
 
 	/**
-	 * Icons alone on phones, each at least 40px wide so it is easy to tap. Below 560px the three
+	 * Icons alone on phones, each at least 40px wide so it is easy to tap. Below 35rem the three
 	 * labels do not fit beside the name, and would wrap and squeeze the icons. Each sits on the rule
 	 * below it: the masthead's double rule, or the top of the Work row while it shows.
 	 */
 	const LINK =
-		'relative flex min-w-10 items-center justify-center gap-1.5 border-b-2 border-transparent text-muted-foreground hover:text-foreground [&[aria-current]]:border-primary [&[aria-current]]:font-medium [&[aria-current]]:text-foreground min-[560px]:min-w-0 min-[560px]:px-3 min-[560px]:whitespace-nowrap [&>svg]:shrink-0';
+		'relative flex min-w-10 items-center justify-center gap-1.5 border-b-2 border-transparent text-muted-foreground hover:text-foreground [&[aria-current]]:border-primary [&[aria-current]]:font-medium [&[aria-current]]:text-foreground min-[35rem]:min-w-0 min-[35rem]:px-3 [&>svg]:shrink-0';
 
 	/**
 	 * The Work row's links. On phones they share the row's width, as tabs, with icons alone below
-	 * 380px, where four labels do not fit beside them. Wider, they line up on the right under Work, with the same
+	 * 23.75rem, where four labels do not fit beside them. Wider, they line up on the right under Work, with the same
 	 * padding as the main links so the last labels end together.
 	 */
 	const SUB_LINK =
-		'relative flex items-center gap-1.5 first:ml-auto max-sm:flex-1 max-sm:justify-center max-sm:px-1 border-b-2 border-transparent px-3 whitespace-nowrap text-muted-foreground hover:text-foreground [&[aria-current]]:border-primary [&[aria-current]]:font-medium [&[aria-current]]:text-foreground [&>svg]:shrink-0';
+		'relative flex items-center gap-1.5 first:ml-auto max-sm:flex-1 max-sm:justify-center max-sm:px-1 border-b-2 border-transparent px-3 text-muted-foreground hover:text-foreground [&[aria-current]]:border-primary [&[aria-current]]:font-medium [&[aria-current]]:text-foreground [&>svg]:shrink-0';
 
 	/**
 	 * `page` when the link leads to the page you are on, `true` when you are elsewhere in its
@@ -97,68 +98,71 @@
 -->
 <header class="sticky top-0 z-40 border-b-[3px] border-double border-rule bg-card">
 	<div
-		class="mx-auto flex h-16 max-w-6xl items-stretch justify-between gap-2 px-4 sm:gap-4 sm:px-6"
+		class="mx-auto flex min-h-16 max-w-6xl items-stretch justify-between gap-2 px-4 sm:gap-4 sm:px-6"
 	>
-		<!-- Below 360px the nav needs the room, so the name is left to the mark and screen readers. -->
+		<!-- Below 22.5rem the nav needs the room, so the name is left to the mark and screen readers. -->
 		<a
 			href={resolve('/')}
-			class="flex shrink-0 items-center gap-2.5 font-display text-xl font-semibold whitespace-nowrap text-primary"
+			class="flex shrink-0 items-center gap-2.5 font-display text-xl font-semibold text-primary"
 		>
 			<img src={logo} alt="" class="size-7" />
-			<span class="max-[359px]:sr-only">Open Work</span>
+			<span class="max-[22.4375rem]:sr-only">Open Work</span>
 		</a>
 
 		<!-- Over the Work row's thinner rule, the links are 2px shorter. As much padding above keeps
 			their icons and labels where they were. -->
+		<h2 id="main-nav" class="sr-only">Main</h2>
 		<nav
-			aria-label="Main"
+			aria-labelledby="main-nav"
 			class={[
-				'flex items-stretch text-sm min-[560px]:gap-2',
+				'flex items-stretch text-sm min-[35rem]:gap-2',
 				showWorkRow ? '-mb-px pt-0.5' : '-mb-[3px]'
 			]}
 		>
 			<a href={resolve(`/${dashboardSearch()}`)} aria-current={current('/collective')} class={LINK}>
 				<ChartLine size={15} />
-				<span class="max-[560px]:sr-only">Collectives</span>
+				<span class="max-[35rem]:sr-only">Collectives</span>
 			</a>
 			<a href={resolve('/contributors')} aria-current={current('/contributors')} class={LINK}>
 				<Trophy size={15} />
-				<span class="max-[560px]:sr-only">Leaderboard</span>
+				<span class="max-[35rem]:sr-only">Leaderboard</span>
 			</a>
 			<a href={resolve('/work')} aria-current={inWork ? 'true' : undefined} class={LINK}>
 				<Briefcase size={15} />
-				<span class="max-[560px]:sr-only">Work</span>
+				<span class="max-[35rem]:sr-only">Work</span>
 			</a>
 		</nav>
 	</div>
 
 	{#if showWorkRow}
 		<div class="border-t" data-work-row>
+			<h2 id="work-nav" class="sr-only">Work</h2>
 			<nav
-				aria-label="Work"
-				class="mx-auto -mb-[3px] flex h-[47px] max-w-6xl items-stretch text-sm sm:px-6"
+				aria-labelledby="work-nav"
+				class="mx-auto -mb-[3px] flex min-h-[2.9375rem] max-w-6xl items-stretch text-sm sm:px-6"
 			>
 				<a href={resolve('/work')} aria-current={current('/work')} class={SUB_LINK}>
 					<LayoutDashboard size={14} />
-					<span class="max-[379px]:sr-only">Overview</span>
+					<span class="max-[23.6875rem]:sr-only">Overview</span>
 				</a>
 				<a href={resolve('/worklog')} aria-current={current('/worklog')} class={SUB_LINK}>
 					<Clock size={14} />
-					<span class="max-[379px]:sr-only">Work log</span>
+					<span class="max-[23.6875rem]:sr-only">Work log</span>
 				</a>
 				<a href={resolve('/invoices')} aria-current={current('/invoices')} class={SUB_LINK}>
 					<FileText size={14} />
-					<span class="max-[379px]:sr-only">Invoices</span>
+					<span class="max-[23.6875rem]:sr-only">Invoices</span>
 				</a>
 				<a href={resolve('/settings/clients')} aria-current={current('/settings')} class={SUB_LINK}>
 					<Settings size={14} />
-					<span class="max-[379px]:sr-only">Settings</span>
+					<span class="max-[23.6875rem]:sr-only">Settings</span>
 					<!-- Always takes its space, so the nav does not move when it appears. Only on Settings, not
 						on Work: visitors who never set up would otherwise be nagged on every page. -->
-					<span
-						class={['size-1.5 rounded-full bg-attention', !needsSetup && 'invisible']}
-						title={needsSetup ? 'Setup unfinished' : undefined}
-					></span>
+					<CircleAlert
+						size={12}
+						class={['text-attention', !needsSetup && 'invisible']}
+						aria-hidden="true"
+					/>
 					{#if needsSetup}<span class="sr-only">(setup unfinished)</span>{/if}
 				</a>
 			</nav>

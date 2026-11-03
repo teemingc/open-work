@@ -16,7 +16,8 @@
 	<Overview store={(await openWorkLogWithSettings()).store} />
 
 	{#snippet pending()}
-		<div class="space-y-6" aria-busy="true" aria-label="Loading your overview">
+		<div class="space-y-6" aria-busy="true">
+			<p class="sr-only">Loading your overview</p>
 			<div
 				class="flex h-[1.2em] min-h-9.5 items-center justify-between gap-3 text-(length:--h1-size)"
 			>

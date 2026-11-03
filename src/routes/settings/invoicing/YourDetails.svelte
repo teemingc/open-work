@@ -22,7 +22,6 @@
 	label,
 	value,
 	save,
-	placeholder,
 	type = 'text',
 	autocomplete = 'off'
 }: {
@@ -30,7 +29,6 @@
 	label: string;
 	value: string;
 	save: (value: string) => void;
-	placeholder?: string;
 	type?: string;
 	autocomplete?: FullAutoFill;
 })}
@@ -39,7 +37,6 @@
 		<Input
 			{id}
 			{type}
-			{placeholder}
 			{autocomplete}
 			{value}
 			onchange={(event) => save(event.currentTarget.value.trim())}
@@ -90,7 +87,6 @@
 		{@render field({
 			id: 'invoice-vat-id',
 			label: 'VAT number',
-			placeholder: 'If you have one',
 			value: invoicing.vatId,
 			save: (vatId) => change({ vatId })
 		})}
@@ -100,7 +96,6 @@
 		<Textarea
 			id="invoice-notes"
 			class="min-h-20"
-			placeholder="Your tax status, or anything else every invoice should say"
 			value={invoicing.notes}
 			onchange={(event) => change({ notes: event.currentTarget.value.trim() })}
 		/>

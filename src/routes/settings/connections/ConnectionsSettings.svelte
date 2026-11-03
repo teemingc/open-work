@@ -73,8 +73,8 @@
 						<div class="flex min-w-40 flex-1 items-center gap-2.5">
 							<CircleCheck size={18} class="shrink-0 text-status-paid" />
 							<div class="min-w-0">
-								<p class="truncate text-sm font-medium">{me.name}</p>
-								<p class="truncate text-xs text-muted-foreground">Connected as @{me.slug}</p>
+								<p class="text-sm font-medium break-words">{me.name}</p>
+								<p class="text-xs break-words text-muted-foreground">Connected as @{me.slug}</p>
 							</div>
 						</div>
 						<Button
@@ -93,12 +93,8 @@
 						<Button href={resolve('/auth/connect')} data-sveltekit-reload variant="outline">
 							Connect
 						</Button>
-						<span
-							class="size-1.5 shrink-0 rounded-full bg-attention"
-							title="Needed to submit invoices"
-						>
-							<span class="sr-only">(needed to submit invoices)</span>
-						</span>
+						<CircleAlert size={15} class="shrink-0 text-attention" />
+						<span class="sr-only">(needed to submit invoices)</span>
 					</div>
 				{/if}
 				{#if connectError}
@@ -121,7 +117,7 @@
 						id="github-token"
 						{...fields.githubToken.as('password')}
 						autocomplete="off"
-						class="min-w-48 flex-1"
+						class="min-w-0 flex-1 basis-48"
 					/>
 					<Button
 						type="button"
@@ -157,11 +153,7 @@
 				</div>
 				<div class="space-y-1.5">
 					<Label for="organization">Organisation</Label>
-					<Input
-						id="organization"
-						{...fields.organization.as('text')}
-						placeholder="Optional, e.g. your-org"
-					/>
+					<Input id="organization" {...fields.organization.as('text')} />
 				</div>
 			</div>
 

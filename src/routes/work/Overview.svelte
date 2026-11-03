@@ -11,6 +11,7 @@
 	import YearTakeHome from './YearTakeHome.svelte';
 
 	let { store }: { store: WorkLogStore } = $props();
+	const navId = $props.id();
 
 	const today = toIsoDate(new Date());
 	const thisYear = Number(today.slice(0, 4));
@@ -76,15 +77,15 @@
 	<!-- The year controls sit at the right edge, like the work log's month controls. -->
 	<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
 		<h1>{year}</h1>
-		<nav aria-label="Year" class="flex shrink-0 items-center rounded-md border bg-card">
+		<nav aria-labelledby={navId} class="flex shrink-0 items-center rounded-md border bg-card">
+			<h2 id={navId} class="sr-only">Year</h2>
 			<Button
 				variant="ghost"
 				size="icon"
 				class="rounded-r-none"
 				href="{resolve('/work')}?year={year - 1}"
-				aria-label="Previous year"
 			>
-				<ChevronLeft />
+				<ChevronLeft /><span class="sr-only">Previous year</span>
 			</Button>
 			{#if year === thisYear}
 				<Button variant="ghost" size="sm" class="rounded-none border-x" disabled>This year</Button>
@@ -98,9 +99,8 @@
 				size="icon"
 				class="rounded-l-none"
 				href="{resolve('/work')}?year={year + 1}"
-				aria-label="Next year"
 			>
-				<ChevronRight />
+				<ChevronRight /><span class="sr-only">Next year</span>
 			</Button>
 		</nav>
 	</div>

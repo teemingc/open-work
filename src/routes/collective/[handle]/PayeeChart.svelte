@@ -362,11 +362,11 @@
 	others row, each payee in it instead.
 -->
 {#snippet payeeBreakdown({ slug, name }: { slug: string; name: string })}
-	<p class="truncate px-1 pb-1 text-xs font-medium">{name}</p>
+	<p class="px-1 pb-1 text-xs font-medium wrap-break-word">{name}</p>
 	<ul class="max-h-56 space-y-0.5 overflow-y-auto text-xs">
 		{#each payeePeriods(slug) as part (part.label)}
 			<li class="flex justify-between gap-3 px-1">
-				<span class="min-w-0 truncate text-muted-foreground">{part.label}</span>
+				<span class="min-w-0 text-muted-foreground">{part.label}</span>
 				<span class="shrink-0 tabular-nums">{money.format(part.amount)}</span>
 			</li>
 		{/each}

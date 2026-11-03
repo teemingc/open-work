@@ -115,12 +115,10 @@
 {#snippet lookupField({
 	client,
 	source,
-	placeholder,
 	onchange
 }: {
 	client: Client;
 	source: LookSource;
-	placeholder: string;
 	onchange: (value: string) => void;
 })}
 	{const failed = $derived(lookErrors.get(client.id)?.source === source)}
@@ -129,7 +127,6 @@
 			id="{client.id}-{source}"
 			class="pr-8"
 			inputmode={source === 'website' ? 'url' : undefined}
-			{placeholder}
 			value={client[source] ?? ''}
 			aria-invalid={failed || undefined}
 			onchange={(event) => onchange(event.currentTarget.value.trim())}
@@ -171,14 +168,15 @@
 				)
 			)}
 			<li class="rounded-lg border bg-card">
-				<!-- The name heads the card, so each client reads as its own record rather than a row of equal fields. -->
-				<div class="flex items-center gap-2 border-b py-2 pr-2 pl-1.5">
+				<!-- The name heads the card, so each client reads as its own record rather than a row of equal fields.
+					With large text the buttons wrap under it, so the name keeps the width it needs. -->
+				<div class="flex flex-wrap items-center gap-2 border-b py-2 pr-2 pl-1.5">
 					<!-- The logo and colour are how the client is shown everywhere else, so they are changed from the mark itself. -->
 					<Popover.Root>
 						<Popover.Trigger
 							class="relative ml-0.5 grid size-9 shrink-0 place-items-center rounded-md outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[state=open]:bg-accent"
-							aria-label="Logo and colour of {client.name}"
 						>
+							<span class="sr-only">Logo and colour of {client.name}</span>
 							{#if client.logo}
 								<img src={client.logo} alt="" class="size-7 rounded" />
 								<span
@@ -212,10 +210,12 @@
 											variant="ghost"
 											size="icon"
 											class="text-muted-foreground"
-											aria-label="Go back to the colour of {client.name}'s place in the list"
 											onclick={() => changeClient(client, { color: undefined })}
 										>
 											<RotateCcw />
+											<span class="sr-only">
+												Go back to the colour of {client.name}'s place in the list
+											</span>
 										</Button>
 									{/if}
 								</div>
@@ -238,7 +238,7 @@
 					<Label for="{client.id}-name" class="sr-only">Name</Label>
 					<Input
 						id="{client.id}-name"
-						class="h-9 min-w-0 flex-1 border-transparent bg-transparent px-1.5 font-display text-lg shadow-none hover:border-input focus-visible:border-ring md:text-lg dark:bg-transparent"
+						class="h-auto min-h-9 min-w-0 flex-1 basis-40 border-transparent bg-transparent px-1.5 font-display text-lg shadow-none hover:border-input focus-visible:border-ring md:text-lg dark:bg-transparent"
 						value={client.name}
 						onchange={(event) => {
 							const name = event.currentTarget.value.trim();
@@ -250,31 +250,33 @@
 							variant="ghost"
 							size="sm"
 							class="shrink-0 text-muted-foreground"
-							aria-label="Archive {client.name}"
 							onclick={() => changeClient(client, { archived: true })}
 						>
-							<!-- The button keeps its name when the narrowest screens leave only its icon. -->
-							<Archive /> <span class="max-[359px]:hidden">Archive</span>
+							<!-- The narrowest screens leave only the icon, and the name is read out on any. -->
+							<Archive />
+							<span class="max-[359px]:sr-only">Archive</span>
+							<span class="sr-only">{client.name}</span>
 						</Button>
 					{:else}
 						<Button
 							variant="ghost"
 							size="sm"
 							class="shrink-0 text-muted-foreground"
-							aria-label="Remove {client.name}"
 							onclick={() => {
 								clientMessage = store.removeClient(client.id)
 									? undefined
 									: `${client.name} has logged time, so it stays.`;
 							}}
 						>
-							<Trash2 /> <span class="max-[359px]:hidden">Remove</span>
+							<Trash2 />
+							<span class="max-[359px]:sr-only">Remove</span>
+							<span class="sr-only">{client.name}</span>
 						</Button>
 					{/if}
 				</div>
-				<div class="grid gap-x-3 gap-y-4 p-3 sm:grid-cols-2 lg:grid-cols-4">
+				<div class="grid gap-x-3 gap-y-4 p-3 *:min-w-0 sm:grid-cols-2 lg:grid-cols-4">
 					<div class="space-y-1.5">
-						<Label for="{client.id}-rate">Per hour</Label>
+						<Label for="{client.id}-rate" id="{client.id}-rate-label">Per hour</Label>
 						<!-- The currency is part of the rate, so it is attached to it rather than a field of its own. -->
 						<div class="flex">
 							<Input
@@ -305,8 +307,9 @@
 							>
 								<Select.Trigger
 									class="-ml-px w-[5.25rem] shrink-0 rounded-l-none bg-muted/50"
-									aria-label="Currency"
+									aria-labelledby="{client.id}-rate-label {client.id}-currency"
 								>
+									<span id="{client.id}-currency" class="sr-only">currency</span>
 									{client.currency}
 								</Select.Trigger>
 								<Select.Content>
@@ -319,7 +322,7 @@
 					</div>
 					<div class="space-y-1.5">
 						<Label for="{client.id}-share">Share of hours</Label>
-						<!-- The unit sits in the field, and only once there is a number for it to qualify. -->
+						<!-- The unit sits in the field, and only once there is a share for it to qualify. -->
 						<div class="relative">
 							<Input
 								id="{client.id}-share"
@@ -328,8 +331,7 @@
 								min="0"
 								max="100"
 								step="1"
-								placeholder="None"
-								class="peer pr-8 tabular-nums"
+								class="pr-8 tabular-nums"
 								value={client.targetShare ?? ''}
 								onchange={(event) => {
 									const text = event.currentTarget.value.trim();
@@ -340,10 +342,12 @@
 									}
 								}}
 							/>
-							<span
-								class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-muted-foreground peer-placeholder-shown:hidden"
-								aria-hidden="true">%</span
-							>
+							{#if client.targetShare !== undefined}
+								<span
+									class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-muted-foreground"
+									aria-hidden="true">%</span
+								>
+							{/if}
 						</div>
 					</div>
 					<!-- Whom the invoice goes to says how it is sent: a collective on Open Collective, or an email. -->
@@ -352,7 +356,7 @@
 						<Label for="{client.id}-invoice-to">Invoice to</Label>
 						<CollectiveSearch
 							id="{client.id}-invoice-to"
-							name="Collective or email"
+							name="Invoice to"
 							slug={client.openCollective ? client.collective : undefined}
 							email={client.openCollective ? undefined : client.email}
 							busy={looking.get(client.id) === 'collective'}
@@ -397,7 +401,6 @@
 							{@render lookupField({
 								client,
 								source: 'website',
-								placeholder: 'None',
 								onchange: (website) =>
 									lookUp(client, { website: website || undefined }, () => getSiteLook(website))
 							})}
@@ -480,10 +483,10 @@
 									<Button
 										variant="ghost"
 										size="icon"
-										aria-label="Remove the rate from {change.from}"
 										onclick={() => changeRates(client, (rates) => rates.splice(index, 1))}
 									>
 										<Trash2 size={16} />
+										<span class="sr-only">Remove the rate from {change.from}</span>
 									</Button>
 								</div>
 							{/each}
@@ -522,7 +525,7 @@
 			<ul class="mt-2 ml-5 divide-y border-y text-sm">
 				{#each archived as client (client.id)}
 					<li class="flex items-center justify-between gap-3 py-1">
-						<span class="min-w-0 truncate text-muted-foreground">{client.name}</span>
+						<span class="min-w-0 break-words text-muted-foreground">{client.name}</span>
 						<Button
 							variant="ghost"
 							size="sm"

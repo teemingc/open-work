@@ -28,6 +28,20 @@ export function chartPadding({
 	bottom: number;
 	left: number;
 } {
-	const legendHeight = legend === true ? 20 : legend || 0;
-	return { top: 18, right, bottom: legendHeight ? 38 + legendHeight : 26, left: left + 6 };
+	// The room is for text, so it grows with the reader's text size. A measured legend is already
+	// in pixels as drawn.
+	const em = remScale();
+	const legendHeight = legend === true ? 20 * em : legend || 0;
+	return {
+		top: 18 * em,
+		right: right * em,
+		bottom: legendHeight ? 38 * em + legendHeight : 26 * em,
+		left: (left + 6) * em
+	};
+}
+
+/** The root font size against the usual 16px, or 1 on the server, where there is no reader. */
+function remScale() {
+	if (typeof document === 'undefined') return 1;
+	return parseFloat(getComputedStyle(document.documentElement).fontSize) / 16 || 1;
 }

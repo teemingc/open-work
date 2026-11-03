@@ -6,7 +6,7 @@
 	import { getMe } from '#lib/opencollective.remote.js';
 	import { saveSettings } from '#lib/settings.remote.js';
 	import { settingsStatus } from '#lib/settings-status.svelte.js';
-	import { ArrowLeft, Check, CircleAlert } from '@lucide/svelte';
+	import { ArrowLeft, Check, ChevronDown, CircleAlert } from '@lucide/svelte';
 	import type { ResolvedPathname } from '$app/types';
 	import type { Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -37,10 +37,15 @@
 		{ path: '/', label: 'Collectives' }
 	] as const;
 
-	/** The page you opened settings from, kept while you move between tabs. */
+	/** The page you opened settings from, kept while you move between sections. */
 	let back = $state<{ href: ResolvedPathname; label: string }>();
 
+	const current = $derived(TABS.find((tab) => tab.path === page.url.pathname));
+	/** Whether the list of sections is open on narrower screens, where it folds away. */
+	let sectionsOpen = $state(false);
+
 	afterNavigate(({ from }) => {
+		sectionsOpen = false;
 		if (!from || from.url.pathname.startsWith('/settings')) return;
 		const { pathname, search, hash } = from.url;
 		const known = PAGES.find(({ path }) =>
@@ -65,7 +70,7 @@
 {/if}
 
 <div class="mb-6 flex flex-wrap items-end justify-between gap-2">
-	<h1>Settings</h1>
+	<h1 id="settings-heading">Settings</h1>
 	<p class="flex items-center gap-1.5 text-sm text-muted-foreground" role="status">
 		{#if saveSettings.pending > 0}
 			<!-- A quick save goes straight to "Saved" without flashing this first. -->
@@ -83,28 +88,51 @@
 	</p>
 </div>
 
-<!--
-	Links styled as tabs, so each page has its own address to link to and come back to. On phones,
-	where six do not fit in a row, they sit two to a row so every one stays in view.
--->
-<nav aria-label="Settings" class="mb-8">
-	<div
-		class="grid grid-cols-2 gap-[3px] rounded-lg bg-muted p-[3px] text-muted-foreground sm:inline-flex sm:h-9 sm:items-center sm:gap-0"
-	>
+{#snippet sections()}
+	<ul class="space-y-0.5">
 		{#each TABS as tab (tab.path)}
-			<a
-				href={resolve(tab.path)}
-				aria-current={page.url.pathname === tab.path ? 'page' : undefined}
-				class="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-transparent px-3 text-sm font-medium whitespace-nowrap text-foreground transition-[color,box-shadow] hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none aria-[current=page]:bg-background aria-[current=page]:shadow-sm sm:h-full dark:text-muted-foreground dark:aria-[current=page]:border-input dark:aria-[current=page]:bg-input/30 dark:aria-[current=page]:text-foreground"
+			<li>
+				<a
+					href={resolve(tab.path)}
+					aria-current={tab === current ? 'page' : undefined}
+					class="flex min-h-9 items-center gap-2 rounded-md border-l-2 border-transparent px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
+				>
+					{tab.label}
+					{#if tab.path === '/settings/connections' && needsSetup}
+						<CircleAlert size={14} class="shrink-0 text-attention" />
+						<span class="sr-only">(setup unfinished)</span>
+					{/if}
+				</a>
+			</li>
+		{/each}
+	</ul>
+{/snippet}
+
+<!--
+	Links rather than tabs, so each section has its own address to link to and come back to. A
+	column beside the section on wide screens, as in shadcn's settings example. Narrower, it folds
+	into the section you are on, so the list never scrolls sideways or pushes the section down.
+-->
+<div class="lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-10">
+	<nav aria-labelledby="settings-heading" class="mb-8 lg:mb-0">
+		<details class="group rounded-md border bg-card lg:hidden" bind:open={sectionsOpen}>
+			<summary
+				class="flex min-h-10 cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-semibold [&::-webkit-details-marker]:hidden"
 			>
-				{tab.label}
-				{#if tab.path === '/settings/connections' && needsSetup}
-					<span class="size-1.5 rounded-full bg-attention" title="Setup unfinished"></span>
+				{current?.label ?? 'Sections'}
+				{#if needsSetup && current?.path !== '/settings/connections'}
+					<CircleAlert size={14} class="shrink-0 text-attention" />
 					<span class="sr-only">(setup unfinished)</span>
 				{/if}
-			</a>
-		{/each}
-	</div>
-</nav>
+				<ChevronDown
+					size={16}
+					class="ml-auto shrink-0 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
+				/>
+			</summary>
+			<div class="border-t p-1">{@render sections()}</div>
+		</details>
+		<div class="hidden lg:block">{@render sections()}</div>
+	</nav>
 
-<div>{@render children()}</div>
+	<div class="min-w-0">{@render children()}</div>
+</div>

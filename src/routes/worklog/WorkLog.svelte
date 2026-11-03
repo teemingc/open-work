@@ -22,8 +22,10 @@
 		ChevronLeft,
 		ChevronRight,
 		CircleAlert,
+		CircleCheck,
 		GitPullRequest,
-		Settings2
+		Settings2,
+		TriangleAlert
 	} from '@lucide/svelte';
 	import type { Settings } from '#lib/settings.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
@@ -36,6 +38,7 @@
 	import TakeHome from './TakeHome.svelte';
 
 	let { data }: { data: { settings: Settings; store: WorkLogStore } } = $props();
+	const uid = $props.id();
 
 	const settings = $derived(data.settings);
 	// The same store for the page's whole life, so it is read once, not tracked.
@@ -110,27 +113,27 @@
 	<!--
 		The month controls sit at the right edge, so they stay put as the month name changes length. On
 		the narrowest phones, too narrow for both, the month has a row of its own, with the controls and buttons
-		under it and the sync status last.
+		under it, wrapping when the text is large, and the sync status last.
 	-->
-	<header
-		class="grid grid-cols-[1fr_auto] items-center gap-2 min-[420px]:block min-[420px]:space-y-2"
-	>
+	<header class="flex flex-wrap items-center gap-2 min-[26.25rem]:block min-[26.25rem]:space-y-2">
 		<div
-			class="contents min-[420px]:flex min-[420px]:items-center min-[420px]:justify-between min-[420px]:gap-3"
+			class="contents min-[26.25rem]:flex min-[26.25rem]:items-center min-[26.25rem]:justify-between min-[26.25rem]:gap-3"
 		>
-			<MonthPicker {month} current={monthOf(today)} label={monthName} />
+			<div class="basis-full min-[26.25rem]:basis-auto">
+				<MonthPicker {month} current={monthOf(today)} label={monthName} />
+			</div>
 			<nav
-				aria-label="Month"
-				class="col-start-1 row-start-2 flex shrink-0 items-center justify-self-start rounded-md border bg-card"
+				aria-labelledby="{uid}-month"
+				class="flex shrink-0 items-center rounded-md border bg-card"
 			>
+				<h2 id="{uid}-month" class="sr-only">Month</h2>
 				<Button
 					variant="ghost"
 					size="icon"
 					class="rounded-r-none"
 					href="{resolve('/worklog')}?month={addMonths(month, -1)}"
-					aria-label="Previous month"
 				>
-					<ChevronLeft />
+					<ChevronLeft /><span class="sr-only">Previous month</span>
 				</Button>
 				{#if current}
 					<Button variant="ghost" size="sm" class="rounded-none border-x" disabled>Today</Button>
@@ -149,31 +152,37 @@
 					size="icon"
 					class="rounded-l-none"
 					href="{resolve('/worklog')}?month={addMonths(month, 1)}"
-					aria-label="Next month"
 				>
-					<ChevronRight />
+					<ChevronRight /><span class="sr-only">Next month</span>
 				</Button>
 			</nav>
 		</div>
 		<div
-			class="contents min-[420px]:flex min-[420px]:items-center min-[420px]:justify-between min-[420px]:gap-2"
+			class="contents min-[26.25rem]:flex min-[26.25rem]:items-center min-[26.25rem]:justify-between min-[26.25rem]:gap-2"
 		>
-			<div class="col-span-2 row-start-3"><DriveSyncStatus {sync} /></div>
+			<div class="order-last basis-full min-[26.25rem]:order-none min-[26.25rem]:basis-auto">
+				<DriveSyncStatus {sync} />
+			</div>
 			<!-- Labels hide on narrow screens; the icons and their accessible names stay. -->
-			<div class="col-start-2 row-start-2 flex shrink-0 gap-2">
-				<Button
-					variant="outline"
-					size="sm"
-					onclick={importFromGitHub}
-					disabled={fetching || !settings.githubUsername || !githubClient}
-					title={settings.githubUsername
-						? 'Add from GitHub'
-						: 'Add your GitHub username in settings first'}
-				>
-					{#if fetching}<Spinner />{:else}<GitPullRequest />{/if}
-					<span class="max-sm:sr-only">Add from GitHub</span>
-				</Button>
-				<Button variant="outline" size="sm" href={resolve('/settings/hours')} title="Settings">
+			<div class="ml-auto flex shrink-0 gap-2">
+				<!-- Without a username there is nothing to add from, so it leads to where you set one. -->
+				{#if settings.githubUsername}
+					<Button
+						variant="outline"
+						size="sm"
+						onclick={importFromGitHub}
+						disabled={fetching || !githubClient}
+					>
+						{#if fetching}<Spinner />{:else}<GitPullRequest />{/if}
+						<span class="max-sm:sr-only">Add from GitHub</span>
+					</Button>
+				{:else}
+					<Button variant="outline" size="sm" href={resolve('/settings/connections')}>
+						<GitPullRequest />
+						<span class="max-sm:sr-only">Connect GitHub</span>
+					</Button>
+				{/if}
+				<Button variant="outline" size="sm" href={resolve('/settings/hours')}>
 					<Settings2 /> <span class="max-sm:sr-only">Settings</span>
 				</Button>
 			</div>
@@ -199,12 +208,19 @@
 					? 'text-warning'
 					: 'text-status-paid'}"
 		>
-			{#if message.tone !== 'ok'}<CircleAlert size={15} class="mt-0.5 shrink-0" />{/if}
+			{#if message.tone === 'error'}<CircleAlert
+					size={15}
+					class="mt-0.5 shrink-0"
+				/>{:else if message.tone === 'warn'}<TriangleAlert
+					size={15}
+					class="mt-0.5 shrink-0"
+				/>{:else}<CircleCheck size={15} class="mt-0.5 shrink-0" />{/if}
 			{message.text}
 		</p>
 	{/if}
 
-	<section aria-label="Summary" class="space-y-6">
+	<section aria-labelledby="{uid}-summary" class="space-y-6">
+		<h2 id="{uid}-summary" class="sr-only">Summary</h2>
 		<MonthStats {summary} data={store.data} {current} />
 		<TakeHome data={store.data} {summary} />
 	</section>

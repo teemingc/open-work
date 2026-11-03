@@ -51,7 +51,7 @@
 		{label}
 	</DateRangeField.Label>
 	<div
-		class="flex h-9 w-full items-center gap-1 rounded-md border border-input bg-card ps-3 pe-1 text-sm tabular-nums transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 max-[359px]:ps-2 max-[359px]:text-xs sm:w-fit"
+		class="flex min-h-9 w-full flex-wrap items-center gap-1 rounded-md border border-input bg-card ps-3 pe-1 text-sm tabular-nums transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 max-[22.4375rem]:ps-2 max-[22.4375rem]:text-xs sm:w-fit"
 	>
 		{#each ['start', 'end'] as const as type (type)}
 			{#if type === 'end'}<span aria-hidden="true" class="text-muted-foreground">–</span>{/if}
@@ -74,14 +74,9 @@
 		<Popover.Root bind:open>
 			<Popover.Trigger>
 				{#snippet child({ props })}
-					<Button
-						{...props}
-						variant="ghost"
-						size="icon"
-						class="ms-auto size-7"
-						aria-label="Pick {label.toLowerCase()} on a calendar"
-					>
+					<Button {...props} variant="ghost" size="icon" class="ms-auto size-7">
 						<CalendarRange />
+						<span class="sr-only">Pick {label.toLowerCase()} on a calendar</span>
 					</Button>
 				{/snippet}
 			</Popover.Trigger>

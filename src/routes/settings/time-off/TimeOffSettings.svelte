@@ -46,13 +46,14 @@
 	description="Holidays are taken off the working days. Import your country's or state's list, then fix anything that differs."
 >
 	<div class="space-y-4">
-		<div class="flex items-center gap-2">
+		<div class="flex items-start gap-2">
 			<Checkbox
 				id="replace-holidays"
+				class="mt-0.5"
 				checked={store.data.replaceHolidays}
 				onCheckedChange={(replace) => store.setReplaceHolidays(replace)}
 			/>
-			<Label for="replace-holidays" class="font-normal">
+			<Label for="replace-holidays" class="leading-5 font-normal">
 				Take a working day off for a holiday on a weekend
 			</Label>
 		</div>
@@ -85,15 +86,16 @@
 				}}
 			/>
 		</div>
-		<div class="flex h-9 items-center gap-2">
+		<div class="flex items-start gap-2 py-2">
 			<Checkbox
 				id="allowance-holidays"
+				class="mt-0.5"
 				disabled={!store.data.allowance}
 				checked={store.data.allowance?.holidays ?? false}
 				onCheckedChange={(holidays) =>
 					store.data.allowance && store.setAllowance({ ...store.data.allowance, holidays })}
 			/>
-			<Label for="allowance-holidays" class="font-normal">Count public holidays</Label>
+			<Label for="allowance-holidays" class="leading-5 font-normal">Count public holidays</Label>
 		</div>
 	</div>
 </SettingsSection>

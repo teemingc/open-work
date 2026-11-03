@@ -4,13 +4,11 @@
 	let {
 		id,
 		values,
-		placeholder,
 		onchange
 	}: {
 		id: string;
 		/** Mutated in place, so pass reactive state. */
 		values: string[];
-		placeholder?: string;
 		/** Called after a value is added or removed. */
 		onchange?: () => void;
 	} = $props();
@@ -40,23 +38,24 @@
 	class="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1.5 focus-within:ring-[3px] focus-within:ring-ring/40"
 >
 	{#each values as name (name)}
-		<span class="flex items-center gap-1 rounded bg-secondary py-0.5 pr-1 pl-2 text-sm">
+		<span
+			class="flex min-w-0 items-center gap-1 rounded bg-secondary py-0.5 pr-1 pl-2 text-sm break-all"
+		>
 			{name}
 			<button
 				type="button"
 				class="grid size-5 place-items-center rounded text-muted-foreground hover:bg-background hover:text-foreground"
-				aria-label="Remove {name}"
 				onclick={() => remove(name)}
 			>
 				<X size={12} />
+				<span class="sr-only">Remove {name}</span>
 			</button>
 		</span>
 	{/each}
 	<input
 		{id}
 		bind:value={text}
-		{placeholder}
-		class="min-w-32 flex-1 bg-transparent px-1 text-sm outline-none placeholder:text-muted-foreground"
+		class="min-w-32 flex-1 bg-transparent px-1 text-sm outline-none"
 		onkeydown={(event) => {
 			if (event.key === 'Enter' || event.key === ',') {
 				event.preventDefault();

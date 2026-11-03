@@ -25,31 +25,33 @@
 		<h1>Look up a collective</h1>
 		<p class="text-muted-foreground">See its balance, runway and who funds it.</p>
 	</div>
-	<CollectiveSearch name="Search Open Collective" field />
-	<nav aria-label="Suggested collectives" class="overflow-hidden rounded-xl border bg-card">
+	<CollectiveSearch name="Look up a collective" nameShown={false} field />
+	<nav aria-labelledby="suggested-heading" class="overflow-hidden rounded-xl border bg-card">
+		<h2 id="suggested-heading" class="sr-only">Suggested collectives</h2>
 		<ul class="divide-y">
 			{#each SUGGESTED_COLLECTIVES as collective (collective.slug)}
 				<li>
+					<!-- The logo stays beside the name when a long description wraps under it. -->
 					<a
 						href={resolve(`/collective/[handle]${dashboardSearch()}`, {
 							handle: collective.slug
 						})}
-						class="group flex items-center gap-3 px-3.5 py-2.5 hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+						class="group flex items-start gap-3 px-3.5 py-2.5 [--focus-offset:-2px] hover:bg-accent focus-visible:bg-accent"
 					>
 						<img
 							src={collectiveLogo(collective.slug)}
 							alt=""
-							class="size-8 shrink-0 rounded-md border bg-card object-contain"
+							class="mt-0.5 size-8 shrink-0 rounded-md border bg-card object-contain"
 							loading="lazy"
 						/>
 						<span class="min-w-0 flex-1">
 							<span class="block font-medium">{collective.name}</span>
-							<span class="block truncate text-sm text-muted-foreground" title={collective.about}>
+							<span class="block text-sm text-muted-foreground">
 								{collective.about}
 							</span>
 						</span>
 						<ChevronRight
-							class="size-4 shrink-0 text-muted-foreground transition-transform motion-safe:group-hover:translate-x-0.5"
+							class="size-4 shrink-0 self-center text-muted-foreground transition-transform motion-safe:group-hover:translate-x-0.5"
 							aria-hidden="true"
 						/>
 					</a>

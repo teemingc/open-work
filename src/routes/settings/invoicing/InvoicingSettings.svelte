@@ -11,7 +11,7 @@
 	import { missingFromSettings, type SettingsRequirement } from '#lib/settings.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import { openCollectiveRate, type Client } from '#lib/worklog.js';
-	import { CircleCheck, TriangleAlert } from '@lucide/svelte';
+	import { CircleAlert, CircleCheck, TriangleAlert } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import InvoiceDetails from './InvoiceDetails.svelte';
 	import YourDetails from './YourDetails.svelte';
@@ -77,14 +77,13 @@
 </script>
 
 <!--
-	Beside each field the warning above lists, until it is filled in. The same dot as on the
-	Invoicing tab, which shows while Open Collective is not connected.
+	Beside each field the warning above lists, until it is filled in. The same icon as on the
+	Connections tab, which shows while Open Collective is not connected.
 -->
 {#snippet needed(requirement: SettingsRequirement)}
 	{#if missing.includes(requirement)}
-		<span class="size-1.5 shrink-0 rounded-full bg-attention" title="Needed to submit invoices">
-			<span class="sr-only">(needed to submit invoices)</span>
-		</span>
+		<CircleAlert size={14} class="shrink-0 text-attention" />
+		<span class="sr-only">(needed to submit invoices)</span>
 	{/if}
 {/snippet}
 
@@ -102,7 +101,7 @@
 					{const { id, text, page } = REQUIREMENT_FIELDS[requirement]}
 					<li class="flex items-center gap-1.5">
 						{#if missing.includes(requirement)}
-							<span class="size-1.5 shrink-0 rounded-full bg-attention"></span>
+							<CircleAlert size={14} class="shrink-0 text-attention" />
 							{#if page}
 								<a href="{resolve(page)}{id ? `#${id}` : ''}" class="font-medium underline">
 									{text}

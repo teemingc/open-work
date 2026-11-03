@@ -28,11 +28,7 @@
 				>
 					<div class="col-span-2 space-y-1.5 sm:col-span-1">
 						<Label for="adjustment-{index}-reason">Reason</Label>
-						<Input
-							id="adjustment-{index}-reason"
-							placeholder="Discount"
-							bind:value={adjustment.description}
-						/>
+						<Input id="adjustment-{index}-reason" bind:value={adjustment.description} />
 					</div>
 					<div class="space-y-1.5">
 						<Label for="adjustment-{index}-kind">Change</Label>
@@ -71,11 +67,11 @@
 						variant="ghost"
 						size="icon"
 						class="self-end"
-						aria-label="Remove {adjustment.description || 'this adjustment'}"
-						title="Remove"
 						onclick={() => draft.adjustments.splice(index, 1)}
 					>
-						<Trash2 size={16} />
+						<Trash2 size={16} /><span class="sr-only"
+							>Remove {adjustment.description || 'this adjustment'}</span
+						>
 					</Button>
 				</li>
 			{/each}
@@ -91,13 +87,14 @@
 	</Button>
 
 	{#if credit > 0}
-		<div class="flex items-center gap-2 border-t pt-4">
+		<div class="flex items-start gap-2 border-t pt-4">
 			<Checkbox
 				id="use-credit"
+				class="mt-0.5"
 				checked={draft.totals.credit > 0}
 				onCheckedChange={(checked) => (draft.creditOverride = checked ? undefined : 0)}
 			/>
-			<Label for="use-credit" class="font-normal">
+			<Label for="use-credit" class="leading-5 font-normal">
 				Use {draft.client?.name}’s credit of {money(credit)} from earlier payments
 			</Label>
 		</div>

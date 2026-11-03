@@ -50,30 +50,47 @@
 			No holidays in {year} yet.
 		</p>
 	{:else}
-		<ul class="divide-y rounded-lg border" aria-label="Holidays in {year}">
+		<!-- Headings over the fields once the name shares the date's line. On a phone each field has
+			its own label instead, and screen readers always use those. -->
+		<div
+			class="hidden grid-cols-[10rem_minmax(0,1fr)_auto] gap-2 px-2 text-xs text-muted-foreground sm:grid"
+			aria-hidden="true"
+		>
+			<span>Date</span>
+			<span>Name</span>
+		</div>
+		<ul class="divide-y rounded-lg border">
 			{#each days as { day, index } (day.date)}
 				<!-- The name has a line of its own on a phone, and the weekend note sits under it on any screen. -->
 				<li
 					class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 p-2 sm:grid-cols-[10rem_minmax(0,1fr)_auto]"
 				>
-					<Input
-						type="date"
-						aria-label="Date"
-						class="block w-40 sm:w-full"
-						value={day.date}
-						onchange={(event) => {
-							const date = event.currentTarget.value;
-							if (date) store.updateHoliday({ index, day: { ...day, date } });
-						}}
-					/>
-					<Input
-						aria-label="Name"
-						class="col-span-2 sm:col-span-1 sm:col-start-2 sm:row-start-1"
-						value={day.name}
-						placeholder="Name"
-						onchange={(event) =>
-							store.updateHoliday({ index, day: { ...day, name: event.currentTarget.value } })}
-					/>
+					<div class="space-y-1">
+						<Label for="{id}-{index}-date" class="text-xs text-muted-foreground sm:sr-only">
+							Date
+						</Label>
+						<Input
+							id="{id}-{index}-date"
+							type="date"
+							class="block w-40 sm:w-full"
+							value={day.date}
+							onchange={(event) => {
+								const date = event.currentTarget.value;
+								if (date) store.updateHoliday({ index, day: { ...day, date } });
+							}}
+						/>
+					</div>
+					<div class="col-span-2 space-y-1 sm:col-span-1 sm:col-start-2 sm:row-start-1">
+						<Label for="{id}-{index}-name" class="text-xs text-muted-foreground sm:sr-only">
+							Name
+						</Label>
+						<Input
+							id="{id}-{index}-name"
+							value={day.name}
+							onchange={(event) =>
+								store.updateHoliday({ index, day: { ...day, name: event.currentTarget.value } })}
+						/>
+					</div>
 					{#if !isWeekday(day.date)}
 						{const replacement = $derived(replacedOn.get(day.date))}
 						<span class="col-span-2 text-xs text-muted-foreground sm:col-span-1 sm:col-start-2">
@@ -85,11 +102,11 @@
 					<Button
 						variant="ghost"
 						size="icon"
-						class="col-start-2 row-start-1 size-8 justify-self-end sm:col-start-3"
-						aria-label="Remove {day.name || day.date}"
+						class="col-start-2 row-start-1 size-8 self-end justify-self-end sm:col-start-3 sm:self-center"
 						onclick={() => store.removeHoliday(day.date)}
 					>
 						<Trash2 size={14} />
+						<span class="sr-only">Remove {day.name || day.date}</span>
 					</Button>
 				</li>
 			{/each}
@@ -128,13 +145,7 @@
 			</p>
 			<div class="space-y-1.5">
 				<Label for="{id}-paste">Rows</Label>
-				<Textarea
-					id="{id}-paste"
-					rows={5}
-					class="font-mono text-xs"
-					placeholder="2026-07-07,George Town World Heritage City Day"
-					bind:value={pasted}
-				/>
+				<Textarea id="{id}-paste" rows={5} class="font-mono text-xs" bind:value={pasted} />
 			</div>
 			<div class="flex flex-wrap gap-2">
 				<Button
@@ -149,6 +160,7 @@
 					<ClipboardPaste /> Add these rows
 				</Button>
 				<Button
+					id="{id}-file-button"
 					variant="outline"
 					size="sm"
 					onclick={() => document.getElementById(`${id}-file`)?.click()}
@@ -160,7 +172,7 @@
 					type="file"
 					accept=".csv,.tsv,.txt,text/csv"
 					class="sr-only"
-					aria-label="CSV file"
+					aria-labelledby="{id}-file-button"
 					tabindex="-1"
 					onchange={importFile}
 				/>

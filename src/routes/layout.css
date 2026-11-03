@@ -282,6 +282,7 @@
 	body {
 		@apply flex min-h-dvh flex-col bg-background font-serif text-foreground antialiased;
 		font-optical-sizing: auto;
+		font-size: 100%;
 		font-variant-numeric: lining-nums;
 		line-height: 1.6;
 	}
@@ -300,10 +301,29 @@
 		font-weight: 500;
 		letter-spacing: -0.01em;
 	}
-	:focus-visible {
-		outline: 2px solid var(--ring);
-		outline-offset: 2px;
-	}
+}
+
+/*
+ * One clear outline for everything focused from the keyboard, in place of the faint ring components
+ * pair with `outline-none`. Outside a layer, so it wins over both. Text fields and the parts of a
+ * date or time are left out: their box already turns the ring colour, and an outline on the field
+ * inside a box, like the search, would draw a second one.
+ */
+:focus-visible:not(
+	input:not([type='checkbox'], [type='radio'], [type='range'], [type='file']),
+	textarea,
+	[role='spinbutton']
+) {
+	outline: 2px solid var(--ring);
+	/* Set `--focus-offset` negative to draw it inside, where a box would clip it. */
+	outline-offset: var(--focus-offset, 2px);
+	--tw-ring-shadow: 0 0 #0000;
+}
+
+/* Links within text are underlined, so they are not told apart by colour alone. */
+:is(p, dd, figcaption, small) a:not([data-slot]) {
+	text-decoration-line: underline;
+	text-underline-offset: 0.2em;
 }
 
 @layer components {

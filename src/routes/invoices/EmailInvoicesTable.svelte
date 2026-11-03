@@ -122,19 +122,11 @@
 								variant="ghost"
 								size="icon"
 								href="{resolve('/invoices/new')}?invoice={invoice.id}"
-								aria-label="Edit {label(invoice)}"
-								title="Edit"
 							>
-								<Pencil size={16} />
+								<Pencil size={16} /><span class="sr-only">Edit {label(invoice)}</span>
 							</Button>
-							<Button
-								variant="ghost"
-								size="icon"
-								aria-label="Delete {label(invoice)}"
-								title="Delete"
-								onclick={() => (removing = invoice)}
-							>
-								<Trash2 size={16} />
+							<Button variant="ghost" size="icon" onclick={() => (removing = invoice)}>
+								<Trash2 size={16} /><span class="sr-only">Delete {label(invoice)}</span>
 							</Button>
 						</div>
 					</td>

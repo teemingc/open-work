@@ -136,7 +136,13 @@
 			...classes,
 			root: cn('w-full', classes?.root),
 			items: cn('flex-wrap justify-center gap-x-1 gap-y-0!', classes?.items),
-			item: 'rounded-md px-2 py-0.5 transition-colors hover:bg-muted focus-visible:bg-muted'
+			// A hidden category is struck through as well as faded, so it does not rest on contrast alone.
+			// Layerchart passes `selected` with each item but leaves it out of `LegendItem`.
+			item: (item) =>
+				cn(
+					'rounded-md px-2 py-0.5 transition-colors hover:bg-muted focus-visible:bg-muted',
+					!(item as { selected?: boolean }).selected && 'line-through'
+				)
 		}}
 		{...props}
 	/>

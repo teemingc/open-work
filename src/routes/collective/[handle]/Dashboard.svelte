@@ -557,7 +557,7 @@
 				Each label above its buttons, which leaves the buttons the full width on phones. One row from
 				tablets up, and labels beside their buttons on wide screens.
 			-->
-			<div class="flex flex-col gap-3 text-sm md:flex-row md:gap-x-6 lg:gap-x-8">
+			<div class="flex flex-col gap-3 text-sm md:flex-row md:flex-wrap md:gap-x-6 lg:gap-x-8">
 				<div class="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-3">
 					<span id="range-label" class="text-muted-foreground">Range</span>
 					<ToggleGroup.Root
@@ -707,7 +707,8 @@
 				</Alert.Description>
 			</Alert.Root>
 		{:else}
-			<div class="grid gap-4 lg:grid-cols-2" aria-busy="true" aria-label="Loading contributions">
+			<div class="grid gap-4 lg:grid-cols-2" aria-busy="true">
+				<span class="sr-only">Loading contributions</span>
 				{#each [0, 1] as card (card)}
 					<Card.Root>
 						<Card.Header>

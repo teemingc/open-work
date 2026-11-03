@@ -123,6 +123,13 @@
 		return root.leaves().map((leaf) => ({ x: leaf.x - inner, y: leaf.y - inner, r: leaf.r }));
 	}
 
+	/** Prefixes the ids of each logo's name, read out for its link. */
+	const id = $props.id();
+	const label = (slot: Slot) =>
+		slot.kind === 'recipient'
+			? describe(slot.recipient)
+			: `${slot.rest.length} more collectives: ${money.format(slot.value)}`;
+
 	const anyMonthly = $derived(recipients.some((r) => r.monthly > 0));
 	/** The logo focused by keyboard, ringed like a hovered one. */
 	let focused = $state<string>();
@@ -175,9 +182,7 @@
 								href={link.url(slot)}
 								target="_blank"
 								rel="noreferrer"
-								aria-label={slot.kind === 'recipient'
-									? describe(slot.recipient)
-									: `${slot.rest.length} more collectives: ${money.format(slot.value)}`}
+								aria-labelledby="{id}-{slot.key}"
 								class="cursor-pointer outline-none"
 								onfocus={() => (focused = slot.key)}
 								onblur={() => (focused = undefined)}
@@ -222,7 +227,7 @@
 										y={node.y}
 										text-anchor="middle"
 										dominant-baseline="central"
-										font-size={Math.max(11, node.r * 0.4)}
+										style:font-size="max(0.6875rem, {node.r * 0.4}px)"
 										paint-order="stroke"
 										stroke-width="3"
 										class="fill-foreground stroke-muted font-medium">+{slot.rest.length}</text
@@ -297,6 +302,13 @@
 		</Chart.Container>
 	{/snippet}
 </LazyChart>
+
+<!-- Each logo's name for its link, which an SVG link can't hold as text without drawing it. -->
+<div hidden>
+	{#each slots as slot (slot.key)}
+		<span id="{id}-{slot.key}">{label(slot)}</span>
+	{/each}
+</div>
 
 {#if anyMonthly}
 	<p class="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">

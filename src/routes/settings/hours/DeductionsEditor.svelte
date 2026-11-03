@@ -89,31 +89,24 @@
 						<Button
 							variant="ghost"
 							size="icon"
-							aria-label="Take {deduction.name || 'this deduction'} earlier"
-							title="Earlier"
 							disabled={index === 0}
 							onclick={() => store.moveDeduction({ id: deduction.id, by: -1 })}
 						>
 							<ArrowUp size={16} />
+							<span class="sr-only">Take {deduction.name || 'this deduction'} earlier</span>
 						</Button>
 						<Button
 							variant="ghost"
 							size="icon"
-							aria-label="Take {deduction.name || 'this deduction'} later"
-							title="Later"
 							disabled={index === deductions.length - 1}
 							onclick={() => store.moveDeduction({ id: deduction.id, by: 1 })}
 						>
 							<ArrowDown size={16} />
+							<span class="sr-only">Take {deduction.name || 'this deduction'} later</span>
 						</Button>
-						<Button
-							variant="ghost"
-							size="icon"
-							aria-label="Remove {deduction.name || 'this deduction'}"
-							title="Remove"
-							onclick={() => store.removeDeduction(deduction.id)}
-						>
+						<Button variant="ghost" size="icon" onclick={() => store.removeDeduction(deduction.id)}>
 							<Trash2 size={16} />
+							<span class="sr-only">Remove {deduction.name || 'this deduction'}</span>
 						</Button>
 					</div>
 				</div>
@@ -173,7 +166,10 @@
 				{#if deduction.kind === 'bands'}
 					{const bands = $derived(deduction.bands ?? [])}
 					<fieldset class="space-y-2">
-						<legend class="mb-2 text-sm font-medium">Bands ({currency})</legend>
+						<legend class="text-sm font-medium">Bands ({currency})</legend>
+						<p id="{deduction.id}-bands-hint" class="text-xs text-muted-foreground">
+							Leave the last band's top empty for any amount.
+						</p>
 						{#each bands as band, bandIndex (bandIndex)}
 							{const from = $derived(bandIndex === 0 ? 0 : (bands[bandIndex - 1].upTo ?? 0))}
 							<div
@@ -188,7 +184,7 @@
 										type="number"
 										inputmode="decimal"
 										min="0"
-										placeholder="Any amount"
+										aria-describedby="{deduction.id}-bands-hint"
 										class="tabular-nums"
 										value={band.upTo ?? ''}
 										onchange={(event) => {
@@ -219,10 +215,10 @@
 								<Button
 									variant="ghost"
 									size="icon"
-									aria-label="Remove the band from {from.toLocaleString('en')}"
 									onclick={() => changeBands(deduction, (list) => list.splice(bandIndex, 1))}
 								>
 									<X size={16} />
+									<span class="sr-only">Remove the band from {from.toLocaleString('en')}</span>
 								</Button>
 							</div>
 						{/each}
@@ -230,17 +226,19 @@
 						{#if bands.length === 0 || bands.at(-1)?.upTo !== undefined}
 							<NewBand
 								id="{deduction.id}-new-band"
+								hint="{deduction.id}-bands-hint"
 								from={bands.at(-1)?.upTo ?? 0}
 								onadd={(band) => changeBands(deduction, (list) => list.push(band))}
 							/>
 						{/if}
-						<div class="flex items-center gap-2 pt-1">
+						<div class="flex items-start gap-2 pt-1">
 							<Checkbox
 								id="{deduction.id}-yearly"
+								class="mt-0.5"
 								checked={deduction.yearly ?? false}
 								onCheckedChange={(yearly) => change(deduction, { yearly })}
 							/>
-							<Label for="{deduction.id}-yearly" class="font-normal">
+							<Label for="{deduction.id}-yearly" class="leading-5 font-normal">
 								The bands are for a year’s income
 							</Label>
 						</div>

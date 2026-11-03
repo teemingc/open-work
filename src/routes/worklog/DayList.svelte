@@ -57,7 +57,7 @@
 					<div
 						class="flex items-baseline justify-between gap-3 border-b bg-muted/50 py-1.5 pr-14 pl-4 text-sm"
 					>
-						<h3 class="min-w-0 truncate">
+						<h3 class="min-w-0">
 							<span class="font-medium tabular-nums"
 								>{dayFormat.format(parseIsoDate(day.date))}</span
 							>

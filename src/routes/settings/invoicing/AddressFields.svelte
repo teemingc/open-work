@@ -92,7 +92,6 @@
 			id="{id}-country"
 			autocomplete={fill('country')}
 			maxlength={2}
-			placeholder="MY"
 			class="uppercase"
 			aria-describedby="{id}-country-name"
 			value={current.country}

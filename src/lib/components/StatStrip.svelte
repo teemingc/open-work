@@ -102,7 +102,7 @@
 					<div
 						class="flex min-h-5.5 flex-wrap items-start justify-between gap-x-2 gap-y-1 @max-[13rem]:flex-col @max-[13rem]:flex-nowrap"
 					>
-						<span class="leading-5.5 whitespace-nowrap">{stat.label}</span>
+						<span class="leading-5.5">{stat.label}</span>
 						{#if stat.badge}
 							{const Icon = $derived(stat.badge.icon && ICONS[stat.badge.icon])}
 							{#if stat.badge.detail}

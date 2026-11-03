@@ -26,7 +26,8 @@
 			The same heights as the page, so the footer stays put when the log arrives. The charts set
 			the height of the page whatever is logged.
 		-->
-		<div class="space-y-6" aria-busy="true" aria-label="Loading your work log">
+		<div class="space-y-6" aria-busy="true">
+			<p class="sr-only">Loading your work log</p>
 			<div class="space-y-2">
 				<!-- As tall as the month name or its buttons, whichever is taller. -->
 				<div

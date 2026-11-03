@@ -13,5 +13,5 @@
 	{#if client.logo}
 		<img src={client.logo} alt="" class="size-[1.15em] shrink-0 rounded-[0.2em]" />
 	{/if}
-	<span class="truncate">{client.name}</span>
+	<span class="min-w-0 wrap-break-word">{client.name}</span>
 </span>

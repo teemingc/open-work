@@ -44,7 +44,7 @@
 	}
 </script>
 
-<h1 class="max-[359px]:text-2xl">
+<h1 class="max-[22.4375rem]:text-2xl">
 	<Popover.Root
 		bind:open
 		onOpenChange={(next) => {
@@ -55,8 +55,7 @@
 			{#snippet child({ props })}
 				<button
 					{...props}
-					class="-mx-2 flex items-center gap-1.5 rounded-md px-2 whitespace-nowrap hover:bg-accent"
-					aria-label="Choose a month, showing {label}"
+					class="-mx-2 flex items-center gap-1.5 rounded-md px-2 text-left hover:bg-accent"
 				>
 					<span class="sm:hidden">{short}</span>
 					<span class="max-sm:hidden">{label}</span>
@@ -67,24 +66,12 @@
 		</Popover.Trigger>
 		<Popover.Content class="w-64 p-3" align="start">
 			<div class="mb-2 flex items-center justify-between">
-				<Button
-					variant="ghost"
-					size="icon"
-					class="size-8"
-					aria-label="Previous year"
-					onclick={() => year--}
-				>
-					<ChevronLeft />
+				<Button variant="ghost" size="icon" class="size-8" onclick={() => year--}>
+					<ChevronLeft /><span class="sr-only">Previous year</span>
 				</Button>
 				<span class="text-sm font-medium tabular-nums" aria-live="polite">{year}</span>
-				<Button
-					variant="ghost"
-					size="icon"
-					class="size-8"
-					aria-label="Next year"
-					onclick={() => year++}
-				>
-					<ChevronRight />
+				<Button variant="ghost" size="icon" class="size-8" onclick={() => year++}>
+					<ChevronRight /><span class="sr-only">Next year</span>
 				</Button>
 			</div>
 			<div class="grid grid-cols-3 gap-1">

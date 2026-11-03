@@ -122,10 +122,8 @@
 								{...props}
 								type="button"
 								class="group block w-fit animate-in rounded-sm text-left font-display text-xl leading-snug tabular-nums underline decoration-muted-foreground/40 decoration-dotted decoration-1 underline-offset-[0.25em] duration-300 outline-none fade-in hover:decoration-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 lg:text-[1.75rem]"
-								aria-label="Change dates, {formatDMY(chosen.startDate)} to {formatDMY(
-									chosen.endDate
-								)}"
 							>
+								<span class="sr-only">Change dates,</span>
 								<!-- Too narrow for both dates, the end wraps under the start, its icon with it. -->
 								<span class="whitespace-nowrap">{formatDMY(chosen.startDate)} –</span>
 								<span class="whitespace-nowrap"

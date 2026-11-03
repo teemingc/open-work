@@ -64,7 +64,7 @@
 							style:background-color={client.color}
 							aria-hidden="true"
 						></span>
-						<span class="truncate">{client.name}</span>
+						<span class="min-w-0 wrap-break-word">{client.name}</span>
 					</span>
 				{/if}
 			{/if}
@@ -92,14 +92,9 @@
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
 				{#snippet child({ props })}
-					<Button
-						{...props}
-						variant="ghost"
-						size="icon"
-						class="-my-1 size-7 text-muted-foreground"
-						aria-label="Change this entry"
-					>
+					<Button {...props} variant="ghost" size="icon" class="-my-1 size-7 text-muted-foreground">
 						<Ellipsis size={16} />
+						<span class="sr-only">Change this entry</span>
 					</Button>
 				{/snippet}
 			</DropdownMenu.Trigger>
