@@ -14,8 +14,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 		!googleConfigured() || !pathname.startsWith('/api/auth/')
 			? await resolve(event)
 			: await svelteKitHandler({ event, resolve, auth: getAuth(), building });
-	// Pages can show what you set up, so a shared computer keeps no copy of them once you leave.
-	if (!response.headers.has('cache-control')) {
+	// Pages show your account once you sign in, so a shared computer keeps no copy of them. A
+	// cookie is how you are signed in: without one, a page is the same for everyone and can be kept.
+	const personal = event.request.headers.has('cookie') || response.headers.has('set-cookie');
+	if (personal && !response.headers.has('cache-control')) {
 		response.headers.set('cache-control', 'private, no-store');
 	}
 	return response;
