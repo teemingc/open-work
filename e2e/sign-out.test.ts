@@ -33,7 +33,7 @@ async function signInToGoogle(page: Page, { pullFails = false } = {}) {
 test('there is nothing to sign out of until you sign in', async ({ page }) => {
 	await page.goto('/');
 	await expect(page.getByRole('heading', { name: 'Main' })).toBeAttached();
-	await expect(page.getByRole('button', { name: 'Sign out' })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toHaveCount(0);
 });
 
 test('signing out saves to Drive first, clears this browser and offers to sign out of Google', async ({
@@ -41,7 +41,7 @@ test('signing out saves to Drive first, clears this browser and offers to sign o
 }) => {
 	const calls = await signInToGoogle(page);
 	await page.goto('/');
-	await page.getByRole('button', { name: 'Sign out' }).click();
+	await page.getByRole('button', { name: 'Sign out', exact: true }).click();
 	const dialog = page.getByRole('dialog');
 	await expect(dialog).toContainText('The copy in your Google Drive stays.');
 	const cleared = page.waitForResponse('**/auth/clear');
@@ -59,13 +59,13 @@ test('signing out saves to Drive first, clears this browser and offers to sign o
 	expect(calls.indexOf('pull')).toBeLessThan(calls.indexOf('clear'));
 	expect(calls.filter((call) => call === 'status')).toHaveLength(1);
 	await dialog.getByRole('button', { name: 'Done' }).click();
-	await expect(page.getByRole('button', { name: 'Sign out' })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toHaveCount(0);
 });
 
 test('when Drive cannot be reached, nothing is cleared until you say so', async ({ page }) => {
 	const calls = await signInToGoogle(page, { pullFails: true });
 	await page.goto('/');
-	await page.getByRole('button', { name: 'Sign out' }).click();
+	await page.getByRole('button', { name: 'Sign out', exact: true }).click();
 	const dialog = page.getByRole('dialog');
 	await dialog.getByRole('button', { name: 'Sign out and clear' }).click();
 

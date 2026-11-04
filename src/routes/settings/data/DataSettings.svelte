@@ -197,7 +197,7 @@
 						sync.stop();
 					}}
 				>
-					<LogOut /> Sign out
+					<LogOut /> Sign out of Google
 				</Button>
 			{:else if sync.state === 'signed-out' || sync.state === 'error'}
 				<Button variant="outline" onclick={() => signInWithGoogle(resolve('/settings/data'))}>
