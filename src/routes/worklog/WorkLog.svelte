@@ -5,7 +5,6 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
-	import { toIsoDate } from '#lib/format.js';
 	import { fetchActivity, GitHubError } from '#lib/github.js';
 	import DriveSyncStatus from '#lib/components/DriveSyncStatus.svelte';
 	import { driveSync } from '#lib/drive-sync.svelte.js';
@@ -29,7 +28,8 @@
 	} from '@lucide/svelte';
 	import type { Settings } from '#lib/settings.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import { onMount, untrack } from 'svelte';
+	import { untrack } from 'svelte';
+	import { today as currentDay } from './today.js';
 	import DayList from './DayList.svelte';
 	import EntryForm from '#lib/components/EntryForm.svelte';
 	import MonthCharts from './MonthCharts.svelte';
@@ -45,24 +45,7 @@
 	const store = untrack(() => data.store);
 	const sync = driveSync(store);
 
-	// Kept current, so a tab left open overnight moves on to the new day.
-	let today = $state(toIsoDate(new Date()));
-	function refreshToday() {
-		today = toIsoDate(new Date());
-	}
-	onMount(() => {
-		let timer: ReturnType<typeof setTimeout>;
-		function untilMidnight() {
-			const now = new Date();
-			const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-			timer = setTimeout(() => {
-				refreshToday();
-				untilMidnight();
-			}, midnight.getTime() - now.getTime());
-		}
-		untilMidnight();
-		return () => clearTimeout(timer);
-	});
+	const today = $derived(currentDay());
 	const month = $derived.by(() => {
 		const requested = page.url.searchParams.get('month');
 		return requested && /^\d{4}-(0[1-9]|1[0-2])$/.test(requested) ? requested : monthOf(today);
@@ -125,9 +108,6 @@
 		}
 	}
 </script>
-
-<!-- Timers pause while the computer sleeps, so check again on coming back to the tab. -->
-<svelte:document onvisibilitychange={refreshToday} />
 
 <div class="flex flex-col gap-4 md:gap-6">
 	<!--
