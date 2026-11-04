@@ -10,6 +10,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// Permanent, so search engines move the old address's standing to the new one.
 	if (hostname.endsWith('.workers.dev')) return Response.redirect(ORIGIN + pathname + search, 301);
 
-	if (!googleConfigured() || !pathname.startsWith('/api/auth/')) return resolve(event);
-	return svelteKitHandler({ event, resolve, auth: getAuth(), building });
+	const response =
+		!googleConfigured() || !pathname.startsWith('/api/auth/')
+			? await resolve(event)
+			: await svelteKitHandler({ event, resolve, auth: getAuth(), building });
+	// Pages can show what you set up, so a shared computer keeps no copy of them once you leave.
+	if (!response.headers.has('cache-control')) {
+		response.headers.set('cache-control', 'private, no-store');
+	}
+	return response;
 };

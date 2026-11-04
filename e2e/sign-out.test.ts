@@ -44,9 +44,14 @@ test('signing out saves to Drive first, clears this browser and offers to sign o
 	await page.getByRole('button', { name: 'Sign out' }).click();
 	const dialog = page.getByRole('dialog');
 	await expect(dialog).toContainText('The copy in your Google Drive stays.');
+	const cleared = page.waitForResponse('**/auth/clear');
 	await dialog.getByRole('button', { name: 'Sign out and clear' }).click();
 
 	await expect(dialog.getByRole('heading', { name: 'Signed out of Open Work' })).toBeVisible();
+	// `headers()` leaves out headers like this one.
+	expect((await (await cleared).allHeaders())['clear-site-data']).toBe(
+		'"cache", "cookies", "storage"'
+	);
 	await expect(dialog.getByRole('link', { name: 'Sign out of Google too' })).toHaveAttribute(
 		'href',
 		'https://accounts.google.com/Logout'

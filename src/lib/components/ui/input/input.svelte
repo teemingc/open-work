@@ -16,6 +16,8 @@
 		files = $bindable(),
 		class: className,
 		'data-slot': dataSlot = 'input',
+		// Off unless a field asks for autofill, so a shared computer does not offer what you typed.
+		autocomplete = 'off',
 		...restProps
 	}: Props = $props();
 </script>
@@ -46,6 +48,7 @@
 			className
 		)}
 		{type}
+		{autocomplete}
 		bind:value
 		{...restProps}
 	/>

@@ -54,6 +54,7 @@
 	{/each}
 	<input
 		{id}
+		autocomplete="off"
 		bind:value={text}
 		class="min-w-32 flex-1 bg-transparent px-1 text-sm outline-none"
 		onkeydown={(event) => {
