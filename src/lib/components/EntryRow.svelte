@@ -91,11 +91,16 @@
 		>
 			<!-- Breaks only between the two times, so a narrow column never runs into the hours. -->
 			{#if time}
-				<span>{time.replace(/ (AM|PM)/g, '\u00a0$1')}</span>
-			{/if}
-			{#if calendarDate}
-				<span class="inline-flex items-center gap-1 whitespace-nowrap">
-					<Moon size={12} aria-hidden="true" />{calendarDate}
+				<span
+					class="inline-flex items-center gap-1"
+					title={calendarDate && `After midnight, on ${calendarDate}`}
+				>
+					<span>{time.replace(/ (AM|PM)/g, '\u00a0$1')}</span>
+					<!-- The moon says it was late at night; the date it fell on is left to the tooltip. -->
+					{#if calendarDate}
+						<Moon size={12} aria-hidden="true" class="shrink-0" />
+						<span class="sr-only">after midnight, on {calendarDate}</span>
+					{/if}
 				</span>
 			{/if}
 			{#if client}

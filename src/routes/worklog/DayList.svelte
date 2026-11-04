@@ -128,6 +128,8 @@
 	function dragGroup(id: string) {
 		return selected.includes(id) ? selectedHere : [id];
 	}
+	/** Everything going with the drag, so the rest of the group can fade where it is. */
+	const draggedIds = $derived(dragging ? dragGroup(dragging) : []);
 
 	const plugins: ComponentProps<typeof DragDropProvider>['plugins'] = (defaults) => [
 		...defaults.filter((plugin) => plugin !== Accessibility && plugin !== Feedback),
@@ -139,7 +141,8 @@
 					'To move this entry to another day, press space, then the arrow keys to move it there, and space again to drop it. Press escape to cancel.'
 			},
 			announcements: {
-				dragstart: () => 'Picked up.',
+				dragstart: () =>
+					draggedIds.length > 1 ? `Picked up ${draggedIds.length} entries.` : 'Picked up.',
 				dragover: ({ operation: { target } }: DragEvent<'onDragOver'>) => {
 					const date = target && dropDate(String(target.id));
 					return date ? `Over ${formatDay(date)}.` : undefined;
@@ -225,15 +228,20 @@
 	<Card.Header
 		class="flex h-14 items-center justify-between gap-3 border-b px-4 py-0 [.border-b]:pb-0"
 	>
-		<Card.Title>Days logged</Card.Title>
+		<Card.Title class="whitespace-nowrap">Days logged</Card.Title>
 		{#if selectedHere.length > 0}
 			<!-- Centred in the row, where Card.Action would sit at its top. -->
 			<Card.Action class="flex items-center gap-2 self-center">
-				<span class="text-sm text-muted-foreground tabular-nums">
+				<!-- On a narrow card the count moves into the button, so neither wraps. -->
+				<span
+					class="hidden text-sm whitespace-nowrap text-muted-foreground tabular-nums @xs/card-header:inline"
+				>
 					{selectedHere.length} selected
 				</span>
 				<Button variant="outline" size="sm" onclick={() => (moving = [...selectedHere])}>
-					<CalendarArrowUp />Move
+					<CalendarArrowUp />Move<span class="tabular-nums @xs/card-header:hidden"
+						>{selectedHere.length}<span class="sr-only"> selected</span></span
+					>
 				</Button>
 				<Button variant="ghost" size="icon-sm" onclick={clearSelection}>
 					<X />
@@ -352,7 +360,15 @@
 															pastMidnight={startsPastMidnight({ day: day.entries, entry })}
 															class={[
 																entry.id === justAdded && 'just-added',
-																drag.isDragging && 'rounded-md bg-card shadow-lg ring-1 ring-border'
+																drag.isDragging && 'rounded-md bg-card ring-1 ring-border',
+																drag.isDragging &&
+																	(draggedIds.length > 1
+																		? // Cards stacked behind the one in hand, for the others going with it.
+																			'shadow-[5px_5px_0_-1px_var(--card),5px_5px_0_0_var(--border),10px_10px_0_-1px_var(--card),10px_10px_0_0_var(--border),0_10px_15px_-3px_rgb(0_0_0/0.1)]'
+																		: 'shadow-lg'),
+																!drag.isDragging &&
+																	draggedIds.includes(entry.id) &&
+																	'opacity-40 transition-opacity'
 															]}
 															onanimationend={() => (justAdded = undefined)}
 															selected={selected.includes(entry.id)}
@@ -371,6 +387,12 @@
 																	<GripVertical aria-hidden="true" />
 																	<span class="sr-only">Drag to another day</span>
 																</Button>
+																{#if drag.isDragging && draggedIds.length > 1}
+																	<span
+																		class="absolute -top-2.5 -left-1.5 rounded-full bg-primary px-1.5 text-xs leading-5 font-semibold text-primary-foreground tabular-nums"
+																		aria-hidden="true">{draggedIds.length}</span
+																	>
+																{/if}
 															{/snippet}
 														</EntryRow>
 													{/snippet}
