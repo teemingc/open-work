@@ -74,16 +74,17 @@
 >
 	{#if handle}
 		<!-- A column of its own before the checkbox, as shadcn's data table puts a row's drag handle. -->
-		<div class="absolute top-1 left-2 flex">{@render handle()}</div>
+		<div class="absolute top-2 left-2 flex h-5 items-center">{@render handle()}</div>
 	{/if}
 	{#if selected !== undefined}
 		<!-- Beside the grid, so the columns line up with rows that have no checkbox. -->
-		<Checkbox
-			class={['absolute top-2.5', handle ? 'left-10' : 'left-4']}
-			checked={selected}
-			onCheckedChange={(checked) => onselectedchange?.(checked)}
-			aria-label={time ? `Select ${time}` : 'Select this entry'}
-		/>
+		<div class={['absolute top-2 flex h-5 items-center', handle ? 'left-10' : 'left-4']}>
+			<Checkbox
+				checked={selected}
+				onCheckedChange={(checked) => onselectedchange?.(checked)}
+				aria-label={time ? `Select ${time}` : 'Select this entry'}
+			/>
+		</div>
 	{/if}
 	{#if time || client}
 		<p
@@ -140,16 +141,16 @@
 		{#if rate}<span class="block text-xs text-muted-foreground">{rate}/h</span>{/if}
 	</p>
 
-	<div class="col-start-3 row-start-1 self-start @xl/entries:col-start-4">
+	<div class="col-start-3 row-start-1 flex h-5 items-center self-start @xl/entries:col-start-4">
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
 				{#snippet child({ props })}
-					<!-- Negative margins keep its 32px, or 40px on touch, from making the row taller. -->
+					<!-- Centred on the first line, its 32px, or 40px on touch, overflows the line evenly. -->
 					<Button
 						{...props}
 						variant="ghost"
 						size="icon-sm"
-						class="-mx-0.5 -my-1.5 text-muted-foreground pointer-coarse:-mx-1.5 pointer-coarse:-my-2.5"
+						class="-mx-0.5 text-muted-foreground pointer-coarse:-mx-1.5"
 					>
 						<Ellipsis size={16} />
 						<span class="sr-only">Change this entry</span>
