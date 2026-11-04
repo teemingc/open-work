@@ -70,6 +70,9 @@
 	},
 	"dependencies": {
 		"@cantoo/pdf-lib": "^2.11.1",
+		"@dnd-kit/collision": "0.5.3",
+		"@dnd-kit/dom": "0.5.3",
+		"@dnd-kit/svelte": "^0.5.3",
 		"@e-invoice-eu/core": "^3.4.2",
 		"d3-hierarchy": "^3.1.2",
 		"fontkit": "^2.0.4"

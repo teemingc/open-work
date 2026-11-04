@@ -9,6 +9,7 @@ import {
 	yearTakeHome,
 	type Deduction,
 	addMonths,
+	dropDays,
 	clientChoices,
 	converted,
 	describeRef,
@@ -222,6 +223,21 @@ describe('notes', () => {
 		expect(insertionIndex({ entries, entry: { date: '2026-10-01', start: '12:00' } })).toBe(1);
 		expect(insertionIndex({ entries, entry: { date: '2026-10-02' } })).toBe(2);
 		expect(insertionIndex({ entries, entry: { date: '2026-11-01' } })).toBe(3);
+	});
+
+	it('ends a day with the entries marked after midnight, and dates them the day after', () => {
+		const day = inDayOrder([
+			{ start: '03:00', end: '04:00', afterMidnight: true },
+			{ start: '00:00', end: '00:30', afterMidnight: true },
+			{ start: '01:00', end: '02:00', afterMidnight: true }
+		]);
+		expect(day.map((entry) => entry.start)).toEqual(['00:00', '01:00', '03:00']);
+		expect(day.every((entry) => startsPastMidnight({ day, entry }))).toBe(true);
+		const evening = inDayOrder([
+			{ start: '00:30', end: '01:00', afterMidnight: true },
+			{ start: '21:00', end: '23:00' }
+		]);
+		expect(evening.map((entry) => entry.start)).toEqual(['21:00', '00:30']);
 	});
 
 	it('tells which entries of a day started after midnight', () => {
@@ -961,5 +977,20 @@ describe('days-off budget', () => {
 		expect(
 			daysOffBudget({ data: { ...data, allowance: undefined }, year: 2026, today: '2026-10-12' })
 		).toBe(undefined);
+	});
+});
+
+describe('dropDays', () => {
+	it('offers the night before to small-hours entries', () => {
+		expect(dropDays({ date: '2030-01-02', start: '01:00' })).toEqual(['2030-01-01', '2030-01-02']);
+		expect(dropDays({ date: '2030-01-02', start: '09:00' })).toEqual([]);
+		expect(dropDays({ date: '2030-01-02' })).toEqual([]);
+	});
+
+	it('counts from the day a marked entry was worked on', () => {
+		expect(dropDays({ date: '2030-01-01', start: '01:00', afterMidnight: true })).toEqual([
+			'2030-01-01',
+			'2030-01-02'
+		]);
 	});
 });

@@ -3,6 +3,7 @@ import {
 	emptyWorkLog,
 	insertionIndex,
 	mergeDaysOff,
+	workedOn,
 	nowIso,
 	type FieldStamps,
 	orderedDeductions,
@@ -18,6 +19,7 @@ import {
 	type WorkLogData,
 	type WorkLogEntry
 } from './worklog';
+import { addDays } from './format';
 import { invoicingStamps, mergeWorkLogs, removedBy, sameWorkLog } from './worklog-merge';
 import { DEFAULT_SETTINGS, type Settings } from './settings';
 
@@ -305,7 +307,12 @@ export class WorkLogStore {
 	updateEntry(entry: WorkLogEntry) {
 		const index = this.data.entries.findIndex((other) => other.id === entry.id);
 		if (index === -1) return;
+		const previous = this.data.entries[index];
 		const updated = { ...entry, updatedAt: nowIso() };
+		// The form knows nothing of it, so an edit that keeps the day keeps it after midnight.
+		if (previous.afterMidnight && previous.date === entry.date && !('afterMidnight' in entry)) {
+			updated.afterMidnight = true;
+		}
 		this.data.entries.splice(index, 1);
 		this.data.entries.splice(
 			insertionIndex({ entries: this.data.entries, entry: updated }),
@@ -321,7 +328,33 @@ export class WorkLogStore {
 			const index = this.data.entries.findIndex((other) => other.id === id);
 			if (index === -1) continue;
 			const [entry] = this.data.entries.splice(index, 1);
-			const moved = { ...entry, date, updatedAt: nowIso() };
+			const moved: WorkLogEntry = { ...entry, date, updatedAt: nowIso() };
+			delete moved.afterMidnight;
+			this.data.entries.splice(
+				insertionIndex({ entries: this.data.entries, entry: moved }),
+				0,
+				moved
+			);
+		}
+		this.#save();
+	}
+
+	/**
+	 * Count entries toward the day before the one they were worked on, as part of a late night, or
+	 * put them back on that day. Their times and the calendar day they show stay the same.
+	 */
+	countTowardDayBefore({ ids, dayBefore }: { ids: string[]; dayBefore: boolean }) {
+		for (const id of ids) {
+			const index = this.data.entries.findIndex((other) => other.id === id);
+			if (index === -1) continue;
+			const [entry] = this.data.entries.splice(index, 1);
+			const day = workedOn(entry);
+			const moved: WorkLogEntry = { ...entry, date: day, updatedAt: nowIso() };
+			delete moved.afterMidnight;
+			if (dayBefore && entry.start) {
+				moved.date = addDays(day, -1);
+				moved.afterMidnight = true;
+			}
 			this.data.entries.splice(
 				insertionIndex({ entries: this.data.entries, entry: moved }),
 				0,

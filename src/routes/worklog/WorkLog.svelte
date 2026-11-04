@@ -263,7 +263,7 @@
 			sits beside the hours each day, which comes after it in the second column.
 		-->
 		<div class="@4xl/main:col-start-1 @4xl/main:row-start-2">
-			<DayList {store} {summary} organization={settings.organization} bind:justAdded />
+			<DayList {store} {summary} {today} organization={settings.organization} bind:justAdded />
 		</div>
 	</div>
 </div>

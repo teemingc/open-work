@@ -15,6 +15,7 @@
 	import { entryHours, refKey, type WorkLogEntry } from '#lib/worklog.js';
 	import { CalendarArrowUp, Ellipsis, Moon, Pencil, Trash2 } from '@lucide/svelte';
 	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
+	import type { Snippet } from 'svelte';
 	import type { HTMLLiAttributes } from 'svelte/elements';
 
 	let {
@@ -28,6 +29,7 @@
 		onedit,
 		onmove,
 		onremove,
+		handle,
 		...rest
 	}: HTMLLiAttributes & {
 		entry: WorkLogEntry;
@@ -45,6 +47,8 @@
 		/** Offered in the menu when given. */
 		onmove?: () => void;
 		onremove: () => void;
+		/** At the row's left edge, to drag the entry by. */
+		handle?: Snippet;
 	} = $props();
 
 	const hours = $derived(entryHours(entry));
@@ -64,14 +68,18 @@
 	{...rest}
 	class={[
 		'grid grid-cols-[minmax(0,1fr)_auto_auto] items-baseline gap-x-3 gap-y-0.5 px-4 py-2 text-sm sm:grid-cols-[10rem_minmax(0,1fr)_auto_auto]',
-		selected !== undefined && 'relative pl-11',
+		handle ? 'relative pl-16' : selected !== undefined && 'relative pl-11',
 		rest.class
 	]}
 >
+	{#if handle}
+		<!-- A column of its own before the checkbox, as shadcn's data table puts a row's drag handle. -->
+		<div class="absolute top-1 left-2 flex">{@render handle()}</div>
+	{/if}
 	{#if selected !== undefined}
 		<!-- Beside the grid, so the columns line up with rows that have no checkbox. -->
 		<Checkbox
-			class="absolute top-2.5 left-4"
+			class={['absolute top-2.5', handle ? 'left-10' : 'left-4']}
 			checked={selected}
 			onCheckedChange={(checked) => onselectedchange?.(checked)}
 			aria-label={time ? `Select ${time}` : 'Select this entry'}
@@ -82,7 +90,9 @@
 			class="col-start-1 flex flex-wrap items-baseline gap-x-2 text-muted-foreground tabular-nums sm:flex-col"
 		>
 			<!-- Breaks only between the two times, so a narrow column never runs into the hours. -->
-			{#if time}<span>{time.replace(/ (AM|PM)/g, '\u00a0$1')}</span>{/if}
+			{#if time}
+				<span>{time.replace(/ (AM|PM)/g, '\u00a0$1')}</span>
+			{/if}
 			{#if calendarDate}
 				<span class="inline-flex items-center gap-1 whitespace-nowrap">
 					<Moon size={12} aria-hidden="true" />{calendarDate}

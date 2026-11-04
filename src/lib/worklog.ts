@@ -136,7 +136,12 @@ const EntrySchema = v.object({
 	/** Pay an hour for this block, when it differs from the client's rate on the day. */
 	rate: v.optional(Rate),
 	/** Everything worked on in this block of time. */
-	items: v.array(WorkRefSchema)
+	items: v.array(WorkRefSchema),
+	/**
+	 * Started after midnight, on the calendar day after `date`: the work day it carried on from. Its
+	 * times alone cannot say so when nothing else that day came before midnight.
+	 */
+	afterMidnight: v.optional(v.literal(true))
 });
 
 /** One block of time for one client, and the things worked on in it. */
@@ -513,11 +518,15 @@ export function totalHours(entries: Pick<WorkLogEntry, 'start' | 'end' | 'hours'
  * carried on from, so the day starts after its longest break, taken as sleep, rather than at
  * midnight. Entries without a start go last.
  */
-export function inDayOrder<T extends Pick<WorkLogEntry, 'start' | 'end' | 'hours'>>(
-	entries: T[]
-): T[] {
+export function inDayOrder<
+	T extends Pick<WorkLogEntry, 'start' | 'end' | 'hours' | 'afterMidnight'>
+>(entries: T[]): T[] {
+	// Marked as after midnight, they end the day whatever the times say.
+	const late = entries
+		.filter((entry) => entry.start && entry.afterMidnight)
+		.sort((a, b) => a.start!.localeCompare(b.start!));
 	const timed = entries
-		.filter((entry) => entry.start)
+		.filter((entry) => entry.start && !entry.afterMidnight)
 		.sort((a, b) => a.start!.localeCompare(b.start!));
 	const untimed = entries.filter((entry) => !entry.start);
 	let wake = 0;
@@ -531,7 +540,7 @@ export function inDayOrder<T extends Pick<WorkLogEntry, 'start' | 'end' | 'hours
 			wake = next;
 		}
 	});
-	return [...timed.slice(wake), ...timed.slice(0, wake), ...untimed];
+	return [...timed.slice(wake), ...timed.slice(0, wake), ...late, ...untimed];
 }
 
 /**
@@ -543,10 +552,27 @@ export function startsPastMidnight({
 	entry
 }: {
 	day: Pick<WorkLogEntry, 'start'>[];
-	entry: Pick<WorkLogEntry, 'start'>;
+	entry: Pick<WorkLogEntry, 'start' | 'afterMidnight'>;
 }): boolean {
+	if (entry.afterMidnight) return true;
 	const first = day[0]?.start;
 	return !!entry.start && !!first && entry.start < first;
+}
+
+/** The calendar day an entry was worked on, which is the day after its date when past midnight. */
+export function workedOn(entry: Pick<WorkLogEntry, 'date' | 'afterMidnight'>): string {
+	return entry.afterMidnight ? addDays(entry.date, 1) : entry.date;
+}
+
+/**
+ * The days an entry can be dragged onto: the one it was worked on, and, when it started in the
+ * small hours, the day before, as the late night it carried on from.
+ */
+export function dropDays(entry: Pick<WorkLogEntry, 'date' | 'start' | 'afterMidnight'>): string[] {
+	const day = workedOn(entry);
+	return entry.afterMidnight || (entry.start && entry.start < '06:00')
+		? [addDays(day, -1), day]
+		: [];
 }
 
 /** Where an entry goes to keep the log in date and start-time order. */
