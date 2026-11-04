@@ -144,6 +144,21 @@ export class DriveSync {
 		}
 	}
 
+	/** Hold off syncing and wait out one under way, so nothing is saved while the copy in Drive is deleted. */
+	async pause() {
+		clearTimeout(this.#timer);
+		this.#stopListening?.();
+		this.#stopListening = undefined;
+		await this.#running;
+	}
+
+	/** Sync again after `pause`, saving any change made meanwhile. */
+	resume() {
+		if (!this.account) return;
+		this.#stopListening ??= this.#store.onChange(() => this.#schedulePush());
+		void this.syncNow();
+	}
+
 	/** Stop syncing, after signing out. The work log stays in this browser. */
 	stop() {
 		clearTimeout(this.#timer);

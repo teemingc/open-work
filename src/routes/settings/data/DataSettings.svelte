@@ -144,10 +144,13 @@
 
 	const clearEnhanced = clearAllData.enhance(async ({ submit }) => {
 		clearError = undefined;
+		const deletingDrive = sync.account !== null && deleteDrive;
+		if (deletingDrive) await sync.pause();
 		try {
 			await submit();
 		} catch (error) {
 			// Nothing was deleted or signed out, so it is safe to try again.
+			if (deletingDrive) sync.resume();
 			clearError =
 				(error as { body?: { message?: string } }).body?.message ??
 				'Could not delete the copy in your Google Drive.';

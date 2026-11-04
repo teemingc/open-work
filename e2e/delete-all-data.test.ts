@@ -65,3 +65,35 @@ test('a failed Drive delete leaves everything as it was', async ({ page }) => {
 	expect(deleteDrive).toBe(true);
 	await expect(page.getByText('Signed in as someone@example.com')).toBeVisible();
 });
+
+test('a sync under way finishes before the Drive copy is deleted, and syncing resumes if that fails', async ({
+	page
+}) => {
+	await signInToGoogle(page);
+	const requests: string[] = [];
+	let finishPull = () => {};
+	const pullHeld = new Promise<void>((resolve) => (finishPull = resolve));
+	await page.route('**/_app/remote/*/pullWorkLog', async (route) => {
+		requests.push('pull');
+		if (requests.filter((r) => r === 'pull').length === 1) await pullHeld;
+		await route.fulfill(remoteResult(null));
+	});
+	await page.route('**/_app/remote/*/clearAllData', async (route) => {
+		requests.push('delete');
+		await route.fulfill({
+			status: 502,
+			json: { type: 'error', error: { message: 'Google Drive is down.' } }
+		});
+	});
+	await page.goto('/settings/data');
+	await expect(page.getByText('Signed in as someone@example.com')).toBeVisible();
+	await page.getByRole('button', { name: 'Delete all data' }).click();
+	const dialog = page.getByRole('dialog');
+	await dialog.getByLabel('Also delete the copy in Google Drive').click();
+	await dialog.getByRole('button', { name: 'Delete everything' }).click();
+
+	await expect.poll(() => requests).toEqual(['pull']);
+	finishPull();
+	await expect(dialog.getByRole('alert')).toHaveText('Google Drive is down.');
+	await expect.poll(() => requests).toEqual(['pull', 'delete', 'pull']);
+});
