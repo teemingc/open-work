@@ -104,7 +104,7 @@
 				>
 					{tab.label}
 					{#if tab.path === '/settings/connections' && needsSetup}
-						<CircleAlert size={14} class="shrink-0 text-attention" />
+						<span class="size-2 shrink-0 rounded-full bg-attention" aria-hidden="true"></span>
 						<span class="sr-only">(setup unfinished)</span>
 					{/if}
 				</a>
@@ -126,14 +126,20 @@
 				class="flex min-h-10 cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-semibold [&::-webkit-details-marker]:hidden"
 			>
 				{current?.label ?? 'Sections'}
-				{#if needsSetup && current?.path !== '/settings/connections'}
-					<CircleAlert size={14} class="shrink-0 text-attention" />
-					<span class="sr-only">(setup unfinished)</span>
-				{/if}
-				<ChevronDown
-					size={16}
-					class="ml-auto shrink-0 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
-				/>
+				<!-- On the chevron rather than beside the name, as it is another section that needs you. -->
+				<span class="relative ml-auto flex shrink-0">
+					<ChevronDown
+						size={16}
+						class="text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
+					/>
+					{#if needsSetup && current?.path !== '/settings/connections'}
+						<span
+							class="absolute -top-1 -right-1 size-2 rounded-full bg-attention ring-2 ring-card"
+							aria-hidden="true"
+						></span>
+						<span class="sr-only">(Connections setup unfinished)</span>
+					{/if}
+				</span>
 			</summary>
 			<div class="border-t p-1">{@render sections()}</div>
 		</details>

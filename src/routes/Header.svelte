@@ -9,7 +9,6 @@
 	import {
 		Briefcase,
 		ChartLine,
-		CircleAlert,
 		Clock,
 		FileText,
 		LayoutDashboard,
@@ -172,15 +171,19 @@
 					<span class={label('/invoices')}>Invoices</span>
 				</a>
 				<a href={resolve('/settings/clients')} aria-current={current('/settings')} class={SUB_LINK}>
-					<Settings size={14} />
+					<!-- A dot on the icon's corner, like an app badge, so it takes no room of its own and does
+						not read as a warning about the word beside it. Only on Settings, not on Work: visitors
+						who never set up would otherwise be nagged on every page. -->
+					<span class="relative flex">
+						<Settings size={14} />
+						{#if needsSetup}
+							<span
+								class="absolute -top-1 -right-1 size-2 rounded-full bg-attention ring-2 ring-card"
+								aria-hidden="true"
+							></span>
+						{/if}
+					</span>
 					<span class={label('/settings')}>Settings</span>
-					<!-- Always takes its space, so the nav does not move when it appears. Only on Settings, not
-						on Work: visitors who never set up would otherwise be nagged on every page. -->
-					<CircleAlert
-						size={12}
-						class={['text-attention', !needsSetup && 'invisible']}
-						aria-hidden="true"
-					/>
 					{#if needsSetup}<span class="sr-only">(setup unfinished)</span>{/if}
 				</a>
 			</nav>

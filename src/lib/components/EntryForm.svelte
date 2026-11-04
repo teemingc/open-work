@@ -255,26 +255,30 @@
 		</div>
 	</div>
 
-	<p id="{id}-item-hint" class="col-span-2 text-xs text-muted-foreground" aria-live="polite">
+	<!-- Always a line of text, so typing a task never takes the hint away and moves the form. -->
+	<p
+		id="{id}-item-hint"
+		class="col-span-2 min-h-lh text-xs text-muted-foreground"
+		aria-live="polite"
+	>
 		{#if !timesValid}
 			<span class="text-destructive">Enter both a start and an end, or neither.</span>
 		{:else if itemText.trim() && !parsed}
 			<span class="text-destructive">
-				That looks like a GitHub path but is missing a number, like owner/repo/pull/123.
+				That GitHub URL is missing the pull request or issue number.
 			</span>
 		{:else if parsed && parsed.kind !== 'task'}
 			{describeRef(parsed)}
-		{:else if !itemText.trim()}
-			A GitHub path like owner/repo/pull/123, or a task like a meeting.
+		{:else}
+			A GitHub URL, or a task like a meeting.
 		{/if}
 	</p>
 
 	{#if items.length > 0}
-		<ul class="col-span-2 flex flex-wrap gap-1.5">
+		<!-- One item a row, so a long list reads down one edge rather than wherever each tag fits. -->
+		<ul class="col-span-2 divide-y rounded-md border bg-background">
 			{#each items as item, index (refKey(item))}
-				<li
-					class="flex max-w-full items-center gap-1 rounded-md border bg-background py-0.5 pr-0.5 pl-2 text-sm"
-				>
+				<li class="flex min-w-0 items-center justify-between gap-2 py-1 pr-1 pl-3 text-sm">
 					<WorkItem ref={item} {organization} />
 					<Button
 						type="button"

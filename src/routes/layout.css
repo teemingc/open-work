@@ -136,8 +136,9 @@
 	--warning: #7a5600;
 	--warning-surface: #fff8db;
 	--warning-border: #f2dc8a;
-	/* A dot that flags something unfinished. Bright, since it carries no text to keep readable. */
-	--attention: #f5a623;
+	/* A dot that flags something unfinished. Dark enough for 3:1 against the card and muted rows,
+	   as a graphic that carries meaning needs. */
+	--attention: #b45309;
 
 	--chart-income: #1869f5;
 	--chart-expenses: #e0577d;
