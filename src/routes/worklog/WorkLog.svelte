@@ -264,18 +264,15 @@
 					<Card.Title>Log time</Card.Title>
 				</Card.Header>
 				<Card.Content>
-					<!-- A fresh form for each month, so a date picked in one isn't kept in the next. -->
-					{#key month}
-						<EntryForm
-							{clients}
-							organization={settings.organization}
-							tasks={taskNames(store.data.entries)}
-							entries={store.data.entries}
-							date={defaultDate}
-							clientId={githubClient?.id}
-							onsave={(entry) => (justAdded = store.addEntry(entry).id)}
-						/>
-					{/key}
+					<EntryForm
+						{clients}
+						organization={settings.organization}
+						tasks={taskNames(store.data.entries)}
+						entries={store.data.entries}
+						date={defaultDate}
+						clientId={githubClient?.id}
+						onsave={(entry) => (justAdded = store.addEntry(entry).id)}
+					/>
 				</Card.Content>
 			</Card.Root>
 		{/if}

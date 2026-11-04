@@ -70,8 +70,13 @@
 	}));
 
 	const id = $props.id();
-	// A new entry is on the given date, following it as days pass, until another is picked.
-	let pickedDate = $state(untrack(() => entry?.date));
+	// A new entry is on the given date, following it as days pass, until another is picked. A date
+	// picked is dropped when the given date moves to another month, and the rest of the form is kept.
+	const dateMonth = $derived(date.slice(0, 7));
+	let pickedDate = $derived.by(() => {
+		void dateMonth;
+		return untrack(() => entry?.date);
+	});
 	const rowDate = $derived(pickedDate ?? date);
 	let rowClient = $state(initial.clientId);
 	let rowStart = $state(initial.start);
