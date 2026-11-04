@@ -18,11 +18,11 @@
 				link: 'text-primary underline-offset-4 hover:underline'
 			},
 			size: {
-				default: 'min-h-9 px-4 py-2 has-[>svg]:px-3',
-				sm: 'min-h-8 py-1 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5',
+				default: 'min-h-9 px-4 py-2 pointer-coarse:min-h-10 has-[>svg]:px-3',
+				sm: 'min-h-8 py-1 gap-1.5 rounded-md px-3 pointer-coarse:min-h-10 has-[>svg]:px-2.5',
 				lg: 'min-h-10 py-2 rounded-md px-6 has-[>svg]:px-4',
-				icon: 'size-9',
-				'icon-sm': 'size-8',
+				icon: 'size-9 pointer-coarse:size-10',
+				'icon-sm': 'size-8 pointer-coarse:size-10',
 				'icon-lg': 'size-10'
 			}
 		},

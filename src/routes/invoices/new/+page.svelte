@@ -4,6 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
@@ -19,7 +20,7 @@
 		workLogText,
 		type Client
 	} from '#lib/worklog.js';
-	import { ArrowLeft, RotateCcw } from '@lucide/svelte';
+	import { ArrowLeft, RotateCcw, ChevronRight } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { Draft, type DraftData } from './draft.svelte';
 	import InvoiceSheet from './InvoiceSheet.svelte';
@@ -161,25 +162,33 @@
 	/>
 </svelte:head>
 
-<div class="animate-in duration-300 fade-in">
+<div class="flex animate-in flex-col gap-4 duration-300 fade-in md:gap-6">
+	<!-- The hit area reaches past the text, so the small link is still easy to tap. -->
 	<a
 		href={resolve('/invoices')}
-		class="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+		class="relative inline-flex items-center gap-1.5 self-start text-sm text-muted-foreground after:absolute after:-inset-x-2 after:-inset-y-2.5 hover:text-foreground"
 	>
 		<ArrowLeft size={15} /> Invoices
 	</a>
 
-	<h1 class="mb-6">
+	<h1>
 		{formatDMY(draft.startDate)} – {formatDMY(draft.endDate)}
 	</h1>
 
-	<div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_25rem]">
-		<div class="divide-y rounded-xl border bg-card">
-			<section class="space-y-5 p-5 sm:p-6" aria-labelledby="time-heading">
+	<!--
+		The action panel heads the side column, so it is in view beside the form without being sticky:
+		with the preview under it the column is taller than a laptop's screen. In one column it comes
+		straight after the form, before the preview.
+	-->
+	<div
+		class="grid grid-cols-1 items-start gap-4 md:gap-6 @4xl/main:grid-cols-[minmax(0,1fr)_22rem] @6xl/main:grid-cols-[minmax(0,1fr)_25rem]"
+	>
+		<Card.Root class="gap-0 divide-y py-0">
+			<section class="@container space-y-5 p-(--card-padding)" aria-labelledby="time-heading">
 				<h2 id="time-heading" class="text-lg">Time</h2>
 
-				<div class="grid gap-x-4 gap-y-5 sm:grid-cols-2">
-					<div class="sm:col-span-2">
+				<div class="grid gap-x-4 gap-y-5 @md:grid-cols-2">
+					<div class="@md:col-span-2">
 						<DateRangeInput
 							label="Period"
 							start={draft.startDate}
@@ -191,13 +200,13 @@
 						/>
 					</div>
 					<div class="space-y-1.5">
-						<div class="flex items-center justify-between">
+						<div class="flex min-h-6 items-center justify-between">
 							<Label for="hours">Hours worked</Label>
 							{#if draft.hoursOverride !== undefined && draft.loggedHours > 0}
 								<Button
 									variant="ghost"
 									size="sm"
-									class="h-auto py-0"
+									class="-my-1 -mr-2.5"
 									onclick={() => (draft.hoursOverride = undefined)}
 									><RotateCcw />Use logged ({formatHours(draft.loggedHours)})</Button
 								>
@@ -215,13 +224,13 @@
 						/>
 					</div>
 					<div class="space-y-1.5">
-						<div class="flex items-center justify-between">
+						<div class="flex min-h-6 items-center justify-between">
 							<Label for="rate">Rate per hour ({draft.currency})</Label>
 							{#if draft.rateOverride !== undefined && draft.client}
 								<Button
 									variant="ghost"
 									size="sm"
-									class="h-auto py-0"
+									class="-my-1 -mr-2.5"
 									onclick={() => (draft.rateOverride = undefined)}
 									><RotateCcw />Use logged rates</Button
 								>
@@ -239,8 +248,8 @@
 							onblur={rateInput.blur}
 						/>
 						{#if draft.averagedRate}
-							<p id="rate-source" class="text-xs text-muted-foreground">
-								The average of the rates in your work log. Each entry is billed at its own.
+							<p id="rate-source" class="text-sm text-muted-foreground">
+								Averaged from your work log. Each entry bills at its own rate.
 							</p>
 						{/if}
 					</div>
@@ -261,17 +270,26 @@
 			<WorkLogSection {draft} {store} organization={settings.organization} />
 
 			{#if !draft.byEmail}
-				<section class="p-5 sm:p-6">
-					<details>
-						<summary class="cursor-pointer text-lg font-semibold">Edit the wording</summary>
+				<section class="p-(--card-padding)">
+					<details class="group">
+						<summary
+							class="flex min-h-10 w-fit cursor-pointer list-none items-center gap-1 text-lg font-semibold [&::-webkit-details-marker]:hidden"
+						>
+							<ChevronRight
+								size={15}
+								class="transition-transform group-open:rotate-90 motion-reduce:transition-none"
+							/>
+							Edit the wording
+						</summary>
 						<div class="mt-4 space-y-5">
 							<div class="space-y-1.5">
-								<div class="flex items-center justify-between">
+								<div class="flex min-h-6 items-center justify-between">
 									<Label for="title">Title</Label>
 									{#if draft.titleOverride !== undefined}
 										<Button
 											variant="ghost"
 											size="sm"
+											class="-my-1 -mr-2.5"
 											onclick={() => (draft.titleOverride = undefined)}
 											><RotateCcw />Use the standard title</Button
 										>
@@ -284,12 +302,13 @@
 							</div>
 
 							<div class="space-y-1.5">
-								<div class="flex items-center justify-between">
+								<div class="flex min-h-6 items-center justify-between">
 									<Label for="item-description">Item description</Label>
 									{#if draft.descriptionOverride !== undefined}
 										<Button
 											variant="ghost"
 											size="sm"
+											class="-my-1 -mr-2.5"
 											onclick={() => (draft.descriptionOverride = undefined)}
 											><RotateCcw />Use the standard text</Button
 										>
@@ -320,12 +339,14 @@
 					</details>
 				</section>
 			{/if}
-		</div>
+		</Card.Root>
 
-		<aside class="space-y-5 lg:sticky lg:top-6">
+		<aside class="flex flex-col gap-4 md:gap-6">
 			{#if draft.byEmail}
 				<EmailInvoicePanel {draft} {store} onsaved={onSaved} />
 			{:else}
+				<SubmitPanel {draft} {me} {settings} {invoiceInfo} {payee} onsubmitted={onSubmitted} />
+
 				<InvoiceSheet
 					payeeName={me?.name}
 					payeeAddress={payee.address}
@@ -338,8 +359,6 @@
 					{invoiceInfo}
 					workLog={notes}
 				/>
-
-				<SubmitPanel {draft} {me} {settings} {invoiceInfo} {payee} onsubmitted={onSubmitted} />
 			{/if}
 		</aside>
 	</div>

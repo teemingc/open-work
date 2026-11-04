@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ChevronRight } from '@lucide/svelte';
 	import { TooltipLink } from '#lib/tooltip-link.svelte.js';
 	import { chartPadding, TICK_LENGTH, X_TICK_OCCLUSION, Y_TICK_LABEL } from '#lib/chart-padding.js';
 	import * as Card from '#lib/components/ui/card/index.js';
@@ -150,7 +151,7 @@
 			{/if}
 		</Card.Description>
 	</Card.Header>
-	<Card.Content>
+	<Card.Content class="px-2 pt-4 sm:px-6 sm:pt-6">
 		<LazyChart class="mb-3 h-64">
 			{#snippet children({ BarChart, Chart, Legend, legendMotion })}
 				<Chart.Container config={flowConfig} class="aspect-auto h-64 w-full cursor-pointer">
@@ -192,8 +193,9 @@
 			What each month left behind, contributions less expenses, under the months it comes from.
 			Its own scale, so a small gain still shows beside months of large flows.
 		-->
-		<h3 class="mt-6 text-sm font-medium">Net change</h3>
-		<p class="text-sm text-muted-foreground">
+		<!-- Inset back to the card's edge on phones, where the content gives the charts its padding. -->
+		<h3 class="mt-6 px-2 text-sm font-medium sm:px-0">Net change</h3>
+		<p class="px-2 text-sm text-muted-foreground sm:px-0">
 			{#if tooNew && thisMonth}
 				{signed(Math.round(thisMonth.net))} so far this month.
 			{:else}
@@ -236,103 +238,111 @@
 			{/snippet}
 		</LazyChart>
 	</Card.Content>
-</Card.Root>
 
-<!--
-The charts above as figures, for screen readers and keyboards: each month opens its transactions.
-On phones, too narrow for four columns of money, each month is a two-line entry instead: the
-balance it closed on beside the month, and what came in, went out and the change under it. On
-wide screens the table stops short of the card's edge, so a month stays near its figures. The
-month still in progress is ruled off with its figures in italics, as a ledger marks an entry not
-yet closed, and says how far its figures go.
--->
-<details class="rounded-xl border bg-card text-sm">
-	<summary class="cursor-pointer px-4 py-3 font-medium">Monthly figures</summary>
-	<ol class="divide-y border-t sm:hidden">
-		{#each shown as month (month.key)}
-			{const partial = $derived(month.key === partialKey)}
-			<li
-				class={[
-					'grid grid-cols-[1fr_auto] gap-x-3 px-4 py-2 tabular-nums',
-					partial && 'border-dashed italic'
-				]}
-			>
-				<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
-				<a
-					href={transactionsUrl({ slug: slug, month: month.key })}
-					target="_blank"
-					rel="noreferrer"
-					class="font-medium not-italic hover:underline"
+	<!--
+		The charts above as figures, for screen readers and keyboards: each month opens its
+		transactions. A footer that opens, so it shares the card's edges. On phones, too narrow for four
+		columns of money, each month is a two-line entry instead: the balance it closed on beside the
+		month, and what came in, went out and the change under it. On wide screens the table stops short
+		of the card's edge, so a month stays near its figures. The month still in progress is ruled off
+		with its figures in italics, as a ledger marks an entry not yet closed, and says how far its
+		figures go.
+	-->
+	<details class="group border-t pt-(--card-padding) text-sm">
+		<summary
+			class="mx-(--card-padding) flex min-h-10 w-fit cursor-pointer list-none items-center gap-1 font-medium [&::-webkit-details-marker]:hidden"
+		>
+			<ChevronRight
+				size={15}
+				class="transition-transform group-open:rotate-90 motion-reduce:transition-none"
+			/>
+			Monthly figures
+		</summary>
+		<ol class="mt-3 divide-y border-t sm:hidden">
+			{#each shown as month (month.key)}
+				{const partial = $derived(month.key === partialKey)}
+				<li
+					class={[
+						'grid grid-cols-[1fr_auto] gap-x-3 px-(--card-padding) py-2 tabular-nums',
+						partial && 'border-dashed italic'
+					]}
 				>
-					{monthLabel({ key: month.key })}
-					{#if partial}
-						<span class="font-normal text-muted-foreground italic">to {dayMonth.format(now)}</span>
-					{/if}
-					<span class="sr-only">(opens in a new tab)</span>
-				</a>
-				<!-- eslint-enable svelte/no-navigation-without-resolve -->
-				<span class="text-right font-medium">
-					{money.format(month.balance)}<span class="sr-only"> balance</span>
-				</span>
-				<span class="text-xs text-muted-foreground">
-					<span class="text-chart-income">+{money.format(month.income)}</span> in ·
-					<span class="text-chart-expenses">−{money.format(month.expenses)}</span> out
-				</span>
-				<span
-					class={['text-right text-xs', month.net >= 0 ? 'text-status-paid' : 'text-destructive']}
-				>
-					{signed(Math.round(month.net))}
-				</span>
-			</li>
-		{/each}
-	</ol>
-	<div class="border-t max-sm:hidden">
-		<table class="ledger">
-			<caption class="sr-only">Contributions, expenses and balance by month</caption>
-			<thead class="text-xs">
-				<tr>
-					<th class="py-2 pr-1.5 pl-3 sm:px-4">Month</th>
-					<th class="px-1.5 py-2 text-right sm:px-4">
-						<span class="sm:hidden">Gifts</span>
-						<span class="hidden sm:inline">Contributions</span>
-					</th>
-					<th class="px-1.5 py-2 text-right sm:px-4">Expenses</th>
-					<th class="hidden px-4 py-2 text-right sm:table-cell">Net change</th>
-					<th class="py-2 pr-3 pl-1.5 text-right sm:px-4">Balance</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each shown as month (month.key)}
-					{const partial = $derived(month.key === partialKey)}
-					<tr class={partial ? 'border-t border-dashed border-rule/40 [&>td]:italic' : ''}>
-						<th scope="row" class="py-2 pr-1.5 pl-3 font-normal whitespace-nowrap sm:px-4">
-							<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
-							<a
-								href={transactionsUrl({ slug: slug, month: month.key })}
-								target="_blank"
-								rel="noreferrer"
-								class="hover:underline"
+					<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
+					<a
+						href={transactionsUrl({ slug: slug, month: month.key })}
+						target="_blank"
+						rel="noreferrer"
+						class="font-medium not-italic hover:underline"
+					>
+						{monthLabel({ key: month.key })}
+						{#if partial}
+							<span class="font-normal text-muted-foreground italic">to {dayMonth.format(now)}</span
 							>
-								<span class="sm:hidden">{bandTickLabel(month.key)}</span>
-								<span class="hidden sm:inline">{monthLabel({ key: month.key })}</span>
-								{#if partial}
-									<span class="block text-xs text-muted-foreground italic">
-										to {dayMonth.format(now)}
-									</span>
-								{/if}
-								<span class="sr-only">(opens in a new tab)</span>
-							</a>
-							<!-- eslint-enable svelte/no-navigation-without-resolve -->
+						{/if}
+						<span class="sr-only">(opens in a new tab)</span>
+					</a>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
+					<span class="text-right font-medium">
+						{money.format(month.balance)}<span class="sr-only"> balance</span>
+					</span>
+					<span class="text-muted-foreground">
+						<span class="text-chart-income">+{money.format(month.income)}</span> in ·
+						<span class="text-chart-expenses">−{money.format(month.expenses)}</span> out
+					</span>
+					<span class={['text-right', month.net >= 0 ? 'text-status-paid' : 'text-destructive']}>
+						{signed(Math.round(month.net))}
+					</span>
+				</li>
+			{/each}
+		</ol>
+		<div class="mt-3 border-t max-sm:hidden">
+			<table class="ledger">
+				<caption class="sr-only">Contributions, expenses and balance by month</caption>
+				<thead class="text-xs">
+					<tr>
+						<th class="py-2 pr-1.5 pl-3 sm:px-4">Month</th>
+						<th class="px-1.5 py-2 text-right sm:px-4">
+							<span class="sm:hidden">Gifts</span>
+							<span class="hidden sm:inline">Contributions</span>
 						</th>
-						<td class="px-1.5 py-2 text-right sm:px-4">{money.format(month.income)}</td>
-						<td class="px-1.5 py-2 text-right sm:px-4">{money.format(month.expenses)}</td>
-						<td class="hidden px-4 py-2 text-right sm:table-cell"
-							>{signed(Math.round(month.net))}</td
-						>
-						<td class="py-2 pr-3 pl-1.5 text-right sm:px-4">{money.format(month.balance)}</td>
+						<th class="px-1.5 py-2 text-right sm:px-4">Expenses</th>
+						<th class="hidden px-4 py-2 text-right sm:table-cell">Net change</th>
+						<th class="py-2 pr-3 pl-1.5 text-right sm:px-4">Balance</th>
 					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
-</details>
+				</thead>
+				<tbody>
+					{#each shown as month (month.key)}
+						{const partial = $derived(month.key === partialKey)}
+						<tr class={partial ? 'border-t border-dashed border-rule/40 [&>td]:italic' : ''}>
+							<th scope="row" class="py-2 pr-1.5 pl-3 font-normal whitespace-nowrap sm:px-4">
+								<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
+								<a
+									href={transactionsUrl({ slug: slug, month: month.key })}
+									target="_blank"
+									rel="noreferrer"
+									class="hover:underline"
+								>
+									<span class="sm:hidden">{bandTickLabel(month.key)}</span>
+									<span class="hidden sm:inline">{monthLabel({ key: month.key })}</span>
+									{#if partial}
+										<span class="block text-xs text-muted-foreground italic">
+											to {dayMonth.format(now)}
+										</span>
+									{/if}
+									<span class="sr-only">(opens in a new tab)</span>
+								</a>
+								<!-- eslint-enable svelte/no-navigation-without-resolve -->
+							</th>
+							<td class="px-1.5 py-2 text-right sm:px-4">{money.format(month.income)}</td>
+							<td class="px-1.5 py-2 text-right sm:px-4">{money.format(month.expenses)}</td>
+							<td class="hidden px-4 py-2 text-right sm:table-cell"
+								>{signed(Math.round(month.net))}</td
+							>
+							<td class="py-2 pr-3 pl-1.5 text-right sm:px-4">{money.format(month.balance)}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+	</details>
+</Card.Root>

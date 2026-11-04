@@ -32,20 +32,20 @@
 	const ICONS = { up: TrendingUp, down: TrendingDown, hourglass: Hourglass };
 
 	/**
-	 * Columns for the number of figures, so a short strip leaves no empty cell showing the divider colour.
+	 * Columns for the number of figures, by the width of the page's `main` rather than the window, so a short strip leaves no empty cell showing the divider colour.
 	 * Three sit in one row, as two columns would leave the fourth cell empty. Five in one row squeezes
 	 * the labels onto two lines, so five sit on six columns as two over three, from as soon as a third
 	 * fits. Narrower, the first takes a row of its own.
 	 */
 	const columns = $derived(
 		stats.length >= 5
-			? 'sm:grid-cols-2 md:grid-cols-6'
+			? '@xl/main:grid-cols-2 @3xl/main:grid-cols-6'
 			: stats.length === 4
-				? 'sm:grid-cols-2 xl:grid-cols-4'
+				? '@xl/main:grid-cols-2 @5xl/main:grid-cols-4'
 				: stats.length === 3
-					? 'sm:grid-cols-3'
+					? '@xl/main:grid-cols-3'
 					: stats.length === 2
-						? 'sm:grid-cols-2'
+						? '@xl/main:grid-cols-2'
 						: ''
 	);
 	/** A lone figure leads, larger and with its note beside it, rather than sitting in an empty strip. */
@@ -71,17 +71,18 @@
 			-->
 			<div
 				class={[
-					'min-w-0 bg-card',
+					'@container/card min-w-0 bg-card',
 					lone
 						? 'flex flex-wrap items-baseline gap-x-3 gap-y-1 px-5 py-4'
 						: 'row-span-3 grid grid-rows-subgrid gap-y-1 px-4 py-3',
-					leads(index) && 'sm:flex sm:flex-wrap sm:items-baseline sm:gap-x-3 md:grid md:gap-x-0',
+					leads(index) &&
+						'@xl/main:flex @xl/main:flex-wrap @xl/main:items-baseline @xl/main:gap-x-3 @3xl/main:grid @3xl/main:gap-x-0',
 					stats.length === 5 &&
 						(index === 0
-							? 'sm:col-span-2 md:col-span-3'
+							? '@xl/main:col-span-2 @3xl/main:col-span-3'
 							: index === 1
-								? 'md:col-span-3'
-								: 'md:col-span-2')
+								? '@3xl/main:col-span-3'
+								: '@3xl/main:col-span-2')
 				]}
 			>
 				<!--
@@ -96,7 +97,7 @@
 					class={[
 						'@container text-sm text-muted-foreground',
 						lone && 'basis-full',
-						leads(index) && 'sm:basis-full'
+						leads(index) && '@xl/main:basis-full'
 					]}
 				>
 					<div
@@ -113,7 +114,8 @@
 												{...props}
 												class={cn(
 													badgeVariants({ variant: 'outline' }),
-													'hover:bg-muted',
+													// A 40px target around a badge too small to tap.
+													'relative overflow-visible after:absolute after:-inset-x-1 after:-inset-y-2.5 hover:bg-muted',
 													stat.badge?.tone
 												)}
 											>
@@ -141,8 +143,8 @@
 				<dd
 					class={[
 						'font-display font-medium tabular-nums',
-						lone ? 'text-4xl leading-tight' : 'text-2xl',
-						leads(index) && 'sm:text-3xl md:text-2xl',
+						lone ? 'text-4xl leading-tight' : 'text-2xl @[250px]/card:text-3xl',
+						leads(index) && '@xl/main:text-3xl',
 						stat.tone
 					]}
 				>

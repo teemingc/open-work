@@ -86,7 +86,7 @@
 		On phones each client is a short entry rather than a column of labels and values: what it
 		earned beside its name, its hours against the target under them, then the rate.
 	-->
-	<ul class="mt-4 divide-y rounded-lg border bg-card text-sm tabular-nums sm:hidden">
+	<ul class="divide-y rounded-lg border bg-card text-sm tabular-nums sm:hidden">
 		{#each summary.clients as { client, hours, amount, rate, mixedRates, target } (client.id)}
 			{const local = $derived(converted({ data, amounts: { [client.currency]: amount } }))}
 			<li class="space-y-1.5 px-4 py-3">
@@ -130,7 +130,7 @@
 			</li>
 		{/each}
 	</ul>
-	<div class="mt-4 rounded-lg border bg-card max-sm:hidden">
+	<div class="rounded-lg border bg-card max-sm:hidden">
 		<table class="ledger text-sm">
 			<caption class="sr-only">Hours and earnings by client</caption>
 			<thead class="text-xs">

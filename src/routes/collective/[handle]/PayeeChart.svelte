@@ -376,11 +376,10 @@
 <Card.Root>
 	<Card.Header>
 		<Card.Title>Expenses by recipient</Card.Title>
-		<Card.Description>
-			Who each {payeeQuarterly ? 'quarter' : 'month'}'s expenses went to, with totals {payeePeriod}.
-		</Card.Description>
+		<!-- Only the period, which changes when part of the overview is picked; the title says the rest. -->
+		<Card.Description>Totals {payeePeriod}.</Card.Description>
 	</Card.Header>
-	<Card.Content>
+	<Card.Content class="px-2 pt-4 sm:px-6 sm:pt-6">
 		<!--
 			Names, dots and totals side by side, the overview of what was paid under the dots, so
 			a month lines up in both and a row runs straight across. Hovering a dot shades its

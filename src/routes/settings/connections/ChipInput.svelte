@@ -44,7 +44,7 @@
 			{name}
 			<button
 				type="button"
-				class="grid size-5 place-items-center rounded text-muted-foreground hover:bg-background hover:text-foreground"
+				class="relative grid size-5 place-items-center rounded text-muted-foreground after:absolute after:-inset-2 hover:bg-background hover:text-foreground"
 				onclick={() => remove(name)}
 			>
 				<X size={12} />

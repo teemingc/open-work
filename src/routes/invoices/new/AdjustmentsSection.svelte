@@ -17,16 +17,25 @@
 	const credit = $derived(Math.max(draft.availableCredit, draft.creditOverride ?? 0));
 </script>
 
-<section class="space-y-4 p-5 sm:p-6" aria-labelledby="adjustments-heading">
-	<h2 id="adjustments-heading" class="text-lg">Adjustments</h2>
+<section class="@container space-y-4 p-(--card-padding)" aria-labelledby="adjustments-heading">
+	<div class="flex flex-wrap items-start justify-between gap-3">
+		<h2 id="adjustments-heading" class="text-lg">Adjustments</h2>
+		<Button
+			variant="outline"
+			size="sm"
+			onclick={() => draft.adjustments.push({ description: '', kind: 'take-off', amount: 0 })}
+		>
+			<Plus /> Add an adjustment
+		</Button>
+	</div>
 
 	{#if draft.adjustments.length > 0}
 		<ul class="space-y-3">
 			{#each draft.adjustments as adjustment, index (index)}
 				<li
-					class="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_7rem_8rem_auto] sm:items-end"
+					class="grid grid-cols-[minmax(0,1fr)_auto] gap-2 @lg:grid-cols-[minmax(0,1fr)_7rem_8rem_auto] @lg:items-end"
 				>
-					<div class="col-span-2 space-y-1.5 sm:col-span-1">
+					<div class="col-span-2 space-y-1.5 @lg:col-span-1">
 						<Label for="adjustment-{index}-reason">Reason</Label>
 						<Input id="adjustment-{index}-reason" bind:value={adjustment.description} />
 					</div>
@@ -77,14 +86,6 @@
 			{/each}
 		</ul>
 	{/if}
-
-	<Button
-		variant="outline"
-		size="sm"
-		onclick={() => draft.adjustments.push({ description: '', kind: 'take-off', amount: 0 })}
-	>
-		<Plus /> Add an adjustment
-	</Button>
 
 	{#if credit > 0}
 		<div class="flex items-start gap-2 border-t pt-4">

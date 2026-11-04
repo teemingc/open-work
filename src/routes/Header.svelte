@@ -73,12 +73,13 @@
 		'relative flex min-w-10 items-center justify-center gap-1.5 border-b-2 border-transparent text-muted-foreground hover:text-foreground [&[aria-current]]:border-primary [&[aria-current]]:font-medium [&[aria-current]]:text-foreground min-[35rem]:min-w-0 min-[35rem]:px-3 [&>svg]:shrink-0';
 
 	/**
-	 * The Work row's links. On phones they share the row's width, as tabs, with icons alone below
-	 * 23.75rem, where four labels do not fit beside them. Wider, they line up on the right under Work, with the same
-	 * padding as the main links so the last labels end together.
+	 * The Work row's links. On phones they share the row's width, as tabs. Where four labels do not
+	 * fit, the others keep only their icons and the page you are on keeps its label. Wider, they line
+	 * up on the right under Work, with the same padding as the main links so the last labels end
+	 * together.
 	 */
 	const SUB_LINK =
-		'relative flex items-center gap-1.5 first:ml-auto max-sm:flex-1 max-sm:justify-center max-sm:px-1 border-b-2 border-transparent px-3 text-muted-foreground hover:text-foreground [&[aria-current]]:border-primary [&[aria-current]]:font-medium [&[aria-current]]:text-foreground [&>svg]:shrink-0';
+		'relative flex items-center gap-1.5 first:ml-auto max-sm:flex-auto max-sm:justify-center max-sm:px-1 border-b-2 border-transparent px-3 text-muted-foreground hover:text-foreground [&[aria-current]]:border-primary [&[aria-current]]:font-medium [&[aria-current]]:text-foreground [&>svg]:shrink-0';
 
 	/**
 	 * `page` when the link leads to the page you are on, `true` when you are elsewhere in its
@@ -91,15 +92,23 @@
 		if (pathname.startsWith(`${path}/`)) return 'true';
 		return undefined;
 	}
+
+	/** A Work tab's label, hidden where the four do not fit unless it is the page you are on. */
+	function label(path: WorkPath) {
+		return current(path) ? undefined : '@max-[26rem]/work:sr-only';
+	}
 </script>
 
 <!--
 	A double rule closes the masthead, like the head of a ledger page. It stays at the top while you
-	scroll, which also has iOS Safari colour its bar to match instead of the page behind.
+	scroll, which also has iOS Safari colour its bar to match instead of the page behind. On a screen
+	as short as a phone on its side, it scrolls away so the page has the room.
 -->
-<header class="sticky top-0 z-40 border-b-[3px] border-double border-rule bg-card">
+<header
+	class="sticky top-0 z-40 border-b-[3px] border-double border-rule bg-card [@media(max-height:30rem)]:static"
+>
 	<div
-		class="mx-auto flex min-h-16 max-w-6xl items-stretch justify-between gap-2 px-4 sm:gap-4 sm:px-6"
+		class="mx-auto flex min-h-16 max-w-6xl items-stretch justify-between gap-2 px-4 sm:gap-4 lg:px-6"
 	>
 		<!-- Below 22.5rem the nav needs the room, so the name is left to the mark and screen readers. -->
 		<a
@@ -143,27 +152,28 @@
 	</div>
 
 	{#if showWorkRow}
-		<div class="border-t" data-work-row>
+		<!-- Measured as a container rather than the window, so the labels give way at larger text sizes. -->
+		<div class="@container/work border-t" data-work-row>
 			<h2 id="work-nav" class="sr-only">Work</h2>
 			<nav
 				aria-labelledby="work-nav"
-				class="mx-auto -mb-[3px] flex min-h-[2.9375rem] max-w-6xl items-stretch text-sm sm:px-6"
+				class="mx-auto -mb-[3px] flex min-h-[2.9375rem] max-w-6xl items-stretch px-4 text-sm lg:px-6"
 			>
 				<a href={resolve('/work')} aria-current={current('/work')} class={SUB_LINK}>
 					<LayoutDashboard size={14} />
-					<span class="max-[23.6875rem]:sr-only">Overview</span>
+					<span class={label('/work')}>Overview</span>
 				</a>
 				<a href={resolve('/worklog')} aria-current={current('/worklog')} class={SUB_LINK}>
 					<Clock size={14} />
-					<span class="max-[23.6875rem]:sr-only">Work log</span>
+					<span class={label('/worklog')}>Work log</span>
 				</a>
 				<a href={resolve('/invoices')} aria-current={current('/invoices')} class={SUB_LINK}>
 					<FileText size={14} />
-					<span class="max-[23.6875rem]:sr-only">Invoices</span>
+					<span class={label('/invoices')}>Invoices</span>
 				</a>
 				<a href={resolve('/settings/clients')} aria-current={current('/settings')} class={SUB_LINK}>
 					<Settings size={14} />
-					<span class="max-[23.6875rem]:sr-only">Settings</span>
+					<span class={label('/settings')}>Settings</span>
 					<!-- Always takes its space, so the nav does not move when it appears. Only on Settings, not
 						on Work: visitors who never set up would otherwise be nagged on every page. -->
 					<CircleAlert

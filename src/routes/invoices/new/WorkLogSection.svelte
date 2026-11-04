@@ -49,7 +49,7 @@
 	const logHref = $derived(`${resolve('/worklog')}?month=${monthOf(draft.startDate)}`);
 </script>
 
-<section class="space-y-4 p-5 sm:p-6" aria-labelledby="log-heading">
+<section class="space-y-4 p-(--card-padding)" aria-labelledby="log-heading">
 	<div class="flex flex-wrap items-start justify-between gap-3">
 		<h2 id="log-heading" class="text-lg">Work log</h2>
 		<Button variant="outline" size="sm" href={logHref}><Clock /> Edit in the work log</Button>
@@ -90,8 +90,11 @@
 			{formatDMY(draft.endDate)}.
 		</p>
 	{:else}
-		<!-- Each block of time on its own, so one can be put right without leaving the invoice. -->
-		<ol class="relative max-h-96 overflow-y-auto rounded-lg border bg-card">
+		<!--
+			Each block of time on its own, so one can be put right without leaving the invoice. Never
+			taller than most of the screen, so a phone held sideways can still scroll the page past it.
+		-->
+		<ol class="relative max-h-[min(24rem,60svh)] overflow-y-auto rounded-lg border bg-card">
 			{#each days as day (day.date)}
 				<li class="border-b last:border-b-0">
 					<!-- The day's total lines up with each entry's hours, as their sum. -->

@@ -38,8 +38,8 @@
 	});
 </script>
 
-<div class="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(3,minmax(0,1fr))_5rem]">
-	<div class="col-span-2 space-y-1.5 sm:col-span-4">
+<div class="grid grid-cols-2 gap-3 @xl/settings:grid-cols-[repeat(3,minmax(0,1fr))_5rem]">
+	<div class="col-span-2 space-y-1.5 @xl/settings:col-span-4">
 		<Label for="{id}-street">Street</Label>
 		<Input
 			id="{id}-street"
@@ -48,7 +48,7 @@
 			onchange={(event) => change({ street: event.currentTarget.value.trim() })}
 		/>
 	</div>
-	<div class="col-span-2 space-y-1.5 sm:col-span-4">
+	<div class="col-span-2 space-y-1.5 @xl/settings:col-span-4">
 		<Label for="{id}-extra"
 			>Address line 2 <span class="text-muted-foreground">(optional)</span></Label
 		>
@@ -98,7 +98,10 @@
 			onchange={(event) => change({ country: event.currentTarget.value.trim().toUpperCase() })}
 		/>
 	</div>
-	<p id="{id}-country-name" class="col-span-2 -mt-1 text-xs text-muted-foreground sm:col-span-4">
+	<p
+		id="{id}-country-name"
+		class="col-span-2 -mt-1 text-xs text-muted-foreground @xl/settings:col-span-4"
+	>
 		{countryName ??
 			'Country as a two-letter code, like MY for Malaysia or US for the United States.'}
 	</p>

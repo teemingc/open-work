@@ -29,7 +29,7 @@
 	} from '@lucide/svelte';
 	import type { Settings } from '#lib/settings.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import { untrack } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import DayList from './DayList.svelte';
 	import EntryForm from '#lib/components/EntryForm.svelte';
 	import MonthCharts from './MonthCharts.svelte';
@@ -45,7 +45,24 @@
 	const store = untrack(() => data.store);
 	const sync = driveSync(store);
 
-	const today = toIsoDate(new Date());
+	// Kept current, so a tab left open overnight moves on to the new day.
+	let today = $state(toIsoDate(new Date()));
+	function refreshToday() {
+		today = toIsoDate(new Date());
+	}
+	onMount(() => {
+		let timer: ReturnType<typeof setTimeout>;
+		function untilMidnight() {
+			const now = new Date();
+			const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+			timer = setTimeout(() => {
+				refreshToday();
+				untilMidnight();
+			}, midnight.getTime() - now.getTime());
+		}
+		untilMidnight();
+		return () => clearTimeout(timer);
+	});
 	const month = $derived.by(() => {
 		const requested = page.url.searchParams.get('month');
 		return requested && /^\d{4}-(0[1-9]|1[0-2])$/.test(requested) ? requested : monthOf(today);
@@ -109,7 +126,10 @@
 	}
 </script>
 
-<div class="space-y-6">
+<!-- Timers pause while the computer sleeps, so check again on coming back to the tab. -->
+<svelte:document onvisibilitychange={refreshToday} />
+
+<div class="flex flex-col gap-4 md:gap-6">
 	<!--
 		The month controls sit at the right edge, so they stay put as the month name changes length. On
 		the narrowest phones, too narrow for both, the month has a row of its own, with the controls and buttons
@@ -219,48 +239,48 @@
 		</p>
 	{/if}
 
-	<section aria-labelledby="{uid}-summary" class="space-y-6">
+	<section aria-labelledby="{uid}-summary" class="flex flex-col gap-4 md:gap-6">
 		<h2 id="{uid}-summary" class="sr-only">Summary</h2>
 		<MonthStats {summary} data={store.data} {current} />
 		<TakeHome data={store.data} {summary} />
 	</section>
 
 	<!--
-		In rows rather than columns, so each card shares its height with the one beside it: the entry
-		form with the month's pace, the days logged with the hours each day.
+		In rows rather than columns, so the entry form sits beside the month's pace and the days logged
+		beside the hours each day. Each card keeps its own height rather than stretching to its neighbour.
 	-->
-	<section class="space-y-3" aria-labelledby="entries-heading">
-		<h2 id="entries-heading" class="text-lg">Entries</h2>
-		<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-			{#if clients.length === 0}
-				<p class="text-sm text-muted-foreground">
-					Add a client in
-					<a href={resolve('/settings/clients')} class="font-medium text-foreground underline"
-						>Clients settings</a
-					>
-					to start logging.
-				</p>
-			{:else}
-				<Card.Root class="h-full">
-					<Card.Content>
-						<!-- A fresh form for each month. It takes its date once, so a reused one kept the last month's. -->
-						{#key month}
-							<EntryForm
-								{clients}
-								organization={settings.organization}
-								tasks={taskNames(store.data.entries)}
-								entries={store.data.entries}
-								date={defaultDate}
-								clientId={githubClient?.id}
-								onsave={(entry) => (justAdded = store.addEntry(entry).id)}
-							/>
-						{/key}
-					</Card.Content>
-				</Card.Root>
-			{/if}
-			<MonthCharts chart="pace" {summary} clients={store.data.clients} {today} />
-			<DayList {store} {summary} organization={settings.organization} bind:justAdded />
-			<MonthCharts chart="daily" {summary} clients={store.data.clients} {today} />
-		</div>
-	</section>
+	<div class="grid grid-cols-1 items-start gap-4 md:gap-6 @4xl/main:grid-cols-2">
+		{#if clients.length === 0}
+			<p class="text-sm text-muted-foreground">
+				Add a client in
+				<a href={resolve('/settings/clients')} class="font-medium text-foreground underline"
+					>Clients settings</a
+				>
+				to start logging.
+			</p>
+		{:else}
+			<Card.Root>
+				<Card.Header>
+					<Card.Title>Log time</Card.Title>
+				</Card.Header>
+				<Card.Content>
+					<!-- A fresh form for each month, so a date picked in one isn't kept in the next. -->
+					{#key month}
+						<EntryForm
+							{clients}
+							organization={settings.organization}
+							tasks={taskNames(store.data.entries)}
+							entries={store.data.entries}
+							date={defaultDate}
+							clientId={githubClient?.id}
+							onsave={(entry) => (justAdded = store.addEntry(entry).id)}
+						/>
+					{/key}
+				</Card.Content>
+			</Card.Root>
+		{/if}
+		<MonthCharts chart="pace" {summary} clients={store.data.clients} {today} />
+		<DayList {store} {summary} organization={settings.organization} bind:justAdded />
+		<MonthCharts chart="daily" {summary} clients={store.data.clients} {today} />
+	</div>
 </div>

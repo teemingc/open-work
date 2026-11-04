@@ -79,7 +79,7 @@
 	const percent = new Intl.NumberFormat('en-US', { style: 'percent' });
 </script>
 
-<Card.Root class="@container lg:col-span-2">
+<Card.Root class="@container @5xl/main:col-span-2">
 	<Card.Header>
 		<Card.Title>Contributors</Card.Title>
 		<Card.Description>Each square is 1% of contributions {period}.</Card.Description>

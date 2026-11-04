@@ -139,11 +139,12 @@
 		<span class="min-w-0 wrap-break-word">{match.name}</span>
 		<span class="ml-auto min-w-0 text-xs wrap-anywhere text-muted-foreground">{match.slug}</span>
 		{#if removable}
+			<!-- Small so the row keeps its height, with a fingertip's worth of room to hit it. -->
 			<Button
 				type="button"
 				variant="ghost"
 				size="icon"
-				class="-my-1 size-6 shrink-0"
+				class="relative -my-1 size-6 shrink-0 after:absolute after:-inset-2 pointer-coarse:size-6"
 				tabindex={-1}
 				onpointerdown={(event) => event.preventDefault()}
 				onclick={(event) => {
@@ -172,7 +173,7 @@
 			class={[
 				'flex items-center rounded-md border bg-card shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50',
 				invalid && 'border-destructive ring-destructive/20 dark:ring-destructive/40',
-				field ? 'min-h-11 gap-2.5 px-3.5' : 'min-h-9 gap-2 px-3'
+				field ? 'min-h-11 gap-2.5 px-3.5' : 'min-h-9 gap-2 px-3 pointer-coarse:min-h-10'
 			]}
 		>
 			{const Icon = $derived(showsEmail ? Mail : Search)}

@@ -232,9 +232,7 @@
 			</li>
 		{/each}
 		{#if items.length > LOGOS}
-			<li
-				class="flex min-h-4 items-center rounded-full bg-muted px-1.5 text-[0.625rem] font-medium"
-			>
+			<li class="flex min-h-4 items-center rounded-full bg-muted px-1.5 text-xs font-medium">
 				+{items.length - LOGOS}
 			</li>
 		{/if}

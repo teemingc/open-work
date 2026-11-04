@@ -45,7 +45,7 @@
 			{/if}
 		</div>
 		<TimeField.Input
-			class="flex min-h-9 w-full flex-wrap items-center rounded-md border border-input bg-card px-3 text-sm tabular-nums transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50"
+			class="flex min-h-9 w-full flex-wrap items-center rounded-md border border-input bg-card px-3 text-sm tabular-nums transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 pointer-coarse:min-h-10"
 		>
 			{#snippet children({ segments })}
 				{#each segments as { part, value }, index (index)}

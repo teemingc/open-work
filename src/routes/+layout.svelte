@@ -55,12 +55,15 @@
 <NavigationLoader />
 <Header />
 
-<!-- A page slow to arrive dims the one it replaces, so a click is seen to have been heard. -->
+<!--
+	A page slow to arrive dims the one it replaces, so a click is seen to have been heard. Pages lay
+	out by the width of `main` rather than the window's, so they follow the space and the text size.
+-->
 <main
 	id="main"
 	tabindex="-1"
 	data-navigating={navigating.to ? '' : undefined}
-	class="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-16 transition-opacity duration-200 data-navigating:opacity-40 data-navigating:delay-700 data-navigating:duration-500 sm:px-6"
+	class="@container/main mx-auto w-full max-w-6xl flex-1 px-4 pt-4 pb-16 transition-opacity duration-200 data-navigating:opacity-40 data-navigating:delay-700 data-navigating:duration-500 md:pt-6 lg:px-6"
 >
 	{@render children()}
 </main>
@@ -70,9 +73,12 @@
 	like a ledger sheet. No name or mark: the sticky header already shows them.
 -->
 <footer
-	class="flex flex-wrap justify-center gap-x-6 gap-y-2 border-t-[3px] border-double border-rule bg-card px-4 py-5 sm:px-6"
+	class="flex flex-wrap justify-center gap-x-4 border-t-[3px] border-double border-rule bg-card px-4 py-3 lg:px-6"
 >
-	<a href={resolve('/privacy')} class="text-sm text-muted-foreground hover:text-foreground">
+	<a
+		href={resolve('/privacy')}
+		class="inline-flex min-h-10 items-center px-2 text-sm text-muted-foreground hover:text-foreground"
+	>
 		Privacy
 	</a>
 	<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
@@ -80,7 +86,7 @@
 		href="https://github.com/teemingc/open-work"
 		target="_blank"
 		rel="noreferrer"
-		class="text-sm text-muted-foreground hover:text-foreground"
+		class="inline-flex min-h-10 items-center px-2 text-sm text-muted-foreground hover:text-foreground"
 	>
 		GitHub
 		<span class="sr-only">(opens in a new tab)</span>

@@ -44,7 +44,7 @@
 <li
 	{...rest}
 	class={[
-		'grid grid-cols-[minmax(0,1fr)_auto_auto] items-baseline gap-x-3 gap-y-0.5 px-4 py-2 text-sm sm:grid-cols-[8.5rem_minmax(0,1fr)_auto_auto]',
+		'grid grid-cols-[minmax(0,1fr)_auto_auto] items-baseline gap-x-3 gap-y-0.5 px-4 py-2 text-sm sm:grid-cols-[10rem_minmax(0,1fr)_auto_auto]',
 		rest.class
 	]}
 >
@@ -56,15 +56,16 @@
 			{#if time}<span>{time.replace(/ (AM|PM)/g, '\u00a0$1')}</span>{/if}
 			{#if client}
 				{#if client.logo}
-					<ClientName {client} />
+					<ClientName {client} class="[&>span]:truncate" title={client.name} />
 				{:else}
-					<span class="inline-flex min-w-0 items-center gap-1.5">
+					<span class="inline-flex max-w-full min-w-0 items-center gap-1.5">
 						<span
 							class="size-2 shrink-0 rounded-full"
 							style:background-color={client.color}
 							aria-hidden="true"
 						></span>
-						<span class="min-w-0 wrap-break-word">{client.name}</span>
+						<!-- Cut short in the time column; screen readers still read the whole name. -->
+						<span class="min-w-0 truncate" title={client.name}>{client.name}</span>
 					</span>
 				{/if}
 			{/if}
@@ -92,7 +93,13 @@
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
 				{#snippet child({ props })}
-					<Button {...props} variant="ghost" size="icon" class="-my-1 size-7 text-muted-foreground">
+					<!-- Negative margins keep its 32px, or 40px on touch, from making the row taller. -->
+					<Button
+						{...props}
+						variant="ghost"
+						size="icon-sm"
+						class="-mx-0.5 -my-1.5 text-muted-foreground pointer-coarse:-mx-1.5 pointer-coarse:-my-2.5"
+					>
 						<Ellipsis size={16} />
 						<span class="sr-only">Change this entry</span>
 					</Button>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { formatDMY, formatMoney, toIsoDate } from '#lib/format.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
@@ -35,13 +36,16 @@
 <!--
 	A ledger on a wide screen, its cells padded less until there is room for every column. Narrower,
 	each invoice takes two lines instead of scrolling sideways:
-	what it is and what it is for, then where it is at and what to do next.
+	what it is and what it is for, then where it is at and what to do next. The outer cells take the
+	card's padding, so the table's edges line up with the next invoices above it.
 -->
-<div class="@container animate-in overflow-hidden rounded-xl border bg-card duration-300 fade-in">
+<Card.Root class="@container animate-in gap-0 overflow-hidden py-0 duration-300 fade-in">
 	<table class="ledger text-sm">
 		<thead class="max-md:sr-only">
 			<tr>
-				<th scope="col" class="px-4 py-2.5 font-medium md:max-lg:px-3">Invoice</th>
+				<th scope="col" class="py-2.5 pr-4 pl-(--card-padding) font-medium md:max-lg:pr-3">
+					Invoice
+				</th>
 				<th scope="col" class="px-4 py-2.5 font-medium md:max-lg:px-3">Period</th>
 				<th scope="col" class="px-4 py-2.5 text-right font-medium md:max-lg:px-3">Amount</th>
 				<th scope="col" class="px-4 py-2.5 font-medium md:max-lg:px-3">Status</th>
@@ -54,7 +58,7 @@
 				<tr
 					class="grid grid-cols-[minmax(0,1fr)_auto] items-center py-1.5 hover:bg-accent/50 md:table-row md:py-0"
 				>
-					<td class="px-4 pt-1.5 md:py-3 md:max-lg:px-3">
+					<td class="pt-1.5 pr-4 pl-(--card-padding) md:py-3 md:max-lg:pr-3">
 						<a
 							href={resolve('/invoices/[id]', { id: invoice.id })}
 							class="font-medium whitespace-nowrap underline-offset-4 hover:underline"
@@ -76,12 +80,12 @@
 						<span class="whitespace-nowrap">{formatDMY(invoice.endDate)}</span>
 					</td>
 					<td
-						class="self-start px-4 pt-1.5 text-right font-medium tabular-nums md:py-3 md:font-normal md:max-lg:px-3"
+						class="self-start pt-1.5 pr-(--card-padding) pl-4 text-right font-medium tabular-nums md:py-3 md:font-normal md:max-lg:px-3 lg:pr-4"
 					>
 						{formatMoney(due(invoice), invoice.currency)}
 					</td>
 					<td
-						class="col-span-2 col-start-1 row-start-2 self-center justify-self-start px-4 py-1.5 whitespace-nowrap md:py-3 md:max-lg:px-3"
+						class="col-span-2 col-start-1 row-start-2 self-center justify-self-start py-1.5 pr-4 pl-(--card-padding) whitespace-nowrap md:py-3 md:max-lg:px-3 lg:pl-4"
 					>
 						<!-- The date beside the status it dates, rather than in small type under it. -->
 						<span class="inline-flex items-center gap-2">
@@ -96,7 +100,7 @@
 						takes a line of its own when the two would overlap.
 					-->
 					<td
-						class="col-span-2 col-start-1 row-start-2 justify-self-end px-2 py-1.5 md:px-3 md:py-3 lg:px-4 @max-[24rem]:row-start-3"
+						class="col-span-2 col-start-1 row-start-2 justify-self-end py-1.5 pr-[calc(var(--card-padding)-0.625rem)] pl-2 md:py-3 md:pl-3 lg:pl-4 @max-[24rem]:row-start-3"
 					>
 						<div class="flex justify-end gap-1">
 							{#if invoice.status === 'draft'}
@@ -134,7 +138,7 @@
 			{/each}
 		</tbody>
 	</table>
-</div>
+</Card.Root>
 
 <Dialog.Root bind:open={() => removing !== undefined, (open) => !open && (removing = undefined)}>
 	<Dialog.Content>

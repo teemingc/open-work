@@ -36,8 +36,7 @@
 	);
 </script>
 
-<!-- Only the sides: a vertical margin here would cancel the spacing the sidebar gives each item. -->
-<figure class="mx-0 mt-0">
+<figure>
 	<div
 		class="rounded-sm border border-neutral-300 bg-white p-4 text-[0.9375rem] leading-snug text-neutral-900 shadow-[0_1px_0_rgb(0_0_0/0.04),0_12px_32px_-12px_rgb(30_41_59/0.25)] sm:p-6"
 	>
@@ -112,7 +111,8 @@
 			{#if logRows.length === 0}
 				<p class="mt-1 text-[0.8125rem] text-neutral-500 italic">The work log will appear here.</p>
 			{:else}
-				<div class="mt-2 max-h-56 overflow-auto">
+				<!-- Short of the screen's height, so a phone held sideways can scroll the page past it. -->
+				<div class="mt-2 max-h-[min(14rem,40svh)] overflow-auto">
 					<table class="w-full text-left text-xs text-neutral-700">
 						<tbody>
 							{#each logRows as cells, index (index)}
@@ -138,7 +138,5 @@
 			{/if}
 		</div>
 	</div>
-	<figcaption class="mt-3 text-xs text-muted-foreground">
-		Preview. Open Collective builds the final invoice PDF after you submit.
-	</figcaption>
+	<figcaption class="sr-only">Preview of the invoice</figcaption>
 </figure>

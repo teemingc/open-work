@@ -30,6 +30,8 @@
 			: undefined
 	);
 
+	const monthStarts = $derived(summary.months.map((month) => parseIsoDate(`${month.month}-01`)));
+
 	/** The months up to this one: those ahead have nothing to show yet. */
 	const rows = $derived(
 		summary.months
@@ -52,15 +54,11 @@
 	{/if}
 {/snippet}
 
-<Card.Root>
+<Card.Root class="@container/card">
 	<Card.Header>
 		<Card.Title>Hours</Card.Title>
-		<Card.Description>
-			{formatHours(summary.logged)} h logged against {formatHours(summary.expectedSoFar)} h expected so
-			far, of {formatHours(summary.expected)} h for the year.
-		</Card.Description>
 	</Card.Header>
-	<Card.Content class="space-y-4">
+	<Card.Content class="px-2 pt-4 sm:px-6 sm:pt-6">
 		<LazyChart class="h-64">
 			{#snippet children({ AnnotationLine, Area, AreaChart, Chart, Legend, Threshold })}
 				<Chart.Container {config} class="aspect-auto h-64 w-full">
@@ -80,6 +78,8 @@
 							xAxis: {
 								tickLength: TICK_LENGTH,
 								tickOcclusion: X_TICK_OCCLUSION,
+								// One tick a month, at its start, since the labels name months.
+								ticks: monthStarts,
 								format: (d: Date) => shortMonth.format(d)
 							},
 							yAxis: {
@@ -148,9 +148,11 @@
 				</Chart.Container>
 			{/snippet}
 		</LazyChart>
-
+	</Card.Content>
+	<Card.Content>
+		<!-- Stacks where the card is too narrow for its four columns, wherever the card sits. -->
 		<div class="-mx-3 overflow-x-auto">
-			<table class="ledger text-sm max-sm:ledger-stacked">
+			<table class="ledger text-sm @max-md/card:ledger-stacked">
 				<caption class="sr-only">Hours and earnings by month</caption>
 				<thead class="text-xs">
 					<tr>

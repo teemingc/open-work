@@ -68,14 +68,16 @@
 	const labelId = $props.id();
 </script>
 
+<!--
+	Laid out by the list's width rather than the window's: stacked when narrow, then the name above
+	the dates with the button beside them, and three columns once there is room for the name's.
+-->
 <form
 	method="GET"
 	action={resolve('/invoices/new')}
 	class={[
-		'grid gap-x-8 gap-y-3 sm:items-center',
-		showName
-			? 'sm:grid-cols-[minmax(0,9rem)_minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto]'
-			: 'sm:grid-cols-[1fr_auto]'
+		'grid gap-x-8 gap-y-3 @lg/next:grid-cols-[minmax(0,1fr)_auto] @lg/next:items-center',
+		showName && '@4xl/next:grid-cols-[minmax(0,17rem)_minmax(0,1fr)_auto]'
 	]}
 >
 	{#if chosen}
@@ -83,9 +85,9 @@
 		<input type="hidden" name="end" value={chosen.endDate} />
 	{/if}
 	{#if client}<input type="hidden" name="client" value={client.id} />{/if}
-	<!-- In a column of its own, so every client's dates line up like a ledger. -->
+	<!-- In a column of its own when wide, so every client's dates line up like a ledger. -->
 	{#if client && showName}
-		<div class="min-w-0">
+		<div class="min-w-0 @lg/next:col-start-1 @lg/next:row-start-1">
 			<h3 id={labelId} class="font-display text-lg leading-tight"><ClientName {client} /></h3>
 			<p class="mt-0.5 text-xs text-muted-foreground">
 				{client.openCollective ? 'Open Collective' : 'Email'}, {invoiceFrequency(client) ===
@@ -95,12 +97,18 @@
 			</p>
 		</div>
 	{/if}
-	<div class="min-w-0">
+	<div
+		class={[
+			'min-w-0',
+			showName &&
+				'@lg/next:col-start-1 @lg/next:row-start-2 @4xl/next:col-start-2 @4xl/next:row-start-1'
+		]}
+	>
 		{#if pending}
 			<!-- One line box each, in the dates' and summary's type, so loading doesn't move the row. -->
 			<!-- Two halves sized like the dates, so they wrap onto two lines where the dates would. -->
 			<div
-				class="flex flex-wrap gap-x-[0.25em] font-display text-xl leading-snug lg:text-[1.75rem]"
+				class="flex flex-wrap gap-x-[0.25em] font-display text-xl leading-snug @4xl/next:text-[1.75rem]"
 			>
 				<div class="flex h-[1lh] items-center"><Skeleton class="h-[0.8em] w-[6.45em]" /></div>
 				<div class="flex h-[1lh] items-center"><Skeleton class="h-[0.8em] w-[6.25em]" /></div>
@@ -121,7 +129,7 @@
 							<button
 								{...props}
 								type="button"
-								class="group block w-fit animate-in rounded-sm text-left font-display text-xl leading-snug tabular-nums underline decoration-muted-foreground/40 decoration-dotted decoration-1 underline-offset-[0.25em] duration-300 outline-none fade-in hover:decoration-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 lg:text-[1.75rem]"
+								class="group block w-fit animate-in rounded-sm text-left font-display text-xl leading-snug tabular-nums underline decoration-muted-foreground/40 decoration-dotted decoration-1 underline-offset-[0.25em] duration-300 outline-none fade-in hover:decoration-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 @4xl/next:text-[1.75rem]"
 							>
 								<span class="sr-only">Change dates,</span>
 								<!-- Too narrow for both dates, the end wraps under the start, its icon with it. -->
@@ -183,9 +191,10 @@
 						<span>Due from {formatDMY(addDays(chosen.endDate, 1))}</span>
 					{/if}
 					{#if picked && suggested}
+						<!-- The hit area reaches past the text, so the small button is still easy to tap. -->
 						<button
 							type="button"
-							class="inline-flex items-center gap-1 underline-offset-4 hover:text-foreground hover:underline"
+							class="relative inline-flex items-center gap-1 underline-offset-4 after:absolute after:-inset-x-2 after:-inset-y-2.5 hover:text-foreground hover:underline"
 							onclick={() => (picked = undefined)}
 						>
 							<Undo2 size={14} />
@@ -199,7 +208,11 @@
 	<Button
 		type="submit"
 		size="lg"
-		class="mt-1 sm:mt-0"
+		class={[
+			'mt-1 @lg/next:mt-0',
+			showName &&
+				'@lg/next:col-start-2 @lg/next:row-start-1 @lg/next:row-end-3 @4xl/next:col-start-3 @4xl/next:row-end-auto'
+		]}
 		variant={pending || (chosen && !due) ? 'outline' : 'default'}
 		disabled={pending || !chosen}
 		aria-describedby={client && showName ? labelId : undefined}

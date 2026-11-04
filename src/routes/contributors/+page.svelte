@@ -75,7 +75,7 @@
 	<meta property="og:description" content={description} />
 </svelte:head>
 
-<article>
+<article class="flex flex-col gap-4 md:gap-6">
 	<!--
 		The ranking is chosen above the chart, as it changes both. The sentence above the toggle keeps
 		the room of its longer version, so the toggle stays under the pointer while the chart and table
@@ -116,7 +116,7 @@
 						data-sveltekit-reset="false"
 						data-sveltekit-replacestate
 						aria-current={by === option.by ? 'page' : undefined}
-						class="rounded-[calc(var(--radius)-2px)] px-3 py-1 text-muted-foreground hover:text-foreground aria-[current]:bg-primary aria-[current]:text-primary-foreground"
+						class="inline-flex min-h-9 items-center rounded-[calc(var(--radius)-2px)] px-3 text-muted-foreground hover:text-foreground aria-[current]:bg-primary aria-[current]:text-primary-foreground pointer-coarse:min-h-10"
 					>
 						{option.label}
 					</a>
@@ -128,7 +128,7 @@
 	{#if result}
 		<section
 			aria-labelledby="race-heading"
-			class="mt-8 rounded-xl border bg-card px-3 pt-4 pb-3 sm:px-6"
+			class="rounded-xl border bg-card px-2 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4"
 		>
 			<h2 id="race-heading" class="sr-only">Rank by year</h2>
 			<RankRace
@@ -141,7 +141,7 @@
 			/>
 		</section>
 
-		<section aria-labelledby="standings-heading" class="mt-10">
+		<section aria-labelledby="standings-heading">
 			<!-- The double rule closes the heading, like the masthead and a ledger's totals. -->
 			<h2
 				id="standings-heading"
@@ -161,8 +161,15 @@
 						<tr>
 							<th class="py-2 pr-1 pl-3 sm:pl-4">Rank</th>
 							<th class="px-3 py-2">Contributor</th>
-							<th class="px-3 py-2 text-right">{by === 'recent' ? 'Past 12 months' : 'All time'}</th
-							>
+							<th class="px-3 py-2 text-right whitespace-nowrap">
+								{#if by === 'recent'}
+									<!-- Short enough for one line on a phone, where the column is narrowest. -->
+									<span aria-hidden="true" class="sm:hidden">12 months</span>
+									<span class="max-sm:sr-only">Past 12 months</span>
+								{:else}
+									All time
+								{/if}
+							</th>
 							<th class="hidden w-1/4 px-3 py-2 md:table-cell">Share</th>
 							<th class="hidden py-2 pr-4 pl-3 text-right sm:table-cell">
 								{by === 'recent' ? 'All time' : 'Past 12 months'}
@@ -296,7 +303,7 @@
 					</tbody>
 				</table>
 			</div>
-			<p class="mt-3 max-w-2xl text-xs text-pretty text-muted-foreground">
+			<p class="mt-3 max-w-2xl text-sm text-pretty text-muted-foreground">
 				Includes those who have contributed {money.format(MIN_CONTRIBUTION)} or more in the past two years
 				directly through Open Source Collective, Open Source Europe and NumFOCUS: the {contributors.length}
 				who gave the most.

@@ -11,7 +11,7 @@
 	import { missingFromSettings, type SettingsRequirement } from '#lib/settings.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import { openCollectiveRate, type Client } from '#lib/worklog.js';
-	import { CircleAlert, CircleCheck, TriangleAlert } from '@lucide/svelte';
+	import { ChevronRight, CircleAlert, CircleCheck, TriangleAlert } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import InvoiceDetails from './InvoiceDetails.svelte';
 	import YourDetails from './YourDetails.svelte';
@@ -163,11 +163,17 @@
 				</Select.Root>
 			</div>
 
-			<details class="text-sm">
-				<summary class="cursor-pointer text-muted-foreground hover:text-foreground">
+			<details class="group text-sm">
+				<summary
+					class="flex min-h-10 w-fit cursor-pointer list-none items-center gap-1 text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden"
+				>
+					<ChevronRight
+						size={15}
+						class="transition-transform group-open:rotate-90 motion-reduce:transition-none"
+					/>
 					Advanced
 				</summary>
-				<div class="mt-3 space-y-1.5">
+				<div class="mt-1 space-y-1.5">
 					<Label for="category">Accounting category ID</Label>
 					<Input id="category" {...fields.accountingCategoryId.as('text')} />
 					<p class="text-xs text-muted-foreground">

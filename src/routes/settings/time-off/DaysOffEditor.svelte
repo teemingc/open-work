@@ -6,7 +6,7 @@
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import { formatLongDate } from '#lib/format.js';
 	import { isWeekday, observedHolidays, parseDaysOff } from '#lib/worklog.js';
-	import { ClipboardPaste, Plus, Trash2, Upload } from '@lucide/svelte';
+	import { ChevronRight, ClipboardPaste, Plus, Trash2, Upload } from '@lucide/svelte';
 
 	let { store, year }: { store: WorkLogStore; year: string } = $props();
 
@@ -44,7 +44,8 @@
 	}
 </script>
 
-<div class="space-y-3">
+<!-- Laid out by its own width rather than the window's, so rows go onto one line once they fit. -->
+<div class="@container/holidays space-y-3">
 	{#if days.length === 0}
 		<p class="text-sm text-muted-foreground">
 			No holidays in {year} yet.
@@ -53,7 +54,7 @@
 		<!-- Headings over the fields once the name shares the date's line. On a phone each field has
 			its own label instead, and screen readers always use those. -->
 		<div
-			class="hidden grid-cols-[10rem_minmax(0,1fr)_auto] gap-2 px-2 text-xs text-muted-foreground sm:grid"
+			class="hidden grid-cols-[10rem_minmax(0,1fr)_auto] gap-2 px-2 text-xs text-muted-foreground @md/holidays:grid"
 			aria-hidden="true"
 		>
 			<span>Date</span>
@@ -63,16 +64,19 @@
 			{#each days as { day, index } (day.date)}
 				<!-- The name has a line of its own on a phone, and the weekend note sits under it on any screen. -->
 				<li
-					class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 p-2 sm:grid-cols-[10rem_minmax(0,1fr)_auto]"
+					class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 p-2 @md/holidays:grid-cols-[10rem_minmax(0,1fr)_auto]"
 				>
 					<div class="space-y-1">
-						<Label for="{id}-{index}-date" class="text-xs text-muted-foreground sm:sr-only">
+						<Label
+							for="{id}-{index}-date"
+							class="text-xs text-muted-foreground @md/holidays:sr-only"
+						>
 							Date
 						</Label>
 						<Input
 							id="{id}-{index}-date"
 							type="date"
-							class="block w-40 sm:w-full"
+							class="block w-40 @md/holidays:w-full"
 							value={day.date}
 							onchange={(event) => {
 								const date = event.currentTarget.value;
@@ -80,8 +84,13 @@
 							}}
 						/>
 					</div>
-					<div class="col-span-2 space-y-1 sm:col-span-1 sm:col-start-2 sm:row-start-1">
-						<Label for="{id}-{index}-name" class="text-xs text-muted-foreground sm:sr-only">
+					<div
+						class="col-span-2 space-y-1 @md/holidays:col-span-1 @md/holidays:col-start-2 @md/holidays:row-start-1"
+					>
+						<Label
+							for="{id}-{index}-name"
+							class="text-xs text-muted-foreground @md/holidays:sr-only"
+						>
 							Name
 						</Label>
 						<Input
@@ -93,7 +102,9 @@
 					</div>
 					{#if !isWeekday(day.date)}
 						{const replacement = $derived(replacedOn.get(day.date))}
-						<span class="col-span-2 text-xs text-muted-foreground sm:col-span-1 sm:col-start-2">
+						<span
+							class="col-span-2 text-xs text-muted-foreground @md/holidays:col-span-1 @md/holidays:col-start-2"
+						>
 							{replacement
 								? `Weekend, off on ${formatLongDate(replacement)}`
 								: 'Weekend, not counted'}
@@ -102,7 +113,7 @@
 					<Button
 						variant="ghost"
 						size="icon"
-						class="col-start-2 row-start-1 size-8 self-end justify-self-end sm:col-start-3 sm:self-center"
+						class="col-start-2 row-start-1 self-end justify-self-end @md/holidays:col-start-3 @md/holidays:self-center"
 						onclick={() => store.removeHoliday(day.date)}
 					>
 						<Trash2 size={14} />
@@ -113,8 +124,9 @@
 		</ul>
 	{/if}
 
+	<!-- Framed like a row of the list, with its columns, so a new holiday lines up with the saved ones. -->
 	<form
-		class="flex flex-wrap items-end gap-2"
+		class="grid items-end gap-2 rounded-lg border border-dashed p-2 @md/holidays:grid-cols-[10rem_minmax(0,1fr)_auto]"
 		onsubmit={(event) => {
 			event.preventDefault();
 			if (!newDate) return;
@@ -125,20 +137,34 @@
 	>
 		<div class="space-y-1.5">
 			<Label for="{id}-date">Date</Label>
-			<Input id="{id}-date" type="date" required bind:value={newDate} class="block w-40" />
+			<Input
+				id="{id}-date"
+				type="date"
+				required
+				bind:value={newDate}
+				class="block w-40 @md/holidays:w-full"
+			/>
 		</div>
-		<div class="min-w-40 flex-1 space-y-1.5">
+		<div class="space-y-1.5">
 			<Label for="{id}-name">Name</Label>
 			<Input id="{id}-name" bind:value={newName} />
 		</div>
-		<Button type="submit" variant="outline" disabled={!newDate}><Plus /> Add holiday</Button>
+		<Button type="submit" variant="outline" class="w-full @md/holidays:w-auto" disabled={!newDate}>
+			<Plus /> Add holiday
+		</Button>
 	</form>
 
-	<details class="text-sm">
-		<summary class="cursor-pointer text-muted-foreground hover:text-foreground">
+	<details class="group text-sm">
+		<summary
+			class="flex min-h-10 w-fit cursor-pointer list-none items-center gap-1 text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden"
+		>
+			<ChevronRight
+				size={15}
+				class="transition-transform group-open:rotate-90 motion-reduce:transition-none"
+			/>
 			Import from CSV or paste
 		</summary>
-		<div class="mt-3 space-y-3">
+		<div class="mt-1 space-y-3">
 			<p class="text-muted-foreground">
 				One per line: a date (2026-07-07 or 07/07/2026) and a name, separated by a comma or a tab.
 				Rows copied from a spreadsheet work. A day already listed is updated.
@@ -147,7 +173,7 @@
 				<Label for="{id}-paste">Rows</Label>
 				<Textarea id="{id}-paste" rows={5} class="font-mono text-xs" bind:value={pasted} />
 			</div>
-			<div class="flex flex-wrap gap-2">
+			<div class="grid gap-2 @md/holidays:flex @md/holidays:flex-wrap">
 				<Button
 					variant="outline"
 					size="sm"

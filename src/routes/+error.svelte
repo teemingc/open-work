@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { resolve } from '$app/paths';
 	import RetryableError from '#lib/components/RetryableError.svelte';
+	import { Button } from '#lib/components/ui/button/index.js';
 
 	const notFound = $derived(page.status === 404);
 	/** What went wrong in a few words. A page that did not load says so already, so this names the side at fault. */
@@ -40,14 +42,14 @@
 </svelte:head>
 
 <!--
-	What went wrong and what to do, alone in the space between header and footer: the header already
-	leads everywhere else.
+	What went wrong and what to do, alone in the space between header and footer. A missing page also
+	leads back to looking up a collective, as the header shows only icons on phones.
 -->
 <div
-	class="mx-auto flex max-w-2xl flex-col justify-center pt-10 text-center sm:pt-16 lg:min-h-[calc(100svh-17rem)] lg:pt-0"
+	class="mx-auto flex max-w-3xl flex-col justify-center pt-10 text-center sm:pt-16 lg:min-h-[calc(100svh-17rem)] lg:pt-0"
 >
 	<div class="space-y-3 lg:space-y-5">
-		<h1 class="lg:text-[clamp(3rem,1.5rem+3vw,4.5rem)] lg:leading-[1.05]">{heading}</h1>
+		<h1 class="text-balance lg:text-5xl lg:leading-[1.1]">{heading}</h1>
 		{#if noCollective}
 			<p class="mx-auto text-muted-foreground lg:max-w-[40ch] lg:text-lg">
 				{page.error?.message} Check the spelling, or search for it from the Collective page.
@@ -77,6 +79,11 @@
 					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				</p>
 			{/if}
+		{/if}
+		{#if notFound}
+			<div class="pt-2">
+				<Button href={resolve('/')} class="w-full sm:w-auto">Look up a collective</Button>
+			</div>
 		{/if}
 	</div>
 </div>

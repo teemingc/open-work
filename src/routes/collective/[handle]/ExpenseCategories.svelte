@@ -149,19 +149,17 @@
 <Card.Root>
 	<Card.Header>
 		<Card.Title>Expenses by category</Card.Title>
-		<Card.Description>
-			{#if series.length}
-				Paid expenses each month, by accounting category.
-			{:else}
+		{#if !series.length}
+			<Card.Description>
 				No expenses paid {periodPhrase(months) || 'yet'}.
 				{#if spent >= 1}
 					Expenses of {money.format(spent)} were used in other ways, such as contributing to other collectives.
 				{/if}
-			{/if}
-		</Card.Description>
+			</Card.Description>
+		{/if}
 	</Card.Header>
 	{#if series.length}
-		<Card.Content>
+		<Card.Content class="px-2 pt-4 sm:px-6 sm:pt-6">
 			<LazyChart class="h-72">
 				{#snippet children({ BarChart, Chart, Legend, legendMotion })}
 					<Chart.Container {config} class="aspect-auto h-72 w-full cursor-pointer">

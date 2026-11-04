@@ -12,7 +12,7 @@
 		type DeductionKind
 	} from '#lib/worklog.js';
 	import NewBand from './NewBand.svelte';
-	import { ArrowDown, ArrowUp, Plus, Trash2, X } from '@lucide/svelte';
+	import { ArrowDown, ArrowUp, Trash2, X } from '@lucide/svelte';
 
 	let { store, currency }: { store: WorkLogStore; currency: string } = $props();
 
@@ -57,8 +57,8 @@
 {#if deductions.length > 0}
 	<ul class="space-y-3">
 		{#each deductions as deduction, index (deduction.id)}
-			<li class="space-y-3 rounded-lg border bg-card p-3">
-				<div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem_auto] sm:items-end">
+			<li class="@container/card space-y-3 rounded-lg border bg-card p-3">
+				<div class="grid gap-3 @lg/card:grid-cols-[minmax(0,1fr)_12rem_auto] @lg/card:items-end">
 					<div class="space-y-1.5">
 						<Label for="{deduction.id}-name">Name</Label>
 						<Input
@@ -111,7 +111,7 @@
 					</div>
 				</div>
 
-				<div class="grid gap-3 sm:grid-cols-2 sm:items-end">
+				<div class="grid gap-3 @md/card:grid-cols-2 @md/card:items-end">
 					{#if deduction.kind === 'percent'}
 						<div class="space-y-1.5">
 							<Label for="{deduction.id}-rate">Rate (%)</Label>
@@ -173,7 +173,7 @@
 						{#each bands as band, bandIndex (bandIndex)}
 							{const from = $derived(bandIndex === 0 ? 0 : (bands[bandIndex - 1].upTo ?? 0))}
 							<div
-								class="grid grid-cols-[minmax(0,1fr)_4.5rem_auto] items-end gap-2 sm:grid-cols-[minmax(0,1fr)_6rem_auto]"
+								class="grid grid-cols-[minmax(0,1fr)_4.5rem_auto] items-end gap-2 @md/card:grid-cols-[minmax(0,1fr)_6rem_auto]"
 							>
 								<div class="space-y-1.5">
 									<Label for="{deduction.id}-band-{bandIndex}-up-to" class="font-normal">
@@ -248,10 +248,3 @@
 		{/each}
 	</ul>
 {/if}
-
-<Button
-	variant="outline"
-	onclick={() => store.addDeduction({ name: '', kind: 'percent', rate: undefined, base: 'gross' })}
->
-	<Plus /> Add a deduction
-</Button>

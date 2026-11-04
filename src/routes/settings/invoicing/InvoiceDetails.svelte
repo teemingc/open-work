@@ -90,7 +90,7 @@
 >
 	<fieldset class="space-y-4">
 		<legend class="float-left mb-3 w-full font-medium">How you are paid</legend>
-		<div class="clear-both grid gap-3 sm:grid-cols-2">
+		<div class="clear-both grid gap-3 @xl/settings:grid-cols-2">
 			{@render field({
 				id: 'invoice-account-name',
 				label: 'Account name',
@@ -125,7 +125,7 @@
 		{const category = $derived(client.tax?.category ?? 'outside-scope')}
 		<fieldset class="space-y-4 border-t pt-5">
 			<legend class="float-left mb-3 w-full font-medium"><ClientName {client} /></legend>
-			<div class="clear-both grid gap-3 sm:grid-cols-2">
+			<div class="clear-both grid gap-3 @xl/settings:grid-cols-2">
 				{@render field({
 					id: `${client.id}-legal-name`,
 					label: 'Legal name',
@@ -147,7 +147,7 @@
 				onchange={(address) => onchange(client, { address })}
 			/>
 			<!-- Only what the chosen VAT treatment needs: most clients abroad need none of it. -->
-			<div class="grid gap-3 sm:grid-cols-3">
+			<div class="grid gap-3 @xl/settings:grid-cols-3">
 				<div class="space-y-1.5">
 					<Label for="{client.id}-tax">VAT</Label>
 					<Select.Root
@@ -194,7 +194,7 @@
 					})}
 				{/if}
 			</div>
-			<div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
+			<div class="grid gap-3 @xl/settings:grid-cols-[minmax(0,1fr)_8rem]">
 				{@render field({
 					id: `${client.id}-line-item`,
 					label: 'Line item',

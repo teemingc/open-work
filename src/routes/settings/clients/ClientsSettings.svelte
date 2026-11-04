@@ -142,7 +142,7 @@
 
 <SettingsSection
 	title="Clients"
-	description="Who you work for, what they pay an hour, and how and how often you invoice them. Archive a client you no longer work for to keep its logged time."
+	description="Who you work for, what they pay an hour, and how often you invoice them. Archive a client you no longer work for to keep its logged time."
 >
 	{#snippet action()}
 		<Button
@@ -167,7 +167,7 @@
 					store.data.clients.findIndex(({ id }) => id === client.id)
 				)
 			)}
-			<li class="rounded-lg border bg-card">
+			<li class="@container/card rounded-lg border bg-card">
 				<!-- The name heads the card, so each client reads as its own record rather than a row of equal fields.
 					With large text the buttons wrap under it, so the name keeps the width it needs. -->
 				<div class="flex flex-wrap items-center gap-2 border-b py-2 pr-2 pl-1.5">
@@ -274,7 +274,7 @@
 						</Button>
 					{/if}
 				</div>
-				<div class="grid gap-x-3 gap-y-4 p-3 *:min-w-0 sm:grid-cols-2 lg:grid-cols-4">
+				<div class="grid gap-x-3 gap-y-4 p-3 *:min-w-0 @md/card:grid-cols-2 @3xl/card:grid-cols-4">
 					<div class="space-y-1.5">
 						<Label for="{client.id}-rate" id="{client.id}-rate-label">Per hour</Label>
 						<!-- The currency is part of the rate, so it is attached to it rather than a field of its own. -->
@@ -396,7 +396,7 @@
 					</div>
 					<!-- A collective's logo and colour come from Open Collective, so only other clients need one. -->
 					{#if !client.openCollective}
-						<div class="space-y-1.5 lg:col-span-2">
+						<div class="space-y-1.5 @3xl/card:col-span-2">
 							<Label for="{client.id}-website">Website</Label>
 							{@render lookupField({
 								client,
@@ -409,13 +409,13 @@
 					<!-- Opened once, for a client with rate changes. An `open` attribute would be set again on
 						every change to the client, opening it straight after you close it. -->
 					<details
-						class="group sm:col-span-2 lg:col-span-4"
+						class="group @md/card:col-span-2 @3xl/card:col-span-4"
 						{@attach (details) => {
 							details.open = untrack(() => (client.rates?.length ?? 0) > 0);
 						}}
 					>
 						<summary
-							class="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden"
+							class="flex min-h-10 w-fit cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden"
 						>
 							<ChevronRight
 								size={15}
@@ -462,7 +462,7 @@
 											}}
 										/>
 									</div>
-									<div class="w-20 space-y-1.5 sm:w-28">
+									<div class="w-20 space-y-1.5 @md/card:w-28">
 										<Label for="{client.id}-rate-{index}-rate">Per hour</Label>
 										<Input
 											id="{client.id}-rate-{index}-rate"
@@ -513,7 +513,7 @@
 	{#if archived.length > 0}
 		<details class="group">
 			<summary
-				class="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden"
+				class="flex min-h-10 w-fit cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden"
 			>
 				<ChevronRight
 					size={15}

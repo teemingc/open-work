@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
 	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
@@ -85,8 +86,63 @@
 	}
 </script>
 
+<Card.Root role="region" aria-labelledby="email-invoice-heading">
+	<Card.Header>
+		<h2 id="email-invoice-heading" class="text-lg">Save</h2>
+	</Card.Header>
+	<Card.Content class="space-y-4">
+		<div class="max-w-72 space-y-1.5">
+			<div class="flex items-baseline justify-between gap-3">
+				<Label for="invoice-number">Invoice number</Label>
+				{#if draft.numberOverride !== undefined && !saved}
+					<button
+						type="button"
+						class="relative inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-4 after:absolute after:-inset-x-2 after:-inset-y-2.5 hover:text-foreground hover:underline"
+						onclick={() => (draft.numberOverride = undefined)}
+					>
+						<RotateCcw size={13} />Use suggested
+					</button>
+				{/if}
+			</div>
+			<Input
+				id="invoice-number"
+				class="tabular-nums"
+				bind:value={() => draft.number, (value) => (draft.numberOverride = value)}
+			/>
+		</div>
+
+		{#if problems.length > 0 || missing.length > 0}
+			<ul class="space-y-1 text-sm text-muted-foreground">
+				{#if missing.length > 0}
+					<li class="flex items-start gap-1.5">
+						<CircleAlert size={15} class="mt-0.5 shrink-0" />
+						<a href={resolve('/settings/invoicing')} class="underline hover:text-foreground">
+							Add {missing.join(', ').replace(/, ([^,]*)$/, ' and $1')} in Invoicing settings
+						</a>
+					</li>
+				{/if}
+				{#each problems as problem (problem)}
+					<li class="flex items-start gap-1.5">
+						<CircleAlert size={15} class="mt-0.5 shrink-0" />{problem}
+					</li>
+				{/each}
+			</ul>
+		{/if}
+
+		<!-- Sent once you have emailed it, from the invoice's own page, so saving never marks it sent. -->
+		<Button
+			size="lg"
+			class="w-full motion-safe:active:scale-[0.98]"
+			disabled={problems.length > 0 || draft.hours <= 0}
+			onclick={() => save(saved?.status ?? 'draft')}
+		>
+			<FileText />{saved ? 'Save changes' : 'Save and open invoice'}
+		</Button>
+	</Card.Content>
+</Card.Root>
+
 <!-- The PDF itself, drawn as it will be sent, so the preview and the invoice never differ. -->
-<figure class="mx-0 mt-0">
+<figure>
 	{#await preview}
 		<Skeleton class="aspect-[1/1.414] w-full" />
 	{:then url}
@@ -102,55 +158,3 @@
 		</p>
 	{/await}
 </figure>
-
-<section class="space-y-4 rounded-xl border bg-card p-5" aria-labelledby="email-invoice-heading">
-	<h2 id="email-invoice-heading" class="text-lg">Save</h2>
-
-	<div class="max-w-72 space-y-1.5">
-		<div class="flex items-baseline justify-between gap-3">
-			<Label for="invoice-number">Invoice number</Label>
-			{#if draft.numberOverride !== undefined && !saved}
-				<button
-					type="button"
-					class="inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-					onclick={() => (draft.numberOverride = undefined)}
-				>
-					<RotateCcw size={13} />Use suggested
-				</button>
-			{/if}
-		</div>
-		<Input
-			id="invoice-number"
-			class="tabular-nums"
-			bind:value={() => draft.number, (value) => (draft.numberOverride = value)}
-		/>
-	</div>
-
-	{#if problems.length > 0 || missing.length > 0}
-		<ul class="space-y-1 text-sm text-muted-foreground">
-			{#if missing.length > 0}
-				<li class="flex items-start gap-1.5">
-					<CircleAlert size={15} class="mt-0.5 shrink-0" />
-					<a href={resolve('/settings/invoicing')} class="underline hover:text-foreground">
-						Add {missing.join(', ').replace(/, ([^,]*)$/, ' and $1')} in Invoicing settings
-					</a>
-				</li>
-			{/if}
-			{#each problems as problem (problem)}
-				<li class="flex items-start gap-1.5">
-					<CircleAlert size={15} class="mt-0.5 shrink-0" />{problem}
-				</li>
-			{/each}
-		</ul>
-	{/if}
-
-	<!-- Sent once you have emailed it, from the invoice's own page, so saving never marks it sent. -->
-	<Button
-		size="lg"
-		class="w-full motion-safe:active:scale-[0.98]"
-		disabled={problems.length > 0 || draft.hours <= 0}
-		onclick={() => save(saved?.status ?? 'draft')}
-	>
-		<FileText />{saved ? 'Save changes' : 'Save and open invoice'}
-	</Button>
-</section>
