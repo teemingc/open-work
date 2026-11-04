@@ -315,6 +315,22 @@ export class WorkLogStore {
 		this.#save();
 	}
 
+	/** Log several entries on another day at once, keeping their times. */
+	moveEntries({ ids, date }: { ids: string[]; date: string }) {
+		for (const id of ids) {
+			const index = this.data.entries.findIndex((other) => other.id === id);
+			if (index === -1) continue;
+			const [entry] = this.data.entries.splice(index, 1);
+			const moved = { ...entry, date, updatedAt: nowIso() };
+			this.data.entries.splice(
+				insertionIndex({ entries: this.data.entries, entry: moved }),
+				0,
+				moved
+			);
+		}
+		this.#save();
+	}
+
 	removeEntry(id: string) {
 		const index = this.data.entries.findIndex((entry) => entry.id === id);
 		if (index === -1) return;

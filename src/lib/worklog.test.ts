@@ -19,6 +19,7 @@ import {
 	entryRate,
 	insertionIndex,
 	inDayOrder,
+	startsPastMidnight,
 	availableCredit,
 	invoiceEmailHref,
 	invoiceTotals,
@@ -221,6 +222,23 @@ describe('notes', () => {
 		expect(insertionIndex({ entries, entry: { date: '2026-10-01', start: '12:00' } })).toBe(1);
 		expect(insertionIndex({ entries, entry: { date: '2026-10-02' } })).toBe(2);
 		expect(insertionIndex({ entries, entry: { date: '2026-11-01' } })).toBe(3);
+	});
+
+	it('tells which entries of a day started after midnight', () => {
+		const day = inDayOrder([
+			{ start: '01:00', end: '02:00' },
+			{ start: '23:00', end: '00:30' },
+			{ start: '12:00', end: '14:00' },
+			{}
+		]);
+		expect(day.map((entry) => startsPastMidnight({ day, entry }))).toEqual([
+			false,
+			false,
+			true,
+			false
+		]);
+		const morning = inDayOrder([{ start: '09:00', end: '12:00' }]);
+		expect(startsPastMidnight({ day: morning, entry: morning[0] })).toBe(false);
 	});
 
 	it('orders a day from waking, with work past midnight at the end', () => {

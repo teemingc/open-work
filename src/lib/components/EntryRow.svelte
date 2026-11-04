@@ -1,11 +1,20 @@
+<script module lang="ts">
+	const dateFormat = new Intl.DateTimeFormat('en', {
+		weekday: 'short',
+		day: 'numeric',
+		month: 'short'
+	});
+</script>
+
 <script lang="ts">
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
 	import WorkItem from '#lib/components/WorkItem.svelte';
 	import ClientName from '#lib/components/ClientName.svelte';
-	import { formatHours, formatTime } from '#lib/format.js';
+	import { addDays, formatHours, formatTimeRange, parseIsoDate } from '#lib/format.js';
 	import { entryHours, refKey, type WorkLogEntry } from '#lib/worklog.js';
-	import { Ellipsis, Pencil, Trash2 } from '@lucide/svelte';
+	import { CalendarArrowUp, Ellipsis, Moon, Pencil, Trash2 } from '@lucide/svelte';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
 	import type { HTMLLiAttributes } from 'svelte/elements';
 
 	let {
@@ -13,7 +22,11 @@
 		organization,
 		client,
 		rate,
+		pastMidnight = false,
+		selected,
+		onselectedchange,
 		onedit,
+		onmove,
 		onremove,
 		...rest
 	}: HTMLLiAttributes & {
@@ -23,18 +36,24 @@
 		client?: { name: string; color: string; logo?: string };
 		/** The entry's own rate, when it has one. */
 		rate?: string;
+		/** Started after midnight, so the calendar date after the day it is logged on goes by the time. */
+		pastMidnight?: boolean;
+		/** Ticked for an action on several entries at once; no checkbox when left out. */
+		selected?: boolean;
+		onselectedchange?: (selected: boolean) => void;
 		onedit: () => void;
+		/** Offered in the menu when given. */
+		onmove?: () => void;
 		onremove: () => void;
 	} = $props();
 
-	/** "1:00 – 2:00 PM", keeping both halves of the day only when the range crosses noon or midnight. */
-	function timeRange(start: string, end: string): string {
-		const [from, to] = [formatTime(start), formatTime(end)];
-		return from.slice(-2) === to.slice(-2) ? `${from.slice(0, -3)} – ${to}` : `${from} – ${to}`;
-	}
-
 	const hours = $derived(entryHours(entry));
-	const time = $derived(entry.start && entry.end ? timeRange(entry.start, entry.end) : undefined);
+	const time = $derived(
+		entry.start && entry.end ? formatTimeRange(entry.start, entry.end) : undefined
+	);
+	const calendarDate = $derived(
+		pastMidnight ? dateFormat.format(parseIsoDate(addDays(entry.date, 1))) : undefined
+	);
 </script>
 
 <!--
@@ -45,15 +64,30 @@
 	{...rest}
 	class={[
 		'grid grid-cols-[minmax(0,1fr)_auto_auto] items-baseline gap-x-3 gap-y-0.5 px-4 py-2 text-sm sm:grid-cols-[10rem_minmax(0,1fr)_auto_auto]',
+		selected !== undefined && 'relative pl-11',
 		rest.class
 	]}
 >
+	{#if selected !== undefined}
+		<!-- Beside the grid, so the columns line up with rows that have no checkbox. -->
+		<Checkbox
+			class="absolute top-2.5 left-4"
+			checked={selected}
+			onCheckedChange={(checked) => onselectedchange?.(checked)}
+			aria-label={time ? `Select ${time}` : 'Select this entry'}
+		/>
+	{/if}
 	{#if time || client}
 		<p
 			class="col-start-1 flex flex-wrap items-baseline gap-x-2 text-muted-foreground tabular-nums sm:flex-col"
 		>
 			<!-- Breaks only between the two times, so a narrow column never runs into the hours. -->
 			{#if time}<span>{time.replace(/ (AM|PM)/g, '\u00a0$1')}</span>{/if}
+			{#if calendarDate}
+				<span class="inline-flex items-center gap-1 whitespace-nowrap">
+					<Moon size={12} aria-hidden="true" />{calendarDate}
+				</span>
+			{/if}
 			{#if client}
 				{#if client.logo}
 					<ClientName {client} class="[&>span]:truncate" title={client.name} />
@@ -107,6 +141,9 @@
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Content align="end">
 				<DropdownMenu.Item onclick={onedit}><Pencil /> Edit</DropdownMenu.Item>
+				{#if onmove}
+					<DropdownMenu.Item onclick={onmove}><CalendarArrowUp /> Move…</DropdownMenu.Item>
+				{/if}
 				<DropdownMenu.Item variant="destructive" onclick={onremove}>
 					<Trash2 /> Delete
 				</DropdownMenu.Item>

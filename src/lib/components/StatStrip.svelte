@@ -5,6 +5,8 @@
 		note: string;
 		/** A text colour class for the value, like `text-destructive`. */
 		tone?: string;
+		/** Progress towards a goal, drawn as a ring beside the value with its label inside. */
+		ring?: { value: number; label: string };
 		/** A small badge beside the label: a trend, a warning, or a share. */
 		badge?: {
 			text: string;
@@ -26,6 +28,7 @@
 	import * as Popover from '#lib/components/ui/popover/index.js';
 	import { cn } from '#lib/utils.js';
 	import { Hourglass, TrendingDown, TrendingUp } from '@lucide/svelte';
+	import ProgressRing from '#lib/components/ProgressRing.svelte';
 
 	let { stats }: { stats: Stat[] } = $props();
 
@@ -72,6 +75,7 @@
 			<div
 				class={[
 					'@container/card min-w-0 bg-card',
+					stat.ring !== undefined && 'relative pr-24',
 					lone
 						? 'flex flex-wrap items-baseline gap-x-3 gap-y-1 px-5 py-4'
 						: 'row-span-3 grid grid-rows-subgrid gap-y-1 px-4 py-3',
@@ -149,6 +153,17 @@
 					]}
 				>
 					{stat.value}
+					<!--
+						Placed against the whole figure, as tall as its three rows at its right edge, which the
+						figure keeps clear. Inside the value, so its label is read with it.
+					-->
+					{#if stat.ring !== undefined}
+						<ProgressRing
+							value={stat.ring.value}
+							label={stat.ring.label}
+							class="absolute top-1/2 right-4 size-16 -translate-y-1/2"
+						/>
+					{/if}
 				</dd>
 				<dd class={['text-muted-foreground', lone ? 'text-sm' : 'text-xs']}>{stat.note}</dd>
 			</div>

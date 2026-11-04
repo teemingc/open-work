@@ -13,6 +13,7 @@
 		activeClients,
 		clientChoices,
 		inDayOrder,
+		startsPastMidnight,
 		monthOf,
 		taskNames,
 		totalHours,
@@ -109,6 +110,7 @@
 							<EntryRow
 								{entry}
 								{organization}
+								pastMidnight={startsPastMidnight({ day: day.entries, entry })}
 								onedit={() => (editing = entry)}
 								onremove={() => (removing = entry)}
 							/>

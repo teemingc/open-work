@@ -34,7 +34,10 @@
 			label: 'Logged',
 			value: `${formatHours(summary.logged)} h`,
 			note: `Of ${formatHours(summary.expected)} h expected this month`,
-			badge: { text: `${percent}%` }
+			ring: {
+				value: summary.expected > 0 ? summary.logged / summary.expected : 0,
+				label: `${percent}%`
+			}
 		},
 		started
 			? {

@@ -257,7 +257,13 @@
 			</Card.Root>
 		{/if}
 		<MonthCharts chart="pace" {summary} clients={store.data.clients} {today} />
-		<DayList {store} {summary} organization={settings.organization} bind:justAdded />
 		<MonthCharts chart="daily" {summary} clients={store.data.clients} {today} />
+		<!--
+			In one column the list goes last, so a long month never pushes a chart out of reach. In two it
+			sits beside the hours each day, which comes after it in the second column.
+		-->
+		<div class="@4xl/main:col-start-1 @4xl/main:row-start-2">
+			<DayList {store} {summary} organization={settings.organization} bind:justAdded />
+		</div>
 	</div>
 </div>

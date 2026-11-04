@@ -5,9 +5,19 @@
 	import EntryRow from '#lib/components/EntryRow.svelte';
 	import { formatHours, formatMoney, parseIsoDate } from '#lib/format.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import { clientChoices, inDayOrder, taskNames, type MonthSummary } from '#lib/worklog.js';
+	import {
+		clientChoices,
+		inDayOrder,
+		startsPastMidnight,
+		taskNames,
+		type MonthSummary
+	} from '#lib/worklog.js';
 	import { clientColor } from '#lib/client-colors.js';
 	import EntryForm from '#lib/components/EntryForm.svelte';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
+	import { addDays } from '#lib/format.js';
+	import { CalendarArrowUp, X } from '@lucide/svelte';
+	import MoveEntriesForm from './MoveEntriesForm.svelte';
 
 	let {
 		store,
@@ -25,6 +35,10 @@
 	let editing = $state<string | undefined>();
 	/** The entry waiting for you to confirm its deletion. */
 	let removing = $state<string | undefined>();
+	/** Entries ticked for moving together. */
+	const selected = $state<string[]>([]);
+	/** The entries being moved, while the dialog asks where to. */
+	let moving = $state<string[] | undefined>();
 
 	const dayFormat = new Intl.DateTimeFormat('en', {
 		weekday: 'short',
@@ -44,10 +58,52 @@
 			.filter((day) => day.entries.length > 0 || day.kind === 'holiday')
 			.reverse()
 	);
+	const shown = $derived(new Set(days.flatMap((day) => day.entries.map((entry) => entry.id))));
+	/** Ticked entries in this month; others stay ticked for when you come back to theirs. */
+	const selectedHere = $derived(selected.filter((id) => shown.has(id)));
+	/** The day before the earliest entry being moved, as the likeliest place for it. */
+	const moveTo = $derived.by(() => {
+		const dates = store.data.entries
+			.filter((entry) => moving?.includes(entry.id))
+			.map((entry) => entry.date)
+			.sort();
+		return dates.length > 0 ? addDays(dates[0], -1) : undefined;
+	});
+
+	function select(ids: string[], checked: boolean) {
+		for (const id of ids) {
+			const index = selected.indexOf(id);
+			if (checked && index === -1) selected.push(id);
+			else if (!checked && index !== -1) selected.splice(index, 1);
+		}
+	}
+
+	function clearSelection() {
+		selected.splice(0, selected.length);
+	}
 </script>
 
 <Card.Root class="gap-0 overflow-hidden py-0">
-	<h2 class="sr-only">Days logged</h2>
+	<!-- One fixed row, so the actions appearing never move the list. -->
+	<Card.Header
+		class="flex h-14 items-center justify-between gap-3 border-b px-4 py-0 [.border-b]:pb-0"
+	>
+		<Card.Title>Days logged</Card.Title>
+		{#if selectedHere.length > 0}
+			<Card.Action class="flex items-center gap-2">
+				<span class="text-sm text-muted-foreground tabular-nums">
+					{selectedHere.length} selected
+				</span>
+				<Button variant="outline" size="sm" onclick={() => (moving = [...selectedHere])}>
+					<CalendarArrowUp />Move
+				</Button>
+				<Button variant="ghost" size="icon-sm" onclick={clearSelection}>
+					<X />
+					<span class="sr-only">Clear selection</span>
+				</Button>
+			</Card.Action>
+		{/if}
+	</Card.Header>
 	{#if days.length === 0}
 		<p class="p-6 text-center text-sm text-muted-foreground">Nothing logged this month yet.</p>
 	{:else}
@@ -56,18 +112,34 @@
 				<li class="border-b last:border-b-0">
 					<!-- The day's total lines up with each entry's hours, as their sum. -->
 					<div
-						class="flex items-baseline justify-between gap-3 border-b bg-muted/50 py-1.5 pr-14 pl-4 text-sm"
+						class={[
+							'relative flex items-baseline justify-between gap-3 border-b bg-muted/50 py-1.5 pr-14 pl-4 text-sm',
+							day.entries.length > 0 && 'pl-11'
+						]}
 					>
-						<h3 class="min-w-0">
-							<span class="font-medium tabular-nums"
-								>{dayFormat.format(parseIsoDate(day.date))}</span
-							>
-							{#if day.kind === 'holiday'}
-								<span class="ml-1.5 text-muted-foreground">
-									Holiday{day.name ? `: ${day.name}` : ''}
-								</span>
-							{/if}
-						</h3>
+						{#if day.entries.length > 0}
+							{const ids = $derived(day.entries.map((entry) => entry.id))}
+							{const count = $derived(ids.filter((id) => selected.includes(id)).length)}
+							<Checkbox
+								class="absolute top-1/2 left-4 -translate-y-1/2"
+								checked={count === ids.length}
+								indeterminate={count > 0 && count < ids.length}
+								onCheckedChange={(checked) => select(ids, checked)}
+								aria-label="Select every entry on {dayFormat.format(parseIsoDate(day.date))}"
+							/>
+						{/if}
+						<div class="flex min-w-0 items-baseline gap-2">
+							<h3 class="min-w-0">
+								<span class="font-medium tabular-nums"
+									>{dayFormat.format(parseIsoDate(day.date))}</span
+								>
+								{#if day.kind === 'holiday'}
+									<span class="ml-1.5 text-muted-foreground">
+										Holiday{day.name ? `: ${day.name}` : ''}
+									</span>
+								{/if}
+							</h3>
+						</div>
 						<span class="whitespace-nowrap tabular-nums">
 							<span class="font-semibold">{formatHours(day.logged)}</span>{#if day.expected}<span
 									class="text-muted-foreground">{` / ${formatHours(day.expected)}`}</span
@@ -110,9 +182,13 @@
 										rate={entry.rate !== undefined && client
 											? formatMoney(entry.rate, client.currency)
 											: undefined}
+										pastMidnight={startsPastMidnight({ day: day.entries, entry })}
 										class={entry.id === justAdded ? 'just-added' : undefined}
 										onanimationend={() => (justAdded = undefined)}
+										selected={selected.includes(entry.id)}
+										onselectedchange={(checked) => select([entry.id], checked)}
 										onedit={() => (editing = entry.id)}
+										onmove={() => (moving = [entry.id])}
 										onremove={() => (removing = entry.id)}
 									/>
 								{/if}
@@ -124,6 +200,27 @@
 		</ol>
 	{/if}
 </Card.Root>
+
+<Dialog.Root bind:open={() => moving !== undefined, (open) => !open && (moving = undefined)}>
+	<Dialog.Content>
+		{#if moving && moveTo}
+			<Dialog.Header>
+				<Dialog.Title>
+					Move {moving.length === 1 ? 'this entry' : `${moving.length} entries`}
+				</Dialog.Title>
+			</Dialog.Header>
+			<MoveEntriesForm
+				date={moveTo}
+				onmove={(date) => {
+					store.moveEntries({ ids: moving!, date });
+					select(moving!, false);
+					moving = undefined;
+				}}
+				oncancel={() => (moving = undefined)}
+			/>
+		{/if}
+	</Dialog.Content>
+</Dialog.Root>
 
 <!-- Asks in the page rather than with confirm(), which some browsers suppress. -->
 <Dialog.Root bind:open={() => removing !== undefined, (open) => !open && (removing = undefined)}>

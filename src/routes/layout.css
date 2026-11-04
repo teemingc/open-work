@@ -154,6 +154,11 @@
 	--chart-expenses-3: #ee93ac;
 	--chart-expenses-4: #f6c3d1;
 	--chart-other: #8794a8;
+	/* A progress ring, from where it starts to its tip, before and after its goal. Vivid, as a reward. */
+	--ring-from: oklch(0.45 0.2 264);
+	--ring-to: oklch(0.7 0.19 245);
+	--ring-done-from: oklch(0.5 0.16 155);
+	--ring-done-to: oklch(0.82 0.22 135);
 	--chart-balance: #0c2764;
 }
 
@@ -201,6 +206,10 @@
 	--chart-expenses-3: #c4486e;
 	--chart-expenses-4: #5a2a3a;
 	--chart-other: #5f6e98;
+	--ring-from: oklch(0.55 0.2 264);
+	--ring-to: oklch(0.8 0.15 240);
+	--ring-done-from: oklch(0.55 0.17 155);
+	--ring-done-to: oklch(0.88 0.23 130);
 	--chart-balance: #8fb4ff;
 }
 

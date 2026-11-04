@@ -111,6 +111,12 @@ export function formatTime(time: string): string {
 	return `${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${hour < 12 ? 'AM' : 'PM'}`;
 }
 
+/** "1:00 – 2:00 PM", keeping both halves of the day only when the range crosses noon or midnight. */
+export function formatTimeRange(start: string, end: string): string {
+	const [from, to] = [formatTime(start), formatTime(end)];
+	return from.slice(-2) === to.slice(-2) ? `${from.slice(0, -3)} – ${to}` : `${from} – ${to}`;
+}
+
 export function formatMoney(amount: number, currency: string): string {
 	try {
 		return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);

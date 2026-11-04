@@ -534,6 +534,21 @@ export function inDayOrder<T extends Pick<WorkLogEntry, 'start' | 'end' | 'hours
 	return [...timed.slice(wake), ...timed.slice(0, wake), ...untimed];
 }
 
+/**
+ * Whether an entry of a day, in `inDayOrder`, started after midnight, so on the calendar day after
+ * the one it is logged on. Those come after the clock wraps round past the day's first start.
+ */
+export function startsPastMidnight({
+	day,
+	entry
+}: {
+	day: Pick<WorkLogEntry, 'start'>[];
+	entry: Pick<WorkLogEntry, 'start'>;
+}): boolean {
+	const first = day[0]?.start;
+	return !!entry.start && !!first && entry.start < first;
+}
+
 /** Where an entry goes to keep the log in date and start-time order. */
 export function insertionIndex({
 	entries,
