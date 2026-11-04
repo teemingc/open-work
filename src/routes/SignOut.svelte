@@ -11,6 +11,7 @@
 	import { forgetThisBrowser } from '#lib/forget-browser.js';
 	import { openWorkLogWithSettings } from '#lib/open-work-log.js';
 	import { clearAllData } from '#lib/settings.remote.js';
+	import { hasSession } from '#lib/session.remote.js';
 	import { CircleAlert, LogOut } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
@@ -75,7 +76,8 @@
 	}
 </script>
 
-{#if openCollective || google}
+<!-- The cookies say so in the first render, before Open Collective or Google answer. -->
+{#if (await hasSession()) || openCollective || google}
 	<Button
 		variant="ghost"
 		size="sm"

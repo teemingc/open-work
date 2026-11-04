@@ -5,6 +5,7 @@ import { deleteWorkLog } from '#lib/server/drive.js';
 import { clearToken } from '#lib/server/session.js';
 import { DEFAULT_SETTINGS, SettingsSchema, upgradeSettings, type Settings } from '#lib/settings.js';
 import { getMe } from '#lib/opencollective.remote.js';
+import { hasSession } from '#lib/session.remote.js';
 
 /** Where earlier versions kept every setting. Read once, to move them into the work log. */
 const LEGACY_COOKIE = 'settings';
@@ -77,5 +78,6 @@ export const clearAllData = form(
 		if (googleConfigured()) await getAuth().api.signOut({ headers: request.headers });
 		getLegacySettings().set(null);
 		void getMe().refresh();
+		void hasSession().refresh();
 	}
 );

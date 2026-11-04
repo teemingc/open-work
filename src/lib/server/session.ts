@@ -34,3 +34,13 @@ export function requireToken(): string {
 	if (!token) error(401, 'Connect Open Collective in settings first.');
 	return token;
 }
+
+/**
+ * Whether this request carries a sign-in, to Open Collective or Google, going by its cookies alone,
+ * so a page can show it without waiting on either service.
+ */
+export function signedIn(cookies: Cookies): boolean {
+	return cookies
+		.getAll()
+		.some(({ name }) => name === TOKEN_COOKIE || name.endsWith('better-auth.session_token'));
+}
