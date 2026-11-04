@@ -13,7 +13,11 @@
 <div
 	bind:this={ref}
 	data-slot="dialog-header"
-	class={cn('flex flex-col gap-2 text-center sm:text-start', className)}
+	class={cn(
+		// Clear of the close button: on both sides while centred, so the text stays in the middle.
+		'flex flex-col gap-2 px-4 text-center sm:ps-0 sm:pe-4 sm:text-start',
+		className
+	)}
 	{...restProps}
 >
 	{@render children?.()}
