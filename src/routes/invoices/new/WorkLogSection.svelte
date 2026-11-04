@@ -95,7 +95,9 @@
 			Each block of time on its own, so one can be put right without leaving the invoice. Never
 			taller than most of the screen, so a phone held sideways can still scroll the page past it.
 		-->
-		<ol class="relative max-h-[min(24rem,60svh)] overflow-y-auto rounded-lg border bg-card">
+		<ol
+			class="@container/entries relative max-h-[min(24rem,60svh)] overflow-y-auto rounded-lg border bg-card"
+		>
 			{#each days as day (day.date)}
 				<li class="border-b last:border-b-0">
 					<!-- The day's total lines up with each entry's hours, as their sum. -->

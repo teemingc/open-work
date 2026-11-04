@@ -233,7 +233,7 @@
 	</DayDrop>
 {/snippet}
 
-<Card.Root class="gap-0 overflow-hidden py-0">
+<Card.Root class="@container/entries gap-0 overflow-hidden py-0">
 	<!-- One fixed row, so the actions appearing never move the list. -->
 	<Card.Header
 		class="flex h-14 items-center justify-between gap-3 border-b px-4 py-0 [.border-b]:pb-0"

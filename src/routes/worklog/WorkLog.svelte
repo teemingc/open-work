@@ -255,7 +255,7 @@
 		In rows rather than columns, so the entry form sits beside the month's pace and the days logged
 		beside the hours each day. Each card keeps its own height rather than stretching to its neighbour.
 	-->
-	<div class="grid grid-cols-1 items-start gap-4 md:gap-6 @4xl/main:grid-cols-2">
+	<div class="grid grid-cols-1 items-start gap-4 md:gap-6 @6xl/main:grid-cols-2">
 		{#if clients.length === 0}
 			<p class="text-sm text-muted-foreground">
 				Add a client in
@@ -288,7 +288,7 @@
 			In one column the list goes last, so a long month never pushes a chart out of reach. In two it
 			sits beside the hours each day, which comes after it in the second column.
 		-->
-		<div class="@4xl/main:col-start-1 @4xl/main:row-start-2">
+		<div class="@6xl/main:col-start-1 @6xl/main:row-start-2">
 			<DayList {store} {summary} {today} organization={settings.organization} bind:justAdded />
 		</div>
 	</div>

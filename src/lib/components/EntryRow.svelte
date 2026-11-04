@@ -61,13 +61,13 @@
 </script>
 
 <!--
-	One grid for every row, so times, work, hours and the menu each keep to a column. On a phone the
+	One grid for every row, so times, work, hours and the menu each keep to a column. In a narrow list the
 	time goes above the work instead of beside it.
 -->
 <li
 	{...rest}
 	class={[
-		'grid grid-cols-[minmax(0,1fr)_auto_auto] items-baseline gap-x-3 gap-y-0.5 px-4 py-2 text-sm sm:grid-cols-[10rem_minmax(0,1fr)_auto_auto]',
+		'grid grid-cols-[minmax(0,1fr)_auto_auto] items-baseline gap-x-3 gap-y-0.5 px-4 py-2 text-sm @xl/entries:grid-cols-[10rem_minmax(0,1fr)_auto_auto]',
 		handle ? 'relative pl-16' : selected !== undefined && 'relative pl-11',
 		rest.class
 	]}
@@ -87,7 +87,7 @@
 	{/if}
 	{#if time || client}
 		<p
-			class="col-start-1 flex flex-wrap items-baseline gap-x-2 text-muted-foreground tabular-nums sm:flex-col"
+			class="col-start-1 flex flex-wrap items-baseline gap-x-2 text-muted-foreground tabular-nums @xl/entries:flex-col"
 		>
 			<!-- Breaks only between the two times, so a narrow column never runs into the hours. -->
 			{#if time}
@@ -121,10 +121,10 @@
 		</p>
 	{/if}
 
-	<!-- Under the time on a phone, the work takes the width of the hours and menu too. -->
+	<!-- Under the time in a narrow list, the work takes the width of the hours and menu too. -->
 	<ul
 		class={[
-			'min-w-0 space-y-0.5 sm:col-span-1 sm:col-start-2 sm:row-start-1',
+			'min-w-0 space-y-0.5 @xl/entries:col-span-1 @xl/entries:col-start-2 @xl/entries:row-start-1',
 			time || client ? 'col-span-3' : 'col-start-1'
 		]}
 	>
@@ -133,12 +133,14 @@
 		{/each}
 	</ul>
 
-	<p class="col-start-2 row-start-1 text-right whitespace-nowrap tabular-nums sm:col-start-3">
+	<p
+		class="col-start-2 row-start-1 text-right whitespace-nowrap tabular-nums @xl/entries:col-start-3"
+	>
 		{#if hours > 0}<span class="font-medium">{formatHours(hours)} h</span>{/if}
 		{#if rate}<span class="block text-xs text-muted-foreground">{rate}/h</span>{/if}
 	</p>
 
-	<div class="col-start-3 row-start-1 self-start sm:col-start-4">
+	<div class="col-start-3 row-start-1 self-start @xl/entries:col-start-4">
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
 				{#snippet child({ props })}
