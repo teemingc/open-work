@@ -60,7 +60,6 @@
 
 	// The form starts from these and then owns its values, so it can be edited and cancelled.
 	const initial = untrack(() => ({
-		date: entry?.date ?? date,
 		clientId: entry?.clientId ?? clientId ?? clients[0]?.id ?? '',
 		start: entry ? (entry.start ?? '') : nextStart(date),
 		end: entry ? (entry.end ?? '') : nextStart(date),
@@ -71,7 +70,9 @@
 	}));
 
 	const id = $props.id();
-	let rowDate = $state(initial.date);
+	// A new entry is on the given date, following it as days pass, until another is picked.
+	let pickedDate = $state(untrack(() => entry?.date));
+	const rowDate = $derived(pickedDate ?? date);
 	let rowClient = $state(initial.clientId);
 	let rowStart = $state(initial.start);
 	let rowEnd = $state(initial.end);
@@ -95,7 +96,7 @@
 		snapshot({
 			id: 'new-entry',
 			capture: () => ({
-				date: rowDate,
+				pickedDate,
 				clientId: rowClient,
 				start: rowStart,
 				end: rowEnd,
@@ -105,7 +106,7 @@
 				itemText
 			}),
 			restore: (value) => {
-				rowDate = value.date;
+				pickedDate = value.pickedDate;
 				rowClient = value.clientId;
 				rowStart = value.start;
 				rowEnd = value.end;
@@ -167,7 +168,13 @@
 	<!-- Date and client each take the full width on a phone, where a pair of them is too narrow to read. -->
 	<div class="col-span-2 space-y-1.5 sm:col-span-1">
 		<Label for="{id}-date">Date</Label>
-		<Input id="{id}-date" type="date" required bind:value={rowDate} class="block" />
+		<Input
+			id="{id}-date"
+			type="date"
+			required
+			bind:value={() => rowDate, (value) => (pickedDate = value)}
+			class="block"
+		/>
 	</div>
 	<div class="col-span-2 space-y-1.5 sm:col-span-1">
 		<Label for="{id}-client">Client</Label>

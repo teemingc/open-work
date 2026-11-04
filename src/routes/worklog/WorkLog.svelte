@@ -29,7 +29,7 @@
 	} from '@lucide/svelte';
 	import type { Settings } from '#lib/settings.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import { untrack } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import DayList from './DayList.svelte';
 	import EntryForm from '#lib/components/EntryForm.svelte';
 	import MonthCharts from './MonthCharts.svelte';
@@ -45,7 +45,24 @@
 	const store = untrack(() => data.store);
 	const sync = driveSync(store);
 
-	const today = toIsoDate(new Date());
+	// Kept current, so a tab left open overnight moves on to the new day.
+	let today = $state(toIsoDate(new Date()));
+	function refreshToday() {
+		today = toIsoDate(new Date());
+	}
+	onMount(() => {
+		let timer: ReturnType<typeof setTimeout>;
+		function untilMidnight() {
+			const now = new Date();
+			const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+			timer = setTimeout(() => {
+				refreshToday();
+				untilMidnight();
+			}, midnight.getTime() - now.getTime());
+		}
+		untilMidnight();
+		return () => clearTimeout(timer);
+	});
 	const month = $derived.by(() => {
 		const requested = page.url.searchParams.get('month');
 		return requested && /^\d{4}-(0[1-9]|1[0-2])$/.test(requested) ? requested : monthOf(today);
@@ -108,6 +125,9 @@
 		}
 	}
 </script>
+
+<!-- Timers pause while the computer sleeps, so check again on coming back to the tab. -->
+<svelte:document onvisibilitychange={refreshToday} />
 
 <div class="space-y-6">
 	<!--
@@ -243,7 +263,7 @@
 			{:else}
 				<Card.Root class="h-full">
 					<Card.Content>
-						<!-- A fresh form for each month. It takes its date once, so a reused one kept the last month's. -->
+						<!-- A fresh form for each month, so a date picked in one isn't kept in the next. -->
 						{#key month}
 							<EntryForm
 								{clients}
