@@ -72,13 +72,23 @@
 
 	const clientIndex = $derived(new Map(store.data.clients.map((client, i) => [client.id, i])));
 
-	/** Days with something to show, newest first so today's work is at the top. */
+	/**
+	 * Days with something to show, newest first so today's work is at the top, and each day's work
+	 * newest first too, so the whole list runs back in time. Entries without times stay at the end.
+	 */
 	const days = $derived(
 		summary.days
-			.map((day) => ({
-				...day,
-				entries: inDayOrder(store.data.entries.filter((entry) => entry.date === day.date))
-			}))
+			.map((day) => {
+				const worked = inDayOrder(store.data.entries.filter((entry) => entry.date === day.date));
+				return {
+					...day,
+					worked,
+					entries: [
+						...worked.filter((entry) => entry.start).reverse(),
+						...worked.filter((entry) => !entry.start)
+					]
+				};
+			})
 			.filter((day) => day.entries.length > 0 || day.kind === 'holiday')
 			.reverse()
 	);
@@ -357,7 +367,7 @@
 															rate={entry.rate !== undefined && client
 																? formatMoney(entry.rate, client.currency)
 																: undefined}
-															pastMidnight={startsPastMidnight({ day: day.entries, entry })}
+															pastMidnight={startsPastMidnight({ day: day.worked, entry })}
 															class={[
 																entry.id === justAdded && 'just-added',
 																drag.isDragging && 'rounded-md bg-card ring-1 ring-border',
