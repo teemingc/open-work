@@ -46,7 +46,7 @@
 
 <!-- Open Collective expenses take the address, tax number and notes; emailed invoices take all of it. -->
 <SettingsSection title="You" description="Who your invoices are from.">
-	<div class="grid gap-3 sm:grid-cols-3">
+	<div class="grid gap-3 @xl/settings:grid-cols-3">
 		{@render field({
 			id: 'invoice-name',
 			label: 'Name',
@@ -77,7 +77,7 @@
 		address={invoicing.address}
 		onchange={(address) => change({ address })}
 	/>
-	<div class="grid gap-3 sm:grid-cols-2">
+	<div class="grid gap-3 @xl/settings:grid-cols-2">
 		{@render field({
 			id: 'invoice-tax-id',
 			label: 'Income tax number',

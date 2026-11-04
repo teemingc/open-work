@@ -22,6 +22,6 @@
 	<TimeOffSettings data={await openWorkLogWithSettings()} />
 
 	{#snippet pending()}
-		<SettingsSkeleton label="Loading time off" heights={['h-14', 'h-30', 'h-29', 'h-14']} />
+		<SettingsSkeleton label="Loading time off" heights={['h-30', 'h-29', 'h-14']} />
 	{/snippet}
 </svelte:boundary>

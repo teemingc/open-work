@@ -275,6 +275,13 @@
 	html:has([data-work-row]) {
 		scroll-padding-top: 9.5rem;
 	}
+	/* The header scrolls away on short screens; see Header.svelte. */
+	@media (max-height: 30rem) {
+		html,
+		html:has([data-work-row]) {
+			scroll-padding-top: 1rem;
+		}
+	}
 	/*
 		A column at least as tall as the window, so the footer sits at its bottom on short pages
 		rather than following the content up and down as skeletons give way to it.
@@ -292,6 +299,19 @@
 		font-weight: 600;
 		line-height: 1.2;
 		text-wrap: balance;
+	}
+	/*
+		iOS Safari draws a date field at its own width and height, past the edge of its column and
+		taller than the fields beside it, with the date at the top. Without its native look it takes
+		the size it is given, with the date left-aligned and centred.
+	*/
+	input[type='date'] {
+		appearance: none;
+		align-content: center;
+	}
+	input[type='date']::-webkit-date-and-time-value {
+		margin: 0;
+		text-align: start;
 	}
 	/* Page titles share one size and face everywhere. */
 	h1 {

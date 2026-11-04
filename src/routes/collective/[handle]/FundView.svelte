@@ -222,7 +222,7 @@
 
 <StatStrip {stats} />
 
-<div class="grid gap-4 lg:grid-cols-2">
+<div class="grid gap-4 md:gap-6 @5xl/main:grid-cols-2">
 	<Card.Root>
 		<Card.Header>
 			<Card.Title>Collectives it funds</Card.Title>

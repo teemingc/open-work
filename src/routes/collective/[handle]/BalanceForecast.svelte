@@ -12,6 +12,7 @@
 	import { compactFormat, moneyFormat } from '#lib/chart-format.js';
 	import { monthEnd, transactionsUrl, type Forecast, type Month } from '#lib/financials.js';
 	import MoneyRow from './MoneyRow.svelte';
+	import YearOnYearLegend from './YearOnYearLegend.svelte';
 
 	let {
 		slug,
@@ -174,14 +175,15 @@
 <Card.Root>
 	<Card.Header>
 		<Card.Title>Balance and forecast</Card.Title>
-		<Card.Description>
-			Green when the balance is higher than a year earlier, red when lower.
-		</Card.Description>
 	</Card.Header>
-	<Card.Content>
-		<LazyChart class="h-80">
+	<!-- Short enough to leave room for the header on a phone held sideways. -->
+	<Card.Content class="flex flex-col gap-3 px-2 pt-4 sm:px-6 sm:pt-6">
+		<LazyChart class="h-[min(20rem,60svh)]">
 			{#snippet children({ Area, AreaChart, Chart, ClipPath })}
-				<Chart.Container config={balanceConfig} class="aspect-auto h-80 w-full cursor-pointer">
+				<Chart.Container
+					config={balanceConfig}
+					class="aspect-auto h-[min(20rem,60svh)] w-full cursor-pointer"
+				>
 					<AreaChart
 						padding={chartPadding()}
 						onTooltipClick={balanceLink.click}
@@ -349,5 +351,6 @@
 				</Chart.Container>
 			{/snippet}
 		</LazyChart>
+		<YearOnYearLegend />
 	</Card.Content>
 </Card.Root>

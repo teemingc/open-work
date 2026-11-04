@@ -24,11 +24,14 @@
 	);
 </script>
 
-<SettingsSection title="Year">
-	<div class="space-y-1.5">
-		<Label for="year">Holidays for</Label>
+<SettingsSection
+	title="Public holidays"
+	description="Holidays are taken off the working days. Import your country's or state's list, then fix anything that differs."
+>
+	{#snippet action()}
+		<Label for="year" class="sr-only">Year</Label>
 		<Select.Root type="single" bind:value={year}>
-			<Select.Trigger id="year" class="w-32">{year}</Select.Trigger>
+			<Select.Trigger id="year" size="sm" class="w-28">{year}</Select.Trigger>
 			<Select.Content>
 				{#each years as option (option)}
 					<Select.Item value={option}>{option}</Select.Item>
@@ -38,13 +41,7 @@
 				>
 			</Select.Content>
 		</Select.Root>
-	</div>
-</SettingsSection>
-
-<SettingsSection
-	title="Public holidays"
-	description="Holidays are taken off the working days. Import your country's or state's list, then fix anything that differs."
->
+	{/snippet}
 	<div class="space-y-4">
 		<div class="flex items-start gap-2">
 			<Checkbox
@@ -63,7 +60,7 @@
 
 <SettingsSection
 	title="Days off a year"
-	description="Hours short of what a month expects come out of it."
+	description="A month you work less than expected uses some of them up."
 >
 	<div class="flex flex-wrap items-end gap-4">
 		<div class="w-32 space-y-1.5">

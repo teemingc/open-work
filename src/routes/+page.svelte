@@ -19,8 +19,13 @@
 	/>
 </svelte:head>
 
-<!-- One narrow column: the search, then a short list that reads as its first results. -->
-<div class="mx-auto flex max-w-md flex-col gap-6 pt-10 sm:pt-16">
+<!--
+	One narrow column: the search, then a short list that reads as its first results. Little room above
+	it on a short screen held sideways, so the search's list has room to open below it.
+-->
+<div
+	class="mx-auto flex max-w-md flex-col gap-4 pt-4 sm:pt-10 md:gap-6 [@media(max-height:30rem)]:pt-0"
+>
 	<div class="space-y-2 text-center">
 		<h1>Look up a collective</h1>
 		<p class="text-muted-foreground">See its balance, runway and who funds it.</p>

@@ -8,7 +8,10 @@
 <div aria-busy="true">
 	<p class="sr-only">{label}</p>
 	{#each heights as height, index (index)}
-		<div class="grid gap-6 border-t py-8 first:border-t-0 first:pt-0 md:grid-cols-[14rem_1fr]">
+		<!-- Laid out as SettingsSection is; the `p` comes first, so `first-of-type` finds the first section. -->
+		<div
+			class="grid gap-6 border-t py-8 first-of-type:border-t-0 first-of-type:pt-0 @4xl/settings:grid-cols-[14rem_minmax(0,1fr)]"
+		>
 			<div class="space-y-2">
 				<Skeleton class="h-6 w-28" />
 				<Skeleton class="h-4 w-48 max-w-full" />

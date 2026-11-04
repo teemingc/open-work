@@ -1,10 +1,12 @@
 <script lang="ts">
 	import SettingsSection from '#lib/components/SettingsSection.svelte';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
 	import * as Select from '#lib/components/ui/select/index.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import type { Settings } from '#lib/settings.js';
+	import { Plus } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import DeductionsEditor from './DeductionsEditor.svelte';
 
@@ -29,30 +31,28 @@
 	title="Expected hours"
 	description="How many hours you aim to work each working day."
 >
-	<div class="grid gap-4 sm:grid-cols-2">
-		<div class="space-y-1.5">
-			<Label for="hours-per-day">Hours per working day</Label>
-			<Input
-				id="hours-per-day"
-				type="number"
-				inputmode="decimal"
-				min="0"
-				max="24"
-				step="0.5"
-				class="tabular-nums"
-				value={store.data.hoursPerDay}
-				onchange={(event) => {
-					const hoursPerDay = Number(event.currentTarget.value);
-					if (hoursPerDay >= 0 && hoursPerDay <= 24) {
-						store.setSchedule({ hoursPerDay, exchange: $state.snapshot(store.data.exchange) });
-					}
-				}}
-			/>
-		</div>
+	<div class="space-y-1.5">
+		<Label for="hours-per-day">Hours per working day</Label>
+		<Input
+			id="hours-per-day"
+			type="number"
+			inputmode="decimal"
+			min="0"
+			max="24"
+			step="0.5"
+			class="w-32 tabular-nums"
+			value={store.data.hoursPerDay}
+			onchange={(event) => {
+				const hoursPerDay = Number(event.currentTarget.value);
+				if (hoursPerDay >= 0 && hoursPerDay <= 24) {
+					store.setSchedule({ hoursPerDay, exchange: $state.snapshot(store.data.exchange) });
+				}
+			}}
+		/>
 	</div>
 	<fieldset class="space-y-3">
 		<legend class="text-sm font-medium">Show earnings in another currency</legend>
-		<div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+		<div class="grid grid-cols-2 gap-3 @md/settings:grid-cols-3">
 			<div class="flex flex-col gap-1.5">
 				<Label for="exchange-to">Show in</Label>
 				<Select.Root
@@ -114,7 +114,7 @@
 					</Select.Content>
 				</Select.Root>
 			</div>
-			<div class="col-span-2 flex flex-col gap-1.5 sm:col-span-1">
+			<div class="col-span-2 flex flex-col gap-1.5 @md/settings:col-span-1">
 				<Label for="exchange-rate">Rate</Label>
 				<Input
 					id="exchange-rate"
@@ -152,5 +152,15 @@
 	title="Deductions"
 	description="Taken from what you earn each month, like income tax or a pension, to show what you take home."
 >
+	{#snippet action()}
+		<Button
+			variant="outline"
+			size="sm"
+			onclick={() =>
+				store.addDeduction({ name: '', kind: 'percent', rate: undefined, base: 'gross' })}
+		>
+			<Plus /> Add a deduction
+		</Button>
+	{/snippet}
 	<DeductionsEditor {store} currency={homeCurrency} />
 </SettingsSection>

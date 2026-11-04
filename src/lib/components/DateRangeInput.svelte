@@ -51,7 +51,7 @@
 		{label}
 	</DateRangeField.Label>
 	<div
-		class="flex min-h-9 w-full flex-wrap items-center gap-1 rounded-md border border-input bg-card ps-3 pe-1 text-sm tabular-nums transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 max-[22.4375rem]:ps-2 max-[22.4375rem]:text-xs sm:w-fit"
+		class="flex min-h-9 w-full flex-wrap items-center gap-1 rounded-md border border-input bg-card ps-3 pe-1 text-sm tabular-nums transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 max-[22.4375rem]:ps-2 max-[22.4375rem]:text-xs sm:w-fit pointer-coarse:min-h-10"
 	>
 		{#each ['start', 'end'] as const as type (type)}
 			{#if type === 'end'}<span aria-hidden="true" class="text-muted-foreground">–</span>{/if}

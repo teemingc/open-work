@@ -90,7 +90,12 @@
 					</div>
 				{:else}
 					<div class="flex items-center gap-2">
-						<Button href={resolve('/auth/connect')} data-sveltekit-reload variant="outline">
+						<Button
+							href={resolve('/auth/connect')}
+							data-sveltekit-reload
+							variant="outline"
+							class="flex-1 @md/settings:flex-none"
+						>
 							Connect
 						</Button>
 						<CircleAlert size={15} class="shrink-0 text-attention" />
@@ -146,7 +151,7 @@
 				{/if}
 			</div>
 
-			<div class="grid gap-5 sm:grid-cols-2">
+			<div class="grid gap-5 @md/settings:grid-cols-2">
 				<div class="space-y-1.5">
 					<Label for="github-username">Username</Label>
 					<Input id="github-username" {...fields.githubUsername.as('text')} />

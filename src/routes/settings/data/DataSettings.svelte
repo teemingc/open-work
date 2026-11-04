@@ -159,7 +159,7 @@
 
 <SettingsSection
 	title="Google Drive"
-	description="Sign in with Google to sync app data to your Google Drive."
+	description="Keeps your work log and settings in sync through your Google Drive."
 >
 	{#if sync.state === 'unavailable'}
 		<p class="text-sm text-muted-foreground">
@@ -173,7 +173,8 @@
 		{/if}
 		<!-- Signed out, the sign-in button already says the log is not in Drive. -->
 		{#if sync.state !== 'signed-out'}<DriveSyncStatus {sync} />{/if}
-		<div class="flex flex-wrap gap-2">
+		<!-- Full-width buttons on a phone, as shadcn's forms have them, side by side once they fit. -->
+		<div class="grid gap-2 @md/settings:flex @md/settings:flex-wrap">
 			{#if sync.account}
 				<Button
 					variant="outline"
@@ -243,7 +244,7 @@
 			onchange: (checked) => (exportParts.settings = checked)
 		})}
 	</div>
-	<div class="flex flex-wrap gap-2">
+	<div class="grid gap-2 @md/settings:flex @md/settings:flex-wrap">
 		<Button
 			variant="outline"
 			disabled={!exportParts.workLog && !exportParts.settings}
@@ -334,7 +335,13 @@
 	description="Removes your settings and work log from this browser and signs you out of Open Collective and Google. The copy in your Google Drive and your expenses on Open Collective stay."
 >
 	<div>
-		<Button variant="destructive" onclick={() => (clearDialogOpen = true)}>Delete all data</Button>
+		<Button
+			variant="destructive"
+			class="w-full @md/settings:w-auto"
+			onclick={() => (clearDialogOpen = true)}
+		>
+			Delete all data
+		</Button>
 	</div>
 </SettingsSection>
 

@@ -16,26 +16,29 @@
 </script>
 
 <!--
-	The action sits beside the title on a phone, with the description under both so it has the full
-	width, and above the content on the right once the title has a column of its own. On a phone the
-	row wraps, so with large text the action drops under the title rather than covering it.
+	The title gets a column of its own only when the settings area is wide enough to keep the
+	content readable beside it, which is a container query on the area rather than the window, as
+	the list of sections takes some of the width. Otherwise the title sits above the content, with
+	the action beside it and the description under both so it has the full width. That row wraps,
+	so with large text the action drops under the title rather than covering it. `first-of-type`
+	rather than `first`, as a settings form starts with its hidden inputs.
 -->
 <section
 	class={[
-		'grid gap-6 border-t py-8 first:border-t-0 first:pt-0 md:grid-cols-[14rem_minmax(0,1fr)]',
+		'grid gap-6 border-t py-8 first-of-type:border-t-0 first-of-type:pt-0 @4xl/settings:grid-cols-[14rem_minmax(0,1fr)]',
 		action
-			? 'max-md:flex max-md:flex-wrap max-md:items-start md:gap-y-3'
+			? '@max-4xl/settings:flex @max-4xl/settings:flex-wrap @max-4xl/settings:items-start @4xl/settings:gap-y-3'
 			: // A column that can shrink, so a long name wraps rather than widening the page.
 				'grid-cols-[minmax(0,1fr)]'
 	]}
 >
-	<div class={action && 'max-md:contents md:row-span-2'}>
+	<div class={action && '@max-4xl/settings:contents @4xl/settings:row-span-2'}>
 		<h2 class="text-lg">{title}</h2>
 		{#if description}
 			<p
 				class={[
 					'mt-1 text-sm text-muted-foreground',
-					action && 'max-md:order-1 max-md:-mt-5 max-md:basis-full'
+					action && '@max-4xl/settings:order-1 @max-4xl/settings:-mt-5 @max-4xl/settings:basis-full'
 				]}
 			>
 				{description}
@@ -43,9 +46,14 @@
 		{/if}
 	</div>
 	{#if action}
-		<div class="ml-auto max-w-full">{@render action()}</div>
+		<div class="ml-auto flex max-w-full items-center gap-2">{@render action()}</div>
 	{/if}
-	<div class={['min-w-0 space-y-5', action && 'max-md:order-2 max-md:basis-full']}>
+	<div
+		class={[
+			'min-w-0 space-y-5',
+			action && '@max-4xl/settings:order-2 @max-4xl/settings:basis-full'
+		]}
+	>
 		{@render children()}
 	</div>
 </section>

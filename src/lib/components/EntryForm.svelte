@@ -268,7 +268,7 @@
 						type="button"
 						variant="ghost"
 						size="icon"
-						class="size-6"
+						class="relative size-6 after:absolute after:-inset-2 pointer-coarse:size-6"
 						onclick={() => items.splice(index, 1)}
 					>
 						<X size={12} />
@@ -279,7 +279,8 @@
 		</ul>
 	{/if}
 
-	<div class="col-span-2 flex items-center justify-end gap-2">
+	<!-- On phones the buttons take the full width, as in shadcn's form blocks, with the main one first. -->
+	<div class="col-span-2 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
 		{#if oncancel}
 			<Button type="button" variant="ghost" onclick={oncancel}>Cancel</Button>
 		{/if}

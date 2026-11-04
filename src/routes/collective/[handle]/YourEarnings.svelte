@@ -110,7 +110,7 @@
 		</Card.Description>
 	</Card.Header>
 	{#if !nothing}
-		<Card.Content>
+		<Card.Content class="px-2 pt-4 sm:px-6 sm:pt-6">
 			<LazyChart class="mb-3 h-64">
 				{#snippet children({ BarChart, Chart, Legend, legendMotion })}
 					<Chart.Container {config} class="aspect-auto h-64 w-full cursor-pointer">

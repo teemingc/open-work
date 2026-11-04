@@ -26,7 +26,7 @@
 			The same heights as the page, so the footer stays put when the log arrives. The charts set
 			the height of the page whatever is logged.
 		-->
-		<div class="space-y-6" aria-busy="true">
+		<div class="flex flex-col gap-4 md:gap-6" aria-busy="true">
 			<p class="sr-only">Loading your work log</p>
 			<div class="space-y-2">
 				<!-- As tall as the month name or its buttons, whichever is taller. -->
@@ -42,12 +42,9 @@
 				</div>
 			</div>
 			<Skeleton class="h-26 w-full rounded-xl" />
-			<div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-				<div class="space-y-3">
-					<Skeleton class="h-7 w-24" />
-					<Skeleton class="h-64 w-full rounded-xl" />
-				</div>
-				<div class="space-y-6">
+			<div class="grid grid-cols-1 items-start gap-4 md:gap-6 @4xl/main:grid-cols-2">
+				<Skeleton class="h-80 w-full rounded-xl" />
+				<div class="flex flex-col gap-4 md:gap-6">
 					<Skeleton class="h-190 w-full rounded-xl" />
 					<Skeleton class="h-28 w-full rounded-xl" />
 				</div>

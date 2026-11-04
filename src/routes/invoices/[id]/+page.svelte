@@ -132,24 +132,27 @@
 	<title>{invoice?.number || 'Invoice'} · Open Work</title>
 </svelte:head>
 
-<div class="space-y-6">
+<div class="flex flex-col gap-4 md:gap-6">
+	<!-- The hit area reaches past the text, so the small link is still easy to tap. -->
 	<a
 		href={resolve('/invoices')}
-		class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+		class="relative inline-flex items-center gap-1.5 self-start text-sm text-muted-foreground after:absolute after:-inset-x-2 after:-inset-y-2.5 hover:text-foreground"
 	>
-		<ArrowLeft size={14} /> Invoices
+		<ArrowLeft size={15} /> Invoices
 	</a>
 
 	{#if !invoice || !client}
-		<p class="rounded-xl border border-dashed bg-card/50 p-6 text-sm text-muted-foreground">
+		<p class="rounded-xl border border-dashed bg-card/50 p-4 text-sm text-muted-foreground sm:p-6">
 			This invoice is not in this browser’s work log. It may have been deleted, or saved on another
 			device that has not synced yet.
 		</p>
 	{:else}
 		{const dates = $derived(invoiceDates({ invoice, client, today }))}
-		<div class="flex flex-wrap items-end justify-between gap-4">
+		<div
+			class="flex flex-col gap-4 @md/main:flex-row @md/main:flex-wrap @md/main:items-end @md/main:justify-between"
+		>
 			<div>
-				<h1 class="font-display text-3xl">{invoice.number || 'Invoice'}</h1>
+				<h1>{invoice.number || 'Invoice'}</h1>
 				<p class="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
 					<StatusBadge status={invoice.status.toUpperCase()} />
 					<ClientName {client} />
@@ -160,7 +163,11 @@
 					</span>
 				</p>
 			</div>
-			<div class="flex flex-wrap gap-2">
+			<!--
+				Full width on a phone with the main action first, so it is the one under your thumb; from
+				wider, together at the end of the row with the main action last.
+			-->
+			<div class="grid gap-2 @md/main:flex @md/main:flex-wrap @md/main:justify-end">
 				<Button variant="outline" href="{resolve('/invoices/new')}?invoice={invoice.id}">
 					<Pencil /> Edit
 				</Button>
@@ -173,16 +180,20 @@
 				{/await}
 				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- opens your mail app -->
 				<Button variant="outline" href={invoiceEmailHref({ client, invoice, invoicing })}>
-					<Mail /> Email {client.name}
+					<Mail /><span>Email<span class="@max-md/main:sr-only"> {client.name}</span></span>
 				</Button>
 				{#if invoice.status === 'draft'}
-					<Button onclick={() => markSent(invoice, client)}><Check /> Mark sent</Button>
+					<Button class="order-first @md/main:order-none" onclick={() => markSent(invoice, client)}
+						><Check /> Mark sent</Button
+					>
 				{:else if invoice.status === 'sent'}
 					{const due = $derived(invoiceTotals({ invoice, client }).due)}
 					<Popover.Root bind:open={paying}>
 						<Popover.Trigger>
 							{#snippet child({ props })}
-								<Button {...props}><Check /> Mark paid</Button>
+								<Button {...props} class="order-first @md/main:order-none"
+									><Check /> Mark paid</Button
+								>
 							{/snippet}
 						</Popover.Trigger>
 						<Popover.Content align="end" class="w-72">
@@ -232,12 +243,12 @@
 			</Alert.Root>
 		{:else}
 			{#await pdf}
-				<Skeleton class="aspect-[1/1.414] w-full max-w-3xl" />
+				<Skeleton class="mx-auto aspect-[1/1.414] w-full max-w-3xl" />
 			{:then url}
 				<iframe
 					src={url}
 					title="Invoice {invoice.number}"
-					class="aspect-[1/1.414] w-full max-w-3xl rounded-sm border bg-white"
+					class="mx-auto aspect-[1/1.414] w-full max-w-3xl rounded-sm border bg-white"
 				></iframe>
 			{:catch error}
 				<p class="flex items-start gap-1.5 text-sm text-destructive" role="alert">

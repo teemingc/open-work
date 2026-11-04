@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import * as Alert from '#lib/components/ui/alert/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
 	import { nextPeriod, toIsoDate } from '#lib/format.js';
 	import { missingFromSettings } from '#lib/settings.js';
 	import { CircleAlert, TriangleAlert } from '@lucide/svelte';
@@ -124,7 +125,7 @@
 	/>
 </svelte:head>
 
-<div class="space-y-8">
+<div class="flex flex-col gap-4 md:gap-6">
 	<h1>Invoices</h1>
 
 	<!--
@@ -132,7 +133,7 @@
 		so a notice never appears later and pushes the page down.
 	-->
 	{#if ready || accountError}
-		<div class="animate-in space-y-8 duration-300 fade-in">
+		<div class="flex animate-in flex-col gap-4 duration-300 fade-in md:gap-6">
 			{#if accountError}
 				<Alert.Root variant="destructive">
 					<CircleAlert />
@@ -159,33 +160,37 @@
 				<h2 id="next-heading" class="mb-3 text-lg">
 					Next invoice{(nextInvoices?.length ?? 0) > 1 ? 's' : ''}
 				</h2>
-				<ul class="ledger-rows divide-y overflow-hidden rounded-xl border bg-card">
-					{#each nextInvoices ?? [undefined] as next, index (next?.client?.id ?? index)}
-						<li class="px-5 py-4 sm:px-6 sm:py-5">
-							<NextInvoice
-								client={next?.client}
-								period={next?.period}
-								pending={!next || next.pending}
-								failed={next?.failed}
-								{today}
-								entries={store?.data.entries}
-								credit={store && next?.client && !next.client.openCollective
-									? availableCredit({ invoices: store.data.invoices, client: next.client })
-									: 0}
-								showName={clients.length > 1}
-							/>
-						</li>
-					{/each}
-				</ul>
+				<!-- A container, so each row lays itself out by the room the card has. -->
+				<Card.Root class="gap-0 overflow-hidden py-0">
+					<ul class="ledger-rows @container/next divide-y">
+						{#each nextInvoices ?? [undefined] as next, index (next?.client?.id ?? index)}
+							<li class="px-(--card-padding) py-4 sm:py-5">
+								<NextInvoice
+									client={next?.client}
+									period={next?.period}
+									pending={!next || next.pending}
+									failed={next?.failed}
+									{today}
+									entries={store?.data.entries}
+									credit={store && next?.client && !next.client.openCollective
+										? availableCredit({ invoices: store.data.invoices, client: next.client })
+										: 0}
+									showName={clients.length > 1}
+								/>
+							</li>
+						{/each}
+					</ul>
+				</Card.Root>
 			</section>
 
 			{#if showEmailed && store}
 				<section aria-labelledby="emailed-heading">
 					<h2 id="emailed-heading" class="mb-3 text-lg">Invoiced by email</h2>
 					{#if store.data.invoices.length === 0}
-						<p class="rounded-xl border border-dashed bg-card/50 p-6 text-sm text-muted-foreground">
-							No invoices yet. Start one above for a client invoiced by email and save it to see it
-							here.
+						<p
+							class="rounded-xl border border-dashed bg-card/50 p-4 text-sm text-muted-foreground sm:p-6"
+						>
+							No invoices yet.
 						</p>
 					{:else}
 						<EmailInvoicesTable {store} />

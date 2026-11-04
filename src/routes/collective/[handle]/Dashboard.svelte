@@ -7,6 +7,8 @@
 	import * as Alert from '#lib/components/ui/alert/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import * as ToggleGroup from '#lib/components/ui/toggle-group/index.js';
+	import * as Select from '#lib/components/ui/select/index.js';
+	import { Label } from '#lib/components/ui/label/index.js';
 	import {
 		CalendarClock,
 		ExternalLink,
@@ -75,9 +77,28 @@
 	const RANGES = { '1y': 12, '2y': 24, all: Infinity } as const;
 	type Range = keyof typeof RANGES;
 
-	const BASES = ['3', '6', '12'];
+	/**
+	 * Each setting's choices: `label` beside the others under the setting's name, and `short` on its
+	 * own in a select, where it has to say which setting it is.
+	 */
+	const RANGE_OPTIONS: { value: Range; label: string; short: string }[] = [
+		{ value: '1y', label: '1 year', short: 'Last year' },
+		{ value: '2y', label: '2 years', short: 'Last 2 years' },
+		{ value: 'all', label: 'All time', short: 'All time' }
+	];
+	const BASIS_OPTIONS = [
+		{ value: '3', label: '3 months', short: '3-month average' },
+		{ value: '6', label: '6 months', short: '6-month average' },
+		{ value: '12', label: '1 year', short: '1-year average' }
+	];
 	/** Years ahead to forecast. Averages drift, so far-off years say little. */
-	const HORIZONS = ['1', '2', '5'];
+	const HORIZON_OPTIONS = [
+		{ value: '1', label: '1 year', short: '1-year forecast' },
+		{ value: '2', label: '2 years', short: '2-year forecast' },
+		{ value: '5', label: '5 years', short: '5-year forecast' }
+	];
+	const BASES = BASIS_OPTIONS.map((option) => option.value);
+	const HORIZONS = HORIZON_OPTIONS.map((option) => option.value);
 
 	/** A chart setting from the address, or `fallback` when it is missing or unknown. */
 	const param = (name: string, allowed: string[], fallback: string) => {
@@ -109,6 +130,12 @@
 			if (pendingSearch === search) pendingSearch = undefined;
 		});
 	}
+
+	// A toggle group sends an empty value when its pressed item is pressed again, which keeps it.
+	const setRange = (value: string) => value && setParam({ name: 'show', value, fallback: '2y' });
+	const setBasis = (value: string) => value && setParam({ name: 'average', value, fallback: '6' });
+	const setHorizon = (value: string) =>
+		value && setParam({ name: 'forecast', value, fallback: '2' });
 
 	// Settings that arrived in the address, from a reload or a shared link, are the latest too.
 	onMount(() => rememberDashboardSearch(page.url.search));
@@ -443,7 +470,7 @@
 	/>
 </svelte:head>
 
-<div class="flex flex-col gap-8">
+<div class="flex flex-col gap-4 md:gap-6">
 	<!--
 		The search comes first, as a tool for the whole page, so the collective's name has the whole
 		line and leads straight into what is shown about it.
@@ -554,62 +581,97 @@
 
 		{#if !tooNew && !fund}
 			<!--
-				Each label above its buttons, which leaves the buttons the full width on phones. One row from
-				tablets up, and labels beside their buttons on wide screens.
+				One toolbar for the cards below rather than each card's own: the range sets every chart on the
+				page, and the average and forecast set the figures above as well as the forecast. Buttons with
+				their labels above them when the card fits all three in a row, and selects whose values say what
+				they set when it does not.
 			-->
-			<div class="flex flex-col gap-3 text-sm md:flex-row md:flex-wrap md:gap-x-6 lg:gap-x-8">
-				<div class="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-3">
-					<span id="range-label" class="text-muted-foreground">Range</span>
-					<ToggleGroup.Root
-						type="single"
-						variant="outline"
-						size="sm"
-						aria-labelledby="range-label"
-						bind:value={
-							() => range, (value) => value && setParam({ name: 'show', value, fallback: '2y' })
-						}
-					>
-						<ToggleGroup.Item value="1y" disabled={!ranges.includes('1y')}>1 year</ToggleGroup.Item>
-						<ToggleGroup.Item value="2y" disabled={!ranges.includes('2y')}>
-							2 years
-						</ToggleGroup.Item>
-						<ToggleGroup.Item value="all">All time</ToggleGroup.Item>
-					</ToggleGroup.Root>
-				</div>
-				<div class="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-3">
-					<span id="basis-label" class="text-muted-foreground">Average over</span>
-					<ToggleGroup.Root
-						type="single"
-						variant="outline"
-						size="sm"
-						aria-labelledby="basis-label"
-						bind:value={
-							() => basis, (value) => value && setParam({ name: 'average', value, fallback: '6' })
-						}
-					>
-						<ToggleGroup.Item value="3">3 months</ToggleGroup.Item>
-						<ToggleGroup.Item value="6">6 months</ToggleGroup.Item>
-						<ToggleGroup.Item value="12">1 year</ToggleGroup.Item>
-					</ToggleGroup.Root>
-				</div>
-				<div class="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-3">
-					<span id="horizon-label" class="text-muted-foreground">Forecast</span>
-					<ToggleGroup.Root
-						type="single"
-						variant="outline"
-						size="sm"
-						aria-labelledby="horizon-label"
-						bind:value={
-							() => horizon,
-							(value) => value && setParam({ name: 'forecast', value, fallback: '2' })
-						}
-					>
-						<ToggleGroup.Item value="1">1 year</ToggleGroup.Item>
-						<ToggleGroup.Item value="2">2 years</ToggleGroup.Item>
-						<ToggleGroup.Item value="5">5 years</ToggleGroup.Item>
-					</ToggleGroup.Root>
-				</div>
-			</div>
+			<Card.Root class="@container/card">
+				<Card.Content class="text-sm">
+					<div class="hidden gap-x-6 gap-y-3 @[767px]/card:flex @[767px]/card:flex-wrap">
+						<div class="flex flex-col gap-1.5">
+							<span id="range-label" class="text-muted-foreground">Range</span>
+							<ToggleGroup.Root
+								type="single"
+								variant="outline"
+								aria-labelledby="range-label"
+								bind:value={() => range, setRange}
+							>
+								{#each RANGE_OPTIONS as option (option.value)}
+									<ToggleGroup.Item value={option.value} disabled={!ranges.includes(option.value)}>
+										{option.label}
+									</ToggleGroup.Item>
+								{/each}
+							</ToggleGroup.Root>
+						</div>
+						<div class="flex flex-col gap-1.5">
+							<span id="basis-label" class="text-muted-foreground">Average over</span>
+							<ToggleGroup.Root
+								type="single"
+								variant="outline"
+								aria-labelledby="basis-label"
+								bind:value={() => basis, setBasis}
+							>
+								{#each BASIS_OPTIONS as option (option.value)}
+									<ToggleGroup.Item value={option.value}>{option.label}</ToggleGroup.Item>
+								{/each}
+							</ToggleGroup.Root>
+						</div>
+						<div class="flex flex-col gap-1.5">
+							<span id="horizon-label" class="text-muted-foreground">Forecast</span>
+							<ToggleGroup.Root
+								type="single"
+								variant="outline"
+								aria-labelledby="horizon-label"
+								bind:value={() => horizon, setHorizon}
+							>
+								{#each HORIZON_OPTIONS as option (option.value)}
+									<ToggleGroup.Item value={option.value}>{option.label}</ToggleGroup.Item>
+								{/each}
+							</ToggleGroup.Root>
+						</div>
+					</div>
+					<div class="flex flex-wrap gap-2 @[767px]/card:hidden">
+						<Label for="range-select" class="sr-only">Range</Label>
+						<Select.Root type="single" bind:value={() => range, setRange}>
+							<Select.Trigger id="range-select">
+								{RANGE_OPTIONS.find((option) => option.value === range)?.short}
+							</Select.Trigger>
+							<Select.Content>
+								{#each RANGE_OPTIONS as option (option.value)}
+									<Select.Item
+										value={option.value}
+										label={option.short}
+										disabled={!ranges.includes(option.value)}
+									/>
+								{/each}
+							</Select.Content>
+						</Select.Root>
+						<Label for="basis-select" class="sr-only">Average over</Label>
+						<Select.Root type="single" bind:value={() => basis, setBasis}>
+							<Select.Trigger id="basis-select">
+								{BASIS_OPTIONS.find((option) => option.value === basis)?.short}
+							</Select.Trigger>
+							<Select.Content>
+								{#each BASIS_OPTIONS as option (option.value)}
+									<Select.Item value={option.value} label={option.short} />
+								{/each}
+							</Select.Content>
+						</Select.Root>
+						<Label for="horizon-select" class="sr-only">Forecast</Label>
+						<Select.Root type="single" bind:value={() => horizon, setHorizon}>
+							<Select.Trigger id="horizon-select">
+								{HORIZON_OPTIONS.find((option) => option.value === horizon)?.short}
+							</Select.Trigger>
+							<Select.Content>
+								{#each HORIZON_OPTIONS as option (option.value)}
+									<Select.Item value={option.value} label={option.short} />
+								{/each}
+							</Select.Content>
+						</Select.Root>
+					</div>
+				</Card.Content>
+			</Card.Root>
 
 			<BalanceForecast
 				slug={data.slug}
@@ -642,7 +704,7 @@
 
 		<!-- Left out when it has neither card, so it adds no gap of its own. -->
 		{#if me || payees.cells.length > 0}
-			<div class="grid gap-4 {me ? 'lg:grid-cols-2' : ''}">
+			<div class="grid gap-4 md:gap-6 {me ? '@5xl/main:grid-cols-2' : ''}">
 				{#if me}
 					<YourEarnings
 						slug={data.slug}
@@ -707,16 +769,17 @@
 				</Alert.Description>
 			</Alert.Root>
 		{:else}
-			<div class="grid gap-4 lg:grid-cols-2" aria-busy="true">
+			<!-- The contributions chart's card twice, with its columns and heights, so nothing jumps. -->
+			<div class="grid items-start gap-4 md:gap-6 @5xl/main:grid-cols-2" aria-busy="true">
 				<span class="sr-only">Loading contributions</span>
 				{#each [0, 1] as card (card)}
 					<Card.Root>
 						<Card.Header>
-							<Skeleton class="h-5 w-56" />
-							<Skeleton class="h-4 w-72 max-w-full" />
+							<Skeleton class="h-5 w-56 max-w-full" />
+							<Skeleton class="h-10 w-full" />
 						</Card.Header>
-						<Card.Content>
-							<Skeleton class="h-64 w-full" />
+						<Card.Content class="px-2 pt-4 sm:px-6 sm:pt-6">
+							<Skeleton class="mb-3 h-64 w-full" />
 						</Card.Content>
 					</Card.Root>
 				{/each}

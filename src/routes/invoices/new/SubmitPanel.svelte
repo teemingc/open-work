@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import { formatDMY, formatMoney, workLogToHtml } from '#lib/format.js';
 	import { submitExpense, type Account } from '#lib/opencollective.remote.js';
 	import { missingForSubmit, type Settings } from '#lib/settings.js';
 	import { workLogText } from '#lib/worklog.js';
-	import { Check, CircleAlert, Clipboard, Send } from '@lucide/svelte';
+	import { Check, CircleAlert, Clipboard, Send, ChevronRight } from '@lucide/svelte';
 	import { isHttpError } from '@sveltejs/kit';
 	import type { Draft } from './draft.svelte';
 
@@ -112,56 +113,65 @@
 	]);
 </script>
 
-<section class="space-y-4 rounded-xl border bg-card p-5" aria-labelledby="submit-heading">
-	<h2 id="submit-heading" class="text-lg">Submit</h2>
+<Card.Root role="region" aria-labelledby="submit-heading">
+	<Card.Header>
+		<h2 id="submit-heading" class="text-lg">Submit</h2>
+	</Card.Header>
+	<Card.Content class="space-y-4">
+		{#if problems.length > 0}
+			<ul class="space-y-1 text-sm text-muted-foreground">
+				{#each problems as problem (problem.text)}
+					<li class="flex items-start gap-1.5">
+						<CircleAlert size={15} class="mt-0.5 shrink-0" />
+						{#if problem.href}
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above -->
+							<a href={problem.href} class="underline hover:text-foreground">{problem.text}</a>
+						{:else}
+							{problem.text}
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		{/if}
 
-	{#if problems.length > 0}
-		<ul class="space-y-1 text-sm text-muted-foreground">
-			{#each problems as problem (problem.text)}
-				<li class="flex items-start gap-1.5">
-					<CircleAlert size={15} class="mt-0.5 shrink-0" />
-					{#if problem.href}
-						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above -->
-						<a href={problem.href} class="underline hover:text-foreground">{problem.text}</a>
-					{:else}
-						{problem.text}
-					{/if}
-				</li>
-			{/each}
-		</ul>
-	{/if}
+		<Button
+			size="lg"
+			class="w-full motion-safe:active:scale-[0.98]"
+			disabled={problems.length > 0 || draft.hours <= 0}
+			onclick={() => (confirmOpen = true)}><Send />Submit to Open Collective</Button
+		>
 
-	<Button
-		size="lg"
-		class="w-full motion-safe:active:scale-[0.98]"
-		disabled={problems.length > 0 || draft.hours <= 0}
-		onclick={() => (confirmOpen = true)}><Send />Submit to Open Collective</Button
-	>
-
-	<details class="border-t pt-4 text-sm">
-		<summary class="cursor-pointer text-muted-foreground hover:text-foreground">
-			Copy fields to paste yourself
-		</summary>
-		<ul class="mt-3 space-y-2">
-			{#each copyFields as field (field.key)}
-				<li class="flex items-center justify-between gap-3">
-					<span class="text-muted-foreground">{field.label}</span>
-					<Button variant="outline" size="sm" onclick={() => copy(field)}>
-						{const copied = $derived(copiedKey === field.key)}
-						{#if copied}<Check
-								class="animate-in duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] zoom-in-75 fade-in"
-							/>{:else}<Clipboard />{/if}
-						<!-- Both labels share one cell, so the button keeps the width of the longer one. -->
-						<span class="grid">
-							<span class={['col-start-1 row-start-1', copied && 'invisible']}>Copy</span>
-							<span class={['col-start-1 row-start-1', !copied && 'invisible']}>Copied</span>
-						</span>
-					</Button>
-				</li>
-			{/each}
-		</ul>
-	</details>
-</section>
+		<details class="group border-t pt-2 text-sm">
+			<summary
+				class="flex min-h-10 w-fit cursor-pointer list-none items-center gap-1 text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden"
+			>
+				<ChevronRight
+					size={15}
+					class="transition-transform group-open:rotate-90 motion-reduce:transition-none"
+				/>
+				Copy fields to paste yourself
+			</summary>
+			<ul class="mt-1 space-y-2">
+				{#each copyFields as field (field.key)}
+					<li class="flex items-center justify-between gap-3">
+						<span class="text-muted-foreground">{field.label}</span>
+						<Button variant="outline" size="sm" onclick={() => copy(field)}>
+							{const copied = $derived(copiedKey === field.key)}
+							{#if copied}<Check
+									class="animate-in duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] zoom-in-75 fade-in"
+								/>{:else}<Clipboard />{/if}
+							<!-- Both labels share one cell, so the button keeps the width of the longer one. -->
+							<span class="grid">
+								<span class={['col-start-1 row-start-1', copied && 'invisible']}>Copy</span>
+								<span class={['col-start-1 row-start-1', !copied && 'invisible']}>Copied</span>
+							</span>
+						</Button>
+					</li>
+				{/each}
+			</ul>
+		</details>
+	</Card.Content>
+</Card.Root>
 
 <Dialog.Root bind:open={confirmOpen}>
 	<Dialog.Content>

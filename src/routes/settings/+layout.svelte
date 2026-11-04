@@ -69,14 +69,19 @@
 	</a>
 {/if}
 
-<div class="mb-6 flex flex-wrap items-end justify-between gap-2">
+<!-- The status shares the heading's line at any width, wrapping its own text rather than going
+	under the heading, so the sections below do not jump each time it appears. -->
+<div class="mb-6 flex items-end justify-between gap-3">
 	<h1 id="settings-heading">Settings</h1>
-	<p class="flex items-center gap-1.5 text-sm text-muted-foreground" role="status">
+	<p
+		class="flex min-w-0 items-center justify-end gap-1.5 text-right text-sm text-muted-foreground"
+		role="status"
+	>
 		{#if saveSettings.pending > 0}
 			<!-- A quick save goes straight to "Saved" without flashing this first. -->
 			<span class="flex appear-delayed items-center gap-1.5"><Spinner /> Saving…</span>
 		{:else if saveSettings.fields.allIssues()}
-			<CircleAlert size={15} class="text-destructive" /> Not saved. Fix the fields marked below.
+			<CircleAlert size={15} class="shrink-0 text-destructive" /> Not saved. Fix the fields marked below.
 		{:else if settingsStatus.justSaved}
 			<span
 				class="flex animate-in items-center gap-1.5 duration-150 fade-in"
@@ -110,12 +115,13 @@
 
 <!--
 	Links rather than tabs, so each section has its own address to link to and come back to. A
-	column beside the section on wide screens, as in shadcn's settings example. Narrower, it folds
+	column beside the section from tablet width, as in shadcn's settings example. Narrower, it folds
 	into the section you are on, so the list never scrolls sideways or pushes the section down.
+	The section is a container, so its own layout follows the width left beside the list.
 -->
-<div class="lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-10">
-	<nav aria-labelledby="settings-heading" class="mb-8 lg:mb-0">
-		<details class="group rounded-md border bg-card lg:hidden" bind:open={sectionsOpen}>
+<div class="md:grid md:grid-cols-[11rem_minmax(0,1fr)] md:gap-8 lg:gap-10">
+	<nav aria-labelledby="settings-heading" class="mb-8 md:mb-0">
+		<details class="group rounded-md border bg-card md:hidden" bind:open={sectionsOpen}>
 			<summary
 				class="flex min-h-10 cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-semibold [&::-webkit-details-marker]:hidden"
 			>
@@ -131,8 +137,8 @@
 			</summary>
 			<div class="border-t p-1">{@render sections()}</div>
 		</details>
-		<div class="hidden lg:block">{@render sections()}</div>
+		<div class="hidden md:block">{@render sections()}</div>
 	</nav>
 
-	<div class="min-w-0">{@render children()}</div>
+	<div class="@container/settings min-w-0">{@render children()}</div>
 </div>

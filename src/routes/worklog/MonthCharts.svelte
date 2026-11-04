@@ -79,12 +79,11 @@
 {/snippet}
 
 {#if chart === 'pace'}
-	<Card.Root class="h-full">
+	<Card.Root>
 		<Card.Header>
 			<Card.Title>Pace</Card.Title>
-			<Card.Description>Hours logged so far against the hours you aim for.</Card.Description>
 		</Card.Header>
-		<Card.Content>
+		<Card.Content class="px-2 pt-4 sm:px-6 sm:pt-6">
 			<LazyChart class="h-64">
 				{#snippet children({ LineChart, Chart, Legend, legendMotion })}
 					<Chart.Container config={paceConfig} class="aspect-auto h-64 w-full">
@@ -142,8 +141,8 @@
 		</Card.Content>
 	</Card.Root>
 {:else}
-	<!-- Beside the day list, which is far taller: it keeps its own height and stays in view below the header. -->
-	<Card.Root class="lg:sticky lg:top-34 lg:self-start">
+	<!-- Beside the day list, which is far taller: it stays in view below the header. -->
+	<Card.Root class="@4xl/main:sticky @4xl/main:top-34">
 		<Card.Header>
 			<Card.Title>Hours each day</Card.Title>
 			<Card.Description
@@ -152,7 +151,7 @@
 				)} h a working day.</Card.Description
 			>
 		</Card.Header>
-		<Card.Content>
+		<Card.Content class="px-2 pt-4 sm:px-6 sm:pt-6">
 			<LazyChart class="h-64">
 				{#snippet children({ BarChart, Chart, Legend, legendMotion })}
 					<Chart.Container config={dailyConfig} class="aspect-auto h-64 w-full">

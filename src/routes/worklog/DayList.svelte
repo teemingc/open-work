@@ -46,7 +46,8 @@
 	);
 </script>
 
-<Card.Root class="h-full gap-0 overflow-hidden py-0">
+<Card.Root class="gap-0 overflow-hidden py-0">
+	<h2 class="sr-only">Days logged</h2>
 	{#if days.length === 0}
 		<p class="p-6 text-center text-sm text-muted-foreground">Nothing logged this month yet.</p>
 	{:else}

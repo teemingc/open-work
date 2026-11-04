@@ -259,6 +259,7 @@
 		stopped: { label: 'Stopped', color: 'var(--color-chart-expenses)' }
 	} satisfies ChartConfig;
 	import LazyChart from '#lib/components/LazyChart.svelte';
+	import YearOnYearLegend from './YearOnYearLegend.svelte';
 </script>
 
 <!--
@@ -312,14 +313,17 @@
 	<!-- Cards may shrink below their longest name, which wraps instead of widening the page. -->
 	<div
 		class={[
-			'grid animate-in gap-4 duration-300 fade-in *:min-w-0',
-			!backersOnly && 'lg:grid-cols-2'
+			'grid animate-in gap-4 duration-300 fade-in *:min-w-0 md:gap-6',
+			!backersOnly && '@5xl/main:grid-cols-2'
 		]}
 	>
-		<!-- Two charts stacked beside the backers list, the first growing to match its height. -->
+		<!--
+			Two charts stacked beside the backers list, at their own heights: stretched to the list's, a
+			chart grew far taller than it is wide.
+		-->
 		{#if !backersOnly}
-			<div class="flex flex-col gap-4">
-				<Card.Root class="flex-1">
+			<div class="flex flex-col gap-4 self-start md:gap-6">
+				<Card.Root>
 					<Card.Header>
 						<Card.Title>Recurring and one-off contributions</Card.Title>
 						<Card.Description>
@@ -332,14 +336,10 @@
 							{/if}
 						</Card.Description>
 					</Card.Header>
-					<!--
-			Grows to the height of the backers list beside it instead of leaving a gap. At least as tall
-			as the chart while it waits, since growing from nothing leaves it no height of its own.
-		-->
-					<Card.Content class="flex flex-1 flex-col">
-						<LazyChart class="mb-3 min-h-64 flex-1">
+					<Card.Content class="px-2 pt-4 sm:px-6 sm:pt-6">
+						<LazyChart class="mb-3 h-64">
 							{#snippet children({ BarChart, Chart, Legend, legendMotion })}
-								<Chart.Container {config} class="aspect-auto h-full min-h-64 w-full cursor-pointer">
+								<Chart.Container {config} class="aspect-auto h-64 w-full cursor-pointer">
 									<BarChart
 										padding={chartPadding({ legend: legendHeight })}
 										data={rows}
@@ -400,14 +400,9 @@
 								{:else}
 									None started or stopped {periodPhrase(months)}.
 								{/if}
-								<!-- How to read the chart, on its own line apart from what the figures say. -->
-								<span class="block"
-									>Green when it has more recurring contributors than a year before it, red when
-									fewer.</span
-								>
 							</Card.Description>
 						</Card.Header>
-						<Card.Content>
+						<Card.Content class="flex flex-col gap-3 px-2 pt-4 sm:px-6 sm:pt-6">
 							<LazyChart class="h-56">
 								{#snippet children({ Area, AreaChart, Chart, Threshold })}
 									<Chart.Container
@@ -558,6 +553,7 @@
 									</Chart.Container>
 								{/snippet}
 							</LazyChart>
+							<YearOnYearLegend />
 						</Card.Content>
 					</Card.Root>
 				{/if}
@@ -670,7 +666,7 @@
 								{#if backer.tiers?.length}
 									<!-- How many gave how much, and for those who give regularly, what that averages a month. -->
 									<div
-										class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"
+										class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground @3xl/main:text-xs"
 									>
 										<span>
 											{backer.tiers
@@ -703,7 +699,7 @@
 												: undefined
 									)}
 									<div
-										class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"
+										class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground @3xl/main:text-xs"
 									>
 										<!-- Shortens to "Oct 2026" or "Mar – May 2026" when the ends share a month or year. -->
 										<span>

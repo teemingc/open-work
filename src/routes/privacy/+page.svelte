@@ -16,10 +16,10 @@
 </svelte:head>
 
 <!-- eslint-disable svelte/no-navigation-without-resolve -- every link here is to another site -->
-<article class="max-w-2xl pt-6 sm:pt-12">
+<article class="max-w-2xl">
 	<!-- The double rule closes the heading, like the masthead and a ledger's totals. -->
 	<header class="border-b-[3px] border-double border-rule pb-4">
-		<h1 class="text-3xl sm:text-4xl">Privacy policy</h1>
+		<h1>Privacy policy</h1>
 		<p class="mt-2 text-sm text-muted-foreground">Last updated {updated}</p>
 	</header>
 
