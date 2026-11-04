@@ -178,7 +178,6 @@
 			type="date"
 			required
 			bind:value={() => rowDate, (value) => (pickedDate = value)}
-			class="block"
 		/>
 	</div>
 	<div class="col-span-2 space-y-1.5 sm:col-span-1">

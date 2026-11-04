@@ -313,16 +313,15 @@
 	/*
 		iOS Safari draws a date field at its own width and height, past the edge of its column and
 		taller than the fields beside it, with the date at the top. Without its native look it takes
-		the size it is given, with the date left-aligned and centred. The date needs a line's height of
-		its own to be centred; without one it sits at the top.
+		the size it is given, with the date left-aligned. Only as a flex box, which the field is unless
+		a class changes it, is the date centred from top to bottom.
 	*/
 	input[type='date'] {
 		appearance: none;
-		align-content: center;
+		align-items: center;
 	}
 	input[type='date']::-webkit-date-and-time-value {
 		margin: 0;
-		min-height: 1lh;
 		text-align: start;
 	}
 	/* Page titles share one size and face everywhere. */

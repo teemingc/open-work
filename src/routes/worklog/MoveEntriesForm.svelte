@@ -33,7 +33,7 @@
 >
 	<div class="space-y-1.5">
 		<Label for="{id}-date">Date</Label>
-		<Input id="{id}-date" type="date" required bind:value={target} class="block" />
+		<Input id="{id}-date" type="date" required bind:value={target} />
 	</div>
 
 	<Dialog.Footer>

@@ -76,7 +76,7 @@
 						<Input
 							id="{id}-{index}-date"
 							type="date"
-							class="block w-40 @md/holidays:w-full"
+							class="w-40 @md/holidays:w-full"
 							value={day.date}
 							onchange={(event) => {
 								const date = event.currentTarget.value;
@@ -142,7 +142,7 @@
 				type="date"
 				required
 				bind:value={newDate}
-				class="block w-40 @md/holidays:w-full"
+				class="w-40 @md/holidays:w-full"
 			/>
 		</div>
 		<div class="space-y-1.5">
