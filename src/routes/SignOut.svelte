@@ -2,7 +2,12 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
-	import { driveSync, googleAccount, loadGoogleAccount } from '#lib/drive-sync.svelte.js';
+	import {
+		driveSync,
+		googleAccount,
+		loadGoogleAccount,
+		type DriveSync
+	} from '#lib/drive-sync.svelte.js';
 	import { forgetThisBrowser } from '#lib/forget-browser.js';
 	import { openWorkLogWithSettings } from '#lib/open-work-log.js';
 	import { clearAllData } from '#lib/settings.remote.js';
@@ -32,7 +37,7 @@
 		if (wasGoogle && !unsynced) {
 			// So nothing you changed is lost with this browser's copy.
 			syncing = true;
-			let sync;
+			let sync: DriveSync;
 			try {
 				sync = driveSync((await openWorkLogWithSettings()).store);
 				await sync.syncNow();
