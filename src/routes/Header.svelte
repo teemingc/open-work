@@ -66,7 +66,7 @@
 	/**
 	 * Icons alone on phones, each at least 40px wide so it is easy to tap. Below 35rem the three
 	 * labels do not fit beside the name, and would wrap and squeeze the icons. Each sits on the rule
-	 * below it: the masthead's double rule, or the top of the Work row while it shows.
+	 * below it: the masthead's double rule, or the thin rule above the Work row while it shows.
 	 */
 	const LINK =
 		'relative flex min-w-10 items-center justify-center gap-1.5 border-b-2 border-transparent text-muted-foreground hover:text-foreground [&[aria-current]]:border-primary [&[aria-current]]:font-medium [&[aria-current]]:text-foreground min-[35rem]:min-w-0 min-[35rem]:px-3 [&>svg]:shrink-0';
@@ -100,11 +100,17 @@
 
 <!--
 	A double rule closes the masthead, like the head of a ledger page. It stays at the top while you
-	scroll, which also has iOS Safari colour its bar to match instead of the page behind. On a screen
-	as short as a phone on its side, it scrolls away so the page has the room.
+	scroll, which also has iOS Safari colour its bar to match instead of the page behind. In Work, only
+	the Work row below it stays, as you move between its pages more than you leave them, and two rows
+	would leave the page too little room. On a screen as short as a phone on its side, nothing stays.
 -->
 <header
-	class="sticky top-0 z-40 border-b-[3px] border-double border-rule bg-card [@media(max-height:30rem)]:static"
+	class={[
+		'z-40 bg-card',
+		showWorkRow
+			? 'border-b'
+			: 'sticky top-0 border-b-[3px] border-double border-rule [@media(max-height:30rem)]:static'
+	]}
 >
 	<div
 		class="mx-auto flex min-h-16 max-w-6xl items-stretch justify-between gap-2 px-4 sm:gap-4 lg:px-6"
@@ -118,7 +124,7 @@
 			<span class="max-[22.4375rem]:sr-only">Open Work</span>
 		</a>
 
-		<!-- Over the Work row's thinner rule, the links are 2px shorter. As much padding above keeps
+		<!-- Over the thinner rule above the Work row, the links are 2px shorter. As much padding above keeps
 			their icons and labels where they were. -->
 		<div class="flex items-stretch gap-1 min-[35rem]:gap-2">
 			<h2 id="main-nav" class="sr-only">Main</h2>
@@ -149,44 +155,47 @@
 			<SignOut openCollective={!!meQuery.current} />
 		</div>
 	</div>
+</header>
 
-	{#if showWorkRow}
-		<!-- Measured as a container rather than the window, so the labels give way at larger text sizes. -->
-		<div class="@container/work border-t" data-work-row>
-			<h2 id="work-nav" class="sr-only">Work</h2>
-			<nav
-				aria-labelledby="work-nav"
-				class="mx-auto -mb-[3px] flex min-h-[2.9375rem] max-w-6xl items-stretch px-4 text-sm lg:px-6"
-			>
-				<a href={resolve('/work')} aria-current={current('/work')} class={SUB_LINK}>
-					<LayoutDashboard size={14} />
-					<span class={label('/work')}>Overview</span>
-				</a>
-				<a href={resolve('/worklog')} aria-current={current('/worklog')} class={SUB_LINK}>
-					<Clock size={14} />
-					<span class={label('/worklog')}>Work log</span>
-				</a>
-				<a href={resolve('/invoices')} aria-current={current('/invoices')} class={SUB_LINK}>
-					<FileText size={14} />
-					<span class={label('/invoices')}>Invoices</span>
-				</a>
-				<a href={resolve('/settings/clients')} aria-current={current('/settings')} class={SUB_LINK}>
-					<!-- A dot on the icon's corner, like an app badge, so it takes no room of its own and does
+{#if showWorkRow}
+	<!-- Measured as a container rather than the window, so the labels give way at larger text sizes. -->
+	<div
+		class="@container/work sticky top-0 z-40 border-b-[3px] border-double border-rule bg-card [@media(max-height:30rem)]:static"
+		data-work-row
+	>
+		<h2 id="work-nav" class="sr-only">Work</h2>
+		<nav
+			aria-labelledby="work-nav"
+			class="mx-auto -mb-[3px] flex min-h-[2.9375rem] max-w-6xl items-stretch px-4 text-sm lg:px-6"
+		>
+			<a href={resolve('/work')} aria-current={current('/work')} class={SUB_LINK}>
+				<LayoutDashboard size={14} />
+				<span class={label('/work')}>Overview</span>
+			</a>
+			<a href={resolve('/worklog')} aria-current={current('/worklog')} class={SUB_LINK}>
+				<Clock size={14} />
+				<span class={label('/worklog')}>Work log</span>
+			</a>
+			<a href={resolve('/invoices')} aria-current={current('/invoices')} class={SUB_LINK}>
+				<FileText size={14} />
+				<span class={label('/invoices')}>Invoices</span>
+			</a>
+			<a href={resolve('/settings/clients')} aria-current={current('/settings')} class={SUB_LINK}>
+				<!-- A dot on the icon's corner, like an app badge, so it takes no room of its own and does
 						not read as a warning about the word beside it. Only on Settings, not on Work: visitors
 						who never set up would otherwise be nagged on every page. -->
-					<span class="relative flex">
-						<Settings size={14} />
-						{#if needsSetup}
-							<span
-								class="absolute -top-1 -right-1 size-2 rounded-full bg-attention ring-2 ring-card"
-								aria-hidden="true"
-							></span>
-						{/if}
-					</span>
-					<span class={label('/settings')}>Settings</span>
-					{#if needsSetup}<span class="sr-only">(setup unfinished)</span>{/if}
-				</a>
-			</nav>
-		</div>
-	{/if}
-</header>
+				<span class="relative flex">
+					<Settings size={14} />
+					{#if needsSetup}
+						<span
+							class="absolute -top-1 -right-1 size-2 rounded-full bg-attention ring-2 ring-card"
+							aria-hidden="true"
+						></span>
+					{/if}
+				</span>
+				<span class={label('/settings')}>Settings</span>
+				{#if needsSetup}<span class="sr-only">(setup unfinished)</span>{/if}
+			</a>
+		</nav>
+	</div>
+{/if}
