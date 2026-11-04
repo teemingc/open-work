@@ -8,13 +8,11 @@
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import SettingsSection from '#lib/components/SettingsSection.svelte';
 	import { downloadJson } from '#lib/download.js';
-	import { driveSync, forgetDriveSync } from '#lib/drive-sync.svelte.js';
-	import { forgetHiddenTasks } from '#lib/hidden-tasks.svelte.js';
-	import { forgetRecentCollectives } from '#lib/recent-collectives.js';
+	import { driveSync } from '#lib/drive-sync.svelte.js';
+	import { forgetThisBrowser } from '#lib/forget-browser.js';
 	import { clearAllData } from '#lib/settings.remote.js';
 	import { exportSettingsBackup, parseBackup, type Settings } from '#lib/settings.js';
 	import {
-		forgetWorkLog,
 		validateWorkLog,
 		WorkLogParseError,
 		type WorkLogStore
@@ -156,11 +154,8 @@
 				'Could not delete the copy in your Google Drive.';
 			return;
 		}
-		forgetDriveSync();
-		forgetRecentCollectives();
-		forgetHiddenTasks();
 		try {
-			await forgetWorkLog();
+			await forgetThisBrowser();
 		} catch {
 			clearError = 'Could not delete the work log in this browser. Clear this site’s data instead.';
 			return;

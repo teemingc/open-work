@@ -5,6 +5,7 @@
 	import { dashboardSearch } from '#lib/dashboard-search.svelte.js';
 	import { getMe } from '#lib/opencollective.remote.js';
 	import logo from '#lib/assets/favicon.svg';
+	import SignOut from './SignOut.svelte';
 	import {
 		Briefcase,
 		ChartLine,
@@ -111,27 +112,34 @@
 
 		<!-- Over the Work row's thinner rule, the links are 2px shorter. As much padding above keeps
 			their icons and labels where they were. -->
-		<h2 id="main-nav" class="sr-only">Main</h2>
-		<nav
-			aria-labelledby="main-nav"
-			class={[
-				'flex items-stretch text-sm min-[35rem]:gap-2',
-				showWorkRow ? '-mb-px pt-0.5' : '-mb-[3px]'
-			]}
-		>
-			<a href={resolve(`/${dashboardSearch()}`)} aria-current={current('/collective')} class={LINK}>
-				<ChartLine size={15} />
-				<span class="max-[35rem]:sr-only">Collectives</span>
-			</a>
-			<a href={resolve('/contributors')} aria-current={current('/contributors')} class={LINK}>
-				<Trophy size={15} />
-				<span class="max-[35rem]:sr-only">Leaderboard</span>
-			</a>
-			<a href={resolve('/work')} aria-current={inWork ? 'true' : undefined} class={LINK}>
-				<Briefcase size={15} />
-				<span class="max-[35rem]:sr-only">Work</span>
-			</a>
-		</nav>
+		<div class="flex items-stretch gap-1 min-[35rem]:gap-2">
+			<h2 id="main-nav" class="sr-only">Main</h2>
+			<nav
+				aria-labelledby="main-nav"
+				class={[
+					'flex items-stretch text-sm min-[35rem]:gap-2',
+					showWorkRow ? '-mb-px pt-0.5' : '-mb-[3px]'
+				]}
+			>
+				<a
+					href={resolve(`/${dashboardSearch()}`)}
+					aria-current={current('/collective')}
+					class={LINK}
+				>
+					<ChartLine size={15} />
+					<span class="max-[35rem]:sr-only">Collectives</span>
+				</a>
+				<a href={resolve('/contributors')} aria-current={current('/contributors')} class={LINK}>
+					<Trophy size={15} />
+					<span class="max-[35rem]:sr-only">Leaderboard</span>
+				</a>
+				<a href={resolve('/work')} aria-current={inWork ? 'true' : undefined} class={LINK}>
+					<Briefcase size={15} />
+					<span class="max-[35rem]:sr-only">Work</span>
+				</a>
+			</nav>
+			<SignOut openCollective={!!meQuery.current} />
+		</div>
 	</div>
 
 	{#if showWorkRow}

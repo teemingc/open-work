@@ -29,6 +29,32 @@ function rememberSyncedAccount(email: string) {
 	}
 }
 
+/** The Google account signed in here: `null` when none, `undefined` until known. */
+const google = $state<{ account: DriveStatus['account'] | undefined }>({ account: undefined });
+let statusRequest: Promise<DriveStatus> | undefined;
+
+/** Whether Google sign-in is set up here, and for whom. Asked once per page load. */
+function driveStatus(): Promise<DriveStatus> {
+	statusRequest ??= getDriveStatus().catch((error) => {
+		statusRequest = undefined;
+		throw error;
+	});
+	return statusRequest;
+}
+
+/** Find out who is signed in to Google, for pages that do not sync, such as the header. */
+export function loadGoogleAccount() {
+	driveStatus().then(
+		({ account }) => (google.account ??= account),
+		() => {}
+	);
+}
+
+/** The Google account signed in here, once `loadGoogleAccount` or a sync has found out. */
+export function googleAccount(): DriveStatus['account'] | undefined {
+	return google.account;
+}
+
 export type SyncState = 'checking' | 'unavailable' | 'signed-out' | 'syncing' | 'synced' | 'error';
 
 /**
@@ -37,7 +63,12 @@ export type SyncState = 'checking' | 'unavailable' | 'signed-out' | 'syncing' | 
  */
 export class DriveSync {
 	state = $state<SyncState>('checking');
-	account = $state<DriveStatus['account']>(null);
+	get account(): DriveStatus['account'] {
+		return google.account ?? null;
+	}
+	set account(account: DriveStatus['account']) {
+		google.account = account;
+	}
 	error = $state<string | undefined>();
 	/** When the last sync finished, in milliseconds. */
 	lastSynced = $state<number | undefined>();
@@ -54,7 +85,7 @@ export class DriveSync {
 		this.state = 'checking';
 		let status: DriveStatus;
 		try {
-			status = await getDriveStatus();
+			status = await driveStatus();
 		} catch {
 			this.state = 'unavailable';
 			return;
@@ -183,6 +214,7 @@ export function driveSync(store: WorkLogStore): DriveSync {
 /** Stop syncing and forget which Google account this browser's work log belonged to. */
 export function forgetDriveSync() {
 	sync?.stop();
+	google.account = null;
 	try {
 		localStorage.removeItem(ACCOUNT_KEY);
 	} catch {
