@@ -3,7 +3,7 @@
 	import { Input } from '#lib/components/ui/input/index.js';
 	import * as Popover from '#lib/components/ui/popover/index.js';
 	import { cn } from '#lib/utils.js';
-	import { X } from '@lucide/svelte';
+	import { Trash2 } from '@lucide/svelte';
 	import type { HTMLInputAttributes } from 'svelte/elements';
 
 	let {
@@ -132,7 +132,7 @@
 							remove(suggestion);
 						}}
 					>
-						<X size={12} />
+						<Trash2 size={12} />
 						<span class="sr-only">Remove {suggestion} from suggestions</span>
 					</Button>
 				</li>

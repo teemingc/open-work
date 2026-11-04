@@ -18,7 +18,7 @@
 		type WorkRef
 	} from '#lib/worklog.js';
 	import { snapshot } from '$app/navigation';
-	import { Plus, X } from '@lucide/svelte';
+	import { Plus, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import SuggestInput from './SuggestInput.svelte';
 	import TimeInput from './TimeInput.svelte';
@@ -287,7 +287,7 @@
 						class="relative size-6 after:absolute after:-inset-2 pointer-coarse:size-6"
 						onclick={() => items.splice(index, 1)}
 					>
-						<X size={12} />
+						<Trash2 size={12} />
 						<span class="sr-only">Remove {describeRef(item)}</span>
 					</Button>
 				</li>

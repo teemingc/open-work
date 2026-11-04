@@ -5,7 +5,7 @@
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import { collectiveLogo, SUGGESTED_COLLECTIVES } from '#lib/collective-suggestions.js';
 	import RetryableError from '#lib/components/RetryableError.svelte';
-	import { Mail, Search, X } from '@lucide/svelte';
+	import { Mail, Search, Trash2 } from '@lucide/svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Command as CommandPrimitive } from 'bits-ui';
 	import { dashboardSearch } from '#lib/dashboard-search.svelte.js';
@@ -152,7 +152,7 @@
 					forget(match);
 				}}
 			>
-				<X size={12} />
+				<Trash2 size={12} />
 				<span class="sr-only">Remove {match.name} from recent</span>
 			</Button>
 		{/if}

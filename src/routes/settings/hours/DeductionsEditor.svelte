@@ -12,7 +12,7 @@
 		type DeductionKind
 	} from '#lib/worklog.js';
 	import NewBand from './NewBand.svelte';
-	import { ArrowDown, ArrowUp, Trash2, X } from '@lucide/svelte';
+	import { ArrowDown, ArrowUp, Trash2 } from '@lucide/svelte';
 
 	let { store, currency }: { store: WorkLogStore; currency: string } = $props();
 
@@ -217,7 +217,7 @@
 									size="icon"
 									onclick={() => changeBands(deduction, (list) => list.splice(bandIndex, 1))}
 								>
-									<X size={16} />
+									<Trash2 size={16} />
 									<span class="sr-only">Remove the band from {from.toLocaleString('en')}</span>
 								</Button>
 							</div>

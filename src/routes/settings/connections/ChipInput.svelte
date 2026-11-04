@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { X } from '@lucide/svelte';
+	import { Trash2 } from '@lucide/svelte';
 
 	let {
 		id,
@@ -47,7 +47,7 @@
 				class="relative grid size-5 place-items-center rounded text-muted-foreground after:absolute after:-inset-2 hover:bg-background hover:text-foreground"
 				onclick={() => remove(name)}
 			>
-				<X size={12} />
+				<Trash2 size={12} />
 				<span class="sr-only">Remove {name}</span>
 			</button>
 		</span>
