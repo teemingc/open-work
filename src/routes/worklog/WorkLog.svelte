@@ -28,7 +28,7 @@
 	} from '@lucide/svelte';
 	import type { Settings } from '#lib/settings.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import { untrack } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { today as currentDay } from './today.js';
 	import DayList from './DayList.svelte';
 	import EntryForm from '#lib/components/EntryForm.svelte';
@@ -107,6 +107,32 @@
 			fetching = false;
 		}
 	}
+
+	// SvelteKit puts the scroll back on a reload before the log arrives from IndexedDB, while the
+	// shorter skeleton is showing, so the page can't reach it. Keep it as the page unloads and put it
+	// back once the log is drawn. Read once, so later visits in the same tab start at the top.
+	const SCROLL_KEY = 'worklog:scroll';
+
+	onMount(() => {
+		const saved = sessionStorage.getItem(SCROLL_KEY);
+		sessionStorage.removeItem(SCROLL_KEY);
+		const [navigation] = performance.getEntriesByType(
+			'navigation'
+		) as PerformanceNavigationTiming[];
+		if (saved && navigation?.type !== 'navigate') {
+			const { href, x, y } = JSON.parse(saved);
+			if (href === location.href) scrollTo(x, y);
+		}
+
+		function save() {
+			sessionStorage.setItem(
+				SCROLL_KEY,
+				JSON.stringify({ href: location.href, x: scrollX, y: scrollY })
+			);
+		}
+		addEventListener('pagehide', save);
+		return () => removeEventListener('pagehide', save);
+	});
 </script>
 
 <div class="flex flex-col gap-4 md:gap-6">
