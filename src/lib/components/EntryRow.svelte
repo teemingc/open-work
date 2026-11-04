@@ -4,7 +4,7 @@
 	import WorkItem from '#lib/components/WorkItem.svelte';
 	import ClientName from '#lib/components/ClientName.svelte';
 	import { formatHours, formatTime } from '#lib/format.js';
-	import { entryHours, type WorkLogEntry } from '#lib/worklog.js';
+	import { entryHours, refKey, type WorkLogEntry } from '#lib/worklog.js';
 	import { Ellipsis, Pencil, Trash2 } from '@lucide/svelte';
 	import type { HTMLLiAttributes } from 'svelte/elements';
 
@@ -79,7 +79,7 @@
 			time || client ? 'col-span-3' : 'col-start-1'
 		]}
 	>
-		{#each entry.items as item, index (index)}
+		{#each entry.items as item (refKey(item))}
 			<li class="flex min-w-0"><WorkItem ref={item} {organization} /></li>
 		{/each}
 	</ul>

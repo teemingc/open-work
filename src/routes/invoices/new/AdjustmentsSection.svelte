@@ -31,7 +31,7 @@
 
 	{#if draft.adjustments.length > 0}
 		<ul class="space-y-3">
-			{#each draft.adjustments as adjustment, index (index)}
+			{#each draft.adjustments as adjustment, index (adjustment)}
 				<li
 					class="grid grid-cols-[minmax(0,1fr)_auto] gap-2 @lg:grid-cols-[minmax(0,1fr)_7rem_8rem_auto] @lg:items-end"
 				>
