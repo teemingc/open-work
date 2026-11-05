@@ -16,8 +16,11 @@
 	const [repository, item] = $derived(refCells({ ref, organization }));
 </script>
 
-<span class="inline-flex min-w-0 items-baseline gap-1.5">
-	<Icon size={14} class="shrink-0 self-center text-muted-foreground" aria-hidden="true" />
+<!-- The icon sits on the first line, in a column of its own, when the reference wraps. -->
+<span class="inline-flex min-w-0 items-start gap-1.5">
+	<span class="flex h-lh w-3.5 shrink-0 items-center justify-center">
+		<Icon size={14} class="text-muted-foreground" aria-hidden="true" />
+	</span>
 	{#if url}
 		<!-- Wraps rather than truncating, so the whole reference shows. Positioned, so the link's hidden
 			text cannot widen the page. -->
