@@ -6,7 +6,6 @@ import {
 	defaultClient,
 	earnings,
 	entriesFor,
-	rateOn,
 	invoiceTotals,
 	suggestedInvoiceNumber,
 	type Adjustment,
@@ -93,9 +92,7 @@ export class Draft {
 		if (!this.client) {
 			return { hours: 0, amount: 0, rate: this.#fallbackRate, mixedRates: false };
 		}
-		const logged = earnings({ client: this.client, entries: this.entries });
-		// Before anything is logged, show the rate the period would be billed at.
-		return logged.hours > 0 ? logged : { ...logged, rate: rateOn(this.client, this.endDate) };
+		return earnings({ client: this.client, entries: this.entries, date: this.endDate });
 	});
 	loggedHours = $derived(this.logged.hours);
 	hours = $derived(this.hoursOverride ?? this.loggedHours);

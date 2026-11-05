@@ -689,14 +689,17 @@ export function entryRate({
 
 /**
  * What a client's entries earn, each at its own rate. `rate` is that rate when they share one,
- * else the average, and `mixedRates` says which.
+ * else the average, and `mixedRates` says which. With no hours logged it is the client's rate on
+ * `date`, the rate the time would be billed at, rather than 0.
  */
 export function earnings({
 	client,
-	entries
+	entries,
+	date
 }: {
 	client: Pick<Client, 'rate' | 'rates'>;
 	entries: WorkLogEntry[];
+	date: string;
 }): { hours: number; amount: number; rate: number; mixedRates: boolean } {
 	const paid = entries.filter((entry) => entryHours(entry) > 0);
 	const rates = new Set(paid.map((entry) => entryRate({ client, entry })));
@@ -704,7 +707,12 @@ export function earnings({
 	const amount = round2(
 		paid.reduce((sum, entry) => sum + entryHours(entry) * entryRate({ client, entry }), 0)
 	);
-	const rate = rates.size === 1 ? [...rates][0] : hours > 0 ? round2(amount / hours) : 0;
+	const rate =
+		rates.size === 0
+			? rateOn(client, date)
+			: rates.size === 1
+				? [...rates][0]
+				: round2(amount / hours);
 	return { hours, amount, rate, mixedRates: rates.size > 1 };
 }
 
@@ -1171,6 +1179,7 @@ export function summarizeMonth({
 	const workingDaysLeft = days.filter((day) => day.kind === 'work' && day.date >= today).length;
 	const remaining = Math.max(0, round2(expected - logged));
 
+	const monthEnd = days.at(-1)?.date ?? today;
 	const clients = data.clients
 		.map((client): ClientTotal => {
 			const own = entries.filter((entry) => entry.clientId === client.id);
@@ -1178,7 +1187,7 @@ export function summarizeMonth({
 				client.targetShare === undefined || client.archived
 					? undefined
 					: round2((expected * client.targetShare) / 100);
-			return { client, ...earnings({ client, entries: own }), target };
+			return { client, ...earnings({ client, entries: own, date: monthEnd }), target };
 		})
 		.filter((total) => total.hours > 0 || total.target !== undefined);
 	const amounts: Record<string, number> = {};

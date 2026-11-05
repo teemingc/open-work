@@ -406,6 +406,15 @@ describe('clients', () => {
 			['zenos', 0, 88]
 		]);
 	});
+
+	it("shows the client's rate, not 0, before any hours are logged", () => {
+		const data: WorkLogData = {
+			...emptyWorkLog(),
+			clients: [{ ...zenos, targetShare: 50, rates: [{ from: '2026-10-15', rate: 50 }] }]
+		};
+		const month = summarizeMonth({ data, month: '2026-10', today: '2026-10-12' });
+		expect(month.clients.map(({ hours, rate }) => [hours, rate])).toEqual([[0, 50]]);
+	});
 });
 
 describe('invoices', () => {

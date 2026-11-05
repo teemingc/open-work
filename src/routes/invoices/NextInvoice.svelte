@@ -60,7 +60,11 @@
 	const worth = $derived(
 		client && chosen
 			? {
-					...earnings({ client, entries: entriesFor({ entries, clientId: client.id, ...chosen }) }),
+					...earnings({
+						client,
+						entries: entriesFor({ entries, clientId: client.id, ...chosen }),
+						date: chosen.endDate
+					}),
 					currency: client.currency
 				}
 			: undefined
