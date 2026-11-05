@@ -69,27 +69,27 @@
 </main>
 
 <!--
-	A double rule opens the footer as one closes the masthead, so every page is bound top and bottom
-	like a ledger sheet. No name or mark: the sticky header already shows them.
+	A double rule closes every page like a ledger sheet, within the gutters so it never runs to the
+	screen's edges. No name or mark: the header already shows them.
 -->
-<footer
-	class="flex flex-wrap justify-center gap-x-4 border-t-[3px] border-double border-rule bg-card px-4 py-3 lg:px-6"
->
-	<a
-		href={resolve('/privacy')}
-		class="inline-flex min-h-10 items-center px-2 text-sm text-muted-foreground hover:text-foreground"
-	>
-		Privacy
-	</a>
-	<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
-	<a
-		href="https://github.com/teemingc/open-work"
-		target="_blank"
-		rel="noreferrer"
-		class="inline-flex min-h-10 items-center px-2 text-sm text-muted-foreground hover:text-foreground"
-	>
-		GitHub
-		<span class="sr-only">(opens in a new tab)</span>
-	</a>
-	<!-- eslint-enable svelte/no-navigation-without-resolve -->
+<footer class="mx-auto w-full max-w-6xl px-4 lg:px-6">
+	<div class="flex flex-wrap justify-center gap-x-4 border-t-[3px] border-double border-rule py-3">
+		<a
+			href={resolve('/privacy')}
+			class="inline-flex min-h-10 items-center px-2 text-sm text-muted-foreground hover:text-foreground"
+		>
+			Privacy
+		</a>
+		<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
+		<a
+			href="https://github.com/teemingc/open-work"
+			target="_blank"
+			rel="noreferrer"
+			class="inline-flex min-h-10 items-center px-2 text-sm text-muted-foreground hover:text-foreground"
+		>
+			GitHub
+			<span class="sr-only">(opens in a new tab)</span>
+		</a>
+		<!-- eslint-enable svelte/no-navigation-without-resolve -->
+	</div>
 </footer>

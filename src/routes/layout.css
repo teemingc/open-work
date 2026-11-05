@@ -270,20 +270,20 @@
 		@apply border-border outline-ring/50;
 	}
 	/*
-		Links to a part of a page land below the sticky header, not under it.
-		The page's own colour sits on body, so the canvas iOS shows past the top and bottom edges takes
-		the card colour of the header and footer it continues.
+		Links to a part of a page land below the sticky header, not under it. The header and footer
+		are inset from the edges, so the canvas iOS shows past the top and bottom takes the page's
+		colour.
 	*/
 	html {
-		@apply bg-card;
-		scroll-padding-top: 5rem;
+		@apply bg-background;
+		scroll-padding-top: 5.5rem;
 	}
 	/*
 		In Work, only the Work row stays at the top, so only it covers the page. Its pages link to
 		fields, so there is also room for the label above one.
 	*/
 	html:has([data-work-row]) {
-		scroll-padding-top: 5.5rem;
+		scroll-padding-top: 4.5rem;
 	}
 	/* The header scrolls away on short screens; see Header.svelte. */
 	@media (max-height: 30rem) {

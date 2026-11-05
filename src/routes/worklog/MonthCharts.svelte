@@ -142,7 +142,7 @@
 	</Card.Root>
 {:else}
 	<!-- Beside the day list, which is far taller: it stays in view below the header. -->
-	<Card.Root class="@6xl/main:sticky @6xl/main:top-34">
+	<Card.Root class="@6xl/main:sticky @6xl/main:top-16">
 		<Card.Header>
 			<Card.Title>Hours each day</Card.Title>
 			<Card.Description
