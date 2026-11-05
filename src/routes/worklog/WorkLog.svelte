@@ -243,9 +243,9 @@
 		days logged beside the hours each day. Each card keeps its own height rather than stretching to
 		its neighbour, except the hours each day, whose card stays in view beside the far taller list.
 	-->
-	<div class="grid grid-cols-1 items-start gap-4 md:gap-6 @6xl/main:grid-cols-2">
+	<div class="grid grid-cols-1 items-start gap-4 md:gap-6 @5xl/main:grid-cols-2">
 		{#if clients.length === 0}
-			<p class="text-sm text-muted-foreground @6xl/main:col-start-1 @6xl/main:row-start-1">
+			<p class="text-sm text-muted-foreground @5xl/main:col-start-1 @5xl/main:row-start-1">
 				Add a client in
 				<a href={resolve('/settings/clients')} class="font-medium text-foreground underline"
 					>Clients settings</a
@@ -253,7 +253,7 @@
 				to start logging.
 			</p>
 		{:else}
-			<Card.Root class="@6xl/main:col-start-1 @6xl/main:row-start-1">
+			<Card.Root class="@5xl/main:col-start-1 @5xl/main:row-start-1">
 				<Card.Header>
 					<Card.Title>Log time</Card.Title>
 				</Card.Header>
@@ -270,13 +270,13 @@
 				</Card.Content>
 			</Card.Root>
 		{/if}
-		<div class="@6xl/main:col-start-1 @6xl/main:row-start-2">
+		<div class="@5xl/main:col-start-1 @5xl/main:row-start-2">
 			<DayList {store} {summary} {today} organization={settings.organization} bind:justAdded />
 		</div>
-		<div class="@6xl/main:col-start-2 @6xl/main:row-start-1">
+		<div class="@5xl/main:col-start-2 @5xl/main:row-start-1">
 			<MonthCharts chart="pace" {summary} clients={store.data.clients} {today} />
 		</div>
-		<div class="@6xl/main:col-start-2 @6xl/main:row-start-2 @6xl/main:self-stretch">
+		<div class="@5xl/main:col-start-2 @5xl/main:row-start-2 @5xl/main:self-stretch">
 			<MonthCharts chart="daily" {summary} clients={store.data.clients} {today} />
 		</div>
 	</div>

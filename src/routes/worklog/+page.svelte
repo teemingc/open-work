@@ -42,7 +42,7 @@
 				</div>
 			</div>
 			<Skeleton class="h-26 w-full rounded-xl" />
-			<div class="grid grid-cols-1 items-start gap-4 md:gap-6 @6xl/main:grid-cols-2">
+			<div class="grid grid-cols-1 items-start gap-4 md:gap-6 @5xl/main:grid-cols-2">
 				<Skeleton class="h-80 w-full rounded-xl" />
 				<div class="flex flex-col gap-4 md:gap-6">
 					<Skeleton class="h-190 w-full rounded-xl" />
