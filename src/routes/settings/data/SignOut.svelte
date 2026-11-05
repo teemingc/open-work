@@ -2,6 +2,7 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
+	import SettingsSection from '#lib/components/SettingsSection.svelte';
 	import {
 		driveSync,
 		googleAccount,
@@ -11,11 +12,13 @@
 	import { forgetThisBrowser } from '#lib/forget-browser.js';
 	import { openWorkLogWithSettings } from '#lib/open-work-log.js';
 	import { clearAllData } from '#lib/settings.remote.js';
+	import { getMe } from '#lib/opencollective.remote.js';
 	import { hasSession } from '#lib/session.remote.js';
 	import { CircleAlert, LogOut } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
-	let { openCollective }: { openCollective: boolean } = $props();
+	const meQuery = getMe();
+	const openCollective = $derived(!!meQuery.current);
 
 	onMount(loadGoogleAccount);
 
@@ -78,15 +81,16 @@
 
 <!-- The cookies say so in the first render, before Open Collective or Google answer. -->
 {#if (await hasSession()) || openCollective || google}
-	<Button
-		variant="ghost"
-		size="sm"
-		class="self-center text-muted-foreground"
-		onclick={() => (open = true)}
+	<SettingsSection
+		title="Sign out"
+		description="Signs you out of Open Collective and Google and removes your work log and settings from this browser."
 	>
-		<LogOut />
-		<span class="max-[35rem]:sr-only">Sign out</span>
-	</Button>
+		<div>
+			<Button variant="outline" class="w-full @md/settings:w-auto" onclick={() => (open = true)}>
+				<LogOut /> Sign out
+			</Button>
+		</div>
+	</SettingsSection>
 {/if}
 
 <Dialog.Root bind:open={() => open, (value) => !value && close()}>

@@ -21,6 +21,7 @@
 	import { Check, CircleAlert, Cloud, Download, LogOut, RefreshCw, Upload } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { signInWithGoogle, signOutOfGoogle } from './auth-client';
+	import SignOut from './SignOut.svelte';
 
 	let { store: storeProp }: { store: WorkLogStore } = $props();
 
@@ -336,6 +337,8 @@
 		</p>
 	{/if}
 </SettingsSection>
+
+<SignOut />
 
 <SettingsSection
 	title="Delete all data"

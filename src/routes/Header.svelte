@@ -5,7 +5,6 @@
 	import { dashboardSearch } from '#lib/dashboard-search.svelte.js';
 	import { getMe } from '#lib/opencollective.remote.js';
 	import logo from '#lib/assets/favicon.svg';
-	import SignOut from './SignOut.svelte';
 	import {
 		Briefcase,
 		ChartLine,
@@ -68,10 +67,10 @@
 		'flex h-9 min-w-10 items-center justify-center gap-1.5 rounded-md text-sm whitespace-nowrap text-muted-foreground hover:text-foreground pointer-coarse:h-10 [&[aria-current]]:font-medium [&[aria-current]]:text-accent-foreground [&>svg]:shrink-0';
 
 	/**
-	 * The main links, filled for the page you are on. Icons alone on phones, as below 35rem the
-	 * three labels do not fit beside the name.
+	 * The main links, filled for the page you are on. Icons alone where the three labels do not fit
+	 * beside the name, measured on the header's row so it follows the text size.
 	 */
-	const LINK = `${ITEM} hover:bg-muted [&[aria-current]]:bg-accent min-[35rem]:px-3`;
+	const LINK = `${ITEM} hover:bg-muted [&[aria-current]]:bg-accent @[32rem]/header:px-3`;
 
 	/**
 	 * Curves where a tab meets the row below, filling the corners beside its foot with the row's
@@ -171,21 +170,21 @@
 	{@attach watchStuck}
 >
 	<div class={['border bg-card', showWorkRow ? 'rounded-t-xl border-b-0' : 'rounded-xl']}>
-		<div class="flex min-h-14 items-center justify-between gap-2 px-2">
-			<!-- Below 22.5rem the nav needs the room, so the name is left to the mark and screen readers. -->
+		<div class="@container/header flex min-h-14 items-center justify-between gap-2 px-2">
+			<!-- Where the row is narrow, the nav needs the room, so the name is left to the mark and screen readers. -->
 			<a
 				href={resolve('/')}
 				class="flex shrink-0 items-center gap-2.5 rounded-md px-1.5 font-display text-xl font-semibold text-primary"
 			>
 				<img src={logo} alt="" class="size-7" />
-				<span class="max-[22.4375rem]:sr-only">Open Work</span>
+				<span class="@max-[20rem]/header:sr-only">Open Work</span>
 			</a>
 
 			<div class="flex items-center gap-1 self-stretch pr-2">
 				<h2 id="main-nav" class="sr-only">Main</h2>
 				<nav
 					aria-labelledby="main-nav"
-					class="flex items-center gap-0.5 self-stretch min-[35rem]:gap-1"
+					class="flex items-center gap-0.5 self-stretch @[32rem]/header:gap-1"
 				>
 					<a
 						href={resolve(`/${dashboardSearch()}`)}
@@ -193,11 +192,11 @@
 						class={LINK}
 					>
 						<ChartLine size={15} />
-						<span class="max-[35rem]:sr-only">Collectives</span>
+						<span class="@max-[32rem]/header:sr-only">Collectives</span>
 					</a>
 					<a href={resolve('/contributors')} aria-current={current('/contributors')} class={LINK}>
 						<Trophy size={15} />
-						<span class="max-[35rem]:sr-only">Leaderboard</span>
+						<span class="@max-[32rem]/header:sr-only">Leaderboard</span>
 					</a>
 					<a
 						href={resolve('/work')}
@@ -205,10 +204,9 @@
 						class={showWorkRow ? WORK_TAB : LINK}
 					>
 						<Briefcase size={15} />
-						<span class="max-[35rem]:sr-only">Work</span>
+						<span class="@max-[32rem]/header:sr-only">Work</span>
 					</a>
 				</nav>
-				<SignOut openCollective={!!meQuery.current} />
 			</div>
 		</div>
 	</div>
