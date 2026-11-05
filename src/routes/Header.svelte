@@ -44,6 +44,9 @@
 	 */
 	let showWorkRow = $state(isWork(page.url.pathname));
 
+	/** Whether the page showing is in Work, which it is only once it has arrived. */
+	const arrived = $derived(isWork(page.url.pathname));
+
 	beforeNavigate(({ to, type, complete }) => {
 		if (type === 'leave' || !to?.route.id) return;
 		pathname = to.url.pathname;
@@ -163,13 +166,16 @@
 	corners as a card of its own. On a screen as short as a phone on its side, nothing stays.
 -->
 <header
-	class={[
-		'z-40 mx-auto w-full max-w-6xl px-4 pt-2 lg:px-6',
-		!showWorkRow && `sticky top-0 ${FADE}`
-	]}
+	class={['z-40 mx-auto w-full max-w-6xl px-4 pt-2 lg:px-6', !arrived && `sticky top-0 ${FADE}`]}
 	{@attach watchStuck}
 >
-	<div class={['border bg-card', showWorkRow ? 'rounded-t-xl border-b-0' : 'rounded-xl']}>
+	<div
+		class={[
+			'border bg-card',
+			showWorkRow ? 'rounded-t-xl' : 'shadow-on-scroll rounded-xl',
+			showWorkRow && arrived && 'border-b-0'
+		]}
+	>
 		<div class="@container/header flex min-h-14 items-center justify-between gap-2 px-2">
 			<!-- Where the row is narrow, the nav needs the room, so the name is left to the mark and screen readers. -->
 			<a
@@ -210,20 +216,30 @@
 			</div>
 		</div>
 	</div>
+	<!--
+		Until a Work page arrives, the row hangs below the header, over the page you are leaving and
+		the header's bottom border, so that page is not pushed down while it is still showing.
+	-->
+	{#if showWorkRow && !arrived && inWork}
+		{@render workRow('absolute inset-x-0 top-full -mt-px px-4 lg:px-6')}
+	{/if}
 </header>
 
-{#if showWorkRow}
-	<div
-		class="sticky top-2 z-40 mx-auto w-full max-w-6xl px-4 lg:px-6 [@media(max-height:30rem)]:static"
-		data-work-row
-	>
+{#if showWorkRow && arrived}
+	{@render workRow(
+		'sticky top-2 z-40 mx-auto w-full max-w-6xl px-4 lg:px-6 [@media(max-height:30rem)]:static'
+	)}
+{/if}
+
+{#snippet workRow(position: string)}
+	<div class={position} data-work-row>
 		<!-- The fade covers the gap above, behind the card. -->
 		<div class={['absolute inset-x-0 -top-2 bottom-0 -z-10', FADE]} hidden={!stuck}></div>
 		<!-- Measured as a container rather than the window, so the labels give way at larger text sizes. -->
 		<div
 			class={[
-				'@container/work flex items-center border bg-accent p-1.5 transition-[border-radius] duration-150 sm:pr-4.5',
-				stuck ? 'rounded-xl' : 'rounded-b-xl border-t-transparent'
+				'@container/work flex items-center border bg-accent p-1.5 transition-[border-radius,box-shadow] duration-150 sm:pr-4.5',
+				stuck ? 'rounded-xl shadow-raised' : 'rounded-b-xl border-t-transparent'
 			]}
 		>
 			<h2 id="work-nav" class="sr-only">Work</h2>
@@ -268,4 +284,4 @@
 			</nav>
 		</div>
 	</div>
-{/if}
+{/snippet}
