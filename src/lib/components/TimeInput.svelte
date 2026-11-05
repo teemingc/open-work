@@ -27,7 +27,10 @@
 	}
 </script>
 
-<!-- Always a 12-hour clock with AM and PM, whatever the browser's language would show. -->
+<!--
+	Always a 12-hour clock with AM and PM, whatever the browser's language would show. At 16px on touch
+	screens, so iOS Safari does not zoom in when a segment is tapped.
+-->
 <div class="space-y-1.5">
 	<TimeField.Root
 		bind:value={time}
@@ -45,7 +48,7 @@
 			{/if}
 		</div>
 		<TimeField.Input
-			class="flex min-h-9 w-full flex-wrap items-center rounded-md border border-input bg-card px-3 text-sm tabular-nums transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 pointer-coarse:min-h-10"
+			class="flex min-h-9 w-full flex-wrap items-center rounded-md border border-input bg-card px-3 text-sm tabular-nums transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 pointer-coarse:min-h-10 pointer-coarse:text-base"
 		>
 			{#snippet children({ segments })}
 				{#each segments as { part, value }, index (index)}

@@ -459,13 +459,15 @@
 
 /*
  * iOS Safari zooms into a field whose text is under 16px when it is focused, so on touch screens
- * fields keep at least that size, at any width and whatever size a component gives them. Outside a
- * layer so it wins over `text-sm` and `md:text-sm`.
+ * fields, and editable parts like a time field's segments, keep at least that size, at any width
+ * and whatever size a component gives them. Outside a layer so it wins over `text-sm` and
+ * `md:text-sm`.
  */
 @media (pointer: coarse) {
 	input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file']),
 	textarea,
-	select {
+	select,
+	[contenteditable]:not([contenteditable='false']) {
 		font-size: max(1rem, 16px);
 	}
 }
