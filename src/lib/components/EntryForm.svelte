@@ -1,3 +1,33 @@
+<script lang="ts" module>
+	import type { WorkRef as Ref } from '#lib/worklog.js';
+
+	const DRAFT_KEY = 'worklog:draft';
+
+	type Draft = {
+		date: string;
+		clientId: string;
+		start: string;
+		end: string;
+		startChanged: boolean;
+		endChanged: boolean;
+		hours?: number;
+		items: Ref[];
+		itemText: string;
+	};
+
+	/** The new entry left unsaved in this browser, if any. */
+	function readDraft(): Draft | undefined {
+		try {
+			const draft = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? 'null');
+			return draft && typeof draft.date === 'string' && Array.isArray(draft.items)
+				? draft
+				: undefined;
+		} catch {
+			return undefined;
+		}
+	}
+</script>
+
 <script lang="ts">
 	import ClientName from '#lib/components/ClientName.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -17,7 +47,6 @@
 		type WorkLogEntry,
 		type WorkRef
 	} from '#lib/worklog.js';
-	import { snapshot } from '$app/navigation';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import SuggestInput from './SuggestInput.svelte';
@@ -58,16 +87,31 @@
 		return last && last > now ? last : now;
 	}
 
-	// The form starts from these and then owns its values, so it can be edited and cancelled.
-	const initial = untrack(() => ({
-		clientId: entry?.clientId ?? clientId ?? clients[0]?.id ?? '',
-		start: entry ? (entry.start ?? '') : nextStart(date),
-		end: entry ? (entry.end ?? '') : nextStart(date),
-		hours: entry?.hours,
-		rate: entry?.rate,
-		items: entry?.items ?? [],
-		editing: !!entry
-	}));
+	// The form starts from these and then owns its values, so it can be edited and cancelled. A new
+	// entry starts from the one left unsaved, so one begun in the morning is still there at the end of
+	// the day, even after the app was closed.
+	const initial = untrack(() => {
+		const draft = entry ? undefined : readDraft();
+		const start = entry ? (entry.start ?? '') : (draft?.start ?? nextStart(date));
+		return {
+			date: entry?.date ?? (draft && draft.date !== date ? draft.date : undefined),
+			clientId:
+				(draft && clients.some((other) => other.id === draft.clientId) && draft.clientId) ||
+				entry?.clientId ||
+				clientId ||
+				clients[0]?.id ||
+				'',
+			start,
+			end: entry ? (entry.end ?? '') : (draft?.end ?? start),
+			startChanged: !!draft?.startChanged,
+			endChanged: !!entry || !!draft?.endChanged,
+			hours: entry?.hours ?? draft?.hours,
+			rate: entry?.rate,
+			items: entry?.items ?? draft?.items ?? [],
+			itemText: draft?.itemText ?? '',
+			editing: !!entry
+		};
+	});
 
 	const id = $props.id();
 	// A new entry is on the given date, following it as days pass, until another is picked. A date
@@ -75,17 +119,19 @@
 	const dateMonth = $derived(date.slice(0, 7));
 	let pickedDate = $derived.by(() => {
 		void dateMonth;
-		return untrack(() => entry?.date);
+		return untrack(() => initial.date);
 	});
 	const rowDate = $derived(pickedDate ?? date);
 	let rowClient = $state(initial.clientId);
 	let rowStart = $state(initial.start);
 	let rowEnd = $state(initial.end);
+	// Until the start is changed by hand, it is the hour the form opened in.
+	let startChanged = $state(initial.startChanged);
 	// Until the end is changed by hand, it follows the start.
-	let endChanged = $state(initial.editing);
+	let endChanged = $state(initial.endChanged);
 	let rowHours = $state<number | undefined>(initial.hours);
 	const items: WorkRef[] = $state([...initial.items]);
-	let itemText = $state('');
+	let itemText = $state(initial.itemText);
 
 	const parsed = $derived(parseRef({ input: itemText, organization }));
 	const timesValid = $derived(!rowStart === !rowEnd);
@@ -96,35 +142,34 @@
 		!!rowDate && !!rowClient && timesValid && (hours > 0 || items.length > 0 || !!parsed)
 	);
 
-	// A new entry being typed is kept through a reload, or when you come back to it, within this tab.
+	// A new entry being typed is kept in this browser until it is logged, or emptied.
 	if (!initial.editing) {
-		snapshot({
-			id: 'new-entry',
-			capture: () => ({
-				pickedDate,
+		$effect(() => {
+			const draft: Draft = {
+				date: rowDate,
 				clientId: rowClient,
 				start: rowStart,
 				end: rowEnd,
+				startChanged,
 				endChanged,
 				hours: rowHours,
 				items: $state.snapshot(items),
 				itemText
-			}),
-			restore: (value) => {
-				pickedDate = value.pickedDate;
-				rowClient = value.clientId;
-				rowStart = value.start;
-				rowEnd = value.end;
-				endChanged = value.endChanged;
-				rowHours = value.hours;
-				items.splice(0, items.length, ...value.items);
-				itemText = value.itemText;
+			};
+			const begun =
+				startChanged || endChanged || !!rowHours || items.length > 0 || itemText.trim() !== '';
+			try {
+				if (begun) localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+				else localStorage.removeItem(DRAFT_KEY);
+			} catch {
+				// Without storage the draft lasts as long as the page.
 			}
 		});
 	}
 
 	function changeStart(value: string) {
 		rowStart = value;
+		startChanged = true;
 		if (!endChanged || (value && rowEnd && rowEnd < value)) rowEnd = value;
 	}
 
@@ -156,6 +201,7 @@
 			// The next block usually follows on the same day, for the same client.
 			rowStart = nextStart(rowDate);
 			rowEnd = rowStart;
+			startChanged = false;
 			endChanged = false;
 			rowHours = undefined;
 			items.length = 0;
