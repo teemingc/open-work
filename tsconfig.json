@@ -15,5 +15,7 @@
 		"vite.config.ts",
 		"playwright.config.ts",
 		"eslint.config.js"
-	]
+	],
+	// Runs in a service worker, with its own types.
+	"exclude": ["src/service-worker"]
 }

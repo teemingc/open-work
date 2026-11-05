@@ -87,7 +87,8 @@ export async function openWorkLogWithSettings(): Promise<{
 	store: WorkLogStore;
 }> {
 	const store = await openWorkLog(async () => {
-		const settings = (await legacySettings()) ?? DEFAULT_SETTINGS;
+		// Offline, the log starts from the defaults.
+		const settings = (await legacySettings().catch(() => null)) ?? DEFAULT_SETTINGS;
 		return {
 			rate: settings.hourlyRate,
 			currency: settings.currency,
@@ -98,7 +99,12 @@ export async function openWorkLogWithSettings(): Promise<{
 		started = store;
 		// Settings from another device, or a backup, can still name one.
 		store.onReplace(() => moveCollective(store));
-		if (!store.data.settings) await moveLegacySettings(store);
+		if (!store.data.settings) {
+			// Offline, the move waits for a visit online, as nothing has been adopted yet.
+			await moveLegacySettings(store).catch((error) => {
+				console.error('Saved settings could not be moved', error);
+			});
+		}
 		moveCollective(store);
 	}
 	moveToInvoicing(store);
