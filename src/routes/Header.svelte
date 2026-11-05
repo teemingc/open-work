@@ -245,7 +245,7 @@
 		<div class={['absolute inset-x-0 -top-2 bottom-0 -z-10', FADE]} hidden={!stuck}></div>
 		<div
 			class={[
-				'flex items-center border bg-accent p-1.5 transition-[border-radius,box-shadow] duration-150 sm:ml-auto sm:w-fit sm:pr-4.5',
+				'flex items-center border bg-accent p-1.5 transition-[border-radius,box-shadow] duration-300 ease-out sm:ml-auto sm:w-fit sm:pr-4.5',
 				stuck ? 'rounded-xl shadow-raised' : 'rounded-b-xl border-t-transparent',
 				// Over the header's bottom border, which is left only beside the row.
 				!stuck && arrived && 'sm:-mt-px'
