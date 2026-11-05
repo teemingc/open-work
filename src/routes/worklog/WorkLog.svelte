@@ -137,20 +137,16 @@
 
 <div class="flex flex-col gap-4 md:gap-6">
 	<!--
-		The month controls sit at the right edge, so they stay put as the month name changes length. On
-		the narrowest phones, too narrow for both, the month has a row of its own, with the controls and buttons
-		under it, wrapping when the text is large, and the sync status last.
+		The month controls sit at the right edge of the month's row, so they stay put as the month name
+		changes length, and wrap under it only when the text is too large for both. The GitHub and
+		settings buttons are left off phones, where they would be bare icons; settings stay in the tabs.
 	-->
-	<header class="flex flex-wrap items-center gap-2 min-[26.25rem]:block min-[26.25rem]:space-y-2">
-		<div
-			class="contents min-[26.25rem]:flex min-[26.25rem]:items-center min-[26.25rem]:justify-between min-[26.25rem]:gap-3"
-		>
-			<div class="basis-full min-[26.25rem]:basis-auto">
-				<MonthPicker {month} current={monthOf(today)} label={monthName} />
-			</div>
+	<header class="flex flex-col gap-2">
+		<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+			<MonthPicker {month} current={monthOf(today)} label={monthName} />
 			<nav
 				aria-labelledby="{uid}-month"
-				class="flex shrink-0 items-center rounded-md border bg-card"
+				class="ml-auto flex shrink-0 items-center rounded-md border bg-card"
 			>
 				<h2 id="{uid}-month" class="sr-only">Month</h2>
 				<Button
@@ -183,14 +179,9 @@
 				</Button>
 			</nav>
 		</div>
-		<div
-			class="contents min-[26.25rem]:flex min-[26.25rem]:items-center min-[26.25rem]:justify-between min-[26.25rem]:gap-2"
-		>
-			<div class="order-last basis-full min-[26.25rem]:order-none min-[26.25rem]:basis-auto">
-				<DriveSyncStatus {sync} />
-			</div>
-			<!-- Labels hide on narrow screens; the icons and their accessible names stay. -->
-			<div class="ml-auto flex shrink-0 gap-2">
+		<div class="flex items-center justify-between gap-2">
+			<DriveSyncStatus {sync} />
+			<div class="ml-auto hidden shrink-0 gap-2 sm:flex">
 				<!-- Without a username there is nothing to add from, so it leads to where you set one. -->
 				{#if settings.githubUsername}
 					<Button
@@ -200,16 +191,16 @@
 						disabled={fetching || !githubClient}
 					>
 						{#if fetching}<Spinner />{:else}<GitPullRequest />{/if}
-						<span class="max-sm:sr-only">Add from GitHub</span>
+						Add from GitHub
 					</Button>
 				{:else}
 					<Button variant="outline" size="sm" href={resolve('/settings/connections')}>
 						<GitPullRequest />
-						<span class="max-sm:sr-only">Connect GitHub</span>
+						Connect GitHub
 					</Button>
 				{/if}
 				<Button variant="outline" size="sm" href={resolve('/settings/hours')}>
-					<Settings2 /> <span class="max-sm:sr-only">Settings</span>
+					<Settings2 /> Settings
 				</Button>
 			</div>
 		</div>
