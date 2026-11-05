@@ -10,7 +10,6 @@
 	import { driveSync } from '#lib/drive-sync.svelte.js';
 	import {
 		activeClients,
-		addMonths,
 		monthDates,
 		monthOf,
 		summarizeMonth,
@@ -18,8 +17,6 @@
 		unloggedItems
 	} from '#lib/worklog.js';
 	import {
-		ChevronLeft,
-		ChevronRight,
 		CircleAlert,
 		CircleCheck,
 		GitPullRequest,
@@ -137,47 +134,16 @@
 
 <div class="flex flex-col gap-4 md:gap-6">
 	<!--
-		The month controls sit at the right edge of the month's row, so they stay put as the month name
-		changes length, and wrap under it only when the text is too large for both. The GitHub and
-		settings buttons are left off phones, where they would be bare icons; settings stay in the tabs.
+		The month control sits at the right edge of the title's row, and wraps under it only when the text
+		is too large for both. The GitHub and settings buttons are left off phones, where they would be
+		bare icons; settings stay in the tabs.
 	-->
 	<header class="flex flex-col gap-2">
 		<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-			<MonthPicker {month} current={monthOf(today)} label={monthName} />
-			<nav
-				aria-labelledby="{uid}-month"
-				class="ml-auto flex shrink-0 items-center rounded-md border bg-card"
-			>
-				<h2 id="{uid}-month" class="sr-only">Month</h2>
-				<Button
-					variant="ghost"
-					size="icon"
-					class="rounded-r-none"
-					href="{resolve('/worklog')}?month={addMonths(month, -1)}"
-				>
-					<ChevronLeft /><span class="sr-only">Previous month</span>
-				</Button>
-				{#if current}
-					<Button variant="ghost" size="sm" class="rounded-none border-x" disabled>Today</Button>
-				{:else}
-					<Button
-						variant="ghost"
-						size="sm"
-						class="rounded-none border-x"
-						href={resolve('/worklog')}
-					>
-						Today
-					</Button>
-				{/if}
-				<Button
-					variant="ghost"
-					size="icon"
-					class="rounded-l-none"
-					href="{resolve('/worklog')}?month={addMonths(month, 1)}"
-				>
-					<ChevronRight /><span class="sr-only">Next month</span>
-				</Button>
-			</nav>
+			<h1>Work log</h1>
+			<div class="ml-auto">
+				<MonthPicker {month} current={monthOf(today)} label={monthName} />
+			</div>
 		</div>
 		<div class="flex items-center justify-between gap-2">
 			<DriveSyncStatus {sync} />
@@ -231,53 +197,57 @@
 		</p>
 	{/if}
 
-	<section aria-labelledby="{uid}-summary" class="flex flex-col gap-4 md:gap-6">
-		<h2 id="{uid}-summary" class="sr-only">Summary</h2>
-		<MonthStats {summary} data={store.data} {current} />
-		<TakeHome data={store.data} {summary} />
-	</section>
-
 	<!--
-		In one column the list follows the entry form, so what you log shows up just below it, and the
-		charts come last. In two, in rows rather than columns: the form beside the month's pace and the
-		days logged beside the hours each day. Each card keeps its own height rather than stretching to
-		its neighbour, except the hours each day, whose card stays in view beside the far taller list.
+		Logging comes first, so the form is in reach as the page opens, with what you log showing up just
+		below it. In one column the month's figures and charts follow. In two, the figures are one short
+		strip above the form, and the take-home and charts sit beside the form and the days logged. The
+		hours each day stretch down beside the far taller list, so their card can stay in view.
 	-->
 	<div class="grid grid-cols-1 items-start gap-4 md:gap-6 @5xl/main:grid-cols-2">
-		{#if clients.length === 0}
-			<p class="text-sm text-muted-foreground @5xl/main:col-start-1 @5xl/main:row-start-1">
-				Add a client in
-				<a href={resolve('/settings/clients')} class="font-medium text-foreground underline"
-					>Clients settings</a
-				>
-				to start logging.
-			</p>
-		{:else}
-			<Card.Root class="@5xl/main:col-start-1 @5xl/main:row-start-1">
-				<Card.Header>
-					<Card.Title>Log time</Card.Title>
-				</Card.Header>
-				<Card.Content>
-					<EntryForm
-						{clients}
-						organization={settings.organization}
-						tasks={taskNames(store.data.entries)}
-						entries={store.data.entries}
-						date={defaultDate}
-						clientId={githubClient?.id}
-						onsave={(entry) => (justAdded = store.addEntry(entry).id)}
-					/>
-				</Card.Content>
-			</Card.Root>
-		{/if}
-		<div class="@5xl/main:col-start-1 @5xl/main:row-start-2">
+		<div class="flex flex-col gap-4 md:gap-6 @5xl/main:col-start-1 @5xl/main:row-start-2">
+			{#if clients.length === 0}
+				<p class="text-sm text-muted-foreground">
+					Add a client in
+					<a href={resolve('/settings/clients')} class="font-medium text-foreground underline"
+						>Clients settings</a
+					>
+					to start logging.
+				</p>
+			{:else}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>Log time</Card.Title>
+					</Card.Header>
+					<Card.Content>
+						<EntryForm
+							{clients}
+							organization={settings.organization}
+							tasks={taskNames(store.data.entries)}
+							entries={store.data.entries}
+							date={defaultDate}
+							clientId={githubClient?.id}
+							onsave={(entry) => (justAdded = store.addEntry(entry).id)}
+						/>
+					</Card.Content>
+				</Card.Root>
+			{/if}
 			<DayList {store} {summary} {today} organization={settings.organization} bind:justAdded />
 		</div>
-		<div class="@5xl/main:col-start-2 @5xl/main:row-start-1">
+		<section
+			aria-labelledby="{uid}-summary"
+			class="@5xl/main:col-span-2 @5xl/main:col-start-1 @5xl/main:row-start-1"
+		>
+			<h2 id="{uid}-summary" class="sr-only">Summary</h2>
+			<MonthStats {summary} data={store.data} {current} />
+		</section>
+		<div
+			class="flex flex-col gap-4 self-stretch md:gap-6 @5xl/main:col-start-2 @5xl/main:row-start-2"
+		>
+			<TakeHome data={store.data} {summary} />
 			<MonthCharts chart="pace" {summary} clients={store.data.clients} {today} />
-		</div>
-		<div class="@5xl/main:col-start-2 @5xl/main:row-start-2 @5xl/main:self-stretch">
-			<MonthCharts chart="daily" {summary} clients={store.data.clients} {today} />
+			<div class="flex-1">
+				<MonthCharts chart="daily" {summary} clients={store.data.clients} {today} />
+			</div>
 		</div>
 	</div>
 </div>

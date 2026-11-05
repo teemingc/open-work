@@ -41,12 +41,18 @@
 					<Skeleton class="h-8 w-64 max-w-[50%]" />
 				</div>
 			</div>
-			<Skeleton class="h-26 w-full rounded-xl" />
+			<!-- In the page's order: logging first, then the month's figures, then the charts. -->
 			<div class="grid grid-cols-1 items-start gap-4 md:gap-6 @5xl/main:grid-cols-2">
-				<Skeleton class="h-80 w-full rounded-xl" />
-				<div class="flex flex-col gap-4 md:gap-6">
-					<Skeleton class="h-190 w-full rounded-xl" />
-					<Skeleton class="h-28 w-full rounded-xl" />
+				<div class="flex flex-col gap-4 md:gap-6 @5xl/main:col-start-1 @5xl/main:row-start-2">
+					<Skeleton class="h-107 w-full rounded-xl @5xl/main:h-92" />
+					<Skeleton class="h-56 w-full rounded-xl" />
+				</div>
+				<Skeleton
+					class="h-124 w-full rounded-xl @5xl/main:col-span-2 @5xl/main:row-start-1 @5xl/main:h-48"
+				/>
+				<div class="flex flex-col gap-4 md:gap-6 @5xl/main:col-start-2 @5xl/main:row-start-2">
+					<Skeleton class="h-86 w-full rounded-xl @5xl/main:h-94" />
+					<Skeleton class="h-96 w-full rounded-xl @5xl/main:h-99" />
 				</div>
 			</div>
 		</div>
