@@ -65,9 +65,12 @@
 		showWorkRow = isWork(pathname);
 	});
 
-	/** What the header's links share: a rounded item, as in shadcn's sidebar, at least 40px wide. */
+	/**
+	 * What the header's links share: a rounded item, as in shadcn's sidebar, at least 40px wide. The
+	 * page you are on keeps the same weight, so no link moves its neighbours when you switch.
+	 */
 	const ITEM =
-		'flex h-9 min-w-10 items-center justify-center gap-1.5 rounded-md text-sm whitespace-nowrap text-muted-foreground hover:text-foreground pointer-coarse:h-10 [&[aria-current]]:font-medium [&[aria-current]]:text-accent-foreground [&>svg]:shrink-0';
+		'flex h-9 min-w-10 items-center justify-center gap-1.5 rounded-md text-sm whitespace-nowrap text-muted-foreground hover:text-foreground pointer-coarse:h-10 [&[aria-current]]:text-accent-foreground [&>svg]:shrink-0';
 
 	/**
 	 * The main links, filled for the page you are on. Icons alone where the three labels do not fit
@@ -86,7 +89,7 @@
 	 * In Work, its link drops to the Work row like a folder's tab, in the row's colour, so the row
 	 * reads as the one it opened.
 	 */
-	const WORK_TAB = `${LINK} relative mt-2.5 h-auto min-w-12 self-stretch rounded-b-none px-3 pb-2.5 pointer-coarse:h-auto ${FLARES}`;
+	const WORK_TAB = `${LINK} relative mt-2.5 h-auto self-stretch rounded-b-none pb-2.5 pointer-coarse:h-auto ${FLARES}`;
 
 	/**
 	 * The Work row's links, on the row's tint, with the page you are on raised on the pill below.
@@ -161,7 +164,8 @@
 	The header is a card inset by the page gutter, like the cards on the page, so nothing runs to the
 	screen's edges, where a phone's rounded corners and Safari's floating controls would cut it off.
 	It stays at the top while you scroll, over a fade of the page in the gap above it. In Work, its
-	Work row is a second piece flush below it, so the two read as one card, and only the Work row
+	Work row is a second piece flush below it, so the two read as one card; wider than a phone, it is
+	only as wide as its tabs, hanging below the header's right end. Only the Work row
 	stays, as you move between its pages more than you leave them. Once it has, it rounds its top
 	corners as a card of its own. On a screen as short as a phone on its side, nothing stays.
 -->
@@ -172,8 +176,8 @@
 	<div
 		class={[
 			'border bg-card',
-			showWorkRow ? 'rounded-t-xl' : 'shadow-on-scroll rounded-xl',
-			showWorkRow && arrived && 'border-b-0'
+			showWorkRow ? 'rounded-t-xl sm:rounded-bl-xl' : 'shadow-on-scroll rounded-xl',
+			showWorkRow && arrived && 'border-b-0 sm:border-b'
 		]}
 	>
 		<div class="@container/header flex min-h-14 items-center justify-between gap-2 px-2">
@@ -232,14 +236,19 @@
 {/if}
 
 {#snippet workRow(position: string)}
-	<div class={position} data-work-row>
+	<!--
+		Measured as a container rather than the window, so the labels give way at larger text sizes.
+		The full row, as a container cannot take its width from the tabs inside it.
+	-->
+	<div class={['@container/work', position]} data-work-row>
 		<!-- The fade covers the gap above, behind the card. -->
 		<div class={['absolute inset-x-0 -top-2 bottom-0 -z-10', FADE]} hidden={!stuck}></div>
-		<!-- Measured as a container rather than the window, so the labels give way at larger text sizes. -->
 		<div
 			class={[
-				'@container/work flex items-center border bg-accent p-1.5 transition-[border-radius,box-shadow] duration-150 sm:pr-4.5',
-				stuck ? 'rounded-xl shadow-raised' : 'rounded-b-xl border-t-transparent'
+				'flex items-center border bg-accent p-1.5 transition-[border-radius,box-shadow] duration-150 sm:ml-auto sm:w-fit sm:pr-4.5',
+				stuck ? 'rounded-xl shadow-raised' : 'rounded-b-xl border-t-transparent',
+				// Over the header's bottom border, which is left only beside the row.
+				!stuck && arrived && 'sm:-mt-px'
 			]}
 		>
 			<h2 id="work-nav" class="sr-only">Work</h2>
