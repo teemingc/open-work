@@ -87,11 +87,40 @@
 	const WORK_TAB = `${LINK} relative mt-2.5 h-auto min-w-12 self-stretch rounded-b-none px-3 pb-2.5 pointer-coarse:h-auto ${FLARES}`;
 
 	/**
-	 * The Work row's links, on the row's tint, with the page you are on raised in the card's colour.
+	 * The Work row's links, on the row's tint, with the page you are on raised on the pill below.
 	 * On phones they share its width; where four labels do not fit, the others keep only their icons
 	 * and the page you are on keeps its label. Wider, they line up on the right, under Work.
 	 */
-	const SUB_LINK = `${ITEM} px-3 hover:bg-card/60 [&[aria-current]]:bg-card [&[aria-current]]:shadow-xs max-sm:flex-auto sm:first:ml-auto`;
+	const SUB_LINK = `${ITEM} relative px-3 hover:bg-card/60 max-sm:flex-auto sm:first-of-type:ml-auto`;
+
+	/**
+	 * Moves the Work row's pill, in the card's colour, to the page you are on, so it slides from the
+	 * tab you left to the one you chose. It moves with the click, as `aria-current` changes then
+	 * rather than when the page arrives, and again when the tabs change size, as when a label shows.
+	 * It is placed without sliding at first, so it does not slide in when the page loads.
+	 */
+	function slidePill(nav: HTMLElement) {
+		const pill = nav.querySelector<HTMLElement>('[data-pill]')!;
+		function place() {
+			const link = nav.querySelector<HTMLElement>('a[aria-current]');
+			pill.hidden = !link;
+			if (!link) return;
+			pill.style.translate = `${link.offsetLeft}px ${link.offsetTop}px`;
+			pill.style.width = `${link.offsetWidth}px`;
+			pill.style.height = `${link.offsetHeight}px`;
+		}
+		place();
+		const frame = requestAnimationFrame(() => (pill.dataset.ready = ''));
+		const resizes = new ResizeObserver(place);
+		for (const link of nav.querySelectorAll('a')) resizes.observe(link);
+		const changes = new MutationObserver(place);
+		changes.observe(nav, { attributeFilter: ['aria-current'], subtree: true });
+		return () => {
+			cancelAnimationFrame(frame);
+			resizes.disconnect();
+			changes.disconnect();
+		};
+	}
 
 	/** The page fades out behind a card that stays at the top, in the gap above it. */
 	const FADE = 'bg-linear-to-b from-background from-50% to-transparent';
@@ -200,7 +229,16 @@
 			]}
 		>
 			<h2 id="work-nav" class="sr-only">Work</h2>
-			<nav aria-labelledby="work-nav" class="flex flex-1 items-center gap-0.5 sm:gap-1">
+			<nav
+				aria-labelledby="work-nav"
+				class="relative flex flex-1 items-center gap-0.5 sm:gap-1"
+				{@attach slidePill}
+			>
+				<span
+					class="pointer-events-none absolute top-0 left-0 rounded-md bg-card shadow-xs ease-[cubic-bezier(0.215,0.61,0.355,1)] motion-safe:data-ready:transition-[translate,width,height] motion-safe:data-ready:duration-200"
+					data-pill
+					aria-hidden="true"
+				></span>
 				<a href={resolve('/work')} aria-current={current('/work')} class={SUB_LINK}>
 					<LayoutDashboard size={14} />
 					<span class={label('/work')}>Overview</span>
