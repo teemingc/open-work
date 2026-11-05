@@ -182,7 +182,7 @@
 		<div class="flex items-center justify-between gap-2">
 			<DriveSyncStatus {sync} />
 			<div class="ml-auto hidden shrink-0 gap-2 sm:flex">
-				<!-- Without a username there is nothing to add from, so it leads to where you set one. -->
+				<!-- Without a username there is nothing to add from; it is set in Settings, under Connections. -->
 				{#if settings.githubUsername}
 					<Button
 						variant="outline"
@@ -192,11 +192,6 @@
 					>
 						{#if fetching}<Spinner />{:else}<GitPullRequest />{/if}
 						Add from GitHub
-					</Button>
-				{:else}
-					<Button variant="outline" size="sm" href={resolve('/settings/connections')}>
-						<GitPullRequest />
-						Connect GitHub
 					</Button>
 				{/if}
 				<Button variant="outline" size="sm" href={resolve('/settings/hours')}>
