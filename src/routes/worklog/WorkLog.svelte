@@ -27,6 +27,7 @@
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import { onMount, untrack } from 'svelte';
 	import { today as currentDay } from './today.js';
+	import ClientBars from './ClientBars.svelte';
 	import DayList from './DayList.svelte';
 	import EntryForm from '#lib/components/EntryForm.svelte';
 	import MonthCharts from './MonthCharts.svelte';
@@ -243,6 +244,7 @@
 		<div
 			class="flex flex-col gap-4 self-stretch md:gap-6 @5xl/main:col-start-2 @5xl/main:row-start-2"
 		>
+			<ClientBars {summary} clients={store.data.clients} />
 			<TakeHome data={store.data} {summary} />
 			<MonthCharts chart="pace" {summary} clients={store.data.clients} {today} />
 			<div class="flex-1">

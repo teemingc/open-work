@@ -48,7 +48,7 @@
 					<Skeleton class="h-56 w-full rounded-xl" />
 				</div>
 				<Skeleton
-					class="h-124 w-full rounded-xl @5xl/main:col-span-2 @5xl/main:row-start-1 @5xl/main:h-48"
+					class="h-106 w-full rounded-xl @5xl/main:col-span-2 @5xl/main:row-start-1 @5xl/main:h-30"
 				/>
 				<div class="flex flex-col gap-4 md:gap-6 @5xl/main:col-start-2 @5xl/main:row-start-2">
 					<Skeleton class="h-86 w-full rounded-xl @5xl/main:h-94" />
