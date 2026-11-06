@@ -35,7 +35,6 @@
 	import { Label } from '#lib/components/ui/label/index.js';
 	import * as Select from '#lib/components/ui/select/index.js';
 	import WorkItem from '#lib/components/WorkItem.svelte';
-	import { hiddenTasks, hideTask, showTask } from '#lib/hidden-tasks.svelte.js';
 	import { formatHours, toIsoDate } from '#lib/format.js';
 	import {
 		describeRef,
@@ -61,7 +60,8 @@
 		date,
 		clientId,
 		onsave,
-		oncancel
+		oncancel,
+		onhidetask
 	}: {
 		clients: Client[];
 		organization?: string;
@@ -76,6 +76,8 @@
 		clientId?: string;
 		onsave: (entry: Omit<WorkLogEntry, 'id'>) => void;
 		oncancel?: () => void;
+		/** Removes a task name from the suggestions. */
+		onhidetask: (text: string) => void;
 	} = $props();
 
 	/** The current hour, or the end of today's last entry if that is later. */
@@ -175,7 +177,6 @@
 
 	function addItem(): boolean {
 		if (!parsed) return false;
-		if (parsed.kind === 'task') showTask(parsed.text);
 		const key = refKey(parsed);
 		if (!items.some((item) => refKey(item) === key)) items.push(parsed);
 		itemText = '';
@@ -274,15 +275,13 @@
 				id="{id}-item"
 				bind:value={itemText}
 				suggestions={tasks.filter(
-					(task) =>
-						!hiddenTasks.has(task) &&
-						!items.some((item) => item.kind === 'task' && item.text === task)
+					(task) => !items.some((item) => item.kind === 'task' && item.text === task)
 				)}
 				onpick={(task) => {
 					itemText = task;
 					addItem();
 				}}
-				onremove={hideTask}
+				onremove={onhidetask}
 				spellcheck={false}
 				aria-describedby="{id}-item-hint"
 				aria-invalid={itemText.trim() !== '' && !parsed}

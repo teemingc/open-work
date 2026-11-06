@@ -223,7 +223,8 @@
 						<EntryForm
 							{clients}
 							organization={settings.organization}
-							tasks={taskNames(store.data.entries)}
+							tasks={taskNames(store.data)}
+							onhidetask={(text) => store.hideTask(text)}
 							entries={store.data.entries}
 							date={defaultDate}
 							clientId={githubClient?.id}

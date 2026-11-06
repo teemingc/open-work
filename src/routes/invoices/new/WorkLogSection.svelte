@@ -135,7 +135,8 @@
 				clients={clientChoices({ clients: store.data.clients, clientId: entry.clientId })}
 				{organization}
 				{entry}
-				tasks={taskNames(store.data.entries)}
+				tasks={taskNames(store.data)}
+				onhidetask={(text) => store.hideTask(text)}
 				date={entry.date}
 				onsave={(changes) => {
 					store.updateEntry({ ...changes, id: entry.id });

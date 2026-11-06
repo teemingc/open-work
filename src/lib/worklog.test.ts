@@ -201,7 +201,27 @@ describe('notes', () => {
 			entry({ date: '2026-10-07', items: [task('Triage')] }),
 			entry({ date: '2026-10-12', items: [task('Mon full-time maintainers meeting')] })
 		];
-		expect(taskNames(entries)).toEqual(['Mon full-time maintainers meeting', 'Triage']);
+		expect(taskNames({ entries, hiddenTasks: [] })).toEqual([
+			'Mon full-time maintainers meeting',
+			'Triage'
+		]);
+	});
+
+	it('leaves hidden task names out of the suggestions', () => {
+		const entries = [
+			entry({
+				date: '2026-10-01',
+				items: [
+					{ kind: 'task', text: 'Triage' },
+					{ kind: 'task', text: 'Standup' }
+				]
+			})
+		];
+		const hiddenTasks = [
+			{ text: 'Triage', hidden: true },
+			{ text: 'Standup', hidden: false }
+		];
+		expect(taskNames({ entries, hiddenTasks })).toEqual(['Standup']);
 	});
 
 	it('skips found items already logged that day', () => {

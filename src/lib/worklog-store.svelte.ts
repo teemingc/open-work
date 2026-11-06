@@ -38,6 +38,8 @@ export type TabChange = 'saved' | 'cleared';
 
 /** Where earlier versions kept the log. Read once, to move it into IndexedDB. */
 const LEGACY_STORAGE_KEY = 'invoicer:worklog';
+/** Where earlier versions kept hidden suggestions, in this browser only. Read once, into the log. */
+const LEGACY_HIDDEN_TASKS_KEY = 'invoicer:hidden-tasks';
 const DB_NAME = 'open-work';
 const DB_STORE = 'worklog';
 const DB_KEY = 'log';
@@ -168,6 +170,7 @@ export const indexedDbBackend: WorkLogBackend = {
 		});
 		try {
 			localStorage.removeItem(LEGACY_STORAGE_KEY);
+			localStorage.removeItem(LEGACY_HIDDEN_TASKS_KEY);
 		} catch {
 			// Storage blocked: nothing was kept there.
 		}
@@ -287,6 +290,25 @@ export class WorkLogStore {
 		this.data.deleted.push({ kind, id, at: nowIso() });
 	}
 
+	/** Logging a hidden task again brings it back to the suggestions. */
+	#showTasks(items: WorkLogEntry['items']) {
+		const at = nowIso();
+		for (const item of items) {
+			if (item.kind !== 'task') continue;
+			const hidden = this.data.hiddenTasks.find((task) => task.text === item.text && task.hidden);
+			if (hidden) Object.assign(hidden, { hidden: false, updatedAt: at });
+		}
+	}
+
+	/** Leave a task name out of the suggestions, on every device. */
+	hideTask(text: string) {
+		const updatedAt = nowIso();
+		const existing = this.data.hiddenTasks.find((task) => task.text === text);
+		if (existing) Object.assign(existing, { hidden: true, updatedAt });
+		else this.data.hiddenTasks.push({ text, hidden: true, updatedAt });
+		this.#save();
+	}
+
 	client(id: string): Client | undefined {
 		return this.data.clients.find((client) => client.id === id);
 	}
@@ -295,6 +317,7 @@ export class WorkLogStore {
 
 	addEntry(entry: Omit<WorkLogEntry, 'id' | 'updatedAt'>): WorkLogEntry {
 		const created = { ...entry, id: crypto.randomUUID(), updatedAt: nowIso() };
+		this.#showTasks(entry.items);
 		this.data.entries.splice(
 			insertionIndex({ entries: this.data.entries, entry: created }),
 			0,
@@ -313,6 +336,7 @@ export class WorkLogStore {
 		if (previous.afterMidnight && previous.date === entry.date && !('afterMidnight' in entry)) {
 			updated.afterMidnight = true;
 		}
+		this.#showTasks(entry.items);
 		this.data.entries.splice(index, 1);
 		this.data.entries.splice(
 			insertionIndex({ entries: this.data.entries, entry: updated }),
@@ -377,6 +401,7 @@ export class WorkLogStore {
 		const existing = this.data.entries.find(
 			(other) => other.date === date && other.clientId === clientId && !other.start && !other.hours
 		);
+		this.#showTasks(items);
 		if (existing) {
 			existing.items.push(...items);
 			existing.updatedAt = nowIso();
@@ -633,6 +658,7 @@ export class WorkLogStore {
 			holidays: backup.holidays.map(stamp),
 			invoices: backup.invoices.map(stamp),
 			deductions: backup.deductions.map(stamp),
+			hiddenTasks: backup.hiddenTasks.map(stamp),
 			scheduleUpdatedAt: at,
 			invoicingUpdatedAt: undefined,
 			invoicingFieldsUpdatedAt: backup.invoicing && stampAll(backup.invoicing, at),
@@ -647,6 +673,19 @@ export class WorkLogStore {
 		};
 		this.#save();
 		for (const listener of this.#replacedListeners) listener();
+	}
+}
+
+/** Move suggestions hidden by an earlier version, which kept them in this browser only. */
+function moveHiddenTasks(store: WorkLogStore) {
+	try {
+		const stored: unknown = JSON.parse(localStorage.getItem(LEGACY_HIDDEN_TASKS_KEY) ?? '[]');
+		if (Array.isArray(stored)) {
+			for (const text of stored) if (typeof text === 'string') store.hideTask(text);
+		}
+		localStorage.removeItem(LEGACY_HIDDEN_TASKS_KEY);
+	} catch {
+		// Blocked or unreadable storage: nothing to move.
 	}
 }
 
@@ -674,6 +713,7 @@ export function openWorkLog(defaults: () => Promise<WorkLogDefaults>): Promise<W
 		});
 		// A log that could not be read stays as it is until you change something, so it can be recovered.
 		if (!data && !unreadable) store.adopt(store.data);
+		moveHiddenTasks(store);
 		return store;
 	})();
 	return opening;

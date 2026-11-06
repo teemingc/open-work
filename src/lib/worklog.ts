@@ -322,6 +322,16 @@ const TombstoneSchema = v.object({
 /** A deleted record, remembered so syncing does not resurrect it. */
 export type Tombstone = v.InferOutput<typeof TombstoneSchema>;
 
+const HiddenTaskSchema = v.object({
+	text: v.string(),
+	/** False once it is logged again, so a copy that still hides it does not hide it again. */
+	hidden: v.boolean(),
+	updatedAt: v.optional(v.string())
+});
+
+/** A task name removed from the suggestions, kept in the log so it stays removed everywhere. */
+export type HiddenTask = v.InferOutput<typeof HiddenTaskSchema>;
+
 export const WorkLogSchema = v.object({
 	version: v.literal(1),
 	clients: v.array(ClientSchema),
@@ -354,6 +364,7 @@ export const WorkLogSchema = v.object({
 	settings: v.optional(SettingsSchema),
 	/** When each of your settings last changed. */
 	settingsUpdatedAt: v.optional(FieldStamps),
+	hiddenTasks: v.optional(v.array(HiddenTaskSchema), []),
 	/** Records deleted here, so a copy that still has them does not bring them back. */
 	deleted: v.optional(v.array(TombstoneSchema), [])
 });
@@ -370,6 +381,7 @@ export function emptyWorkLog(): WorkLogData {
 		deductions: [],
 		hoursPerDay: 8,
 		replaceHolidays: true,
+		hiddenTasks: [],
 		deleted: []
 	};
 }
@@ -608,12 +620,16 @@ export function entriesFor({
 	);
 }
 
-/** Task names logged before, each once, the most recently logged first. */
-export function taskNames(entries: WorkLogEntry[]): string[] {
+/** Task names logged before and not hidden, each once, the most recently logged first. */
+export function taskNames({
+	entries,
+	hiddenTasks
+}: Pick<WorkLogData, 'entries' | 'hiddenTasks'>): string[] {
+	const hidden = new Set(hiddenTasks.filter((task) => task.hidden).map((task) => task.text));
 	const latest = new Map<string, string>();
 	for (const entry of entries) {
 		for (const item of entry.items) {
-			if (item.kind !== 'task') continue;
+			if (item.kind !== 'task' || hidden.has(item.text)) continue;
 			const date = latest.get(item.text);
 			if (!date || entry.date > date) latest.set(item.text, entry.date);
 		}

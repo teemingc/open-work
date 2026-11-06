@@ -198,6 +198,20 @@ describe('mergeWorkLogs', () => {
 		expect(sameWorkLog(mergeWorkLogs({ ours: ab, theirs: ba, now }), ab)).toBe(true);
 	});
 
+	it('keeps a suggestion hidden on another device, and shown again if logged since', () => {
+		const ours = log({ hiddenTasks: [{ text: 'Triage', hidden: false, updatedAt: at(9) }] });
+		const theirs = log({
+			hiddenTasks: [
+				{ text: 'Triage', hidden: true, updatedAt: at(8) },
+				{ text: 'Standup', hidden: true, updatedAt: at(8) }
+			]
+		});
+		expect(mergeWorkLogs({ ours, theirs, now }).hiddenTasks).toEqual([
+			{ text: 'Triage', hidden: false, updatedAt: at(9) },
+			{ text: 'Standup', hidden: true, updatedAt: at(8) }
+		]);
+	});
+
 	it('forgets deletions after six months', () => {
 		const merged = mergeWorkLogs({
 			ours: log({ deleted: [{ kind: 'client', id: 'gone', at: '2026-01-01T00:00:00.000Z' }] }),

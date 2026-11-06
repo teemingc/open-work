@@ -194,6 +194,12 @@ export function mergeWorkLogs({
 		invoicingFieldsUpdatedAt: invoicing.at,
 		settings: settings.value,
 		settingsUpdatedAt: settings.at,
+		hiddenTasks: mergeRecords({
+			ours: ours.hiddenTasks,
+			theirs: theirs.hiddenTasks,
+			key: (task) => task.text,
+			deletedAt: () => undefined
+		}),
 		updatedAt: newer({ updatedAt: ours.updatedAt }, { updatedAt: theirs.updatedAt }).updatedAt,
 		deleted: [...tombstones.values()]
 	};

@@ -1,6 +1,5 @@
 import { resolve } from '$app/paths';
 import { forgetDriveSync } from '#lib/drive-sync.svelte.js';
-import { forgetHiddenTasks } from '#lib/hidden-tasks.svelte.js';
 import { forgetRecentCollectives } from '#lib/recent-collectives.js';
 import { forgetWorkLog } from '#lib/worklog-store.svelte.js';
 
@@ -12,7 +11,6 @@ import { forgetWorkLog } from '#lib/worklog-store.svelte.js';
 export async function forgetThisBrowser(): Promise<void> {
 	forgetDriveSync();
 	forgetRecentCollectives();
-	forgetHiddenTasks();
 	await forgetWorkLog();
 	// Also the cache. Browsers without the header have already lost everything else above.
 	// As JSON, which other sites cannot send without asking first, so they cannot clear yours.
