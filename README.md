@@ -8,6 +8,7 @@ Your settings are kept in a cookie and your work log in this browser's local sto
 
 ```sh
 pnpm install
+cp .env.example .env
 pnpm dev
 ```
 
@@ -44,7 +45,7 @@ Without the Google credentials below, sign-in is hidden and the work log stays i
 2. Open **Google Auth Platform**. On **Audience**, choose _External_ and add yourself as a test user.
 3. On **Data access**, add the `https://www.googleapis.com/auth/drive.appdata` scope. It is non-sensitive, so it needs no security review.
 4. On **Clients**, create an OAuth client of type _Web application_ with the authorized redirect URI `http://localhost:5317/api/auth/callback/google`.
-5. Put `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `BETTER_AUTH_SECRET` (at least 32 random characters, for example from `openssl rand -base64 32`) in `.dev.vars`.
+5. Put `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `BETTER_AUTH_SECRET` (at least 32 random characters, for example from `openssl rand -base64 32`) in `.env`.
 
 While the app is in testing, only test users can sign in and Google expires their sign-in after 7 days.
 
@@ -113,7 +114,7 @@ Date | Repository | Issue/PR
 
 ## Develop
 
-The dev server runs on port 5317, the port the OAuth callbacks are registered for. For Open Collective, create a separate OAuth app with the callback URL `http://localhost:5317/auth/callback` and put its `OC_CLIENT_ID` and `OC_CLIENT_SECRET` in `.dev.vars`. If the port is taken, Vite picks another and warns that sign-in will not work.
+The dev server runs on port 5317, the port the OAuth callbacks are registered for. For Open Collective, create a separate OAuth app with the callback URL `http://localhost:5317/auth/callback` and put its `OC_CLIENT_ID` and `OC_CLIENT_SECRET` in `.env`. If the port is taken, Vite picks another and warns that sign-in will not work.
 
 ```sh
 pnpm format
