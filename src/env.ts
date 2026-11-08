@@ -40,6 +40,12 @@ export const variables = defineEnvVars({
 		description: 'Open Collective personal token used for public queries',
 		schema: optional
 	},
+	// Only read by `pnpm dev`: act as connected to this Open Collective account, so pages that need
+	// one can be previewed without connecting. Open Collective is not asked for it.
+	DEV_OPEN_COLLECTIVE_SLUG: {
+		description: 'Open Collective account to act as connected to in development only',
+		schema: optional
+	},
 	// Google sign-in, to keep the work log in the user's own Google Drive. Optional: without
 	// them the work log stays in the browser only.
 	GOOGLE_CLIENT_ID: {

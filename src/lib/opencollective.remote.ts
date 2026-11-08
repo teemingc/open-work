@@ -1,3 +1,5 @@
+import { dev } from '$app/env';
+import { DEV_OPEN_COLLECTIVE_SLUG } from '$app/env/private';
 import { form, query } from '$app/server';
 import { buildExpense, SubmitExpenseSchema } from '#lib/server/expense.js';
 import {
@@ -39,6 +41,18 @@ export interface Account {
 	payoutMethods: PayoutMethod[];
 }
 
+/** The account `pnpm dev` acts as connected to, when `DEV_OPEN_COLLECTIVE_SLUG` is set. */
+const devAccount: Account | null =
+	dev && DEV_OPEN_COLLECTIVE_SLUG
+		? {
+				slug: DEV_OPEN_COLLECTIVE_SLUG,
+				name: DEV_OPEN_COLLECTIVE_SLUG,
+				address: null,
+				country: null,
+				payoutMethods: []
+			}
+		: null;
+
 async function fetchMe(token: string): Promise<NonNullable<MeResult['me']>> {
 	const { me } = await graphql<MeResult>({ token, query: ME_QUERY });
 	if (!me) throw new OpenCollectiveError('This connection is not linked to an account.', 401);
@@ -47,6 +61,7 @@ async function fetchMe(token: string): Promise<NonNullable<MeResult['me']>> {
 
 /** The connected Open Collective account, or `null` when this browser has not connected. */
 export const getMe = query(async (): Promise<Account | null> => {
+	if (devAccount) return devAccount;
 	const token = getToken();
 	if (!token) return null;
 
@@ -75,6 +90,7 @@ export const getMe = query(async (): Promise<Account | null> => {
  * collective, so the requests to Open Collective stay few however many clients you invoice.
  */
 export const getExpenses = query(async (): Promise<Expense[]> => {
+	if (devAccount) return [];
 	const token = requireToken();
 	try {
 		const me = await fetchMe(token);

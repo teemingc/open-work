@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import * as Alert from '#lib/components/ui/alert/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { nextPeriod, toIsoDate } from '#lib/format.js';
 	import { missingFromSettings } from '#lib/settings.js';
-	import { CircleAlert, TriangleAlert } from '@lucide/svelte';
+	import { CircleAlert, ExternalLink, TriangleAlert } from '@lucide/svelte';
 	import { getExpenses, getMe } from '#lib/opencollective.remote.js';
 	import { isHttpError } from '@sveltejs/kit';
 	import { onMount } from 'svelte';
@@ -126,7 +127,27 @@
 </svelte:head>
 
 <div class="flex flex-col gap-4 md:gap-6">
-	<h1>Invoices</h1>
+	<div class="flex flex-wrap items-baseline justify-between gap-2">
+		<h1>Invoices</h1>
+		{#if me && showExpenses}
+			<!--
+				Open Collective keeps the history of expenses sent there, so link to it rather than repeat it.
+				The button's baseline is its icon's bottom edge, 2.5px below its text, so it is moved
+				down that much to sit the text on the heading's baseline.
+			-->
+			<Button
+				variant="outline"
+				size="sm"
+				class="translate-y-[0.15625rem]"
+				href="https://opencollective.com/dashboard/{me.slug}/submitted-expenses"
+				target="_blank"
+				rel="noopener noreferrer"
+			>
+				<ExternalLink />
+				<span><span class="hidden @md/main:inline">Expenses on</span> Open Collective</span>
+			</Button>
+		{/if}
+	</div>
 
 	<!--
 		Everything below waits until your account and settings are known, then fades in at once,

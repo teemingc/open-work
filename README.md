@@ -18,6 +18,8 @@ Then open Settings and fill in:
 - **Hourly rate** and currency. Each new invoice copies these.
 - **GitHub** (optional): username, a token for private activity, the organization and, if you like, a list of repositories.
 
+To preview pages that need a connected account without connecting one, set `DEV_OPEN_COLLECTIVE_SLUG` in `.env` to any account's slug. `pnpm dev` then acts as connected to it, with no expenses; builds ignore it.
+
 ## Work log
 
 Log your time under **Work log**, a month at a time. Each entry is a block of time for one client: a date, a start and end (or just hours), and everything you worked on in it. Type an item as a GitHub path or link, like `owner/repo/pull/123` or `repo/issues/45` (the owner defaults to your organization), or as a task like a meeting. **Add from GitHub** fills in the PRs and issues you touched that month.
