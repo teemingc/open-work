@@ -1,0 +1,108 @@
+diff --git a/dist/bits/time-field/time-field.svelte.js b/dist/bits/time-field/time-field.svelte.js
+index 52346425030690e05c3a45eaf3b0251dd9883b51..7e6fb9439a06bd0d0e57973b3a00c503fc49d36d 100644
+--- a/dist/bits/time-field/time-field.svelte.js
++++ b/dist/bits/time-field/time-field.svelte.js
+@@ -564,6 +564,7 @@ class BaseTimeSegmentState {
+         this.attachment = attachRef(opts.ref);
+         this.onkeydown = this.onkeydown.bind(this);
+         this.onfocusout = this.onfocusout.bind(this);
++        this.onclick = this.onclick.bind(this);
+     }
+     #getMax() {
+         return typeof this.config.max === "function" ? this.config.max(this.root) : this.config.max;
+@@ -582,6 +583,9 @@ class BaseTimeSegmentState {
+         const placeholder = this.root.value.current ?? this.root.placeholder.current;
+         if (e.ctrlKey || e.metaKey || this.root.disabled.current)
+             return;
++        // Open Work patch: any other key ends a left-filled entry.
++        if (!isNumberString(e.key) && !isBackspace(e.key))
++            this.#tens = null;
+         if (e.key !== kbd.TAB)
+             e.preventDefault();
+         if (!isAcceptableSegmentKey(e.key))
+@@ -648,7 +652,44 @@ class BaseTimeSegmentState {
+             return this.#formatValue(next);
+         });
+     }
++    // Open Work patch: the tens digit typed into minutes or seconds, while it waits for the ones digit.
++    #tens = null;
++    // Open Work patch: fills minutes and seconds from the left, so "3" shows "30" and then "5" makes
++    // "35", where bits-ui would show "3" and hold 03. A first digit of 6 to 9 can only be ones, so it
++    // makes "06" and moves on.
++    #handleLeftFilledNumberKey(e) {
++        const num = Number.parseInt(e.key);
++        const state = this.root.states[this.part];
++        let moveToNext = false;
++        // @ts-expect-error this is a part
++        this.root.updateSegment(this.part, () => {
++            state.hasLeftFocus = false;
++            state.lastKeyZero = false;
++            if (this.#tens !== null) {
++                const next = `${this.#tens}${num}`;
++                this.#tens = null;
++                moveToNext = true;
++                this.announcer.announce(String(Number.parseInt(next)));
++                return next;
++            }
++            if (num > Math.floor(this.#getMax() / 10)) {
++                moveToNext = true;
++                this.announcer.announce(String(num));
++                return `0${num}`;
++            }
++            this.#tens = num;
++            this.announcer.announce(String(num * 10));
++            return `${num}0`;
++        });
++        if (moveToNext) {
++            moveToNextTimeSegment(e, this.root.getFieldNode());
++        }
++    }
+     #handleNumberKey(e) {
++        if (this.part === "minute" || this.part === "second") {
++            this.#handleLeftFilledNumberKey(e);
++            return;
++        }
+         const num = Number.parseInt(e.key);
+         let moveToNext = false;
+         const max = this.#getMax();
+@@ -718,8 +759,16 @@ class BaseTimeSegmentState {
+             this.root.states[stateKey].hasLeftFocus = false;
+         }
+         let moveToPrev = false;
++        // Open Work patch: with only the tens digit typed, "30" would go back to "3", held as 03, so
++        // empty the segment instead.
++        const tensOnly = this.#tens !== null;
++        this.#tens = null;
+         // @ts-expect-error this is a part
+         this.root.updateSegment(this.part, (prev) => {
++            if (tensOnly) {
++                this.announcer.announce(null);
++                return null;
++            }
+             if (prev === null) {
+                 moveToPrev = true;
+                 this.announcer.announce(null);
+@@ -742,7 +791,14 @@ class BaseTimeSegmentState {
+             moveToPrevTimeSegment(e, this.root.getFieldNode());
+         }
+     }
++    // Open Work patch: clicking the segment starts its entry afresh.
++    onclick(e) {
++        this.#tens = null;
++        this.root.handleSegmentClick(e);
++    }
+     onfocusout(_) {
++        // Open Work patch: leaving keeps the tens digit, as "30", and starts afresh next time.
++        this.#tens = null;
+         const stateKey = this.part;
+         if (stateKey in this.root.states) {
+             this.root.states[stateKey].hasLeftFocus = true;
+@@ -791,7 +847,7 @@ class BaseTimeSegmentState {
+             ...this.getSegmentProps(),
+             onkeydown: this.onkeydown,
+             onfocusout: this.onfocusout,
+-            onclick: this.root.handleSegmentClick,
++            onclick: this.onclick,
+             ...this.root.getBaseSegmentAttrs(this.part, this.opts.id.current),
+             ...this.attachment,
+         };

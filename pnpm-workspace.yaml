@@ -4,3 +4,5 @@ allowBuilds:
 catalog:
   '@typescript/native': npm:typescript@^7.0.2
   typescript: npm:@typescript/typescript6@^6.0.2
+patchedDependencies:
+  bits-ui@2.20.2: patches/bits-ui@2.20.2.patch
