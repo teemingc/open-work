@@ -3,7 +3,7 @@
  * gives to the projects of an ecosystem, rather than paying expenses of their own.
  */
 
-import { accountName, yearsBefore, type Month } from './financials';
+import { accountName, yearsBefore, type Month, type PayoutNode } from './financials';
 
 /** A contribution the collective made to another account, as Open Collective's transactions report it. */
 export interface GrantNode {
@@ -19,6 +19,8 @@ export interface GrantNode {
 		stats?: { totalAmountSpent: { value: number } | null } | null;
 	} | null;
 	order: { frequency: string | null } | null;
+	/** A gift paid as an expense to a person, rather than contributed to a collective. */
+	toPerson?: boolean;
 }
 
 /** A recurring contribution the collective is still making to another account. */
@@ -39,6 +41,8 @@ export interface Grant {
 	amount: number;
 	/** Part of a recurring contribution, rather than a one-off. */
 	recurring: boolean;
+	/** Paid as an expense to a person, as a gift to a maintainer with no collective of their own is. */
+	toPerson: boolean;
 	/** All the account spent in the past 12 months, if Open Collective said. */
 	theirSpending: { value: number; currency: string } | null;
 }
@@ -59,6 +63,7 @@ export function toGrants(nodes: GrantNode[]): Grant[] {
 			imageUrl: node.oppositeAccount?.imageUrl ?? null,
 			amount: -node.netAmount.value,
 			recurring: !!node.order?.frequency && node.order.frequency !== 'ONETIME',
+			toPerson: !!node.toPerson,
 			theirSpending:
 				node.oppositeAccount?.currency && node.oppositeAccount.stats?.totalAmountSpent
 					? {
@@ -68,6 +73,50 @@ export function toGrants(nodes: GrantNode[]): Grant[] {
 					: null
 		}))
 		.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** Expense types Open Collective has for money given rather than owed. */
+const GIFT_TYPES = new Set(['GRANT', 'FUNDING_REQUEST']);
+
+/**
+ * Whether an expense is a gift rather than payment for work the collective asked for. A fund pays
+ * maintainers who have no collective of their own by expense, as the Vite Ecosystem Fund does, and
+ * those are as much its giving as its contributions to collectives. Told by the expense being a
+ * grant, booked as a donation or sponsorship, or tagged with the collective's own slug, which is
+ * how a fund marks what it gives.
+ */
+export function isGift({ node, slug }: { node: PayoutNode; slug: string }): boolean {
+	const expense = node.expense;
+	if (!expense) return false;
+	return (
+		GIFT_TYPES.has(expense.type) ||
+		/donation|sponsorship/i.test(expense.accountingCategory?.name ?? '') ||
+		!!expense.tags?.includes(slug.toLowerCase())
+	);
+}
+
+/** A gift paid as an expense, as the contribution it stands for. What the payee spends is not asked. */
+export function giftToGrant(node: PayoutNode): GrantNode {
+	return {
+		createdAt: node.createdAt,
+		netAmount: node.netAmount,
+		oppositeAccount: node.oppositeAccount && {
+			slug: node.oppositeAccount.slug,
+			name: node.oppositeAccount.name,
+			imageUrl: node.oppositeAccount.imageUrl ?? null
+		},
+		order: null,
+		toPerson: node.oppositeAccount?.type === 'INDIVIDUAL'
+	};
+}
+
+/**
+ * How many it gave to, as "3 projects", or "3 projects and maintainers" with any people among
+ * them.
+ */
+export function recipientCount({ count, people }: { count: number; people: boolean }): string {
+	if (!people) return `${count} project${count === 1 ? '' : 's'}`;
+	return count === 1 ? '1 maintainer' : `${count} projects and maintainers`;
 }
 
 const PER_MONTH: Record<string, number> = { MONTHLY: 1, QUARTERLY: 1 / 3, YEARLY: 1 / 12 };
@@ -256,6 +305,8 @@ export interface RoundGift {
 	amount: number;
 	/** Any of it was a recurring contribution. */
 	recurring: boolean;
+	/** Any of it was paid as an expense to a person. */
+	toPerson: boolean;
 }
 
 /** The gifts made on one day. */
@@ -285,12 +336,14 @@ export function toRounds(grants: Grant[]): Round[] {
 				name: grant.name,
 				imageUrl: grant.imageUrl,
 				amount: 0,
-				recurring: false
+				recurring: false,
+				toPerson: false
 			};
 			round.gifts.push(gift);
 		}
 		gift.amount += grant.amount;
 		gift.recurring ||= grant.recurring;
+		gift.toPerson ||= grant.toPerson;
 	}
 	const rounds = [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key));
 	for (const round of rounds) round.gifts.sort((a, b) => b.amount - a.amount);

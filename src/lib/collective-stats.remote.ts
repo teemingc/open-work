@@ -29,7 +29,14 @@ import {
 	type TimeSeriesNode,
 	type Unpaid
 } from './financials';
-import { toCommitments, toGrants, type CommitmentNode, type GrantNode } from './grants';
+import {
+	giftToGrant,
+	isGift,
+	toCommitments,
+	toGrants,
+	type CommitmentNode,
+	type GrantNode
+} from './grants';
 
 /**
  * The collective in the address, like "svelte". Any text is let through and checked with `slug`, so
@@ -137,10 +144,12 @@ const PAYOUT_NODES = /* GraphQL */ `
 		oppositeAccount {
 			slug
 			name
+			type
 			imageUrl(height: 64)
 		}
 		expense {
 			type
+			tags
 			accountingCategory {
 				name
 			}
@@ -322,7 +331,7 @@ interface StatsResult {
 
 /** Monthly balance, income and spending for the collective, from Open Collective's public stats. */
 const loadStats = perKey({
-	cacheKey: (slug) => `stats:v10:${slug}`,
+	cacheKey: (slug) => `stats:v13:${slug}`,
 	maxAgeMs: CACHE_MS,
 	load: async (slug, ask) => {
 		const from = '2016-01-01T00:00:00Z';
@@ -359,8 +368,14 @@ const loadStats = perKey({
 					}
 				})
 			]);
-			payouts = [...result.payouts.nodes, ...morePayouts];
-			grants = [...result.grants.nodes, ...moreGrants];
+			// Gifts paid as expenses are the collective's giving, not what it costs to run.
+			const expenses = [...result.payouts.nodes, ...morePayouts];
+			payouts = expenses.filter((node) => !isGift({ node, slug }));
+			grants = [
+				...result.grants.nodes,
+				...moreGrants,
+				...expenses.filter((node) => isGift({ node, slug })).map(giftToGrant)
+			];
 		} catch (err) {
 			// Open Collective reports a missing account as a failure of the fields that ask about it.
 			if (err instanceof Error && /not found/i.test(err.message)) missing(slug);

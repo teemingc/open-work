@@ -6,7 +6,14 @@
 	import { scaleLinear, scaleUtc } from 'd3-scale';
 	import { compactFormat, moneyFormat } from '#lib/chart-format.js';
 	import { monthsBetween, transactionsUrl } from '#lib/financials.js';
-	import type { AheadPoint, HistoryPoint, Recipient, Round, RoundGift } from '#lib/grants.js';
+	import {
+		recipientCount,
+		type AheadPoint,
+		type HistoryPoint,
+		type Recipient,
+		type Round,
+		type RoundGift
+	} from '#lib/grants.js';
 	import MoneyRow from './MoneyRow.svelte';
 
 	let {
@@ -132,6 +139,12 @@
 	};
 
 	/** Everyone it had contributed to by the end of each day it gave on, the most given first. */
+	/** The gifts by name when few, else how many there were. */
+	const whom = (gifts: RoundGift[]) =>
+		gifts.length <= NAMED
+			? names(gifts)
+			: recipientCount({ count: gifts.length, people: gifts.some((gift) => gift.toPerson) });
+
 	const tallies = $derived.by(() => {
 		const totals: Record<string, RoundGift> = {};
 		let total = 0;
@@ -142,7 +155,8 @@
 				totals[gift.slug] = {
 					...gift,
 					amount: (before?.amount ?? 0) + gift.amount,
-					recurring: !!before?.recurring || gift.recurring
+					recurring: !!before?.recurring || gift.recurring,
+					toPerson: !!before?.toPerson || gift.toPerson
 				};
 			}
 			return { total, gifts: Object.values(totals).sort((a, b) => b.amount - a.amount) };
@@ -400,7 +414,7 @@
 												Contributed <span class="font-medium text-foreground tabular-nums"
 													>{amount}</span
 												>
-												to {gifts.length <= NAMED ? names(gifts) : `${gifts.length} projects`}
+												to {whom(gifts)}
 											</p>
 											{@render logos(gifts.map((gift) => ({ ...gift, ringed: gift.recurring })))}
 										</div>
@@ -412,9 +426,7 @@
 													Contributed <span class="font-medium text-foreground tabular-nums"
 														>{money.format(value)}</span
 													>
-													so far to {projects.length <= NAMED
-														? names(projects)
-														: `${projects.length} projects`}
+													so far to {whom(projects)}
 												</p>
 												{@render logos(
 													projects.map((project) => ({ ...project, ringed: project.recurring }))

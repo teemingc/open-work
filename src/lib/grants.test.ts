@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { Month } from './financials';
+import type { Month, PayoutNode } from './financials';
 import {
+	giftToGrant,
 	givingAhead,
 	givingHistory,
 	givingYear,
 	isFund,
+	isGift,
+	recipientCount,
 	reducedContributions,
 	toCommitments,
 	toGrants,
@@ -53,6 +56,7 @@ describe('toGrants', () => {
 				imageUrl: null,
 				amount: 36000,
 				recurring: false,
+				toPerson: false,
 				theirSpending: null
 			},
 			{
@@ -62,6 +66,7 @@ describe('toGrants', () => {
 				imageUrl: null,
 				amount: 500,
 				recurring: true,
+				toPerson: false,
 				theirSpending: null
 			}
 		]);
@@ -277,5 +282,78 @@ describe('givingAhead', () => {
 	it('is empty without monthly gifts or the money for one more', () => {
 		expect(givingAhead({ given: 0, received: 1000, monthly: 0, now, limit: 60 })).toEqual([]);
 		expect(givingAhead({ given: 995, received: 1000, monthly: 10, now, limit: 60 })).toEqual([]);
+	});
+});
+
+describe('isGift', () => {
+	const expense = (expense: Partial<NonNullable<PayoutNode['expense']>>): PayoutNode => ({
+		createdAt: '2026-11-06T10:00:00.000Z',
+		netAmount: { value: -2500 },
+		oppositeAccount: {
+			slug: 'ari',
+			name: 'Ari',
+			type: 'INDIVIDUAL',
+			imageUrl: 'https://example.com/ari.png'
+		},
+		expense: { type: 'INVOICE', accountingCategory: null, ...expense }
+	});
+	const slug = 'vite-ecosystem-fund';
+
+	it('is a gift when tagged with the collective, booked as a donation, or a grant', () => {
+		expect(isGift({ node: expense({ tags: [slug] }), slug })).toBe(true);
+		expect(isGift({ node: expense({ tags: [slug] }), slug: 'Vite-Ecosystem-Fund' })).toBe(true);
+		expect(
+			isGift({
+				node: expense({ accountingCategory: { name: 'Expenses - Donations & Sponsorships' } }),
+				slug
+			})
+		).toBe(true);
+		expect(isGift({ node: expense({ type: 'GRANT' }), slug })).toBe(true);
+	});
+
+	it('is not when it is payment for work', () => {
+		expect(isGift({ node: expense({ tags: ['maintenance'] }), slug })).toBe(false);
+		expect(
+			isGift({
+				node: expense({
+					accountingCategory: { name: 'Consultants · Maintenance and Development' }
+				}),
+				slug
+			})
+		).toBe(false);
+		expect(isGift({ node: { ...expense({}), expense: null }, slug })).toBe(false);
+	});
+
+	it('is to a person only when the payee is an individual', () => {
+		const node = expense({ type: 'GRANT' });
+		const toOrganization = {
+			...node,
+			oppositeAccount: { slug: 'numfocus', name: 'NumFOCUS', type: 'ORGANIZATION' }
+		};
+		expect(toGrants([giftToGrant(toOrganization)])[0].toPerson).toBe(false);
+	});
+
+	it('counts towards a fund as a one-off contribution to the payee', () => {
+		expect(toGrants([giftToGrant(expense({ tags: [slug] }))])).toEqual([
+			{
+				date: '2026-11-06T10:00:00.000Z',
+				slug: 'ari',
+				name: 'Ari',
+				imageUrl: 'https://example.com/ari.png',
+				amount: 2500,
+				recurring: false,
+				toPerson: true,
+				theirSpending: null
+			}
+		]);
+	});
+});
+
+describe('recipientCount', () => {
+	it('counts projects, and maintainers too when any were paid by expense', () => {
+		expect(recipientCount({ count: 1, people: false })).toBe('1 project');
+		expect(recipientCount({ count: 20, people: false })).toBe('20 projects');
+		expect(recipientCount({ count: 39, people: true })).toBe('39 projects and maintainers');
+		expect(recipientCount({ count: 1, people: true })).toBe('1 maintainer');
 	});
 });

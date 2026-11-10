@@ -24,8 +24,18 @@ export interface PayoutNode {
 	createdAt: string;
 	/** Negative, and includes payment processor fees. */
 	netAmount: { value: number };
-	oppositeAccount: { slug: string; name: string; imageUrl?: string | null } | null;
-	expense: { type: string; accountingCategory: { name: string } | null } | null;
+	/** `type` is INDIVIDUAL for a person, else such as ORGANIZATION or COLLECTIVE. */
+	oppositeAccount: {
+		slug: string;
+		name: string;
+		type?: string;
+		imageUrl?: string | null;
+	} | null;
+	expense: {
+		type: string;
+		tags?: string[] | null;
+		accountingCategory: { name: string } | null;
+	} | null;
 }
 
 /** Money between the collective and one account in one month. */

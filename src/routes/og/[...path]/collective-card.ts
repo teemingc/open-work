@@ -9,7 +9,7 @@ import {
 	unpaidTotals,
 	type Forecast
 } from '#lib/financials.js';
-import { givingYear, toRecipients, type Recipient } from '#lib/grants.js';
+import { givingYear, recipientCount, toRecipients, type Recipient } from '#lib/grants.js';
 import type { CollectiveStats } from '#lib/collective-stats.remote.js';
 import {
 	BORDER,
@@ -199,7 +199,13 @@ export function fundCard(
 					strong: true
 				},
 				{ text: ' to ' },
-				{ text: `${count}\u00a0project${count === 1 ? '' : 's'}`, strong: true },
+				{
+					text: recipientCount({
+						count,
+						people: stats.grants.some((grant) => grant.toPerson)
+					}).replace(' ', '\u00a0'),
+					strong: true
+				},
 				{ text: '.' }
 			])
 		]

@@ -9,6 +9,7 @@
 		givingAhead,
 		givingHistory,
 		givingYear,
+		recipientCount,
 		reducedContributions,
 		toRecipients,
 		toRounds
@@ -82,6 +83,8 @@
 	);
 	const yearTotal = $derived(yearGrants.reduce((sum, grant) => sum + grant.amount, 0));
 	const yearProjects = $derived(new Set(yearGrants.map((grant) => grant.slug)).size);
+	/** Some of what it gave was paid by expense to people, as maintainers with no collective are. */
+	const people = $derived(data.grants.some((grant) => grant.toPerson));
 	/** The project it contributed most to, all told. */
 	const top = $derived(recipients.at(0));
 
@@ -103,7 +106,7 @@
 			label: 'Contributed',
 			tone: 'text-chart-expenses',
 			value: money.format(granted),
-			note: `To ${recipients.length} project${recipients.length === 1 ? '' : 's'}`
+			note: `To ${recipientCount({ count: recipients.length, people })}`
 		},
 		// With nothing received nor left over, what it did with its own money fills the strip instead.
 		...(ownMoney && yearTotal > 0
@@ -114,7 +117,7 @@
 						value: money.format(yearTotal),
 						note: year.stopped
 							? `Up to ${dayMonthYear.format(new Date(year.to))}`
-							: `To ${yearProjects} project${yearProjects === 1 ? '' : 's'}`
+							: `To ${recipientCount({ count: yearProjects, people: yearGrants.some((grant) => grant.toPerson) })}`
 					}
 				]
 			: []),
@@ -191,7 +194,7 @@
 		{:else if reduced}
 			Reduced contributions
 		{:else}
-			Contributes to other collectives
+			{people ? 'Contributes to projects and maintainers' : 'Contributes to other collectives'}
 		{/if}
 	</Alert.Title>
 	<Alert.Description>
@@ -206,7 +209,11 @@
 				)} less compared to {money.format(reduced.previous)} in the 12 months before.
 			{:else}
 				{#if ownMoney}
-					It directly contributes to other collectives from its own funds.
+					It directly contributes to {people
+						? 'open source projects and their maintainers'
+						: 'other collectives'} from its own funds.
+				{:else if people}
+					Almost everything it receives goes on to open source projects and their maintainers.
 				{:else}
 					Almost everything it receives goes on to other projects on Open Collective.
 				{/if}
@@ -225,10 +232,12 @@
 <div class="grid gap-4 md:gap-6 @5xl/main:grid-cols-2">
 	<Card.Root>
 		<Card.Header>
-			<Card.Title>Collectives it funds</Card.Title>
+			<Card.Title
+				>{people ? 'Projects and maintainers it funds' : 'Collectives it funds'}</Card.Title
+			>
 			<Card.Description
-				>Each collective it contributes to, sized by the total amount, with the smallest enlarged so
-				their logos can be seen.</Card.Description
+				>Each {people ? 'one' : 'collective'} it contributes to, sized by the total amount, with the smallest
+				enlarged so their logos can be seen.</Card.Description
 			>
 		</Card.Header>
 		<Card.Content>
