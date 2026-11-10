@@ -15,8 +15,12 @@ const stats = {
 } as unknown as CollectiveStats;
 
 describe('collectiveImageVersion', () => {
-	it('stays the same while the figures and the month do', () => {
-		const later = { ...stats, fetchedAt: '2026-10-29T20:00:00.000Z' };
+	it('is keyed by the Monday of the week', () => {
+		expect(collectiveImageVersion(stats)).toMatch(/^\d+-2026-10-19-[a-z0-9]+$/);
+	});
+
+	it('stays the same while the figures and the week do', () => {
+		const later = { ...stats, fetchedAt: '2026-10-25T20:00:00.000Z' };
 		expect(collectiveImageVersion(later)).toBe(collectiveImageVersion(stats));
 	});
 
@@ -25,8 +29,8 @@ describe('collectiveImageVersion', () => {
 		expect(collectiveImageVersion(richer)).not.toBe(collectiveImageVersion(stats));
 	});
 
-	it('changes each month', () => {
-		const next = { ...stats, fetchedAt: '2026-11-01T00:00:00.000Z' };
+	it('changes each week', () => {
+		const next = { ...stats, fetchedAt: '2026-10-26T00:00:00.000Z' };
 		expect(collectiveImageVersion(next)).not.toBe(collectiveImageVersion(stats));
 	});
 });

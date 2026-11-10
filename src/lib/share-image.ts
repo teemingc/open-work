@@ -9,8 +9,9 @@ import type { CollectiveStats } from '#lib/collective-stats.remote.js';
 export const OG_IMAGE_VERSION = '4';
 
 /**
- * Changes whenever a collective's card may: when Open Collective reports new figures, and at the
- * start of each month, as the forecast moves along even when nothing new comes in.
+ * Changes whenever a collective's card may: when Open Collective reports new figures, and each
+ * week, so a card is never older than a week whatever its figures missed, and the forecast moves
+ * along even when nothing new comes in.
  */
 export function collectiveImageVersion(stats: CollectiveStats): string {
 	// What a fund has given, and to whom, for a fund's card.
@@ -24,7 +25,15 @@ export function collectiveImageVersion(stats: CollectiveStats): string {
 		given,
 		stats.commitments
 	];
-	return `${OG_IMAGE_VERSION}-${stats.fetchedAt.slice(0, 7)}-${hash(JSON.stringify(figures))}`;
+	return `${OG_IMAGE_VERSION}-${weekStart(stats.fetchedAt)}-${hash(JSON.stringify(figures))}`;
+}
+
+/** The Monday of the week a moment falls in, in UTC, as YYYY-MM-DD. */
+function weekStart(iso: string): string {
+	const date = new Date(iso);
+	// Sunday is 0, and belongs to the week of the Monday before it.
+	date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+	return date.toISOString().slice(0, 10);
 }
 
 /** FNV-1a: short, and the same in the browser as on the server. */
