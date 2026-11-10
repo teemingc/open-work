@@ -42,6 +42,11 @@
 		timeZone: 'UTC'
 	});
 	const balance = $derived(data.months.at(-1)?.balance ?? 0);
+	/**
+	 * Expenses submitted but not paid yet, approved or not. A fund pays maintainers with no collective
+	 * by expense, so these are gifts on their way that neither the balance nor the total shows.
+	 */
+	const owed = $derived(data.unpaid.reduce((sum, expense) => sum + expense.amount, 0));
 	const year = $derived(givingYear({ grants: data.grants, now }));
 	const recipients = $derived(
 		toRecipients({
@@ -138,7 +143,9 @@
 						label: 'Balance',
 						tone: 'text-chart-balance',
 						value: money.format(balance),
-						note: 'Available for gifting'
+						note: owed
+							? `${money.format(owed)} of it awaiting payment, in ${data.unpaid.length} expense${data.unpaid.length === 1 ? '' : 's'}`
+							: 'Available for gifting'
 					}
 				]),
 		...(monthly > 0
