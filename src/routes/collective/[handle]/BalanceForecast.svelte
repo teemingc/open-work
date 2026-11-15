@@ -111,6 +111,10 @@
 	const balanceMax = $derived(
 		Math.max(0, ...trend.map((p) => Math.max(p.balance, p.yearBefore ?? 0)))
 	);
+	/** Below nothing where a collective has paid out more than it holds, or its line ran off the bottom. */
+	const balanceMin = $derived(
+		Math.min(0, ...trend.map((p) => Math.min(p.balance, p.yearBefore ?? 0)))
+	);
 
 	/** When the money runs out within the years forecast, as the projection then ends there. */
 	const runsOutDate = $derived(
@@ -191,7 +195,7 @@
 						y="balance"
 						xScale={scaleUtc()}
 						xDomain={[history[0]?.date ?? now, forecastSpan.at(-1) ?? now]}
-						yDomain={[0, balanceMax]}
+						yDomain={[balanceMin, balanceMax]}
 						yNice
 						seriesLayout="overlap"
 						highlight={{
@@ -302,7 +306,7 @@
 							</ClipPath>
 							<ClipPath>
 								{#snippet clip()}
-									<Area data={trend} y0={() => 0} y1="balance" />
+									<Area data={trend} y0={() => balanceMin * 2 - 1} y1="balance" />
 								{/snippet}
 								<Area
 									data={trend}
