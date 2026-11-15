@@ -148,12 +148,12 @@ test('settings save automatically and the setup warning lists what is missing', 
 		.getByRole('navigation', { name: 'Settings' })
 		.getByRole('link', { name: 'Invoicing' })
 		.click();
-	await page.getByLabel('Notes').fill(' X123 ');
-	await page.getByLabel('Notes').blur();
+	await page.getByLabel('Notes on every invoice').fill(' X123 ');
+	await page.getByLabel('Notes on every invoice').blur();
 	await expect.poll(async () => (await savedLog(page))?.invoicing?.notes).toBe('X123');
 	await page.reload();
 
-	await expect(page.getByLabel('Notes')).toHaveValue('X123');
+	await expect(page.getByLabel('Notes on every invoice')).toHaveValue('X123');
 });
 
 test('a draft survives a reload', async ({ page }) => {

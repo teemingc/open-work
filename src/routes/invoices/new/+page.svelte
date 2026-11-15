@@ -66,9 +66,9 @@
 	const notes = $derived(
 		workLogText({ entries: draft.entries, organization: settings.organization })
 	);
-	/** What every invoice says about you, sent to Open Collective as well as on emailed ones. */
+	/** What invoices say about you, sent to Open Collective as well as on emailed ones. */
 	const invoicing = $derived(store.data.invoicing ?? emptyInvoicing());
-	const invoiceInfo = $derived(invoicingNotes(invoicing) || undefined);
+	const invoiceInfo = $derived(invoicingNotes({ invoicing, client: draft.client }) || undefined);
 	const payee = $derived({
 		address: addressLine(invoicing.address) || me?.address || undefined,
 		country: invoicing.address.country.trim() || me?.country || undefined

@@ -363,7 +363,7 @@ export async function drawInvoicePdf({
 	if (totals.category === 'reverse-charge') {
 		paragraph({ text: 'Reverse charge: the customer accounts for the VAT on this invoice.' });
 	}
-	const notes = invoicingNotes(invoicing);
+	const notes = invoicingNotes({ invoicing, client });
 	if (notes) paragraph({ text: notes });
 
 	// How to pay: any opening words first, then a table of labels and values, the account's own

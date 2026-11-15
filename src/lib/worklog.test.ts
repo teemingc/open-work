@@ -46,6 +46,8 @@ import {
 	withCurrentRate,
 	withRates,
 	workLogText,
+	emptyInvoicing,
+	invoicingNotes,
 	type Client,
 	type DayOff,
 	type Invoice,
@@ -1021,5 +1023,23 @@ describe('dropDays', () => {
 			'2030-01-01',
 			'2030-01-02'
 		]);
+	});
+});
+
+describe('invoice notes', () => {
+	const invoicing = { ...emptyInvoicing(), notes: 'Thank you.', taxId: 'IG1' };
+
+	it("adds a client's own notes to that client's invoices only", () => {
+		const zenos = { invoiceNotes: 'Tax Status: W-8BEN on file with Zenos LLC.' };
+		expect(invoicingNotes({ invoicing, client: zenos })).toBe(
+			'Thank you.\nTax Status: W-8BEN on file with Zenos LLC.\nIncome tax number: IG1'
+		);
+		expect(invoicingNotes({ invoicing, client: {} })).toBe('Thank you.\nIncome tax number: IG1');
+	});
+
+	it("leaves out the tax number when a client's notes give it", () => {
+		expect(invoicingNotes({ invoicing, client: { invoiceNotes: 'Tax number IG1' } })).toBe(
+			'Thank you.\nTax number IG1'
+		);
 	});
 });

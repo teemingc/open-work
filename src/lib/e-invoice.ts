@@ -68,7 +68,11 @@ export function toEInvoice({
 	// A buyer's system tells sellers apart by one of these; outside VAT, a VAT number may not be it.
 	const sellerId = invoicing.taxId.trim() || invoicing.email.trim() || invoicing.name.trim();
 	const days = invoiceDays({ issuedOn, dueOn });
-	const notes = [invoicing.notes.trim(), invoicing.payment.trim()].filter(Boolean);
+	const notes = [
+		invoicing.notes.trim(),
+		client.invoiceNotes?.trim(),
+		invoicing.payment.trim()
+	].filter(Boolean);
 
 	const data = {
 		'ubl:Invoice': {

@@ -118,7 +118,9 @@ const ClientSchema = v.object({
 	lineItem: v.optional(v.string()),
 	/** The email's subject and message, with the invoice filled in; see `fillTemplate`. */
 	emailSubject: v.optional(v.string()),
-	emailMessage: v.optional(v.string())
+	emailMessage: v.optional(v.string()),
+	/** Said on this client's invoices only, like a tax form on file with them. */
+	invoiceNotes: v.optional(v.string())
 });
 
 export type Client = v.InferOutput<typeof ClientSchema>;
@@ -225,7 +227,7 @@ const InvoicingSchema = v.object({
 	bic: v.optional(v.string(), ''),
 	/** Anything else needed to pay you, like the bank's name and a routing number. */
 	payment: v.optional(v.string(), ''),
-	/** Anything else every invoice says, like your tax status. */
+	/** Anything else every invoice says. A client's own notes are its `invoiceNotes`. */
 	notes: v.optional(v.string(), '')
 });
 
@@ -250,15 +252,25 @@ export function addressLine(address: Address): string {
 		.join(', ');
 }
 
-/** Your notes, and your tax number unless the notes already give it. Said on every invoice. */
-export function invoicingNotes(invoicing: Invoicing): string {
+/**
+ * What an invoice says besides its figures: your notes for every invoice, the client's own, and
+ * your tax number unless the notes already give it.
+ */
+export function invoicingNotes({
+	invoicing,
+	client
+}: {
+	invoicing: Invoicing;
+	client?: Pick<Client, 'invoiceNotes'>;
+}): string {
 	const taxId = invoicing.taxId.trim();
+	const notes = [invoicing.notes.trim(), client?.invoiceNotes?.trim()].filter(Boolean);
 	return [
-		invoicing.notes.trim(),
-		...(taxId && !invoicing.notes.includes(taxId) ? [`Income tax number: ${taxId}`] : [])
-	]
-		.filter(Boolean)
-		.join('\n');
+		...notes,
+		...(taxId && !notes.some((note) => note?.includes(taxId))
+			? [`Income tax number: ${taxId}`]
+			: [])
+	].join('\n');
 }
 
 const BandSchema = v.object({

@@ -1,16 +1,18 @@
 <script lang="ts">
+	import ClientName from '#lib/components/ClientName.svelte';
 	import SettingsSection from '#lib/components/SettingsSection.svelte';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import { emptyInvoicing, type Invoicing } from '#lib/worklog.js';
+	import { activeClients, emptyInvoicing, type Invoicing } from '#lib/worklog.js';
 	import type { FullAutoFill } from 'svelte/elements';
 	import AddressFields from './AddressFields.svelte';
 
 	let { store }: { store: WorkLogStore } = $props();
 
 	const invoicing = $derived(store.data.invoicing ?? emptyInvoicing());
+	const clients = $derived(activeClients(store.data.clients));
 
 	function change(patch: Partial<Invoicing>) {
 		store.setInvoicing({ ...$state.snapshot(invoicing), ...patch });
@@ -92,7 +94,7 @@
 		})}
 	</div>
 	<div class="space-y-1.5">
-		<Label for="invoice-notes">Notes</Label>
+		<Label for="invoice-notes">Notes on every invoice</Label>
 		<Textarea
 			id="invoice-notes"
 			class="min-h-20"
@@ -100,4 +102,22 @@
 			onchange={(event) => change({ notes: event.currentTarget.value.trim() })}
 		/>
 	</div>
+	<!-- What only one client's invoices say, like a tax form on file with them. -->
+	{#each clients as client (client.id)}
+		<div class="space-y-1.5">
+			<Label for="{client.id}-invoice-notes" class="flex-wrap gap-1">
+				Notes on <ClientName {client} /> invoices only
+			</Label>
+			<Textarea
+				id="{client.id}-invoice-notes"
+				class="min-h-20"
+				value={client.invoiceNotes ?? ''}
+				onchange={(event) =>
+					store.updateClient({
+						...$state.snapshot(store.client(client.id) ?? client),
+						invoiceNotes: event.currentTarget.value.trim() || undefined
+					})}
+			/>
+		</div>
+	{/each}
 </SettingsSection>
