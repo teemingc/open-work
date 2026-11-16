@@ -9,6 +9,7 @@
 	import { MIN_CONTRIBUTION, standings, yearlyRanks, type RankBy } from './contributors';
 	import { getContributors } from './contributors.remote';
 	import RankRace from './RankRace.svelte';
+	import ShareBar from './ShareBar.svelte';
 
 	const CHARTED = 10;
 
@@ -256,7 +257,7 @@
 									<div class="flex min-w-0 items-center gap-2">
 										<a
 											href={resolve('/collective/[handle]', { handle: contributor.slug })}
-											class="flex min-w-0 items-center gap-2.5 font-medium hover:underline"
+											class="relative z-10 flex min-w-0 items-center gap-2.5 font-medium hover:underline"
 										>
 											{#if contributor.imageUrl}
 												<img
@@ -273,6 +274,19 @@
 											<span class="min-w-0 wrap-break-word">{contributor.name}</span>
 										</a>
 									</div>
+									<!--
+										Under the name where the share column has no room, so a phone shows the spread
+										too, and a tap opens who it went to.
+									-->
+									{#if rank}
+										<div class="mt-1.5 md:hidden">
+											<ShareBar
+												name={contributor.name}
+												length={amount / most}
+												spread={contributor.spread[by]}
+											/>
+										</div>
+									{/if}
 								</th>
 								<td
 									class={['px-3 py-2.5 text-right', rank ? 'font-medium' : 'text-muted-foreground']}
@@ -283,11 +297,12 @@
 									{#if rank}
 										<div class="flex items-center gap-2">
 											<!-- As long as the leader's is full, so the gaps between places show. -->
-											<div class="h-1.5 flex-1">
-												<div
-													class="h-full rounded-full bg-primary"
-													style:width="{(amount / most) * 100}%"
-												></div>
+											<div class="flex-1">
+												<ShareBar
+													name={contributor.name}
+													length={amount / most}
+													spread={contributor.spread[by]}
+												/>
 											</div>
 											<span class="min-w-9 text-right text-muted-foreground">
 												{percent.format(amount / sum)}

@@ -300,11 +300,24 @@ export interface Contributor {
 	total: number;
 	/** What it contributed in each calendar year, by year. Years with nothing are left out. */
 	years: Record<number, number>;
+	/** How what it contributed is spread over those it gave to, in the past 12 months and in all. */
+	spread: Record<RankBy, Spread>;
+}
+
+/** How many recipients a spread names: those given the most. The rest count together. */
+export const SEGMENTS = 4;
+
+/** How what a contributor gave is spread over those it gave to. */
+export interface Spread {
+	/** How many it gave to. */
+	count: number;
+	/** The `SEGMENTS` given the most, the most first, each with its part of the whole, from 0 to 1. */
+	top: { name: string; share: number }[];
 }
 
 /**
  * The accounts Open Collective knows, in the order asked about. One may have contributed nothing by
- * these sums, having given by invoice alone: `withGifts` adds those.
+ * these sums, having given by invoice alone: `withGifts` adds those. `spreadOf` fills in the spread.
  */
 export function toContributors(nodes: (ContributorNode | null)[]): Contributor[] {
 	return nodes
@@ -322,7 +335,8 @@ export function toContributors(nodes: (ContributorNode | null)[]): Contributor[]
 				recent: Math.abs(node.stats.recent.value),
 				previous: Math.abs(node.stats.previous.value),
 				total: Math.abs(node.stats.total.value),
-				years
+				years,
+				spread: { recent: { count: 0, top: [] }, total: { count: 0, top: [] } }
 			};
 		});
 }
@@ -331,6 +345,8 @@ export function toContributors(nodes: (ContributorNode | null)[]): Contributor[]
 export interface ExpenseNode extends Pick<PayoutNode, 'createdAt' | 'expense'> {
 	/** Negative, and includes payment processor fees. */
 	netAmount: { value: number; currency: string };
+	/** Whom it was paid to. */
+	toAccount?: GivenNode['toAccount'];
 }
 
 /** A page of the expenses an account has paid, the latest first. */
@@ -350,6 +366,10 @@ export const EXPENSES_QUERY = /* GraphQL */ `
 					value
 					currency
 				}
+				toAccount {
+					slug
+					name
+				}
 				expense {
 					type
 					tags
@@ -361,6 +381,13 @@ export const EXPENSES_QUERY = /* GraphQL */ `
 		}
 	}
 `;
+
+/** What a gift paid as an expense came to, or 0 for an expense that doesn't count as one. */
+function giftAmount(node: ExpenseNode, slug: string): number {
+	const amount = -node.netAmount.value;
+	if (node.netAmount.currency !== 'USD' || amount <= 0) return 0;
+	return isGift({ node, slug }) ? amount : 0;
+}
 
 /**
  * A contributor with the gifts it paid as expenses added to what it contributed. A fund pays
@@ -380,9 +407,8 @@ export function withGifts({
 	const { yearAgo, twoYearsAgo, firstYear } = contributorsWindow(now);
 	const result = { ...contributor, years: { ...contributor.years } };
 	for (const node of expenses) {
-		const amount = -node.netAmount.value;
-		if (node.netAmount.currency !== 'USD' || amount <= 0) continue;
-		if (!isGift({ node, slug: contributor.slug })) continue;
+		const amount = giftAmount(node, contributor.slug);
+		if (!amount) continue;
 		result.total += amount;
 		if (node.createdAt >= yearAgo) result.recent += amount;
 		else if (node.createdAt >= twoYearsAgo) result.previous += amount;
@@ -392,6 +418,86 @@ export function withGifts({
 		}
 	}
 	return result;
+}
+
+/** One contribution an account made, in the currency of the host that holds it. */
+export interface GivenNode {
+	createdAt: string;
+	amount: { value: number };
+	/** Given back since. */
+	isRefunded: boolean;
+	toAccount: { slug: string; name: string | null } | null;
+}
+
+/** A page of the contributions an account has made, the latest first. */
+export const GIVEN_QUERY = /* GraphQL */ `
+	query ContributorGiven($slug: String!, $limit: Int!, $offset: Int!) {
+		transactions(
+			fromAccount: { slug: $slug }
+			type: CREDIT
+			kind: ${KINDS}
+			limit: $limit
+			offset: $offset
+		) {
+			totalCount
+			nodes {
+				createdAt
+				amount {
+					value
+				}
+				isRefunded
+				toAccount {
+					slug
+					name
+				}
+			}
+		}
+	}
+`;
+
+/** The recipients given anything, the most first, as their parts of what all of them were given. */
+function toSpread(amounts: { name: string; amount: number }[]): Spread {
+	const given = amounts.filter(({ amount }) => amount > 0).sort((a, b) => b.amount - a.amount);
+	const sum = given.reduce((total, { amount }) => total + amount, 0);
+	return {
+		count: given.length,
+		top: given.slice(0, SEGMENTS).map(({ name, amount }) => ({ name, share: amount / sum }))
+	};
+}
+
+/**
+ * How what `slug` gave is spread over those it gave to: its contributions, and the gifts it paid
+ * as expenses. Amounts are added whatever their currency, which is near enough for the parts of a
+ * bar a few pixels tall.
+ */
+export function spreadOf({
+	slug,
+	given,
+	expenses,
+	now
+}: {
+	slug: string;
+	given: GivenNode[];
+	expenses: ExpenseNode[];
+	now: Date;
+}): Record<RankBy, Spread> {
+	const { yearAgo } = contributorsWindow(now);
+	const recipients = new Map<string, { name: string; recent: number; total: number }>();
+	const add = (node: { createdAt: string; toAccount?: GivenNode['toAccount'] }, amount: number) => {
+		const to = node.toAccount;
+		if (!to || amount <= 0) return;
+		const recipient = recipients.get(to.slug) ?? { name: to.name || to.slug, recent: 0, total: 0 };
+		recipient.total += amount;
+		if (node.createdAt >= yearAgo) recipient.recent += amount;
+		recipients.set(to.slug, recipient);
+	};
+	for (const node of given) if (!node.isRefunded) add(node, node.amount.value);
+	for (const node of expenses) add(node, giftAmount(node, slug));
+	const all = [...recipients.values()];
+	return {
+		recent: toSpread(all.map(({ name, recent }) => ({ name, amount: recent }))),
+		total: toSpread(all.map(({ name, total }) => ({ name, amount: total })))
+	};
 }
 
 /** What the table ranks by: the past 12 months, or everything contributed. */

@@ -6,17 +6,20 @@ import {
 	contributorsWindow,
 	EXPENSES_QUERY,
 	giftsPaid,
+	GIVEN_QUERY,
 	HOSTS,
 	MIN_CONTRIBUTION,
 	PAID_QUERY,
 	SCAN_PAGE,
 	SCAN_QUERY,
+	spreadOf,
 	toCandidates,
 	toContributors,
 	withGifts,
 	type Contributor,
 	type ContributorNode,
 	type ExpenseNode,
+	type GivenNode,
 	type PaidNode,
 	type ScanNode
 } from './contributors';
@@ -86,13 +89,16 @@ async function scanHost<T>({
 	}
 }
 
-/** Every expense `slug` has paid. Most contributors, being companies, have paid none. */
-async function scanExpenses(slug: string): Promise<ExpenseNode[]> {
-	const nodes: ExpenseNode[] = [];
+/**
+ * Every transaction of `slug` that `query` lists: `EXPENSES_QUERY` for the expenses it paid, which
+ * most contributors, being companies, have none of, and `GIVEN_QUERY` for its contributions.
+ */
+async function scanAccount<T>(slug: string, query: string): Promise<T[]> {
+	const nodes: T[] = [];
 	for (let offset = 0; ; offset += SCAN_PAGE) {
 		const { transactions } = await ask<{
-			transactions: { totalCount: number; nodes: ExpenseNode[] };
-		}>({ query: EXPENSES_QUERY, variables: { slug, offset, limit: SCAN_PAGE } });
+			transactions: { totalCount: number; nodes: T[] };
+		}>({ query, variables: { slug, offset, limit: SCAN_PAGE } });
 		nodes.push(...transactions.nodes);
 		if (offset + SCAN_PAGE >= transactions.totalCount) return nodes;
 	}
@@ -108,12 +114,12 @@ async function scanExpenses(slug: string): Promise<ExpenseNode[]> {
  * of the `HOSTS` in each of the two years, plus a page for every further `SCAN_PAGE` there is. It
  * asks about ten times more for the expenses the hosts paid, to find the gifts among them. Then it
  * asks once for every
- * `BATCH_SIZE` of the `LIMIT` ranked, and once or more for each ranked, for the gifts it paid as
- * expenses. Open Collective doesn't publish its rate limit; asking with `OC_PERSONAL_TOKEN`, when
+ * `BATCH_SIZE` of the `LIMIT` ranked, and twice or more for each ranked: for the gifts it paid as
+ * expenses, and for whom its contributions went to. Open Collective doesn't publish its rate limit; asking with `OC_PERSONAL_TOKEN`, when
  * set, gets a higher one than asking anonymously.
  */
 export const loadContributors = cached<ContributorsResult>({
-	key: 'contributors:scan:v5',
+	key: 'contributors:scan:v7',
 	// Under the week between scheduled refreshes, so each finds last week's standings stale.
 	maxAgeMs: 6 * 24 * 60 * 60 * 1000,
 	scheduled: true,
@@ -149,9 +155,12 @@ export const loadContributors = cached<ContributorsResult>({
 			}
 			// One at a time, to stay under Open Collective's rate limit.
 			for (const contributor of toContributors(nodes)) {
-				const expenses = await scanExpenses(contributor.slug);
+				const { slug } = contributor;
+				const expenses = await scanAccount<ExpenseNode>(slug, EXPENSES_QUERY);
 				const withGiven = withGifts({ contributor, expenses, now });
-				if (withGiven.total > 0) contributors.push(withGiven);
+				if (withGiven.total <= 0) continue;
+				const given = await scanAccount<GivenNode>(slug, GIVEN_QUERY);
+				contributors.push({ ...withGiven, spread: spreadOf({ slug, given, expenses, now }) });
 			}
 		} catch (err) {
 			toHttpError(err);

@@ -3,6 +3,7 @@ import {
 	contributorsQuery,
 	contributorsWindow,
 	giftsPaid,
+	spreadOf,
 	standings,
 	toCandidates,
 	toContributors,
@@ -10,6 +11,7 @@ import {
 	yearlyRanks,
 	type ContributorNode,
 	type ExpenseNode,
+	type GivenNode,
 	type PaidNode,
 	type ScanNode
 } from './contributors';
@@ -267,5 +269,93 @@ describe('giftsPaid', () => {
 			['doctrine', 6000]
 		]);
 		expect(toCandidates(gifts)).toEqual(['vite-ecosystem-fund']);
+	});
+});
+
+describe('spreadOf', () => {
+	const now = new Date('2026-11-16T00:00:00.000Z');
+	const given = (
+		slug: string,
+		value: number,
+		{ createdAt = '2026-06-01T00:00:00.000Z', isRefunded = false } = {}
+	): GivenNode => ({
+		createdAt,
+		amount: { value },
+		isRefunded,
+		toAccount: { slug, name: slug.toUpperCase() }
+	});
+
+	it('gives each recipient its part of the past year and of all time, the most first', () => {
+		const spread = spreadOf({
+			slug: 'netlify',
+			given: [
+				given('vite', 1000),
+				given('svelte', 2000),
+				given('svelte', 1000),
+				given('webpack', 6000, { createdAt: '2020-06-01T00:00:00.000Z' }),
+				given('babel', 9000, { isRefunded: true })
+			],
+			expenses: [],
+			now
+		});
+		expect(spread.recent).toEqual({
+			count: 2,
+			top: [
+				{ name: 'SVELTE', share: 0.75 },
+				{ name: 'VITE', share: 0.25 }
+			]
+		});
+		expect(spread.total).toEqual({
+			count: 3,
+			top: [
+				{ name: 'WEBPACK', share: 0.6 },
+				{ name: 'SVELTE', share: 0.3 },
+				{ name: 'VITE', share: 0.1 }
+			]
+		});
+	});
+
+	it('names the four given the most and counts the rest', () => {
+		const { total } = spreadOf({
+			slug: 'netlify',
+			given: ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((slug, i) => given(slug, 70 - i * 10)),
+			expenses: [],
+			now
+		});
+		expect(total.count).toBe(7);
+		expect(total.top.map((part) => part.name)).toEqual(['A', 'B', 'C', 'D']);
+		expect(total.top[0].share).toBeCloseTo(70 / 280);
+	});
+
+	it('counts whom gifts paid as expenses went to, and not what the contributor paid for itself', () => {
+		const expense = (slug: string, value: number, tags: string[]): ExpenseNode => ({
+			createdAt: '2026-10-22T00:00:00.000Z',
+			netAmount: { value: -value, currency: 'USD' },
+			toAccount: { slug, name: null },
+			expense: { type: 'INVOICE', tags, accountingCategory: null }
+		});
+		const { recent } = spreadOf({
+			slug: 'vite-ecosystem-fund',
+			given: [given('vite', 1000)],
+			expenses: [
+				expense('a-maintainer', 3000, ['vite-ecosystem-fund']),
+				expense('a-host', 900, ['hosting'])
+			],
+			now
+		});
+		expect(recent).toEqual({
+			count: 2,
+			top: [
+				{ name: 'a-maintainer', share: 0.75 },
+				{ name: 'VITE', share: 0.25 }
+			]
+		});
+	});
+
+	it('is empty for one that gave nothing', () => {
+		expect(spreadOf({ slug: 'netlify', given: [], expenses: [], now }).total).toEqual({
+			count: 0,
+			top: []
+		});
 	});
 });
