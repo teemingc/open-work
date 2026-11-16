@@ -114,7 +114,10 @@ export function isGift({
 	);
 }
 
-/** A gift paid as an expense, as the contribution it stands for. What the payee spends is not asked. */
+/**
+ * A gift paid as an expense, as the contribution it stands for. What the payee spends comes with it,
+ * as a fund like Bloomberg's pays nearly all its gifts to collectives by expense.
+ */
 export function giftToGrant(node: PayoutNode): GrantNode {
 	return {
 		createdAt: node.createdAt,
@@ -122,7 +125,9 @@ export function giftToGrant(node: PayoutNode): GrantNode {
 		oppositeAccount: node.oppositeAccount && {
 			slug: node.oppositeAccount.slug,
 			name: node.oppositeAccount.name,
-			imageUrl: node.oppositeAccount.imageUrl ?? null
+			imageUrl: node.oppositeAccount.imageUrl ?? null,
+			currency: node.oppositeAccount.currency,
+			stats: node.oppositeAccount.stats
 		},
 		order: null,
 		toPerson: node.oppositeAccount?.type === 'INDIVIDUAL'

@@ -347,6 +347,24 @@ describe('isGift', () => {
 			}
 		]);
 	});
+
+	it('carries what a collective paid by expense spends', () => {
+		const node = expense({ type: 'GRANT' });
+		const toCollective = {
+			...node,
+			oppositeAccount: {
+				slug: 'aboutcode',
+				name: 'AboutCode',
+				type: 'COLLECTIVE',
+				currency: 'USD',
+				stats: { totalAmountSpent: { value: -2288.78 } }
+			}
+		};
+		expect(toGrants([giftToGrant(toCollective)])[0].theirSpending).toEqual({
+			value: 2288.78,
+			currency: 'USD'
+		});
+	});
 });
 
 describe('recipientCount', () => {

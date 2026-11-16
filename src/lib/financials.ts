@@ -30,6 +30,9 @@ export interface PayoutNode {
 		name: string;
 		type?: string;
 		imageUrl?: string | null;
+		/** The payee's own currency and all it spent in the past 12 months, negative, in that currency. */
+		currency?: string;
+		stats?: { totalAmountSpent: { value: number } | null } | null;
 	} | null;
 	expense: {
 		type: string;
