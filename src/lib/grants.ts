@@ -98,7 +98,13 @@ const GIFT_TYPES = new Set(['GRANT', 'FUNDING_REQUEST']);
  * grant, booked as a donation or sponsorship, or tagged with the collective's own slug, which is
  * how a fund marks what it gives.
  */
-export function isGift({ node, slug }: { node: PayoutNode; slug: string }): boolean {
+export function isGift({
+	node,
+	slug
+}: {
+	node: Pick<PayoutNode, 'expense'>;
+	slug: string;
+}): boolean {
 	const expense = node.expense;
 	if (!expense) return false;
 	return (

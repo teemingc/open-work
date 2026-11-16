@@ -4,8 +4,8 @@
  * contributed in the past year or in all, with their place in each of the past few calendar years.
  */
 
-import { yearsBefore } from '#lib/financials.js';
-import { GIVING_KINDS } from '#lib/grants.js';
+import { yearsBefore, type PayoutNode } from '#lib/financials.js';
+import { GIVING_KINDS, isGift } from '#lib/grants.js';
 
 /**
  * The hosts scanned for contributors. Open Collective cannot list the accounts that contribute to
@@ -14,7 +14,7 @@ import { GIVING_KINDS } from '#lib/grants.js';
 export const HOSTS = ['opensource', 'europe', 'numfocus'];
 
 /** The smallest contribution scanned for, in US dollars, to keep the scan to a few requests. */
-export const MIN_CONTRIBUTION = 1000;
+export const MIN_CONTRIBUTION = 500;
 
 /** How many transactions one scan request lists, the most Open Collective allows. */
 export const SCAN_PAGE = 1000;
@@ -28,6 +28,9 @@ export const LIMIT = 15;
  */
 const PASS_ON_TYPES = new Set(['COLLECTIVE', 'PROJECT', 'EVENT', 'VENDOR']);
 
+/** The kinds a fund's own parts have: they contribute the fund's money, so stay in as well. */
+const PART_TYPES = new Set(['PROJECT', 'EVENT']);
+
 /** Platforms that pay out what their own donors gave, so would count it twice. */
 const PASS_ON_SLUGS = new Set(['thanks-dev', 'github-sponsors']);
 
@@ -37,10 +40,27 @@ const KINDS = `[${GIVING_KINDS.join(', ')}]`;
 /** One contribution of `MIN_CONTRIBUTION` or more to a project the host holds money for. */
 export interface ScanNode {
 	amount: { value: number };
-	fromAccount: { slug: string; name: string | null; type: string; isIncognito: boolean } | null;
+	fromAccount: {
+		slug: string;
+		name: string | null;
+		type: string;
+		isIncognito: boolean;
+		/** The account a project or event belongs to. */
+		parent?: { type: string } | null;
+	} | null;
 	toAccount: { type: string } | null;
 	/** Given back since, as an invoice entered by mistake is. */
 	isRefunded: boolean;
+}
+
+/**
+ * Whether an account contributes what others gave it. A project or event of a fund doesn't: the
+ * Vite Ecosystem Fund is a project of Cloudflare's fund, which gives nothing under its own name.
+ */
+function passesOn(from: NonNullable<ScanNode['fromAccount']>): boolean {
+	if (PASS_ON_SLUGS.has(from.slug)) return true;
+	if (PART_TYPES.has(from.type) && from.parent?.type === 'FUND') return false;
+	return PASS_ON_TYPES.has(from.type);
 }
 
 /** A page of a host's contributions of `MIN_CONTRIBUTION` or more since `$since`. */
@@ -71,6 +91,11 @@ export const SCAN_QUERY = /* GraphQL */ `
 					name
 					type
 					isIncognito
+					... on AccountWithParent {
+						parent {
+							type
+						}
+					}
 				}
 				toAccount {
 					type
@@ -80,6 +105,78 @@ export const SCAN_QUERY = /* GraphQL */ `
 		}
 	}
 `;
+
+/** One expense of `MIN_CONTRIBUTION` or more that an account with the host paid. */
+export interface PaidNode extends Pick<PayoutNode, 'expense'> {
+	/** Negative, and includes payment processor fees. */
+	netAmount: { value: number };
+	/** The account that paid. */
+	account: ScanNode['fromAccount'];
+	isRefunded: boolean;
+}
+
+/** A page of the expenses of `MIN_CONTRIBUTION` or more paid through a host since `$since`. */
+export const PAID_QUERY = /* GraphQL */ `
+	query ContributorsPaid(
+		$host: AccountReferenceInput!
+		$since: DateTime!
+		$offset: Int!
+		$min: Int!
+		$limit: Int!
+	) {
+		transactions(
+			host: $host
+			kind: [EXPENSE]
+			type: DEBIT
+			amount: { gte: { valueInCents: $min, currency: USD } }
+			dateFrom: $since
+			limit: $limit
+			offset: $offset
+		) {
+			totalCount
+			nodes {
+				netAmount {
+					value
+				}
+				isRefunded
+				account {
+					slug
+					name
+					type
+					isIncognito
+					... on AccountWithParent {
+						parent {
+							type
+						}
+					}
+				}
+				expense {
+					type
+					tags
+					accountingCategory {
+						name
+					}
+				}
+			}
+		}
+	}
+`;
+
+/**
+ * The gifts among a host's paid expenses, as the contributions they stand for. A gift paid by
+ * invoice to a maintainer with no collective of their own is as much a contribution as one to a
+ * collective, so counts towards who is ranked.
+ */
+export function giftsPaid(nodes: PaidNode[]): ScanNode[] {
+	return nodes
+		.filter((node) => !!node.account && isGift({ node, slug: node.account.slug }))
+		.map((node) => ({
+			amount: { value: -node.netAmount.value },
+			fromAccount: node.account,
+			toAccount: null,
+			isRefunded: node.isRefunded
+		}));
+}
 
 /**
  * The slugs of those that gave the most in the contributions scanned, up to `LIMIT`. Leaves out
@@ -92,14 +189,7 @@ export const SCAN_QUERY = /* GraphQL */ `
 export function toCandidates(nodes: ScanNode[]): string[] {
 	const given = new Map<string, number>();
 	for (const { amount, fromAccount: from, toAccount: to, isRefunded } of nodes) {
-		if (
-			!from ||
-			isRefunded ||
-			from.isIncognito ||
-			PASS_ON_TYPES.has(from.type) ||
-			PASS_ON_SLUGS.has(from.slug)
-		)
-			continue;
+		if (!from || isRefunded || from.isIncognito || passesOn(from)) continue;
 		if (HOSTS.includes(from.slug) || to?.type === 'FUND') continue;
 		// Guest contributors who gave no name.
 		if (!from.name || from.name === 'Guest') continue;
@@ -208,10 +298,13 @@ export interface Contributor {
 	years: Record<number, number>;
 }
 
-/** Those that have contributed anything, in the order asked about. */
+/**
+ * The accounts Open Collective knows, in the order asked about. One may have contributed nothing by
+ * these sums, having given by invoice alone: `withGifts` adds those.
+ */
 export function toContributors(nodes: (ContributorNode | null)[]): Contributor[] {
 	return nodes
-		.filter((node): node is ContributorNode => !!node && node.stats.total.value < 0)
+		.filter((node): node is ContributorNode => !!node)
 		.map((node) => {
 			const years: Record<number, number> = {};
 			for (const { date, amount } of node.stats.totalAmountSpentTimeSeries.nodes) {
@@ -228,6 +321,73 @@ export function toContributors(nodes: (ContributorNode | null)[]): Contributor[]
 				years
 			};
 		});
+}
+
+/** An expense a contributor paid, in its own currency. */
+export interface ExpenseNode extends Pick<PayoutNode, 'createdAt' | 'expense'> {
+	/** Negative, and includes payment processor fees. */
+	netAmount: { value: number; currency: string };
+}
+
+/** A page of the expenses an account has paid, the latest first. */
+export const EXPENSES_QUERY = /* GraphQL */ `
+	query ContributorExpenses($slug: String!, $limit: Int!, $offset: Int!) {
+		transactions(
+			account: [{ slug: $slug }]
+			type: DEBIT
+			kind: [EXPENSE]
+			limit: $limit
+			offset: $offset
+		) {
+			totalCount
+			nodes {
+				createdAt
+				netAmount {
+					value
+					currency
+				}
+				expense {
+					type
+					tags
+					accountingCategory {
+						name
+					}
+				}
+			}
+		}
+	}
+`;
+
+/**
+ * A contributor with the gifts it paid as expenses added to what it contributed. A fund pays
+ * maintainers who have no collective of their own by expense, as the Vite Ecosystem Fund does, and
+ * Open Collective's sums can't tell those from what an account pays for its own costs. Only gifts
+ * in US dollars count, as an expense's amount comes in the account's currency alone.
+ */
+export function withGifts({
+	contributor,
+	expenses,
+	now
+}: {
+	contributor: Contributor;
+	expenses: ExpenseNode[];
+	now: Date;
+}): Contributor {
+	const { yearAgo, twoYearsAgo, firstYear } = contributorsWindow(now);
+	const result = { ...contributor, years: { ...contributor.years } };
+	for (const node of expenses) {
+		const amount = -node.netAmount.value;
+		if (node.netAmount.currency !== 'USD' || amount <= 0) continue;
+		if (!isGift({ node, slug: contributor.slug })) continue;
+		result.total += amount;
+		if (node.createdAt >= yearAgo) result.recent += amount;
+		else if (node.createdAt >= twoYearsAgo) result.previous += amount;
+		if (node.createdAt >= firstYear) {
+			const year = new Date(node.createdAt).getUTCFullYear();
+			result.years[year] = (result.years[year] ?? 0) + amount;
+		}
+	}
+	return result;
 }
 
 /** What the table ranks by: the past 12 months, or everything contributed. */

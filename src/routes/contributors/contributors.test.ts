@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
 	contributorsQuery,
 	contributorsWindow,
+	giftsPaid,
 	standings,
 	toCandidates,
 	toContributors,
+	withGifts,
 	yearlyRanks,
 	type ContributorNode,
+	type ExpenseNode,
+	type PaidNode,
 	type ScanNode
 } from './contributors';
 
@@ -41,10 +45,10 @@ const node = ({
 });
 
 describe('toContributors', () => {
-	it('keeps those that have contributed, with what they gave each year', () => {
+	it('keeps the accounts found, with what they gave each year', () => {
 		const contributors = toContributors([
 			node({ slug: 'netlify', recent: 150000, previous: 82500, years: { 2025: 150000, 2023: 0 } }),
-			node({ slug: 'nobody', recent: 0, previous: 0 }),
+			node({ slug: 'invoices-only', recent: 0, previous: 0 }),
 			null
 		]);
 		expect(contributors).toEqual([
@@ -55,7 +59,8 @@ describe('toContributors', () => {
 				previous: 82500,
 				total: 232500,
 				years: { 2025: 150000 }
-			})
+			}),
+			expect.objectContaining({ slug: 'invoices-only', total: 0, years: {} })
 		]);
 	});
 });
@@ -139,11 +144,19 @@ describe('toCandidates', () => {
 			name = slug,
 			isIncognito = false,
 			to = 'COLLECTIVE',
-			isRefunded = false
+			isRefunded = false,
+			parent
+		}: {
+			type?: string;
+			name?: string;
+			isIncognito?: boolean;
+			to?: string;
+			isRefunded?: boolean;
+			parent?: string;
 		} = {}
 	): ScanNode => ({
 		amount: { value },
-		fromAccount: { slug, name, type, isIncognito },
+		fromAccount: { slug, name, type, isIncognito, parent: parent ? { type: parent } : null },
 		toAccount: { type: to },
 		isRefunded
 	});
@@ -154,7 +167,7 @@ describe('toCandidates', () => {
 				gift('sentry', 50000, { type: 'FUND' }),
 				gift('pavan', 30000, { type: 'INDIVIDUAL', name: 'Pavan' }),
 				gift('pavan', 30000, { type: 'INDIVIDUAL', name: 'Pavan' }),
-				gift('vite-ecosystem-fund', 157000, { type: 'PROJECT' }),
+				gift('webpack-docs', 157000, { type: 'PROJECT', parent: 'COLLECTIVE' }),
 				gift('maplibre', 290000, { type: 'COLLECTIVE' }),
 				gift('thanks-dev', 74000),
 				gift('github-sponsors', 1700000),
@@ -167,5 +180,92 @@ describe('toCandidates', () => {
 				{ amount: { value: 90000 }, fromAccount: null, toAccount: null, isRefunded: false }
 			])
 		).toEqual(['pavan', 'sentry']);
+	});
+
+	it("keeps a fund's projects and events, which give the fund's own money", () => {
+		expect(
+			toCandidates([
+				gift('vite-ecosystem-fund', 157000, { type: 'PROJECT', parent: 'FUND' }),
+				gift('fund-summit', 20000, { type: 'EVENT', parent: 'FUND' }),
+				gift('orphan', 90000, { type: 'PROJECT' }),
+				gift('thanks-dev', 74000, { type: 'PROJECT', parent: 'FUND' })
+			])
+		).toEqual(['vite-ecosystem-fund', 'fund-summit']);
+	});
+});
+
+describe('withGifts', () => {
+	const now = new Date('2026-11-16T00:00:00.000Z');
+	const [fund] = toContributors([
+		node({ slug: 'vite-ecosystem-fund', recent: 159000, previous: 0, years: { 2026: 159000 } })
+	]);
+	const expense = (
+		createdAt: string,
+		value: number,
+		{ type = 'INVOICE', tags = ['vite-ecosystem-fund'], currency = 'USD' } = {}
+	): ExpenseNode => ({
+		createdAt,
+		netAmount: { value: -value, currency },
+		expense: { type, tags, accountingCategory: null }
+	});
+
+	it('adds gifts paid as expenses to the past year, the year before and their calendar years', () => {
+		const result = withGifts({
+			contributor: fund,
+			expenses: [
+				expense('2026-10-22T00:00:00.000Z', 40000),
+				expense('2025-06-01T00:00:00.000Z', 10000, { type: 'GRANT', tags: [] }),
+				expense('2019-06-01T00:00:00.000Z', 2400)
+			],
+			now
+		});
+		expect(result).toMatchObject({
+			recent: 199000,
+			previous: 10000,
+			total: 211400,
+			years: { 2026: 199000, 2025: 10000 }
+		});
+		expect(fund.years).toEqual({ 2026: 159000 });
+	});
+
+	it('leaves out what the contributor paid for itself, and gifts in other currencies', () => {
+		const result = withGifts({
+			contributor: fund,
+			expenses: [
+				expense('2026-10-22T00:00:00.000Z', 900, { tags: ['hosting'] }),
+				expense('2026-10-22T00:00:00.000Z', 5000, { currency: 'EUR' })
+			],
+			now
+		});
+		expect(result).toEqual(fund);
+	});
+});
+
+describe('giftsPaid', () => {
+	const paid = (
+		slug: string,
+		value: number,
+		{ type = 'INVOICE', tags = [] as string[], category = '', parent = 'FUND' } = {}
+	): PaidNode => ({
+		netAmount: { value: -value },
+		isRefunded: false,
+		account: { slug, name: slug, type: 'PROJECT', isIncognito: false, parent: { type: parent } },
+		expense: { type, tags, accountingCategory: category ? { name: category } : null }
+	});
+
+	it('counts gifts paid by invoice towards who is ranked, and not what an account paid for itself', () => {
+		const gifts = giftsPaid([
+			paid('vite-ecosystem-fund', 5000, { tags: ['vite-ecosystem-fund'] }),
+			paid('vite-ecosystem-fund', 2500, { type: 'GRANT' }),
+			paid('vite-ecosystem-fund', 800, { tags: ['hosting'] }),
+			paid('doctrine', 6000, { tags: ['doctrine'], parent: 'COLLECTIVE' }),
+			{ netAmount: { value: -900 }, isRefunded: false, account: null, expense: null }
+		]);
+		expect(gifts.map((gift) => [gift.fromAccount?.slug, gift.amount.value])).toEqual([
+			['vite-ecosystem-fund', 5000],
+			['vite-ecosystem-fund', 2500],
+			['doctrine', 6000]
+		]);
+		expect(toCandidates(gifts)).toEqual(['vite-ecosystem-fund']);
 	});
 });
