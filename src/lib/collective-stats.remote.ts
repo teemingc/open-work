@@ -381,7 +381,7 @@ const loadStats = perKey({
 			];
 		} catch (err) {
 			// Open Collective reports a missing account as a failure of the fields that ask about it.
-			if (err instanceof Error && /not found/i.test(err.message)) missing(slug);
+			if (err instanceof Error && /not found|no \w+ found/i.test(err.message)) missing(slug);
 			toHttpError(err);
 		}
 		const account = result.account;
