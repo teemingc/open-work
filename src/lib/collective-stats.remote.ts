@@ -32,10 +32,13 @@ import {
 import {
 	giftToGrant,
 	isGift,
+	findOwnFunds,
+	isFundGift,
 	toCommitments,
 	toGrants,
 	type CommitmentNode,
-	type GrantNode
+	type GrantNode,
+	type OwnFund
 } from './grants';
 
 /**
@@ -178,26 +181,41 @@ const PAYOUTS_QUERY = /* GraphQL */ `
 	}
 `;
 
-const GRANT_NODES = /* GraphQL */ `
-	nodes {
-		createdAt
-		netAmount {
-			value
-		}
-		oppositeAccount {
-			slug
-			name
-			imageUrl(height: 192)
-			currency
-			stats {
-				totalAmountSpent(periodInMonths: 12) {
-					value
-				}
+const GRANT_FIELDS = /* GraphQL */ `
+	createdAt
+	netAmount {
+		value
+		currency
+	}
+	oppositeAccount {
+		slug
+		name
+		imageUrl(height: 192)
+		currency
+		type
+		... on AccountWithParent {
+			parent {
+				slug
+				type
 			}
 		}
-		order {
-			frequency
+		stats {
+			totalAmountSpent(periodInMonths: 12) {
+				value
+			}
+			totalAmountReceived {
+				value
+			}
 		}
+	}
+	order {
+		frequency
+	}
+`;
+
+const GRANT_NODES = /* GraphQL */ `
+	nodes {
+		${GRANT_FIELDS}
 	}
 `;
 
@@ -219,6 +237,136 @@ const GRANTS_QUERY = /* GraphQL */ `
 		}
 	}
 `;
+
+/** What one of the collective's own funds paid out: a contribution, or an expense that may be a gift. */
+interface FundGivingNode extends GrantNode {
+	id: string;
+	netAmount: { value: number; currency: string };
+	/** The fund, or its project, that paid. */
+	account: { slug: string; name: string };
+	expense: PayoutNode['expense'];
+}
+
+/** Everything `$funds` and their projects gave or paid out, contributions and expenses alike. */
+const FUND_GIVING_QUERY = /* GraphQL */ `
+	query FundGiving($funds: [AccountReferenceInput!], $from: DateTime!, $limit: Int!, $offset: Int!) {
+		transactions(
+			account: $funds
+			includeChildrenTransactions: true
+			type: DEBIT
+			kind: [CONTRIBUTION, ADDED_FUNDS, EXPENSE]
+			dateFrom: $from
+			limit: $limit
+			offset: $offset
+		) {
+			totalCount
+			nodes {
+				id
+				account {
+					slug
+					name
+				}
+				expense {
+					type
+					tags
+					accountingCategory {
+						name
+					}
+				}
+				${GRANT_FIELDS}
+			}
+		}
+	}
+`;
+
+/** How many funds deep the money is followed: a company's fund, its projects, and theirs. */
+const FUND_DEPTH = 3;
+
+/** What the collective moved into one of its own funds. */
+export interface Funded extends OwnFund {
+	amount: number;
+}
+
+/**
+ * What the collective gave, with what it moved into its own funds replaced by what those funds gave
+ * on, each gift marked with the fund it came through. Google's contributions are mostly money moved
+ * into Chrome's fund, Season of Docs and its other funds, which is not given to anyone until they
+ * give it. A fund moves money to its own projects in turn, so those are followed as well.
+ *
+ * `funded` is what it moved into each of its funds. Gifts a fund made in another currency than the
+ * collective's are left out, as amounts are added as they are.
+ */
+async function throughOwnFunds({
+	slug,
+	currency,
+	grants,
+	from,
+	ask
+}: {
+	slug: string;
+	currency: string;
+	grants: GrantNode[];
+	from: string;
+	ask: Ask;
+}): Promise<{ grants: GrantNode[]; funded: Funded[] }> {
+	/** Every account whose giving is the collective's own: itself, then its funds as they are found. */
+	const family = new Set([slug]);
+	const known = { slugs: family, admins: new Set<string>() };
+	const seen = new Set<string>();
+	const given = [...grants];
+	let funds = await findOwnFunds({ nodes: grants, ask, family: known });
+	for (let depth = 0; funds.length; depth++) {
+		for (const fund of funds) family.add(fund.slug);
+		if (depth === FUND_DEPTH) break;
+		const variables = { funds: funds.map(({ slug }) => ({ slug })), from, limit: PAGE_SIZE };
+		const fetchPage = async (offset: number) =>
+			(
+				await ask<{ transactions: { totalCount: number; nodes: FundGivingNode[] } }>({
+					query: FUND_GIVING_QUERY,
+					variables: { ...variables, offset }
+				})
+			).transactions;
+		const first = await fetchPage(0);
+		const paid = [
+			...first.nodes,
+			...(await remainingPages({
+				total: first.totalCount,
+				fetchPage: async (offset) => (await fetchPage(offset)).nodes
+			}))
+		].filter((node) => !seen.has(node.id));
+		// A fund's projects pay from the fund's money, so are the collective's own as well.
+		for (const node of paid) {
+			seen.add(node.id);
+			family.add(node.account.slug);
+		}
+		const gifts = paid.filter((node) => !node.expense || isFundGift(node));
+		given.push(
+			...gifts
+				.filter((node) => node.netAmount.currency === currency)
+				.map((node) => ({
+					...node,
+					toPerson: !!node.expense && node.oppositeAccount?.type === 'INDIVIDUAL',
+					via: node.account
+				}))
+		);
+		funds = (await findOwnFunds({ nodes: gifts, ask, family: known })).filter(
+			(fund) => !family.has(fund.slug)
+		);
+	}
+	// Decided last, once every fund is known: a project of Chrome's fund that Google also paid
+	// directly is only found to be its own when the fund's payments are read.
+	const moved = new Map<string, Funded>();
+	for (const { oppositeAccount: to, netAmount, via } of given) {
+		if (via || !to || !family.has(to.slug)) continue;
+		const fund = moved.get(to.slug) ?? { slug: to.slug, name: to.name || to.slug, amount: 0 };
+		fund.amount -= netAmount.value;
+		moved.set(to.slug, fund);
+	}
+	return {
+		grants: given.filter((node) => !family.has(node.oppositeAccount?.slug ?? '')),
+		funded: [...moved.values()].sort((a, b) => b.amount - a.amount)
+	};
+}
 
 // `net: true` takes fees out of what was received and adds payment processor fees to what was
 // spent, so each month's balance change is exactly income minus expenses.
@@ -340,7 +488,7 @@ interface StatsResult {
 
 /** Monthly balance, income and spending for the collective, from Open Collective's public stats. */
 const loadStats = perKey({
-	cacheKey: (slug) => `stats:v15:${slug}`,
+	cacheKey: (slug) => `stats:v18:${slug}`,
 	maxAgeMs: CACHE_MS,
 	load: async (slug, ask) => {
 		const from = '2016-01-01T00:00:00Z';
@@ -348,6 +496,7 @@ const loadStats = perKey({
 		let commitments: CommitmentNode[];
 		let payouts: PayoutNode[];
 		let grants: GrantNode[];
+		let funded: Funded[];
 		try {
 			let commitmentsResult: { account: { commitments: { nodes: CommitmentNode[] } } | null };
 			[result, commitmentsResult] = await Promise.all([
@@ -385,6 +534,13 @@ const loadStats = perKey({
 				...moreGrants,
 				...expenses.filter((node) => isGift({ node, slug })).map(giftToGrant)
 			];
+			({ grants, funded } = await throughOwnFunds({
+				slug,
+				currency: result.account?.currency ?? '',
+				grants,
+				from,
+				ask
+			}));
 		} catch (err) {
 			// Open Collective reports a missing account as a failure of the fields that ask about it.
 			if (err instanceof Error && /not found|no \w+ found/i.test(err.message)) missing(slug);
@@ -408,6 +564,7 @@ const loadStats = perKey({
 			}),
 			payouts: toPayouts(payouts),
 			grants: toGrants(grants),
+			funded,
 			commitments: toCommitments(commitments),
 			payeeImages: accountImages(payouts),
 			unpaid: result.unpaid.nodes.map((expense): Unpaid => ({

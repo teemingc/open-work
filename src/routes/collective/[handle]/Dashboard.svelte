@@ -163,7 +163,7 @@
 	const tooNew = $derived(data.months.every((m) => m.partial));
 	const balance = $derived(data.months.at(-1)?.balance ?? 0);
 	/** A collective that passes its money on to others, which a forecast of its spending would misread. */
-	const fund = $derived(isFund({ grants: data.grants, months: data.months }));
+	const fund = $derived(isFund(data));
 	/**
 	 * A fund with one backer that gave nearly everything, which its own view already names, so a
 	 * card with a single bar would only repeat it.

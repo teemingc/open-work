@@ -243,6 +243,37 @@ describe('withGifts', () => {
 	});
 });
 
+describe('withGifts of a contributor with its own fund', () => {
+	const now = new Date('2026-11-16T00:00:00.000Z');
+	const [google] = toContributors([
+		node({ slug: 'google', recent: 500, previous: 300, years: { 2026: 500, 2025: 300 } })
+	]);
+	const gave = (createdAt: string, to: string, value: number, isRefunded = false): GivenNode => ({
+		createdAt,
+		amount: { value, currency: 'USD' },
+		isRefunded,
+		toAccount: { slug: to, name: to }
+	});
+	const given = [
+		gave('2026-10-22T00:00:00.000Z', 'chrome', 400),
+		gave('2026-10-22T00:00:00.000Z', 'vite', 100),
+		gave('2025-06-01T00:00:00.000Z', 'chrome', 300),
+		gave('2025-06-01T00:00:00.000Z', 'chrome', 50, true)
+	];
+	const funds = [{ slug: 'chrome', name: 'Chrome' }];
+
+	it('takes out what it moved into its own fund, and nothing given to projects', () => {
+		const result = withGifts({ contributor: google, expenses: [], given, funds, now });
+		expect(result).toMatchObject({ recent: 100, previous: 0, years: { 2026: 100 } });
+		expect(result.total).toBe(google.total - 700);
+	});
+
+	it('leaves its own fund out of whom it gave to', () => {
+		const spread = spreadOf({ slug: 'google', given, expenses: [], funds, now });
+		expect(spread.total).toEqual({ count: 1, top: [{ name: 'vite', share: 1 }] });
+	});
+});
+
 describe('giftsPaid', () => {
 	const paid = (
 		slug: string,

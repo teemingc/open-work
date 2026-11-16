@@ -16,11 +16,27 @@ export interface GrantNode {
 		imageUrl: string | null;
 		/** The account's own currency and all it spent in the past 12 months, negative, in that currency. */
 		currency?: string;
-		stats?: { totalAmountSpent: { value: number } | null } | null;
+		stats?: {
+			totalAmountSpent: { value: number } | null;
+			/** All it has ever received, in its own currency. */
+			totalAmountReceived?: { value: number } | null;
+		} | null;
+		/** Such as FUND, COLLECTIVE or PROJECT. */
+		type?: string;
+		/** The account a project or event belongs to. */
+		parent?: { type: string; slug?: string } | null;
 	} | null;
 	order: { frequency: string | null } | null;
 	/** A gift paid as an expense to a person, rather than contributed to a collective. */
 	toPerson?: boolean;
+	/** The collective's own fund that made the gift, when it did not give it itself. */
+	via?: OwnFund;
+}
+
+/** A fund the collective keeps its own money in, to give from. */
+export interface OwnFund {
+	slug: string;
+	name: string;
 }
 
 /** A recurring contribution the collective is still making to another account. */
@@ -58,6 +74,8 @@ export interface Grant {
 	toPerson: boolean;
 	/** All the account spent in the past 12 months, if Open Collective said. */
 	theirSpending: { value: number; currency: string } | null;
+	/** The collective's own fund that made the gift, or `null` when it gave it itself. */
+	via: OwnFund | null;
 }
 
 /** A recurring contribution, as what it costs a month. */
@@ -77,6 +95,7 @@ export function toGrants(nodes: GrantNode[]): Grant[] {
 			amount: -node.netAmount.value,
 			recurring: !!node.order?.frequency && node.order.frequency !== 'ONETIME',
 			toPerson: !!node.toPerson,
+			via: node.via ?? null,
 			theirSpending:
 				node.oppositeAccount?.currency && node.oppositeAccount.stats?.totalAmountSpent
 					? {
@@ -86,6 +105,196 @@ export function toGrants(nodes: GrantNode[]): Grant[] {
 					: null
 		}))
 		.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** The kinds an account's own parts have. */
+const PART_TYPES = new Set(['PROJECT', 'EVENT']);
+
+/** The kinds of account that hold money for a purpose, rather than being a person or a company. */
+const HOLDING_TYPES = new Set(['FUND', 'COLLECTIVE', ...PART_TYPES]);
+
+/** The least share of an account's money from others that whoever owns it has put in. */
+const OWNER_SHARE = 0.5;
+
+/** What Open Collective says of an account given to, beyond what comes with the gift. */
+export interface Standing {
+	/** What it added to itself, which is not money from others. */
+	selfFunded: number;
+	/** The slugs of those who run it. */
+	admins: string[];
+}
+
+/** What is known of the giver's own accounts so far. `ownFunds` adds those who run what it finds. */
+export interface Family {
+	/** The giver's own slug and those of its own accounts. */
+	slugs: Set<string>;
+	/** The slugs of those who run its own accounts. */
+	admins: Set<string>;
+}
+
+/** An account given to, with what it was given in all. */
+interface Given {
+	fund: OwnFund;
+	type: string;
+	/** The account it is a project or event of. */
+	parent: string | undefined;
+	amount: number;
+	/** All it has received from others, when Open Collective said. */
+	received: number | undefined;
+}
+
+/** Each account that holds money among those given to. */
+function givenTo(nodes: GrantNode[], standings: Record<string, Standing>): Given[] {
+	const given = new Map<string, Given>();
+	for (const { oppositeAccount: to, netAmount } of nodes) {
+		if (!to?.type || !HOLDING_TYPES.has(to.type)) continue;
+		const received = to.stats?.totalAmountReceived?.value;
+		const entry = given.get(to.slug) ?? {
+			fund: { slug: to.slug, name: accountName(to) },
+			type: to.type,
+			parent: PART_TYPES.has(to.type) ? to.parent?.slug : undefined,
+			amount: 0,
+			received: received && received - (standings[to.slug]?.selfFunded ?? 0)
+		};
+		entry.amount -= netAmount.value;
+		given.set(to.slug, entry);
+	}
+	return [...given.values()];
+}
+
+/** Whether the giver put in at least half of all an account has received from others. */
+function mostlyPaidFor({ amount, received }: Given): boolean {
+	return amount > 0 && received !== undefined && amount >= received * OWNER_SHARE;
+}
+
+/**
+ * The accounts among those given to that are the giver's own, where it keeps money to give from, as
+ * Google does in Chrome's fund and Season of Docs. Moving money into one is not a contribution to
+ * anyone: the contribution is what the account gives on.
+ *
+ * A fund is the giver's own when the giver put in at least half of all it has received from others,
+ * so one donor among many to a community's fund is not taken for its owner. What a fund added to
+ * itself is not money from others: most of what AMP's fund received it added itself, and Google
+ * gave all the rest.
+ *
+ * A collective is not the giver's own for that alone, as a small project is often paid for by one
+ * sponsor. It is when one of those who run it also runs another of the giver's own accounts, or
+ * another collective the giver mostly paid for: Chrome's funds pay contractors through four
+ * collectives that one person at Chrome runs.
+ *
+ * A project or event belongs to whoever owns the account it is part of, whatever it was given:
+ * Sentry paid for most of the Rust Fund, which is a project of Open Source Collective's own funds.
+ */
+export function ownFunds(
+	nodes: GrantNode[],
+	standings: Record<string, Standing> = {},
+	family: Family = { slugs: new Set(), admins: new Set() }
+): OwnFund[] {
+	const given = givenTo(nodes, standings);
+	const runBy = (slug: string) => standings[slug]?.admins ?? [];
+	const whole = given.filter(({ parent }) => !parent).filter(mostlyPaidFor);
+	const funds = whole.filter(({ type }) => type === 'FUND').map(({ fund }) => fund);
+	const others = whole.filter(({ type }) => type !== 'FUND').map(({ fund }) => fund);
+	const admins = new Set(family.admins);
+	for (const fund of funds) for (const admin of runBy(fund.slug)) admins.add(admin);
+	const shared = others.filter(({ slug }) =>
+		runBy(slug).some(
+			(admin) =>
+				admins.has(admin) ||
+				others.some((other) => other.slug !== slug && runBy(other.slug).includes(admin))
+		)
+	);
+	const own = [...funds, ...shared];
+	for (const fund of own) for (const admin of runBy(fund.slug)) family.admins.add(admin);
+	const owners = new Set([...family.slugs, ...own.map((fund) => fund.slug)]);
+	const parts = given
+		.filter(({ parent, amount }) => parent && owners.has(parent) && amount > 0)
+		.map(({ fund }) => fund);
+	return [...own, ...parts];
+}
+
+/** How many accounts one query asks about, as Open Collective refuses over 100 aliases. */
+const STANDING_BATCH = 20;
+
+/** An account's backers, with what each gave it in all, and those who run it. */
+type Members = {
+	slug: string;
+	members: {
+		nodes: { role: string; account: { slug: string } | null; totalDonations: { value: number } }[];
+	};
+} | null;
+
+/** Sends a query to Open Collective. */
+type AskOpenCollective = <R>(request: {
+	query: string;
+	variables: Record<string, unknown>;
+}) => Promise<R>;
+
+/**
+ * `ownFunds` of `nodes`, after asking Open Collective who runs each account the giver mostly paid
+ * for and what it added to itself. Slugs are written into the query, as JSON strings. Asks nothing
+ * when there is no such account.
+ */
+export async function findOwnFunds({
+	nodes,
+	ask,
+	family
+}: {
+	nodes: GrantNode[];
+	ask: AskOpenCollective;
+	/** What is known of the giver's own accounts so far. Those who run what is found are added. */
+	family?: Family;
+}): Promise<OwnFund[]> {
+	// A fund is asked about whatever its share, as what it added to itself can raise it.
+	const slugs = new Set(
+		givenTo(nodes, {})
+			.filter((given) => !given.parent && (given.type === 'FUND' || mostlyPaidFor(given)))
+			.map(({ fund }) => fund.slug)
+	);
+	const standings: Record<string, Standing> = {};
+	for (let i = 0; i < slugs.size; i += STANDING_BATCH) {
+		const accounts = [...slugs]
+			.slice(i, i + STANDING_BATCH)
+			.map(
+				(slug, n) =>
+					`f${n}: account(slug: ${JSON.stringify(slug)}, throwIfMissing: false) { slug members(role: [BACKER, ADMIN], limit: 100) { nodes { role account { slug } totalDonations { value } } } }`
+			);
+		const result = await ask<Record<string, Members>>({
+			query: `query Standings { ${accounts.join('\n')} }`,
+			variables: {}
+		});
+		for (const account of Object.values(result)) {
+			if (!account) continue;
+			const members = account.members.nodes;
+			standings[account.slug] = {
+				selfFunded:
+					members.find(
+						(member) => member.role === 'BACKER' && member.account?.slug === account.slug
+					)?.totalDonations.value ?? 0,
+				admins: members.flatMap((member) =>
+					member.role === 'ADMIN' && member.account ? [member.account.slug] : []
+				)
+			};
+		}
+	}
+	return ownFunds(nodes, standings, family);
+}
+
+/** Expense types one of a company's own funds pays what it gives with. */
+const FUND_GIFT_TYPES = new Set(['GRANT', 'FUNDING_REQUEST', 'INVOICE']);
+
+/**
+ * Whether an expense paid by a fund a company keeps to give from is its giving. Such a fund pays
+ * those with no collective by invoice, as Season of Docs pays its grants to organizations and
+ * Chrome's fund pays the people it funds to work on the web, so every invoice counts and not only
+ * those `isGift` finds. Costs it paid back to someone, and payments to its host's vendors, do not.
+ */
+export function isFundGift(node: Pick<PayoutNode, 'expense' | 'oppositeAccount'>): boolean {
+	return (
+		!!node.expense &&
+		FUND_GIFT_TYPES.has(node.expense.type) &&
+		node.oppositeAccount?.type !== 'VENDOR'
+	);
 }
 
 /** Expense types Open Collective has for money given rather than owed. */
@@ -164,8 +373,21 @@ const FUND_SHARE = 0.9;
  * least nine tenths of everything it has spent: a project that also funds others, like Solid, which
  * passes on most but not all of it, keeps its usual page.
  */
-export function isFund({ grants, months }: { grants: Grant[]; months: Month[] }): boolean {
-	const granted = grants.reduce((sum, grant) => sum + grant.amount, 0);
+export function isFund({
+	grants,
+	months,
+	funded = []
+}: {
+	grants: Grant[];
+	months: Month[];
+	/** What it moved into its own funds, which it spent on giving as much as what it gave itself. */
+	funded?: { amount: number }[];
+}): boolean {
+	// What its own funds gave on is not its spending: what it moved into them is.
+	const granted = [...grants.filter((grant) => !grant.via), ...funded].reduce(
+		(sum, { amount }) => sum + amount,
+		0
+	);
 	const spent = months.reduce((sum, month) => sum + month.expenses, 0);
 	return granted > 0 && granted >= spent * FUND_SHARE;
 }

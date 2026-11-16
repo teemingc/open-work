@@ -90,6 +90,14 @@
 	const yearProjects = $derived(new Set(yearGrants.map((grant) => grant.slug)).size);
 	/** Some of what it gave was paid by expense to people, as maintainers with no collective are. */
 	const people = $derived(data.grants.some((grant) => grant.toPerson));
+	/**
+	 * What its own funds gave on, as Google's Chrome fund does. What it moved into them is not shown
+	 * beside it: the funds also give what their host was paid for them outside Open Collective, so
+	 * they can give more than was moved in.
+	 */
+	const throughFunds = $derived(
+		data.grants.filter((grant) => grant.via).reduce((sum, grant) => sum + grant.amount, 0)
+	);
 	/** The project it contributed most to, all told. */
 	const top = $derived(recipients.at(0));
 
@@ -113,6 +121,19 @@
 			value: money.format(granted),
 			note: `To ${recipientCount({ count: recipients.length, people })}`
 		},
+		...(throughFunds > 0
+			? [
+					{
+						label: 'Through its funds',
+						tone: 'text-chart-expenses',
+						value: money.format(throughFunds),
+						note:
+							data.funded.length === 1
+								? `Given by ${data.funded[0].name}`
+								: `Given by its ${data.funded.length} funds`
+					}
+				]
+			: []),
 		// With nothing received nor left over, what it did with its own money fills the strip instead.
 		...(ownMoney && yearTotal > 0
 			? [

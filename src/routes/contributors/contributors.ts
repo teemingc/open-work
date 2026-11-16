@@ -5,7 +5,7 @@
  */
 
 import { yearsBefore, type PayoutNode } from '#lib/financials.js';
-import { GIVING_KINDS, isGift } from '#lib/grants.js';
+import { GIVING_KINDS, isGift, type GrantNode, type OwnFund } from '#lib/grants.js';
 
 /**
  * The hosts scanned for contributors. Open Collective cannot list the accounts that contribute to
@@ -390,32 +390,52 @@ function giftAmount(node: ExpenseNode, slug: string): number {
 }
 
 /**
- * A contributor with the gifts it paid as expenses added to what it contributed. A fund pays
- * maintainers who have no collective of their own by expense, as the Vite Ecosystem Fund does, and
- * Open Collective's sums can't tell those from what an account pays for its own costs. Only gifts
- * in US dollars count, as an expense's amount comes in the account's currency alone.
+ * A contributor with the gifts it paid as expenses added to what it contributed, and what it moved
+ * into its own funds taken out. A fund pays maintainers who have no collective of their own by
+ * expense, as the Vite Ecosystem Fund does, and Open Collective's sums can't tell those from what an
+ * account pays for its own costs. They count what Google moves into Chrome's fund as contributed,
+ * too, which the fund is ranked for when it gives it. Only amounts in US dollars count, as a
+ * transaction's amount comes in one currency alone.
  */
 export function withGifts({
 	contributor,
 	expenses,
+	given = [],
+	funds = [],
 	now
 }: {
 	contributor: Contributor;
 	expenses: ExpenseNode[];
+	/** Its contributions, to take out those that went into `funds`. */
+	given?: GivenNode[];
+	/** Its own funds, as `findOwnFunds` finds them among `given`. */
+	funds?: OwnFund[];
 	now: Date;
 }): Contributor {
 	const { yearAgo, twoYearsAgo, firstYear } = contributorsWindow(now);
+	const own = new Set(funds.map((fund) => fund.slug));
 	const result = { ...contributor, years: { ...contributor.years } };
-	for (const node of expenses) {
-		const amount = giftAmount(node, contributor.slug);
-		if (!amount) continue;
+	const add = (createdAt: string, amount: number) => {
+		if (!amount) return;
 		result.total += amount;
-		if (node.createdAt >= yearAgo) result.recent += amount;
-		else if (node.createdAt >= twoYearsAgo) result.previous += amount;
-		if (node.createdAt >= firstYear) {
-			const year = new Date(node.createdAt).getUTCFullYear();
+		if (createdAt >= yearAgo) result.recent += amount;
+		else if (createdAt >= twoYearsAgo) result.previous += amount;
+		if (createdAt >= firstYear) {
+			const year = new Date(createdAt).getUTCFullYear();
 			result.years[year] = (result.years[year] ?? 0) + amount;
 		}
+	};
+	for (const node of expenses) add(node.createdAt, giftAmount(node, contributor.slug));
+	for (const { createdAt, amount, isRefunded, toAccount: to } of given) {
+		if (isRefunded || amount.currency !== 'USD' || !own.has(to?.slug ?? '')) continue;
+		add(createdAt, -amount.value);
+	}
+	// Open Collective's sums are converted and rounded, so taking out can leave a few cents either way.
+	for (const key of ['total', 'recent', 'previous'] as const) {
+		if (result[key] < 1) result[key] = 0;
+	}
+	for (const year of Object.keys(result.years)) {
+		if (result.years[+year] < 1) delete result.years[+year];
 	}
 	return result;
 }
@@ -423,10 +443,32 @@ export function withGifts({
 /** One contribution an account made, in the currency of the host that holds it. */
 export interface GivenNode {
 	createdAt: string;
-	amount: { value: number };
+	amount: { value: number; currency?: string };
 	/** Given back since. */
 	isRefunded: boolean;
-	toAccount: { slug: string; name: string | null } | null;
+	/** Whom it went to, with what tells one of the giver's own funds from a project. */
+	toAccount:
+		| ({ slug: string; name: string | null } & Pick<
+				NonNullable<GrantNode['oppositeAccount']>,
+				'type' | 'parent' | 'stats'
+		  >)
+		| null;
+}
+
+/** Contributions as `findOwnFunds` reads them, to find which went into the giver's own funds. */
+export function toGrantNodes(given: GivenNode[]): GrantNode[] {
+	return given.flatMap(({ createdAt, amount, isRefunded, toAccount: to }) =>
+		isRefunded || !to
+			? []
+			: [
+					{
+						createdAt,
+						netAmount: { value: -amount.value },
+						oppositeAccount: { ...to, name: to.name || to.slug, imageUrl: null },
+						order: null
+					}
+				]
+	);
 }
 
 /** A page of the contributions an account has made, the latest first. */
@@ -444,11 +486,24 @@ export const GIVEN_QUERY = /* GraphQL */ `
 				createdAt
 				amount {
 					value
+					currency
 				}
 				isRefunded
 				toAccount {
 					slug
 					name
+					type
+					... on AccountWithParent {
+						parent {
+							slug
+							type
+						}
+					}
+					stats {
+						totalAmountReceived {
+							value
+						}
+					}
 				}
 			}
 		}
@@ -467,25 +522,28 @@ function toSpread(amounts: { name: string; amount: number }[]): Spread {
 
 /**
  * How what `slug` gave is spread over those it gave to: its contributions, and the gifts it paid
- * as expenses. Amounts are added whatever their currency, which is near enough for the parts of a
+ * as expenses. What it moved into its own `funds` was not given to anyone, so is left out. Amounts are added whatever their currency, which is near enough for the parts of a
  * bar a few pixels tall.
  */
 export function spreadOf({
 	slug,
 	given,
 	expenses,
+	funds = [],
 	now
 }: {
 	slug: string;
 	given: GivenNode[];
 	expenses: ExpenseNode[];
+	funds?: OwnFund[];
 	now: Date;
 }): Record<RankBy, Spread> {
+	const own = new Set(funds.map((fund) => fund.slug));
 	const { yearAgo } = contributorsWindow(now);
 	const recipients = new Map<string, { name: string; recent: number; total: number }>();
 	const add = (node: { createdAt: string; toAccount?: GivenNode['toAccount'] }, amount: number) => {
 		const to = node.toAccount;
-		if (!to || amount <= 0) return;
+		if (!to || amount <= 0 || own.has(to.slug)) return;
 		const recipient = recipients.get(to.slug) ?? { name: to.name || to.slug, recent: 0, total: 0 };
 		recipient.total += amount;
 		if (node.createdAt >= yearAgo) recipient.recent += amount;

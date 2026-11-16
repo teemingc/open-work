@@ -7,6 +7,9 @@ import {
 	givingYear,
 	isFund,
 	isGift,
+	findOwnFunds,
+	isFundGift,
+	ownFunds,
 	recipientCount,
 	reducedContributions,
 	toCommitments,
@@ -57,7 +60,8 @@ describe('toGrants', () => {
 				amount: 36000,
 				recurring: false,
 				toPerson: false,
-				theirSpending: null
+				theirSpending: null,
+				via: null
 			},
 			{
 				date: '2026-10-22T10:00:00.000Z',
@@ -67,7 +71,8 @@ describe('toGrants', () => {
 				amount: 500,
 				recurring: true,
 				toPerson: false,
-				theirSpending: null
+				theirSpending: null,
+				via: null
 			}
 		]);
 	});
@@ -100,6 +105,163 @@ describe('isFund', () => {
 		expect(isFund({ grants, months: [month('2026-10', 2000, 700)] })).toBe(false);
 		expect(isFund({ grants, months: [month('2026-10', 2000, 1300)] })).toBe(false);
 		expect(isFund({ grants: [], months: [month('2026-10', 2000, 0)] })).toBe(false);
+	});
+});
+
+describe('ownFunds', () => {
+	const to = ({
+		slug,
+		given,
+		received,
+		type = 'FUND',
+		parent
+	}: {
+		slug: string;
+		given: number;
+		received: number;
+		type?: string;
+		parent?: string;
+	}): GrantNode => ({
+		createdAt: '2026-10-08T00:00:00Z',
+		netAmount: { value: -given },
+		oppositeAccount: {
+			slug,
+			name: slug,
+			imageUrl: null,
+			type,
+			parent: parent ? { type: 'FUND', slug: parent } : null,
+			stats: { totalAmountSpent: null, totalAmountReceived: { value: received } }
+		},
+		order: null
+	});
+
+	it('finds the funds it put at least half the money into, and their projects', () => {
+		const nodes = [
+			to({ slug: 'chrome', given: 600, received: 1500 }),
+			to({ slug: 'chrome', given: 400, received: 1500 }),
+			to({ slug: 'ui-fund', given: 10, received: 300, type: 'PROJECT', parent: 'chrome' })
+		];
+		expect(ownFunds(nodes).map((fund) => fund.slug)).toEqual(['chrome', 'ui-fund']);
+	});
+
+	it("finds the collectives it mostly paid for that one person runs, or that its fund's admin runs", () => {
+		const nodes = [
+			to({ slug: 'chrome', given: 900, received: 1000 }),
+			to({ slug: 'modern-js', given: 900, received: 1000, type: 'COLLECTIVE' }),
+			to({ slug: 'chrome-vue', given: 100, received: 100, type: 'COLLECTIVE' }),
+			to({ slug: 'css-day', given: 100, received: 100, type: 'COLLECTIVE' }),
+			to({ slug: 'espruino', given: 100, received: 100, type: 'COLLECTIVE' }),
+			to({ slug: 'eslint', given: 100, received: 1000, type: 'COLLECTIVE' })
+		];
+		const standing = (...admins: string[]) => ({ selfFunded: 0, admins });
+		const family = { slugs: new Set(['google']), admins: new Set<string>() };
+		const own = ownFunds(
+			nodes,
+			{
+				chrome: standing('paul'),
+				'modern-js': standing('addy'),
+				'chrome-vue': standing('addy'),
+				'css-day': standing('paul', 'rick'),
+				espruino: standing('gordon'),
+				// Run by the same person, but mostly paid for by others.
+				eslint: standing('addy')
+			},
+			family
+		);
+		expect(own.map((fund) => fund.slug)).toEqual(['chrome', 'modern-js', 'chrome-vue', 'css-day']);
+		expect([...family.admins].sort()).toEqual(['addy', 'paul', 'rick']);
+	});
+
+	it('finds the projects of the giver itself, whoever paid for them', () => {
+		const nodes = [
+			to({ slug: 'ui-fund', given: 10, received: 300, type: 'PROJECT', parent: 'chrome' })
+		];
+		expect(ownFunds(nodes)).toEqual([]);
+		expect(
+			ownFunds(nodes, {}, { slugs: new Set(['chrome']), admins: new Set() }).map((f) => f.slug)
+		).toEqual(['ui-fund']);
+	});
+
+	it('leaves out projects, and funds that others mostly paid for', () => {
+		const nodes = [
+			to({ slug: 'vite', given: 900, received: 1000, type: 'COLLECTIVE' }),
+			// Sentry paid for most of the Rust Fund, a project of Open Source Collective's funds.
+			to({ slug: 'rust-fund', given: 900, received: 1000, type: 'PROJECT', parent: 'osc-funds' }),
+			to({ slug: 'community-fund', given: 100, received: 1000 })
+		];
+		expect(ownFunds(nodes)).toEqual([]);
+	});
+});
+
+describe('ownFunds of a fund that added money to itself', () => {
+	const amp: GrantNode = {
+		createdAt: '2026-10-08T00:00:00Z',
+		netAmount: { value: -60 },
+		oppositeAccount: {
+			slug: 'amp',
+			name: 'AMP',
+			imageUrl: null,
+			type: 'FUND',
+			stats: { totalAmountSpent: null, totalAmountReceived: { value: 218 } }
+		},
+		order: null
+	};
+
+	it('sets what it gave against what the fund received from others', () => {
+		expect(ownFunds([amp])).toEqual([]);
+		expect(ownFunds([amp], { amp: { selfFunded: 158, admins: [] } })).toEqual([
+			{ slug: 'amp', name: 'AMP' }
+		]);
+	});
+
+	it('asks what each fund added to itself', async () => {
+		const asked: string[] = [];
+		const funds = await findOwnFunds({
+			nodes: [amp],
+			ask: async <R>({ query }: { query: string }) => {
+				asked.push(query);
+				return {
+					f0: {
+						slug: 'amp',
+						members: {
+							nodes: [
+								{ role: 'BACKER', account: { slug: 'google' }, totalDonations: { value: 60 } },
+								{ role: 'BACKER', account: { slug: 'amp' }, totalDonations: { value: 158 } }
+							]
+						}
+					}
+				} as R;
+			}
+		});
+		expect(funds).toEqual([{ slug: 'amp', name: 'AMP' }]);
+		expect(asked).toHaveLength(1);
+		expect(asked[0]).toContain('account(slug: "amp"');
+	});
+});
+
+describe('isFundGift', () => {
+	const paid = (type: string, to = 'ORGANIZATION') => ({
+		expense: { type, tags: [], accountingCategory: null },
+		oppositeAccount: { slug: 'p5js', name: 'p5.js', type: to }
+	});
+
+	it('counts invoices and grants, and not costs paid back or payments to vendors', () => {
+		expect(isFundGift(paid('INVOICE'))).toBe(true);
+		expect(isFundGift(paid('GRANT', 'INDIVIDUAL'))).toBe(true);
+		expect(isFundGift(paid('RECEIPT'))).toBe(false);
+		expect(isFundGift(paid('INVOICE', 'VENDOR'))).toBe(false);
+		expect(isFundGift({ expense: null, oppositeAccount: null })).toBe(false);
+	});
+});
+
+describe('isFund with its own funds', () => {
+	it('counts what it moved into its funds, not what they gave on', () => {
+		const grants = toGrants([
+			{ ...grant('2026-10-08', 'vite', 100), via: { slug: 'chrome', name: 'Chrome' } }
+		]);
+		const months = [month('2026-10', 0, 1000)];
+		expect(isFund({ grants, months })).toBe(false);
+		expect(isFund({ grants, months, funded: [{ amount: 1000 }] })).toBe(true);
 	});
 });
 
@@ -343,7 +505,8 @@ describe('isGift', () => {
 				amount: 2500,
 				recurring: false,
 				toPerson: true,
-				theirSpending: null
+				theirSpending: null,
+				via: null
 			}
 		]);
 	});

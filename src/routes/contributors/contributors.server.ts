@@ -1,4 +1,5 @@
 import { cached } from '#lib/server/cache.js';
+import { findOwnFunds } from '#lib/grants.js';
 import { OpenCollectiveError, publicGraphql, toHttpError } from '#lib/server/opencollective.js';
 import {
 	BATCH_SIZE,
@@ -15,6 +16,7 @@ import {
 	spreadOf,
 	toCandidates,
 	toContributors,
+	toGrantNodes,
 	withGifts,
 	type Contributor,
 	type ContributorNode,
@@ -115,11 +117,11 @@ async function scanAccount<T>(slug: string, query: string): Promise<T[]> {
  * asks about ten times more for the expenses the hosts paid, to find the gifts among them. Then it
  * asks once for every
  * `BATCH_SIZE` of the `LIMIT` ranked, and twice or more for each ranked: for the gifts it paid as
- * expenses, and for whom its contributions went to. Open Collective doesn't publish its rate limit; asking with `OC_PERSONAL_TOKEN`, when
+ * expenses, for whom its contributions went to, and for which of those are its own funds. Open Collective doesn't publish its rate limit; asking with `OC_PERSONAL_TOKEN`, when
  * set, gets a higher one than asking anonymously.
  */
 export const loadContributors = cached<ContributorsResult>({
-	key: 'contributors:scan:v7',
+	key: 'contributors:scan:v8',
 	// Under the week between scheduled refreshes, so each finds last week's standings stale.
 	maxAgeMs: 6 * 24 * 60 * 60 * 1000,
 	scheduled: true,
@@ -157,10 +159,19 @@ export const loadContributors = cached<ContributorsResult>({
 			for (const contributor of toContributors(nodes)) {
 				const { slug } = contributor;
 				const expenses = await scanAccount<ExpenseNode>(slug, EXPENSES_QUERY);
-				const withGiven = withGifts({ contributor, expenses, now });
-				if (withGiven.total <= 0) continue;
 				const given = await scanAccount<GivenNode>(slug, GIVEN_QUERY);
-				contributors.push({ ...withGiven, spread: spreadOf({ slug, given, expenses, now }) });
+				// What it moved into its own funds is theirs to be ranked for, when they give it.
+				const funds = await findOwnFunds({
+					nodes: toGrantNodes(given),
+					ask,
+					family: { slugs: new Set([slug]), admins: new Set() }
+				});
+				const withGiven = withGifts({ contributor, expenses, given, funds, now });
+				if (withGiven.total <= 0) continue;
+				contributors.push({
+					...withGiven,
+					spread: spreadOf({ slug, given, expenses, funds, now })
+				});
 			}
 		} catch (err) {
 			toHttpError(err);
