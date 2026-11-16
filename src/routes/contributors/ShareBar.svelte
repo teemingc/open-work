@@ -20,20 +20,30 @@
 	let {
 		name,
 		length,
-		spread
+		spread,
+		onOpenChange
 	}: {
 		/** The contributor's name. */
 		name: string;
 		/** How long the bar is beside the leader's, from 0 to 1. */
 		length: number;
 		spread: Spread;
+		/** Told when the details open and close. */
+		onOpenChange?: (open: boolean) => void;
 	} = $props();
 
 	/**
 	 * A shade for each of the `SEGMENTS` named, the one given the most the strongest, so a bar of one
-	 * shade went to one project and a bar of many was spread widely.
+	 * shade went to one project and a bar of many was spread widely. The second is between the first
+	 * and third, so the last is no paler than the third series colour: the fourth is too faint on a
+	 * white row.
 	 */
-	const SHADES = ['bg-chart-2', 'bg-chart-1', 'bg-chart-3', 'bg-chart-4'];
+	const SHADES = [
+		'bg-chart-2',
+		'bg-[color-mix(in_oklab,var(--chart-2),var(--chart-1))]',
+		'bg-chart-1',
+		'bg-chart-3'
+	];
 
 	const percent = new Intl.NumberFormat('en-US', { style: 'percent', maximumFractionDigits: 0 });
 	/** A sliver is under 1%, rather than the 0% it would round to. */
@@ -54,6 +64,7 @@
 			if (active === id) active = null;
 			cooling = setTimeout(() => (warm = false), WARM_MS);
 		}
+		onOpenChange?.(open);
 	}
 
 	const others = $derived(spread.count - spread.top.length);

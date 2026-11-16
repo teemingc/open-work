@@ -59,6 +59,16 @@
 	const percent = new Intl.NumberFormat('en-US', { style: 'percent', maximumFractionDigits: 0 });
 
 	let highlighted = $state<string | null>(null);
+	/**
+	 * The contributor whose share details are open. Its row stays marked while the pointer is in the
+	 * details, which sit outside the table.
+	 */
+	let detailed = $state<string | null>(null);
+
+	function detail(slug: string, open: boolean) {
+		if (open) detailed = slug;
+		else if (detailed === slug) detailed = null;
+	}
 
 	const description =
 		'The companies and people that fund open source projects on Open Collective, ranked by how much they have contributed.';
@@ -187,7 +197,9 @@
 									duration: prefersReducedMotion.current ? 0 : 250,
 									easing: cubicOut
 								}}
-								class={{ followed: highlighted === contributor.slug }}
+								class={{
+									followed: highlighted === contributor.slug || detailed === contributor.slug
+								}}
 								onpointerenter={(event) => {
 									if (event.pointerType !== 'touch') highlighted = contributor.slug;
 								}}
@@ -284,6 +296,7 @@
 												name={contributor.name}
 												length={amount / most}
 												spread={contributor.spread[by]}
+												onOpenChange={(open) => detail(contributor.slug, open)}
 											/>
 										</div>
 									{/if}
@@ -302,6 +315,7 @@
 													name={contributor.name}
 													length={amount / most}
 													spread={contributor.spread[by]}
+													onOpenChange={(open) => detail(contributor.slug, open)}
 												/>
 											</div>
 											<span class="min-w-9 text-right text-muted-foreground">
