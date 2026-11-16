@@ -11,9 +11,14 @@ export type FacturXResponse = { pdf: Uint8Array } | { error: string };
 
 const quiet = { log() {}, warn() {}, error() {} };
 
-/** The library's browser build looks for `window`, which a worker calls `self`. */
+/**
+ * The library's browser build looks for `window`, which a worker calls `self`. It also names
+ * Node's `require` as a fallback it never calls here, which throws once built unless it exists.
+ */
 async function library() {
-	(globalThis as { window?: typeof globalThis }).window ??= globalThis;
+	const scope = globalThis as { window?: typeof globalThis; require?: unknown };
+	scope.window ??= globalThis;
+	if (!('require' in scope)) scope.require = undefined;
 	return import('@e-invoice-eu/core/dist/e-invoice-eu.min.js');
 }
 
