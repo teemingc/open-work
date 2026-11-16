@@ -19,7 +19,29 @@ async function library() {
 	const scope = globalThis as { window?: typeof globalThis; require?: unknown };
 	scope.window ??= globalThis;
 	if (!('require' in scope)) scope.require = undefined;
+	withoutTranslations();
 	return import('@e-invoice-eu/core/dist/e-invoice-eu.min.js');
+}
+
+/**
+ * The library asks the server for translations of the few words it writes into the PDF's
+ * metadata, under `/assets/locale`. This app has none, as the library's own English is what it
+ * wants, so those requests fail here rather than reaching the server twice for every PDF.
+ */
+function withoutTranslations() {
+	globalThis.XMLHttpRequest = class extends XMLHttpRequest {
+		#translation = false;
+
+		override open(method: string, url: string | URL, async = true) {
+			this.#translation = String(url).includes('/assets/locale/');
+			super.open(method, url, async);
+		}
+
+		override send(body?: XMLHttpRequestBodyInit | null) {
+			if (!this.#translation) return super.send(body);
+			queueMicrotask(() => this.dispatchEvent(new ProgressEvent('error')));
+		}
+	};
 }
 
 self.onmessage = async (event: MessageEvent<FacturXRequest>) => {
