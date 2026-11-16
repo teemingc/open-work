@@ -30,6 +30,19 @@ export interface CommitmentNode {
 	toAccount: { slug: string; name: string } | null;
 }
 
+/**
+ * The kinds of transaction that are money given to another account. Added funds are what a host
+ * records when it is paid outside Open Collective, as the PHP Foundation's host does for the
+ * invoices Automattic pays, so they are giving as much as contributions paid by card are.
+ */
+export const GIVING_KINDS = ['CONTRIBUTION', 'ADDED_FUNDS'];
+
+/**
+ * The kinds of transaction a gift shows as on Open Collective: a contribution to a collective, funds
+ * its host added, or an expense paid to a maintainer with no collective of their own.
+ */
+export const GIFT_KINDS = [...GIVING_KINDS, 'EXPENSE'];
+
 /** One contribution the collective made. */
 export interface Grant {
 	/** ISO date and time. */
@@ -145,12 +158,6 @@ export function isFund({ grants, months }: { grants: Grant[]; months: Month[] })
 	const spent = months.reduce((sum, month) => sum + month.expenses, 0);
 	return granted > 0 && granted >= spent * FUND_SHARE;
 }
-
-/**
- * The kinds of transaction a gift shows as on Open Collective: a contribution to a collective, or
- * an expense paid to a maintainer with no collective of their own.
- */
-export const GIFT_KINDS = ['CONTRIBUTION', 'EXPENSE'];
 
 /** What one account was given, in total and split by kind. */
 export interface Recipient {

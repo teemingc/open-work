@@ -7,6 +7,7 @@
 	import { compactFormat, moneyFormat } from '#lib/chart-format.js';
 	import { monthsBetween, transactionsUrl } from '#lib/financials.js';
 	import {
+		GIVING_KINDS,
 		recipientCount,
 		type AheadPoint,
 		type HistoryPoint,
@@ -170,7 +171,7 @@
 		tallies.findLast((tally) => tally.total <= given + 0.005)?.gifts ?? [];
 
 	const pastLink = new TooltipLink(({ date }: Step) =>
-		transactionsUrl({ slug, month: date.toISOString().slice(0, 7), kinds: ['CONTRIBUTION'] })
+		transactionsUrl({ slug, month: date.toISOString().slice(0, 7), kinds: GIVING_KINDS })
 	);
 	const aheadLink = new TooltipLink(
 		() => `https://opencollective.com/${slug}/recurring-contributions`
