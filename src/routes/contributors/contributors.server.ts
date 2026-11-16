@@ -54,7 +54,7 @@ async function scanHost(host: string, since: string): Promise<ScanNode[]> {
  * `OC_PERSONAL_TOKEN`, when set, gets a higher one than asking anonymously.
  */
 export const loadContributors = cached<ContributorsResult>({
-	key: 'contributors:scan:v2',
+	key: 'contributors:scan:v4',
 	// Under the week between scheduled refreshes, so each finds last week's standings stale.
 	maxAgeMs: 6 * 24 * 60 * 60 * 1000,
 	scheduled: true,

@@ -134,8 +134,19 @@ describe('toCandidates', () => {
 	const gift = (
 		slug: string,
 		value: number,
-		{ type = 'ORGANIZATION', name = slug, isIncognito = false } = {}
-	): ScanNode => ({ amount: { value }, fromAccount: { slug, name, type, isIncognito } });
+		{
+			type = 'ORGANIZATION',
+			name = slug,
+			isIncognito = false,
+			to = 'COLLECTIVE',
+			isRefunded = false
+		} = {}
+	): ScanNode => ({
+		amount: { value },
+		fromAccount: { slug, name, type, isIncognito },
+		toAccount: { type: to },
+		isRefunded
+	});
 
 	it('ranks those that gave the most, leaving out those that pass money on or gave no name', () => {
 		expect(
@@ -146,9 +157,14 @@ describe('toCandidates', () => {
 				gift('vite-ecosystem-fund', 157000, { type: 'PROJECT' }),
 				gift('maplibre', 290000, { type: 'COLLECTIVE' }),
 				gift('thanks-dev', 74000),
+				gift('github-sponsors', 1700000),
+				// A host adding funds to its own projects, and a company filling its own fund.
+				gift('numfocus', 6300000),
+				gift('bloomberg', 130000, { to: 'FUND' }),
+				gift('the-linux-foundation', 165000, { isRefunded: true }),
 				gift('incognito-1', 50000, { type: 'INDIVIDUAL', isIncognito: true }),
 				gift('guest-1', 40000, { type: 'INDIVIDUAL', name: 'Guest' }),
-				{ amount: { value: 90000 }, fromAccount: null }
+				{ amount: { value: 90000 }, fromAccount: null, toAccount: null, isRefunded: false }
 			])
 		).toEqual(['pavan', 'sentry']);
 	});

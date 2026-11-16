@@ -5,6 +5,7 @@
  */
 
 import { yearsBefore } from '#lib/financials.js';
+import { GIVING_KINDS } from '#lib/grants.js';
 
 /**
  * The hosts scanned for contributors. Open Collective cannot list the accounts that contribute to
@@ -28,12 +29,18 @@ export const LIMIT = 15;
 const PASS_ON_TYPES = new Set(['COLLECTIVE', 'PROJECT', 'EVENT', 'VENDOR']);
 
 /** Platforms that pay out what their own donors gave, so would count it twice. */
-const PASS_ON_SLUGS = new Set(['thanks-dev']);
+const PASS_ON_SLUGS = new Set(['thanks-dev', 'github-sponsors']);
+
+/** `GIVING_KINDS` as a query writes them, so those who pay a host by invoice count as givers too. */
+const KINDS = `[${GIVING_KINDS.join(', ')}]`;
 
 /** One contribution of `MIN_CONTRIBUTION` or more to a project the host holds money for. */
 export interface ScanNode {
 	amount: { value: number };
 	fromAccount: { slug: string; name: string | null; type: string; isIncognito: boolean } | null;
+	toAccount: { type: string } | null;
+	/** Given back since, as an invoice entered by mistake is. */
+	isRefunded: boolean;
 }
 
 /** A page of a host's contributions of `MIN_CONTRIBUTION` or more since `$since`. */
@@ -47,7 +54,7 @@ export const SCAN_QUERY = /* GraphQL */ `
 	) {
 		transactions(
 			host: $host
-			kind: [CONTRIBUTION]
+			kind: ${KINDS}
 			type: CREDIT
 			amount: { gte: { valueInCents: $min, currency: USD } }
 			dateFrom: $since
@@ -65,6 +72,10 @@ export const SCAN_QUERY = /* GraphQL */ `
 					type
 					isIncognito
 				}
+				toAccount {
+					type
+				}
+				isRefunded
 			}
 		}
 	}
@@ -72,15 +83,24 @@ export const SCAN_QUERY = /* GraphQL */ `
 
 /**
  * The slugs of those that gave the most in the contributions scanned, up to `LIMIT`. Leaves out
- * accounts that pass on what others gave, and contributors who chose not to be named. Amounts are
- * added whatever their currency, which is near enough for choosing whom to rank: the ranking itself
- * is in US dollars.
+ * accounts that pass on what others gave, and contributors who chose not to be named. A host adding
+ * funds to its own projects is passing on what it was paid for them, and what a company puts in its
+ * own fund is counted when the fund gives it, so neither is a gift here, nor is one refunded since. Amounts are added whatever
+ * their currency, which is near enough for choosing whom to rank: the ranking itself is in US
+ * dollars.
  */
 export function toCandidates(nodes: ScanNode[]): string[] {
 	const given = new Map<string, number>();
-	for (const { amount, fromAccount: from } of nodes) {
-		if (!from || from.isIncognito || PASS_ON_TYPES.has(from.type) || PASS_ON_SLUGS.has(from.slug))
+	for (const { amount, fromAccount: from, toAccount: to, isRefunded } of nodes) {
+		if (
+			!from ||
+			isRefunded ||
+			from.isIncognito ||
+			PASS_ON_TYPES.has(from.type) ||
+			PASS_ON_SLUGS.has(from.slug)
+		)
 			continue;
+		if (HOSTS.includes(from.slug) || to?.type === 'FUND') continue;
 		// Guest contributors who gave no name.
 		if (!from.name || from.name === 'Guest') continue;
 		given.set(from.slug, (given.get(from.slug) ?? 0) + amount.value);
@@ -148,10 +168,10 @@ export function contributorsQuery(slugs: string[]): string {
 			type
 			imageUrl(height: 64)
 			stats {
-				recent: totalAmountSpent(dateFrom: $yearAgo, kind: [CONTRIBUTION], currency: USD) { value }
-				previous: totalAmountSpent(dateFrom: $twoYearsAgo, dateTo: $yearAgo, kind: [CONTRIBUTION], currency: USD) { value }
-				total: totalAmountSpent(kind: [CONTRIBUTION], currency: USD) { value }
-				totalAmountSpentTimeSeries(dateFrom: $firstYear, timeUnit: YEAR, kind: [CONTRIBUTION], currency: USD) {
+				recent: totalAmountSpent(dateFrom: $yearAgo, kind: ${KINDS}, currency: USD) { value }
+				previous: totalAmountSpent(dateFrom: $twoYearsAgo, dateTo: $yearAgo, kind: ${KINDS}, currency: USD) { value }
+				total: totalAmountSpent(kind: ${KINDS}, currency: USD) { value }
+				totalAmountSpentTimeSeries(dateFrom: $firstYear, timeUnit: YEAR, kind: ${KINDS}, currency: USD) {
 					nodes { date amount { value } }
 				}
 			}
