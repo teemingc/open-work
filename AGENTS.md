@@ -1,6 +1,12 @@
-You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:
+## Svelte tools
 
-## Available MCP Tools:
+Svelte 5 and SvelteKit documentation and a code checker come from `@sveltejs/mcp`. Use whichever of these the session has:
+
+- the `svelte` MCP server set up in `.mcp.json`, whose tools are `list-sections`, `get-documentation` and `svelte-autofixer`
+- the `svelte-code-writer` skill, which runs the same three through the CLI
+- the CLI itself: `pnpm dlx @sveltejs/mcp <tool>`
+
+If you see no Svelte MCP tools, they are not missing: use the skill or the CLI.
 
 ### 1. list-sections
 
@@ -15,11 +21,11 @@ After calling the list-sections tool, you MUST analyze the returned documentatio
 ### 3. svelte-autofixer
 
 Analyzes Svelte code and returns issues and suggestions.
-You MUST use this tool whenever writing Svelte code before sending it to the user. Keep calling it until no issues or suggestions are returned.
+You MUST use this tool whenever writing Svelte code before sending it to the user. Keep calling it until no issues or suggestions are returned. From the CLI, pass the file's path, `--async`, and `--svelte-version` with the version in `node_modules/svelte/package.json`.
 
 ## Design system
 
-Read [DESIGN.md](DESIGN.md) before UI work. It links the design rules, tokens and the component, layout and pattern contracts in `design-system/`. Use the `design-system` skill for contract and system work and for choosing and reusing components, layouts and patterns.
+Read [DESIGN.md](DESIGN.md) before UI work. It links the design rules, tokens and the component, layout and pattern contracts in `design-system/`: [COMPONENTS.md](design-system/COMPONENTS.md), [LAYOUTS.md](design-system/LAYOUTS.md) and [PATTERNS.md](design-system/PATTERNS.md). Read those to choose and reuse components, layouts and patterns before making new ones.
 
 ## Project rules
 
@@ -31,7 +37,14 @@ Read [DESIGN.md](DESIGN.md) before UI work. It links the design rules, tokens an
 - avoid using deprecated icons
 
 - use pnpm instead of npm
-- run pnpm format, pnpm lint and pnpm check after making changes
+- run pnpm format, pnpm lint, pnpm check and pnpm test:unit --run after making changes
+- a commit message is one sentence that says what changed and why, naming the case that showed the need for it
+
+## Open Collective
+
+- `.env` holds `OC_PERSONAL_TOKEN`, which the dev server uses. You may use it for read-only requests to Open Collective's API when checking figures. Never print it or send it anywhere else
+- Open Collective allows 10 requests a minute without a token and 100 with one, and says so in the `x-ratelimit-*` headers of each response
+- a collective's page takes 2 requests or more when it is not cached, and a leaderboard scan takes 50 to 70. Loading many pages nobody has looked at while a scan runs reaches the limit, and the page then says so
 
 ## HTML rules
 
