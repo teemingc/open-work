@@ -5,7 +5,7 @@
 	import { hierarchy, pack, packSiblings } from 'd3-hierarchy';
 	import { moneyFormat } from '#lib/chart-format.js';
 	import { transactionsUrl } from '#lib/financials.js';
-	import type { Recipient } from '#lib/grants.js';
+	import { GIFT_KINDS, type Recipient } from '#lib/grants.js';
 	import type { LinkedProject } from './linked-project.svelte';
 	import LogoMark from './LogoMark.svelte';
 	import MoneyRow from './MoneyRow.svelte';
@@ -140,7 +140,7 @@
 			transactionsUrl({
 				slug,
 				account: slot.kind === 'recipient' ? slot.recipient.slug : undefined,
-				kinds: ['CONTRIBUTION']
+				kinds: GIFT_KINDS
 			}),
 		(slot) => linked.pin('pack', slot?.kind === 'recipient' ? slot.recipient.slug : undefined)
 	);

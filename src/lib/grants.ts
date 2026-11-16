@@ -146,6 +146,12 @@ export function isFund({ grants, months }: { grants: Grant[]; months: Month[] })
 	return granted > 0 && granted >= spent * FUND_SHARE;
 }
 
+/**
+ * The kinds of transaction a gift shows as on Open Collective: a contribution to a collective, or
+ * an expense paid to a maintainer with no collective of their own.
+ */
+export const GIFT_KINDS = ['CONTRIBUTION', 'EXPENSE'];
+
 /** What one account was given, in total and split by kind. */
 export interface Recipient {
 	slug: string;

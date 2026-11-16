@@ -7,7 +7,7 @@
 	import { ArrowRight, ExternalLink } from '@lucide/svelte';
 	import { compactFormat, moneyFormat } from '#lib/chart-format.js';
 	import { transactionsUrl } from '#lib/financials.js';
-	import type { Recipient } from '#lib/grants.js';
+	import { GIFT_KINDS, type Recipient } from '#lib/grants.js';
 	import type { LinkedProject } from './linked-project.svelte';
 	import LogoMark from './LogoMark.svelte';
 
@@ -104,7 +104,7 @@
 	const link = new TooltipLink(
 		(row: Row | Rest) =>
 			'rest' in row
-				? transactionsUrl({ slug, kinds: ['CONTRIBUTION'] })
+				? transactionsUrl({ slug, kinds: GIFT_KINDS })
 				: resolve(`/collective/[handle]${dashboardSearch()}`, { handle: row.slug }),
 		(row) => linked.pin('bars', row && !('rest' in row) ? row.slug : undefined)
 	);
