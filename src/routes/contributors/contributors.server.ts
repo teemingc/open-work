@@ -1,5 +1,5 @@
 import { cached } from '#lib/server/cache.js';
-import { publicGraphql, toHttpError } from '#lib/server/opencollective.js';
+import { OpenCollectiveError, publicGraphql, toHttpError } from '#lib/server/opencollective.js';
 import {
 	BATCH_SIZE,
 	contributorsQuery,
@@ -27,28 +27,55 @@ export interface ContributorsResult {
 	fetchedAt: number;
 }
 
+/** How many times one request of the scan is asked again after Open Collective fails it. */
+const RETRIES = 2;
+
 /**
- * Every transaction of `MIN_CONTRIBUTION` or more through `host` since `since` that `query` lists:
- * `SCAN_QUERY` for contributions, `PAID_QUERY` for expenses paid.
+ * Asks Open Collective, again if it fails on its side. A page of a host's transactions can take
+ * most of the 30 seconds it allows a request, and now and then one runs over and comes back a 503,
+ * which would otherwise throw away the minute or more of scanning before it.
+ */
+async function ask<T>(request: { query: string; variables: Record<string, unknown> }): Promise<T> {
+	for (let attempt = 0; ; attempt++) {
+		try {
+			return await publicGraphql<T>(request);
+		} catch (err) {
+			const failed = err instanceof OpenCollectiveError && err.status >= 500;
+			console.log(
+				request.query.match(/query (\w+)/)?.[1],
+				JSON.stringify(request.variables),
+				attempt
+			);
+			if (!failed || attempt >= RETRIES) throw err;
+		}
+	}
+}
+
+/**
+ * Every transaction of `MIN_CONTRIBUTION` or more through `host` from `since` to `until` that
+ * `query` lists: `SCAN_QUERY` for contributions, `PAID_QUERY` for expenses paid.
  */
 async function scanHost<T>({
 	host,
 	since,
+	until,
 	query
 }: {
 	host: string;
 	since: string;
+	until: string;
 	query: string;
 }): Promise<T[]> {
 	const nodes: T[] = [];
 	for (let offset = 0; ; offset += SCAN_PAGE) {
-		const { transactions } = await publicGraphql<{
+		const { transactions } = await ask<{
 			transactions: { totalCount: number; nodes: T[] };
 		}>({
 			query,
 			variables: {
 				host: { slug: host },
 				since,
+				until,
 				offset,
 				min: MIN_CONTRIBUTION * 100,
 				limit: SCAN_PAGE
@@ -63,7 +90,7 @@ async function scanHost<T>({
 async function scanExpenses(slug: string): Promise<ExpenseNode[]> {
 	const nodes: ExpenseNode[] = [];
 	for (let offset = 0; ; offset += SCAN_PAGE) {
-		const { transactions } = await publicGraphql<{
+		const { transactions } = await ask<{
 			transactions: { totalCount: number; nodes: ExpenseNode[] };
 		}>({ query: EXPENSES_QUERY, variables: { slug, offset, limit: SCAN_PAGE } });
 		nodes.push(...transactions.nodes);
@@ -77,9 +104,10 @@ async function scanExpenses(slug: string): Promise<ExpenseNode[]> {
  * scan covers the past two years, so the year before can be compared with the past one. In
  * development, where no schedule runs, the first visit starts it instead.
  *
- * A scan asks Open Collective about seven times for contributions: a page of `SCAN_PAGE` for each
- * of the `HOSTS`, plus a page for every further `SCAN_PAGE` a host has. It asks about nine times
- * more for the expenses the hosts paid, to find the gifts among them. Then it asks once for every
+ * A scan asks Open Collective about ten times for contributions: a page of `SCAN_PAGE` for each
+ * of the `HOSTS` in each of the two years, plus a page for every further `SCAN_PAGE` there is. It
+ * asks about ten times more for the expenses the hosts paid, to find the gifts among them. Then it
+ * asks once for every
  * `BATCH_SIZE` of the `LIMIT` ranked, and once or more for each ranked, for the gifts it paid as
  * expenses. Open Collective doesn't publish its rate limit; asking with `OC_PERSONAL_TOKEN`, when
  * set, gets a higher one than asking anonymously.
@@ -95,18 +123,25 @@ export const loadContributors = cached<ContributorsResult>({
 		const nodes: (ContributorNode | null)[] = [];
 		const contributors: Contributor[] = [];
 		try {
-			const since = variables.twoYearsAgo;
-			// One host at a time: a page can take Open Collective most of the 30 seconds it allows a
-			// request, and asking for several at once tips it over into a 503.
+			// One host and one year at a time. The further into a host's transactions a page is, the
+			// longer Open Collective takes over it: the sixth page of two years took over the 30
+			// seconds a request is allowed and came back a 503, where the third page of one year
+			// takes a few seconds. Asking for several at once slows each further.
+			const years = [
+				{ since: variables.twoYearsAgo, until: variables.yearAgo },
+				{ since: variables.yearAgo, until: now.toISOString() }
+			];
 			const given: ScanNode[] = [];
 			const paid: PaidNode[] = [];
 			for (const host of HOSTS) {
-				given.push(...(await scanHost<ScanNode>({ host, since, query: SCAN_QUERY })));
-				paid.push(...(await scanHost<PaidNode>({ host, since, query: PAID_QUERY })));
+				for (const year of years) {
+					given.push(...(await scanHost<ScanNode>({ host, ...year, query: SCAN_QUERY })));
+					paid.push(...(await scanHost<PaidNode>({ host, ...year, query: PAID_QUERY })));
+				}
 			}
 			const slugs = toCandidates([...given, ...giftsPaid(paid)]);
 			for (let i = 0; i < slugs.length; i += BATCH_SIZE) {
-				const result = await publicGraphql<Record<string, ContributorNode | null>>({
+				const result = await ask<Record<string, ContributorNode | null>>({
 					query: contributorsQuery(slugs.slice(i, i + BATCH_SIZE)),
 					variables
 				});

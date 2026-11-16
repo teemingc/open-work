@@ -63,11 +63,12 @@ function passesOn(from: NonNullable<ScanNode['fromAccount']>): boolean {
 	return PASS_ON_TYPES.has(from.type);
 }
 
-/** A page of a host's contributions of `MIN_CONTRIBUTION` or more since `$since`. */
+/** A page of a host's contributions of `MIN_CONTRIBUTION` or more from `$since` to `$until`. */
 export const SCAN_QUERY = /* GraphQL */ `
 	query ContributorsScan(
 		$host: AccountReferenceInput!
 		$since: DateTime!
+		$until: DateTime!
 		$offset: Int!
 		$min: Int!
 		$limit: Int!
@@ -78,6 +79,7 @@ export const SCAN_QUERY = /* GraphQL */ `
 			type: CREDIT
 			amount: { gte: { valueInCents: $min, currency: USD } }
 			dateFrom: $since
+			dateTo: $until
 			limit: $limit
 			offset: $offset
 		) {
@@ -115,11 +117,12 @@ export interface PaidNode extends Pick<PayoutNode, 'expense'> {
 	isRefunded: boolean;
 }
 
-/** A page of the expenses of `MIN_CONTRIBUTION` or more paid through a host since `$since`. */
+/** A page of the expenses of `MIN_CONTRIBUTION` or more a host paid from `$since` to `$until`. */
 export const PAID_QUERY = /* GraphQL */ `
 	query ContributorsPaid(
 		$host: AccountReferenceInput!
 		$since: DateTime!
+		$until: DateTime!
 		$offset: Int!
 		$min: Int!
 		$limit: Int!
@@ -130,6 +133,7 @@ export const PAID_QUERY = /* GraphQL */ `
 			type: DEBIT
 			amount: { gte: { valueInCents: $min, currency: USD } }
 			dateFrom: $since
+			dateTo: $until
 			limit: $limit
 			offset: $offset
 		) {
