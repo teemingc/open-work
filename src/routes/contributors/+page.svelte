@@ -92,7 +92,7 @@
 							These {summary.count} contributors have contributed a total of {money.format(
 								summary.sum
 							)}
-							to other collectives {summary.by === 'recent'
+							to projects and maintainers {summary.by === 'recent'
 								? 'in the past 12 months'
 								: 'since joining Open Collective'}.
 						</p>
