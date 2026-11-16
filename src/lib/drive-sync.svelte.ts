@@ -70,6 +70,8 @@ export class DriveSync {
 		google.account = account;
 	}
 	error = $state<string | undefined>();
+	/** Google no longer accepts the sign-in, so only signing in again gets syncing going. */
+	expired = $state(false);
 	/** When the last sync finished, in milliseconds. */
 	lastSynced = $state<number | undefined>();
 
@@ -164,9 +166,11 @@ export class DriveSync {
 			await work();
 			this.state = 'synced';
 			this.error = undefined;
+			this.expired = false;
 			this.lastSynced = Date.now();
 		} catch (err) {
 			this.state = 'error';
+			this.expired = isHttpError(err, 401);
 			this.error = isHttpError(err)
 				? err.body.message
 				: err instanceof Error

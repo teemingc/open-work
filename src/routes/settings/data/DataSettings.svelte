@@ -18,9 +18,9 @@
 		type WorkLogStore
 	} from '#lib/worklog-store.svelte.js';
 	import type { WorkLogData } from '#lib/worklog.js';
-	import { Check, CircleAlert, Cloud, Download, LogOut, RefreshCw, Upload } from '@lucide/svelte';
+	import { Check, CircleAlert, Cloud, Download, LogOut, Upload } from '@lucide/svelte';
 	import { untrack } from 'svelte';
-	import { signInWithGoogle, signOutOfGoogle } from './auth-client';
+	import { signInWithGoogle, signOutOfGoogle } from '#lib/auth-client.js';
 	import SignOut from './SignOut.svelte';
 
 	let { store: storeProp }: { store: WorkLogStore } = $props();
@@ -180,17 +180,10 @@
 			</p>
 		{/if}
 		<!-- Signed out, the sign-in button already says the log is not in Drive. -->
-		{#if sync.state !== 'signed-out'}<DriveSyncStatus {sync} />{/if}
+		{#if sync.state !== 'signed-out'}<DriveSyncStatus {sync} action />{/if}
 		<!-- Full-width buttons on a phone, as shadcn's forms have them, side by side once they fit. -->
 		<div class="grid gap-2 @md/settings:flex @md/settings:flex-wrap">
 			{#if sync.account}
-				<Button
-					variant="outline"
-					disabled={sync.state === 'syncing'}
-					onclick={() => sync.syncNow()}
-				>
-					<RefreshCw /> Sync now
-				</Button>
 				<Button
 					variant="ghost"
 					onclick={async () => {
