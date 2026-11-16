@@ -335,18 +335,21 @@
 								labelFormatter={(d: Date) => dayMonthYear.format(d)}
 								link={balanceLink}
 							>
-								{#snippet formatter({ value, name, item, index, payload })}
-									{#if typeof value === 'number'}
-										<MoneyRow {value} {name} color={item.color} {money} />
-									{/if}
-									<!-- Once, after the last series, where balance and forecast meet. -->
-									{#if yearBefore !== undefined && index === payload.length - 1}
-										<MoneyRow
-											value={yearBefore}
-											name="A year earlier"
-											color="var(--color-muted-foreground)"
-											{money}
-										/>
+								{#snippet formatter({ value, name, item, index })}
+									<!-- Today is the last point of the balance and the first of the forecast, which
+						starts from what is available, so only the first, the balance on record, is shown. -->
+									{#if index === 0}
+										{#if typeof value === 'number'}
+											<MoneyRow {value} {name} color={item.color} {money} />
+										{/if}
+										{#if yearBefore !== undefined}
+											<MoneyRow
+												value={yearBefore}
+												name="A year earlier"
+												color="var(--color-muted-foreground)"
+												{money}
+											/>
+										{/if}
 									{/if}
 								{/snippet}
 							</Chart.Tooltip>
