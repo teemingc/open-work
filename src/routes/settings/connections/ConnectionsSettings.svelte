@@ -6,6 +6,7 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
+	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import { GitHubError, verifyGitHubToken } from '#lib/github.js';
 	import { oauthErrorMessage } from '#lib/oauth-error.js';
@@ -14,13 +15,16 @@
 	import type { Settings } from '#lib/settings.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import { Check, CircleAlert, CircleCheck } from '@lucide/svelte';
+	import { isHttpError } from '@sveltejs/kit';
 	import { untrack } from 'svelte';
 	import ChipInput from './ChipInput.svelte';
 
 	let { data }: { data: { settings: Settings; store: WorkLogStore } } = $props();
 
-	// Open Collective connection, kept in a server cookie by the OAuth flow
-	const me = $derived(await getMe());
+	// Open Collective connection, kept in a server cookie by the OAuth flow. Read without `await`,
+	// so the page never waits on Open Collective, which can take half a minute to answer.
+	const meQuery = getMe();
+	const me = $derived(meQuery.current);
 	const connectError = $derived(oauthErrorMessage(page.url.searchParams.get('oc_error')));
 
 	const fields = saveSettings.fields;
@@ -65,7 +69,12 @@
 			description="Lists the expenses you have sent and lets you submit new ones straight to the collective."
 		>
 			<div class="space-y-1.5" id="oc-connection">
-				{#if me}
+				{#if me === undefined && !meQuery.error}
+					<div aria-busy="true">
+						<p class="sr-only">Checking the Open Collective connection</p>
+						<Skeleton class="h-14 w-full rounded-lg" />
+					</div>
+				{:else if me}
 					<!-- The account, then a separate action to leave it, which goes under it when both do not fit. -->
 					<div
 						class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg border bg-background px-3 py-2"
@@ -101,6 +110,14 @@
 						<CircleAlert size={15} class="shrink-0 text-attention" />
 						<span class="sr-only">(needed to submit invoices)</span>
 					</div>
+				{/if}
+				{#if meQuery.error}
+					<p class="flex items-start gap-1.5 text-sm text-destructive" role="alert">
+						<CircleAlert size={15} class="mt-0.5 shrink-0" />
+						{isHttpError(meQuery.error)
+							? meQuery.error.body.message
+							: 'Could not reach Open Collective.'}
+					</p>
 				{/if}
 				{#if connectError}
 					<p class="flex items-start gap-1.5 text-sm text-destructive" role="alert">
