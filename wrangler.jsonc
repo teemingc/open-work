@@ -22,12 +22,15 @@
 			"id": "8045022794264a459303e9455b39ba04"
 		}
 	],
+	// `wrangler dev` loads only these from `.env`, warning about any missing. The personal token is
+	// optional, but without it a local Worker asks Open Collective anonymously, 10 requests a minute.
 	"secrets": {
-		"required": ["OC_CLIENT_ID", "OC_CLIENT_SECRET"]
+		"required": ["OC_CLIENT_ID", "OC_CLIENT_SECRET", "OC_PERSONAL_TOKEN"]
 	},
-	// Refreshes the leaderboard every Monday.
+	// Refreshes the leaderboard on Monday mornings: every 10 minutes from 03:00 to 04:50 UTC, as a
+	// scan takes a couple of runs, and a run that fails is tried again by the next.
 	"triggers": {
-		"crons": ["0 3 * * 1"]
+		"crons": ["*/10 3-4 * * 1"]
 	},
 	"observability": {
 		"enabled": true

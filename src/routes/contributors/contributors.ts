@@ -183,15 +183,17 @@ export function giftsPaid(nodes: PaidNode[]): ScanNode[] {
 }
 
 /**
- * The slugs of those that gave the most in the contributions scanned, up to `LIMIT`. Leaves out
+ * Adds what each account gave in `nodes` to `given`, by slug, for `topGivers` to rank. Leaves out
  * accounts that pass on what others gave, and contributors who chose not to be named. A host adding
  * funds to its own projects is passing on what it was paid for them, and what a company puts in its
- * own fund is counted when the fund gives it, so neither is a gift here, nor is one refunded since. Amounts are added whatever
- * their currency, which is near enough for choosing whom to rank: the ranking itself is in US
- * dollars.
+ * own fund is counted when the fund gives it, so neither is a gift here, nor is one refunded since.
+ * Amounts are added whatever their currency, which is near enough for choosing whom to rank: the
+ * ranking itself is in US dollars.
  */
-export function toCandidates(nodes: ScanNode[]): string[] {
-	const given = new Map<string, number>();
+export function tallyGiven(
+	nodes: ScanNode[],
+	given = new Map<string, number>()
+): Map<string, number> {
 	for (const { amount, fromAccount: from, toAccount: to, isRefunded } of nodes) {
 		if (!from || isRefunded || from.isIncognito || passesOn(from)) continue;
 		if (HOSTS.includes(from.slug) || to?.type === 'FUND') continue;
@@ -199,10 +201,20 @@ export function toCandidates(nodes: ScanNode[]): string[] {
 		if (!from.name || from.name === 'Guest') continue;
 		given.set(from.slug, (given.get(from.slug) ?? 0) + amount.value);
 	}
+	return given;
+}
+
+/** The slugs of the `LIMIT` that gave the most in a tally from `tallyGiven`. */
+export function topGivers(given: Iterable<[string, number]>): string[] {
 	return [...given]
 		.sort(([, a], [, b]) => b - a)
 		.slice(0, LIMIT)
 		.map(([slug]) => slug);
+}
+
+/** The slugs of those that gave the most in the contributions scanned, up to `LIMIT`. */
+export function toCandidates(nodes: ScanNode[]): string[] {
+	return topGivers(tallyGiven(nodes));
 }
 
 /**

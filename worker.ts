@@ -19,6 +19,7 @@ export default {
 			env,
 			ctx
 		);
+		// A 202 says the scan is under way, and the next run carries it on.
 		if (!response.ok) throw new Error(`Refreshing the leaderboard failed (${response.status}).`);
 	}
 } satisfies ExportedHandler<Env>;

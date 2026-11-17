@@ -31,7 +31,7 @@ export interface Store<T> {
 }
 
 /** Kept in Workers KV, shared by every data centre. */
-export function kvStore<T>(key: string): Store<T> {
+export function kvStore<T>(key: string): Store<T> & { clear(): Promise<void> } {
 	return {
 		async read() {
 			try {
@@ -47,6 +47,13 @@ export function kvStore<T>(key: string): Store<T> {
 				});
 			} catch {
 				// Too big, or written too often; the result is still kept in memory.
+			}
+		},
+		async clear() {
+			try {
+				await env.OC_CACHE?.delete(key);
+			} catch {
+				// Left to expire.
 			}
 		}
 	};
