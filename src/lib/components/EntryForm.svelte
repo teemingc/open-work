@@ -127,9 +127,8 @@
 	let rowClient = $state(initial.clientId);
 	let rowStart = $state(initial.start);
 	let rowEnd = $state(initial.end);
-	// Until the start is changed by hand, it is the hour the form opened in.
+	// Whether each time was changed by hand, so a draft is kept once either is.
 	let startChanged = $state(initial.startChanged);
-	// Until the end is changed by hand, it follows the start.
 	let endChanged = $state(initial.endChanged);
 	let rowHours = $state<number | undefined>(initial.hours);
 	const items: WorkRef[] = $state([...initial.items]);
@@ -167,12 +166,6 @@
 				// Without storage the draft lasts as long as the page.
 			}
 		});
-	}
-
-	function changeStart(value: string) {
-		rowStart = value;
-		startChanged = true;
-		if (!endChanged || (value && rowEnd && rowEnd < value)) rowEnd = value;
 	}
 
 	function addItem(): boolean {
@@ -240,7 +233,16 @@
 			</Select.Content>
 		</Select.Root>
 	</div>
-	<TimeInput label="Start" bind:value={() => rowStart, changeStart} />
+	<TimeInput
+		label="Start"
+		bind:value={
+			() => rowStart,
+			(value) => {
+				rowStart = value;
+				startChanged = true;
+			}
+		}
+	/>
 	<TimeInput
 		label="End"
 		aside={timed && hours > 0 ? `${formatHours(hours)} h` : undefined}
