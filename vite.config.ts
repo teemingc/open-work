@@ -1,3 +1,4 @@
+import { rmSync } from 'node:fs';
 import adapter from '@sveltejs/adapter-cloudflare';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
@@ -44,6 +45,23 @@ function nodeImageRenderers(): Plugin {
 	};
 }
 
+/**
+ * Removes the redirect the adapter writes after a build, which makes `wrangler deploy` deploy its
+ * Worker in place of `worker.ts`, without the schedule or the KV namespace in `wrangler.jsonc`.
+ */
+function deployFromWranglerConfig(): Plugin {
+	return {
+		name: 'deploy-from-wrangler-config',
+		apply: 'build',
+		buildApp: {
+			order: 'post',
+			async handler(builder) {
+				rmSync(`${builder.config.root}/.wrangler/deploy/config.json`, { force: true });
+			}
+		}
+	};
+}
+
 export default defineConfig({
 	server: { port: DEV_PORT },
 	// Found only once the work log renders, which made the first visit bundle them and then reload the page.
@@ -82,7 +100,9 @@ export default defineConfig({
 				config: 'wrangler.kit.jsonc',
 				platformProxy: { configPath: 'wrangler.jsonc' }
 			})
-		})
+		}),
+		// After SvelteKit, whose adapter reads the redirect while it builds.
+		deployFromWranglerConfig()
 	],
 	test: {
 		expect: { requireAssertions: true },
