@@ -14,7 +14,7 @@
 	} from '#lib/worklog.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import MonthPicker from '#lib/components/MonthPicker.svelte';
-	import { ChevronLeft, ChevronRight, Clock } from '@lucide/svelte';
+	import { ChevronLeft, ChevronRight } from '@lucide/svelte';
 	import ClientBars from './ClientBars.svelte';
 	import MonthCharts from './MonthCharts.svelte';
 	import MonthStats from './MonthStats.svelte';
@@ -174,10 +174,7 @@
 		<section aria-labelledby="{navId}-month" class="flex flex-col gap-4 md:gap-6">
 			<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
 				<h2 id="{navId}-month" class="font-display text-xl font-medium">{monthName}</h2>
-				<div class="ml-auto flex items-center gap-2">
-					<Button variant="ghost" size="sm" href="{resolve('/worklog')}?month={month}">
-						<Clock /><span class="max-sm:sr-only">Work log</span>
-					</Button>
+				<div class="ml-auto">
 					<MonthPicker path="/work" {month} current={thisMonth} label={monthLabel} />
 				</div>
 			</div>
