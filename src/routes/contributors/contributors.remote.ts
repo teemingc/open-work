@@ -1,6 +1,11 @@
 import { dev } from '$app/env';
 import { query } from '$app/server';
-import { loadContributors, type ContributorsResult } from './contributors.server';
+import {
+	loadContributors,
+	readScanFailure,
+	type ContributorsResult,
+	type ScanFailure
+} from './contributors.server';
 
 /**
  * The scan started for a fresh clone, which no schedule refreshes. One at a time, as later visits
@@ -8,15 +13,24 @@ import { loadContributors, type ContributorsResult } from './contributors.server
  */
 let seeding: Promise<void> | undefined;
 
-/** The stored standings, or `undefined` before the first scan is stored. Never waits on a scan. */
-export const getContributors = query(async (): Promise<ContributorsResult | undefined> => {
-	const stored = await loadContributors.peek();
-	// Deployed, the schedule and `pnpm warm` store them, as a visit can't outlast the scan.
-	if (!stored && dev) {
-		seeding ??= loadContributors
-			.warm()
-			.catch((err) => console.error('Scanning for the leaderboard failed.', err))
-			.finally(() => (seeding = undefined));
+/**
+ * The stored standings, `undefined` before the first scan is stored, and why the latest scan
+ * failed if it did so after them. Never waits on a scan.
+ */
+export const getContributors = query(
+	async (): Promise<{ standings?: ContributorsResult; failure?: ScanFailure }> => {
+		const [stored, failure] = await Promise.all([loadContributors.peek(), readScanFailure()]);
+		// Deployed, the schedule and `pnpm warm` store them, as a visit can't outlast the scan.
+		if (!stored && dev) {
+			seeding ??= loadContributors
+				.warm()
+				// The scan keeps why it failed, for the page to show.
+				.catch(() => {})
+				.finally(() => (seeding = undefined));
+		}
+		return {
+			standings: stored,
+			failure: failure && (!stored || failure.at > stored.fetchedAt) ? failure : undefined
+		};
 	}
-	return stored;
-});
+);

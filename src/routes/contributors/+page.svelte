@@ -6,6 +6,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { moneyFormat } from '#lib/chart-format.js';
+	import { formatLongDate, toIsoDate } from '#lib/format.js';
 	import { MIN_CONTRIBUTION, standings, yearlyRanks, type RankBy } from './contributors';
 	import { getContributors } from './contributors.remote';
 	import RankRace from './RankRace.svelte';
@@ -13,8 +14,12 @@
 
 	const CHARTED = 10;
 
+	const scan = $derived(await getContributors());
 	/** `undefined` until the first scan is stored, which takes too long to wait on. */
-	const result = $derived(await getContributors());
+	const result = $derived(scan.standings);
+	/** Why the latest scan failed, if it did after the standings shown. */
+	const failure = $derived(scan.failure);
+	const dateOf = (at: number) => formatLongDate(toIsoDate(new Date(at)));
 	const contributors = $derived(result?.contributors ?? []);
 
 	const by: RankBy = $derived(page.url.searchParams.get('by') === 'all-time' ? 'total' : 'recent');
@@ -109,6 +114,17 @@
 						</p>
 					{/each}
 				</div>
+				{#if failure}
+					<p class="mt-2 max-w-2xl text-sm text-pretty text-muted-foreground">
+						These are the standings of {dateOf(result.fetchedAt)}. Updating them failed on
+						{dateOf(failure.at)}: {failure.message}
+					</p>
+				{/if}
+			{:else if failure}
+				<p class="mt-3 max-w-2xl text-pretty text-muted-foreground">
+					The standings could not be gathered from Open Collective. {failure.message} The next try carries
+					on from where this one stopped.
+				</p>
 			{:else}
 				<p class="mt-3 max-w-2xl text-pretty text-muted-foreground">
 					The standings are being gathered from Open Collective. Check back shortly.

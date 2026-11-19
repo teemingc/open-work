@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OpenCollectiveError } from '#lib/server/opencollective.js';
-import { advance, newScan, ScanPaused, type ScanProgress } from './contributors.server';
+import {
+	advance,
+	newScan,
+	ScanPaused,
+	scanFailureMessage,
+	type ScanProgress
+} from './contributors.server';
 
 /** Twenty accounts that gave through `opensource`, the first the most. */
 const GIVERS = Array.from({ length: 20 }, (_, i) => `giver-${i}`);
@@ -116,5 +122,26 @@ describe('advance', () => {
 		await scan(progress, Infinity);
 		expect(ask).toHaveBeenCalledTimes(REQUESTS + 1);
 		expect(progress.contributors.map(({ slug }) => slug)).toEqual(GIVERS.slice(0, 15));
+	});
+});
+
+describe('scanFailureMessage', () => {
+	it("passes on Open Collective's message, which the leaderboard shows when it has no standings", () => {
+		expect(
+			scanFailureMessage(
+				new OpenCollectiveError(
+					'Open Collective took too long to answer. Try again in a moment.',
+					504
+				)
+			)
+		).toBe('Open Collective took too long to answer.');
+	});
+
+	it('keeps other errors to the log, as they may hold details of the server', () => {
+		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const err = new TypeError("Cannot read properties of undefined (reading 'nodes')");
+		expect(scanFailureMessage(err)).not.toContain('nodes');
+		expect(log).toHaveBeenCalledWith(expect.any(String), err);
+		log.mockRestore();
 	});
 });

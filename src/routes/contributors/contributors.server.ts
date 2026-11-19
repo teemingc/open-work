@@ -258,6 +258,34 @@ const KEY = 'contributors:scan:v8';
 /** Where a scan under way keeps its progress between runs. */
 const progressStore = kvStore<ScanProgress>(`${KEY}:progress`);
 
+/** Why the latest run of the scan failed, kept until a later run gets further. */
+export interface ScanFailure {
+	/** When it failed, as a timestamp. */
+	at: number;
+	message: string;
+}
+
+/** Where the latest failure is kept, as its message, so the page can say why it has no standings. */
+const failureStore = kvStore<string>(`${KEY}:failure`);
+
+/** The latest failure of the scan, if no run has got further since. */
+export async function readScanFailure(): Promise<ScanFailure | undefined> {
+	const entry = await failureStore.read();
+	return entry && { at: entry.at, message: entry.value };
+}
+
+/**
+ * What a failed run tells a visitor. Open Collective's errors are written to be read, less any ask to
+ * try again, which a visitor cannot; anything else may hold details of the server, so it goes to
+ * the log instead.
+ */
+export function scanFailureMessage(err: unknown): string {
+	if (err instanceof OpenCollectiveError)
+		return err.message.replace(/ Try again in a moment\.$/, '');
+	console.error('Scanning for the leaderboard failed.', err);
+	return 'The scan stopped on an unexpected error, which the server log has.';
+}
+
 /**
  * Refreshed weekly by the schedule in `worker.ts`, and after a deploy by `pnpm warm`: the
  * standings move slowly, and the scan takes a minute or more, longer than a visit allows. The
@@ -287,10 +315,14 @@ export const loadContributors = cached<ContributorsResult>({
 			await advance(progress, { used: 0, limit: REQUESTS_PER_RUN });
 		} catch (err) {
 			await progressStore.write({ at: Date.now(), value: progress });
-			if (err instanceof ScanPaused) throw err;
+			if (err instanceof ScanPaused) {
+				await failureStore.clear();
+				throw err;
+			}
+			await failureStore.write({ at: Date.now(), value: scanFailureMessage(err) });
 			toHttpError(err);
 		}
-		await progressStore.clear();
+		await Promise.all([progressStore.clear(), failureStore.clear()]);
 		return { contributors: progress.contributors, fetchedAt: progress.startedAt };
 	}
 });
