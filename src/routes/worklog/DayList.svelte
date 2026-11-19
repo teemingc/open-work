@@ -250,8 +250,8 @@
 
 <Card.Root class="@container/entries gap-0 overflow-hidden py-0">
 	<!--
-		The title with the actions at the end of its row. Where the log is saved sits beside the actions
-		on a wide card and under the title on a narrow one. The selection's actions take the place of the
+		The title, then where the log is saved and the actions at the end of its row. A long status wraps
+		within itself rather than taking a line of its own. The selection's actions take the place of the
 		others, at the same height, so the list never moves.
 	-->
 	<Card.Header
@@ -259,15 +259,13 @@
 	>
 		<Card.Title class="whitespace-nowrap">Days logged</Card.Title>
 		{#if status}
-			<div
-				class="order-last basis-full @md/entries:order-none @md/entries:ml-auto @md/entries:basis-auto"
-			>
+			<div class="ml-auto min-w-0">
 				{@render status()}
 			</div>
 		{/if}
 		{#if selectedHere.length > 0}
 			<!-- Centred in the row, where Card.Action would sit at its top. -->
-			<Card.Action class="ml-auto flex items-center gap-2 self-center @md/entries:ml-0">
+			<Card.Action class="flex items-center gap-2 self-center">
 				<!-- On a narrow card the count moves into the button, so neither wraps. -->
 				<span
 					class="hidden text-sm whitespace-nowrap text-muted-foreground tabular-nums @xs/card-header:inline"
@@ -285,7 +283,7 @@
 				</Button>
 			</Card.Action>
 		{:else if actions}
-			<div class="ml-auto shrink-0 self-center @md/entries:ml-0">{@render actions()}</div>
+			<div class="shrink-0 self-center empty:hidden">{@render actions()}</div>
 		{/if}
 	</Card.Header>
 	{#if days.length === 0}
