@@ -346,9 +346,16 @@
 			</ul>
 		{/if}
 
-		<!-- In a narrow form the buttons take the full width, as in shadcn's form blocks, with the main one first. -->
+		<!--
+			With Cancel beside it, the buttons take the full width in a narrow form, as in shadcn's form
+			blocks, with the main one first, and sit together at the end of the row in a wide one. Alone,
+			Log it always takes the full width, as at the end of an empty row it looked left behind.
+		-->
 		<div
-			class="col-span-2 flex flex-col-reverse gap-2 @sm:flex-row @sm:items-center @sm:justify-end @2xl:col-span-4"
+			class={[
+				'col-span-2 flex flex-col-reverse gap-2 @2xl:col-span-4',
+				oncancel && '@sm:flex-row @sm:items-center @sm:justify-end'
+			]}
 		>
 			{#if oncancel}
 				<Button type="button" variant="ghost" onclick={oncancel}>Cancel</Button>

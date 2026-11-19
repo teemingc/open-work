@@ -82,7 +82,7 @@ Lay out pages the way shadcn-svelte's blocks do (`dashboard-01`, `sidebar-07`, `
 - card grids go from one column to two at `@xl` and four at `@5xl`. A card's headline figure grows with the card (`@[250px]/card:text-3xl`)
 - tabs that do not fit become a select below `@4xl`, and a toggle group in a card header becomes a select below about 767px of card. Rows of tabs never scroll sideways
 - button labels shorten on narrow widths ("Columns" for "Customize Columns") or become icons with a `sr-only` label. Secondary controls, like first and last page, hide below `lg`
-- the submit button of a form takes the full width on phones, with the main action first; from `sm`, buttons sit together at the end of the row
+- the submit button of a form takes the full width on phones, with the main action first; from `sm`, buttons sit together at the end of the row. A submit button with no other button beside it, like the work log's Log it, takes the full width at every size
 - chart cards use `px-2 pt-4` for their content on phones and `sm:px-6 sm:pt-6`, with a fixed chart height rather than an aspect ratio
 - a detail view opens as a bottom drawer on phones and a side panel from `md`
 - keep fixed and sticky parts short: at 368px of height, a two-row sticky header leaves little room for the page
