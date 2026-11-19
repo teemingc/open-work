@@ -124,7 +124,7 @@
 				<a
 					href={resolve(tab.path)}
 					aria-current={tab === current ? 'page' : undefined}
-					class="flex min-h-9 items-center gap-2 rounded-md border-l-2 border-transparent px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
+					class="flex min-h-9 items-center gap-2 rounded-r-md border-l-2 border-transparent px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
 				>
 					{tab.label}
 					{#if tab.path === '/settings/connections' && needsSetup}

@@ -35,7 +35,7 @@
 </script>
 
 <div
-	class="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1.5 focus-within:ring-[3px] focus-within:ring-ring/40"
+	class="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-input bg-card px-2 py-1.5 focus-within:ring-[3px] focus-within:ring-ring/40"
 >
 	{#each values as name (name)}
 		<span

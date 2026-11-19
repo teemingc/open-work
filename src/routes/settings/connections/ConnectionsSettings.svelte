@@ -77,7 +77,7 @@
 				{:else if me}
 					<!-- The account, then a separate action to leave it, which goes under it when both do not fit. -->
 					<div
-						class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg border bg-background px-3 py-2"
+						class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg border bg-card px-3 py-2"
 					>
 						<div class="flex min-w-40 flex-1 items-center gap-2.5">
 							<CircleCheck size={18} class="shrink-0 text-status-paid" />

@@ -87,6 +87,6 @@ Lay out pages the way shadcn-svelte's blocks do (`dashboard-01`, `sidebar-07`, `
 - a detail view opens as a bottom drawer on phones and a side panel from `md`
 - keep fixed and sticky parts short: at 368px of height, a two-row sticky header leaves little room for the page
 - `main` is `@container/main`, so pages use `@xl/main:`, `@3xl/main:`, `@5xl/main:` and so on rather than `sm:`, `md:` and `lg:`
-- a section is a `Card` with its title in `Card.Header` and its actions in `Card.Action`, not a hand-rolled bordered `div`. Space sections with `flex flex-col gap-4 md:gap-6`, not margins or `space-y-8`
+- a section is a `Card` with its title in `Card.Header` and its actions in `Card.Action`, not a hand-rolled bordered `div`. Settings pages are the exception: their sections are `SettingsSection`, as [design-system/patterns/settings-section.md](design-system/patterns/settings-section.md) says. Space sections with `flex flex-col gap-4 md:gap-6`, not margins or `space-y-8`
 - on touch screens, buttons, toggles, inputs and selects are at least 40px tall through `pointer-coarse:` in their components. Don't shrink them with `h-auto py-0`; give a smaller custom control a 40px hit area with `relative after:absolute after:-inset-2`
 - text is at least `text-xs` (12px), and notes people need to read on a phone are `text-sm`

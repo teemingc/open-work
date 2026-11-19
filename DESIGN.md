@@ -27,7 +27,7 @@ Shared rules live at their authoritative locations:
 
 ## Contracts and public use
 
-Component contracts live in `design-system/components/`, layouts in `design-system/layouts/` and patterns in `design-system/patterns/`, each with its uppercase index.
+Component contracts live in `design-system/components/`, layouts in `design-system/layouts/` and patterns in `design-system/patterns/`, each with its uppercase index. The indexes are kept by hand: add a line when you add a contract.
 
 - shadcn-svelte primitives live in `src/lib/components/ui/` and are imported from their own files (`#lib/components/ui/card/index.js` and so on). Add new ones with the shadcn-svelte CLI ([components.json](components.json)). The local changes to these primitives are deliberate and must survive updates: Card padding via `--card-padding`, and 40px touch heights (`pointer-coarse:`) on Button, Toggle, Input and Select.
 - App-wide components live in `src/lib/components/`. Components used by one route live next to it (AGENTS.md, SvelteKit rules).

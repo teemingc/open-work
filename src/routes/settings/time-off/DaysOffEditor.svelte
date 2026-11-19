@@ -60,7 +60,7 @@
 			<span>Date</span>
 			<span>Name</span>
 		</div>
-		<ul class="divide-y rounded-lg border">
+		<ul class="divide-y rounded-lg border bg-card">
 			{#each days as { day, index } (day.date)}
 				<!-- The name has a line of its own on a phone, and the weekend note sits under it on any screen. -->
 				<li
