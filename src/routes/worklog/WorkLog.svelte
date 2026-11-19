@@ -140,31 +140,12 @@
 <div class="flex flex-col gap-4 md:gap-6">
 	<!--
 		The month control sits at the right edge of the title's row, and wraps under it only when the text
-		is too large for both. The GitHub button is left off phones, where it would be a bare icon.
+		is too large for both.
 	-->
-	<header class="flex flex-col gap-2">
-		<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-			<h1>Work log</h1>
-			<div class="ml-auto">
-				<MonthPicker path="/worklog" {month} current={monthOf(today)} label={monthName} />
-			</div>
-		</div>
-		<div class="flex items-center justify-between gap-2">
-			<DriveSyncStatus {sync} />
-			<div class="ml-auto hidden shrink-0 gap-2 sm:flex">
-				<!-- Without a username there is nothing to add from; it is set in Settings, under Connections. -->
-				{#if settings.githubUsername}
-					<Button
-						variant="outline"
-						size="sm"
-						onclick={importFromGitHub}
-						disabled={fetching || !githubClient}
-					>
-						{#if fetching}<Spinner />{:else}<GitPullRequest />{/if}
-						Add from GitHub
-					</Button>
-				{/if}
-			</div>
+	<header class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+		<h1>Work log</h1>
+		<div class="ml-auto">
+			<MonthPicker path="/worklog" {month} current={monthOf(today)} label={monthName} />
 		</div>
 	</header>
 
@@ -200,11 +181,14 @@
 
 	<!--
 		Logging comes first, so the form is in reach as the page opens, with what you log showing up just
-		below it. The month's figures and charts are on the overview.
+		below it. Where there is room the form takes a column of its own beside the days and stays in
+		view while they scroll. The month's figures and charts are on the overview.
 	-->
-	<div class="flex flex-col gap-4 md:gap-6">
+	<div
+		class="grid grid-cols-1 items-start gap-4 md:gap-6 @4xl/main:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] @5xl/main:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]"
+	>
 		{#if clients.length === 0}
-			<p class="text-sm text-muted-foreground">
+			<p class="text-sm text-muted-foreground @4xl/main:col-span-2">
 				Add a client in
 				<a href={resolve('/settings/clients')} class="font-medium text-foreground underline">
 					Clients settings
@@ -212,7 +196,9 @@
 				to start logging.
 			</p>
 		{:else}
-			<Card.Root>
+			<Card.Root
+				class="@4xl/main:sticky @4xl/main:top-20 @4xl/main:max-h-[calc(100svh-6rem)] @4xl/main:overflow-y-auto"
+			>
 				<Card.Header>
 					<Card.Title>Log time</Card.Title>
 				</Card.Header>
@@ -237,6 +223,28 @@
 			organization={settings.organization}
 			limit={drawnDays}
 			bind:justAdded
-		/>
+		>
+			{#snippet status()}
+				<DriveSyncStatus {sync} />
+			{/snippet}
+			{#snippet actions()}
+				<!--
+					Without a username there is nothing to add from; it is set in Settings, under Connections.
+					Left off phones, where it would be a bare icon.
+				-->
+				{#if settings.githubUsername}
+					<Button
+						variant="outline"
+						size="sm"
+						class="max-sm:hidden"
+						onclick={importFromGitHub}
+						disabled={fetching || !githubClient}
+					>
+						{#if fetching}<Spinner />{:else}<GitPullRequest />{/if}
+						Add from GitHub
+					</Button>
+				{/if}
+			{/snippet}
+		</DayList>
 	</div>
 </div>

@@ -23,8 +23,7 @@
 
 	{#snippet pending()}
 		<!--
-			The same heights as the page, so the footer stays put when the log arrives. The charts set
-			the height of the page whatever is logged.
+			Roughly the page's shape, so it does not jump when the log arrives.
 		-->
 		<div class="flex flex-col gap-4 md:gap-6" aria-busy="true">
 			<p class="sr-only">Loading your work log</p>
@@ -41,19 +40,12 @@
 					<Skeleton class="h-8 w-64 max-w-[50%]" />
 				</div>
 			</div>
-			<!-- In the page's order: logging first, then the month's figures, then the charts. -->
-			<div class="grid grid-cols-1 items-start gap-4 md:gap-6 @5xl/main:grid-cols-2">
-				<div class="flex flex-col gap-4 md:gap-6 @5xl/main:col-start-1 @5xl/main:row-start-2">
-					<Skeleton class="h-107 w-full rounded-xl @5xl/main:h-92" />
-					<Skeleton class="h-56 w-full rounded-xl" />
-				</div>
-				<Skeleton
-					class="h-106 w-full rounded-xl @5xl/main:col-span-2 @5xl/main:row-start-1 @5xl/main:h-30"
-				/>
-				<div class="flex flex-col gap-4 md:gap-6 @5xl/main:col-start-2 @5xl/main:row-start-2">
-					<Skeleton class="h-86 w-full rounded-xl @5xl/main:h-94" />
-					<Skeleton class="h-96 w-full rounded-xl @5xl/main:h-99" />
-				</div>
+			<!-- The form, then the days; side by side where the page is wide enough. -->
+			<div
+				class="grid grid-cols-1 items-start gap-4 md:gap-6 @4xl/main:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] @5xl/main:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]"
+			>
+				<Skeleton class="h-92 w-full rounded-xl" />
+				<Skeleton class="h-96 w-full rounded-xl" />
 			</div>
 		</div>
 	{/snippet}

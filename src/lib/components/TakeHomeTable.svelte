@@ -14,8 +14,9 @@
 	const amount = (value: number) => formatAmount(value, currency);
 </script>
 
-<div class="@container -mx-2 overflow-x-auto sm:-mx-3">
-	<table class="ledger text-sm @max-[15.5rem]:ledger-stacked">
+<!-- Where its card is taller than the table, the rows share out the extra height. -->
+<div class="@container -mx-2 flex-1 overflow-x-auto sm:-mx-3">
+	<table class="ledger h-full text-sm @max-[15.5rem]:ledger-stacked">
 		<thead>
 			<tr>
 				<th scope="col" class="px-2 py-2 text-left font-normal sm:px-3">

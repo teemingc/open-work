@@ -1,15 +1,13 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { chartPadding, TICK_LENGTH, X_TICK_OCCLUSION, Y_TICK_LABEL } from '#lib/chart-padding.js';
 	import LazyChart from '#lib/components/LazyChart.svelte';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import type { ChartConfig } from '#lib/components/ui/chart/chart-utils.js';
-	import { formatHours, formatMoney, parseIsoDate } from '#lib/format.js';
-	import { homeAmount, type WorkLogData, type YearSummary } from '#lib/worklog.js';
+	import { formatHours, parseIsoDate } from '#lib/format.js';
+	import type { YearSummary } from '#lib/worklog.js';
 	import { scaleTime } from 'd3-scale';
 
-	let { data, summary, today }: { data: WorkLogData; summary: YearSummary; today: string } =
-		$props();
+	let { summary, today }: { summary: YearSummary; today: string } = $props();
 
 	/** How tall the chart's legend is, so the plot leaves it room. */
 	let legendHeight = $state(20);
@@ -31,18 +29,6 @@
 	);
 
 	const monthStarts = $derived(summary.months.map((month) => parseIsoDate(`${month.month}-01`)));
-
-	/** The months up to this one: those ahead have nothing to show yet. */
-	const rows = $derived(
-		summary.months
-			.filter((month) => month.month <= today.slice(0, 7))
-			.map((month) => ({
-				month: month.month,
-				logged: month.logged,
-				difference: month.logged - month.expectedSoFar,
-				earned: homeAmount({ data, amounts: month.amounts })
-			}))
-	);
 </script>
 
 {#snippet hoursRow({ value, name }: { value: unknown; name: string })}
@@ -148,45 +134,5 @@
 				</Chart.Container>
 			{/snippet}
 		</LazyChart>
-	</Card.Content>
-	<Card.Content>
-		<!-- Stacks where the card is too narrow for its four columns, wherever the card sits. -->
-		<div class="-mx-3 overflow-x-auto">
-			<table class="ledger text-sm @max-md/card:ledger-stacked">
-				<caption class="sr-only">Hours and earnings by month</caption>
-				<thead class="text-xs">
-					<tr>
-						<th class="px-3 py-2 font-medium">Month</th>
-						<th class="px-3 py-2 text-right font-medium">Logged</th>
-						<th class="px-3 py-2 text-right font-medium">Against expected</th>
-						<th class="px-3 py-2 text-right font-medium">Earned</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each rows as row (row.month)}
-						<tr>
-							<td class="px-3 py-2">
-								<a href="{resolve('/worklog')}?month={row.month}" class="hover:underline">
-									{shortMonth.format(parseIsoDate(`${row.month}-01`))}
-								</a>
-							</td>
-							<td data-label="Logged" class="px-3 py-2 text-right">{formatHours(row.logged)}</td>
-							<td
-								data-label="Against expected"
-								class={[
-									'px-3 py-2 text-right',
-									row.difference >= 0 ? 'text-status-paid' : 'text-destructive'
-								]}
-							>
-								{row.difference > 0 ? '+' : ''}{formatHours(row.difference)}
-							</td>
-							<td data-label="Earned" class="px-3 py-2 text-right">
-								{row.earned ? formatMoney(row.earned.amount, row.earned.currency) : '—'}
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
 	</Card.Content>
 </Card.Root>

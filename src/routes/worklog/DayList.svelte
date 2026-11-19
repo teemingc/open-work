@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
@@ -36,7 +37,9 @@
 		organization,
 		today,
 		limit = Infinity,
-		justAdded = $bindable()
+		justAdded = $bindable(),
+		status,
+		actions
 	}: {
 		store: WorkLogStore;
 		summary: MonthSummary;
@@ -46,6 +49,10 @@
 		limit?: number;
 		/** The entry just saved, tinted once and then cleared, so it does not tint again later. */
 		justAdded?: string;
+		/** Under the title: where the log is saved. */
+		status?: Snippet;
+		/** Beside the title while nothing is selected, like adding from GitHub. */
+		actions?: Snippet;
 	} = $props();
 
 	let editing = $state<string | undefined>();
@@ -242,14 +249,25 @@
 {/snippet}
 
 <Card.Root class="@container/entries gap-0 overflow-hidden py-0">
-	<!-- One fixed row, so the actions appearing never move the list. -->
+	<!--
+		The title with the actions at the end of its row. Where the log is saved sits beside the actions
+		on a wide card and under the title on a narrow one. The selection's actions take the place of the
+		others, at the same height, so the list never moves.
+	-->
 	<Card.Header
-		class="flex h-14 items-center justify-between gap-3 border-b px-4 py-0 [.border-b]:pb-0"
+		class="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1.5 border-b px-4 py-3 [.border-b]:pb-3"
 	>
 		<Card.Title class="whitespace-nowrap">Days logged</Card.Title>
+		{#if status}
+			<div
+				class="order-last basis-full @xl/entries:order-none @xl/entries:ml-auto @xl/entries:basis-auto"
+			>
+				{@render status()}
+			</div>
+		{/if}
 		{#if selectedHere.length > 0}
 			<!-- Centred in the row, where Card.Action would sit at its top. -->
-			<Card.Action class="flex items-center gap-2 self-center">
+			<Card.Action class="ml-auto flex items-center gap-2 self-center @xl/entries:ml-0">
 				<!-- On a narrow card the count moves into the button, so neither wraps. -->
 				<span
 					class="hidden text-sm whitespace-nowrap text-muted-foreground tabular-nums @xs/card-header:inline"
@@ -266,6 +284,8 @@
 					<span class="sr-only">Clear selection</span>
 				</Button>
 			</Card.Action>
+		{:else if actions}
+			<div class="ml-auto shrink-0 self-center @xl/entries:ml-0">{@render actions()}</div>
 		{/if}
 	</Card.Header>
 	{#if days.length === 0}

@@ -28,7 +28,8 @@
 				The month could end between {money(projection.low)} and {money(projection.high)} gross.
 			</Card.Description>
 		</Card.Header>
-		<Card.Content>
+		<!-- Fills the card when it is stretched to the height of the chart beside it. -->
+		<Card.Content class="flex flex-1 flex-col">
 			<TakeHomeTable
 				currency={projection.currency}
 				soFar={{ gross: projection.earned, ...soFar }}

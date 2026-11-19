@@ -203,149 +203,157 @@
 	}
 </script>
 
-<form
-	class="grid grid-cols-2 gap-3"
-	onsubmit={(event) => {
-		event.preventDefault();
-		save();
-	}}
->
-	<!-- Date and client each take the full width on a phone, where a pair of them is too narrow to read. -->
-	<div class="col-span-2 space-y-1.5 sm:col-span-1">
-		<Label for="{id}-date">Date</Label>
-		<Input
-			id="{id}-date"
-			type="date"
-			required
-			bind:value={() => rowDate, (value) => (pickedDate = value)}
-		/>
-	</div>
-	<div class="col-span-2 space-y-1.5 sm:col-span-1">
-		<Label for="{id}-client">Client</Label>
-		<Select.Root type="single" bind:value={rowClient}>
-			<Select.Trigger id="{id}-client" class="w-full">
-				{#if client}<ClientName {client} />{:else}Choose one{/if}
-			</Select.Trigger>
-			<Select.Content>
-				{#each clients as client (client.id)}
-					<Select.Item value={client.id} label={client.name}><ClientName {client} /></Select.Item>
-				{/each}
-			</Select.Content>
-		</Select.Root>
-	</div>
-	<TimeInput
-		label="Start"
-		bind:value={
-			() => rowStart,
-			(value) => {
-				rowStart = value;
-				startChanged = true;
-			}
-		}
-	/>
-	<TimeInput
-		label="End"
-		aside={timed && hours > 0 ? `${formatHours(hours)} h` : undefined}
-		bind:value={
-			() => rowEnd,
-			(value) => {
-				rowEnd = value;
-				endChanged = true;
-			}
-		}
-	/>
-
-	{#if !timed}
-		<div class="space-y-1.5">
-			<Label for="{id}-hours">Or hours</Label>
-			<Input
-				id="{id}-hours"
-				type="number"
-				inputmode="decimal"
-				min="0"
-				step="0.5"
-				class="tabular-nums"
-				bind:value={rowHours}
-			/>
-		</div>
-	{/if}
-
-	<div class="col-span-2 space-y-1.5">
-		<Label for="{id}-item">What you worked on</Label>
-		<div class="flex gap-2">
-			<SuggestInput
-				id="{id}-item"
-				bind:value={itemText}
-				suggestions={tasks.filter(
-					(task) => !items.some((item) => item.kind === 'task' && item.text === task)
-				)}
-				onpick={(task) => {
-					itemText = task;
-					addItem();
-				}}
-				onremove={onhidetask}
-				spellcheck={false}
-				aria-describedby="{id}-item-hint"
-				aria-invalid={itemText.trim() !== '' && !parsed}
-				onkeydown={(event) => {
-					// Enter adds the item; saving the entry is its own button.
-					if (event.key === 'Enter' && !event.defaultPrevented && itemText.trim()) {
-						event.preventDefault();
-						addItem();
-					}
-				}}
-			/>
-			<Button type="button" variant="outline" onclick={addItem} disabled={!parsed}>
-				<Plus /> <span class="max-sm:sr-only">Add item</span>
-			</Button>
-		</div>
-	</div>
-
-	<!-- Always a line of text, so typing a task never takes the hint away and moves the form. -->
-	<p
-		id="{id}-item-hint"
-		class="col-span-2 min-h-lh text-xs text-muted-foreground"
-		aria-live="polite"
+<!-- The form's own width sets its columns, wherever it is placed. -->
+<div class="@container">
+	<form
+		class="grid grid-cols-2 gap-3 @2xl:grid-cols-4"
+		onsubmit={(event) => {
+			event.preventDefault();
+			save();
+		}}
 	>
-		{#if !timesValid}
-			<span class="text-destructive">Enter both a start and an end, or neither.</span>
-		{:else if itemText.trim() && !parsed}
-			<span class="text-destructive">
-				That GitHub URL is missing the pull request or issue number.
-			</span>
-		{:else if parsed && parsed.kind !== 'task'}
-			{describeRef(parsed)}
-		{:else}
-			A GitHub URL, or a task like a meeting.
-		{/if}
-	</p>
+		<!--
+		Date and client each take the full width in a narrow form, where a pair of them is too narrow to
+		read, and share one row with the times in a wide one.
+	-->
+		<div class="col-span-2 space-y-1.5 @sm:col-span-1">
+			<Label for="{id}-date">Date</Label>
+			<Input
+				id="{id}-date"
+				type="date"
+				required
+				bind:value={() => rowDate, (value) => (pickedDate = value)}
+			/>
+		</div>
+		<div class="col-span-2 space-y-1.5 @sm:col-span-1">
+			<Label for="{id}-client">Client</Label>
+			<Select.Root type="single" bind:value={rowClient}>
+				<Select.Trigger id="{id}-client" class="w-full">
+					{#if client}<ClientName {client} />{:else}Choose one{/if}
+				</Select.Trigger>
+				<Select.Content>
+					{#each clients as client (client.id)}
+						<Select.Item value={client.id} label={client.name}><ClientName {client} /></Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
+		</div>
+		<TimeInput
+			label="Start"
+			bind:value={
+				() => rowStart,
+				(value) => {
+					rowStart = value;
+					startChanged = true;
+				}
+			}
+		/>
+		<TimeInput
+			label="End"
+			aside={timed && hours > 0 ? `${formatHours(hours)} h` : undefined}
+			bind:value={
+				() => rowEnd,
+				(value) => {
+					rowEnd = value;
+					endChanged = true;
+				}
+			}
+		/>
 
-	{#if items.length > 0}
-		<!-- One item a row, so a long list reads down one edge rather than wherever each tag fits. -->
-		<ul class="col-span-2 divide-y rounded-md border bg-background">
-			{#each items as item, index (refKey(item))}
-				<li class="flex min-w-0 items-center justify-between gap-2 py-1 pr-1 pl-3 text-sm">
-					<WorkItem ref={item} {organization} />
-					<Button
-						type="button"
-						variant="ghost"
-						size="icon"
-						class="relative size-6 after:absolute after:-inset-2 pointer-coarse:size-6"
-						onclick={() => items.splice(index, 1)}
-					>
-						<Trash2 size={12} />
-						<span class="sr-only">Remove {describeRef(item)}</span>
-					</Button>
-				</li>
-			{/each}
-		</ul>
-	{/if}
-
-	<!-- On phones the buttons take the full width, as in shadcn's form blocks, with the main one first. -->
-	<div class="col-span-2 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
-		{#if oncancel}
-			<Button type="button" variant="ghost" onclick={oncancel}>Cancel</Button>
+		{#if !timed}
+			<div class="space-y-1.5">
+				<Label for="{id}-hours">Or hours</Label>
+				<Input
+					id="{id}-hours"
+					type="number"
+					inputmode="decimal"
+					min="0"
+					step="0.5"
+					class="tabular-nums"
+					bind:value={rowHours}
+				/>
+			</div>
 		{/if}
-		<Button type="submit" disabled={!canSave}>{entry ? 'Save' : 'Log it'}</Button>
-	</div>
-</form>
+
+		<div class="col-span-2 space-y-1.5 @2xl:col-span-4">
+			<Label for="{id}-item">What you worked on</Label>
+			<div class="flex gap-2">
+				<SuggestInput
+					id="{id}-item"
+					bind:value={itemText}
+					suggestions={tasks.filter(
+						(task) => !items.some((item) => item.kind === 'task' && item.text === task)
+					)}
+					onpick={(task) => {
+						itemText = task;
+						addItem();
+					}}
+					onremove={onhidetask}
+					spellcheck={false}
+					aria-describedby="{id}-item-hint"
+					aria-invalid={itemText.trim() !== '' && !parsed}
+					onkeydown={(event) => {
+						// Enter adds the item; saving the entry is its own button.
+						if (event.key === 'Enter' && !event.defaultPrevented && itemText.trim()) {
+							event.preventDefault();
+							addItem();
+						}
+					}}
+				/>
+				<Button type="button" variant="outline" onclick={addItem} disabled={!parsed}>
+					<Plus /> <span class="@max-sm:sr-only">Add item</span>
+				</Button>
+			</div>
+		</div>
+
+		<!-- Always a line of text, so typing a task never takes the hint away and moves the form. -->
+		<p
+			id="{id}-item-hint"
+			class="col-span-2 min-h-lh text-xs text-muted-foreground @2xl:col-span-4"
+			aria-live="polite"
+		>
+			{#if !timesValid}
+				<span class="text-destructive">Enter both a start and an end, or neither.</span>
+			{:else if itemText.trim() && !parsed}
+				<span class="text-destructive">
+					That GitHub URL is missing the pull request or issue number.
+				</span>
+			{:else if parsed && parsed.kind !== 'task'}
+				{describeRef(parsed)}
+			{:else}
+				A GitHub URL, or a task like a meeting.
+			{/if}
+		</p>
+
+		{#if items.length > 0}
+			<!-- One item a row, so a long list reads down one edge rather than wherever each tag fits. -->
+			<ul class="col-span-2 divide-y rounded-md border bg-background @2xl:col-span-4">
+				{#each items as item, index (refKey(item))}
+					<li class="flex min-w-0 items-center justify-between gap-2 py-1 pr-1 pl-3 text-sm">
+						<WorkItem ref={item} {organization} />
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							class="relative size-6 after:absolute after:-inset-2 pointer-coarse:size-6"
+							onclick={() => items.splice(index, 1)}
+						>
+							<Trash2 size={12} />
+							<span class="sr-only">Remove {describeRef(item)}</span>
+						</Button>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+
+		<!-- In a narrow form the buttons take the full width, as in shadcn's form blocks, with the main one first. -->
+		<div
+			class="col-span-2 flex flex-col-reverse gap-2 @sm:flex-row @sm:items-center @sm:justify-end @2xl:col-span-4"
+		>
+			{#if oncancel}
+				<Button type="button" variant="ghost" onclick={oncancel}>Cancel</Button>
+			{/if}
+			<Button type="submit" disabled={!canSave}>{entry ? 'Save' : 'Log it'}</Button>
+		</div>
+	</form>
+</div>

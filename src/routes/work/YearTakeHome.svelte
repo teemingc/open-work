@@ -30,7 +30,8 @@
 				The year could end around {formatMoney(earnings.projected, earnings.currency)} gross.
 			</Card.Description>
 		</Card.Header>
-		<Card.Content>
+		<!-- Fills the card when it is stretched to the height of the chart beside it. -->
+		<Card.Content class="flex flex-1 flex-col">
 			<TakeHomeTable
 				currency={earnings.currency}
 				soFar={{ gross: earnings.earned, ...soFar }}

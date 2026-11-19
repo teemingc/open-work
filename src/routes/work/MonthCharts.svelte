@@ -7,6 +7,7 @@
 	import type { Client, MonthSummary } from '#lib/worklog.js';
 	import { scaleBand, scaleTime } from 'd3-scale';
 	import { clientColor } from '#lib/client-colors.js';
+	import ClientBars from './ClientBars.svelte';
 
 	let {
 		chart,
@@ -23,9 +24,6 @@
 
 	/** How tall the chart's legend is, so the plot leaves it room. */
 	let paceLegend = $state(20);
-
-	/** How tall the chart's legend is, so the plot leaves it room. */
-	let dailyLegend = $state(20);
 
 	const dayMonth = new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short' });
 	const weekdayDayMonth = new Intl.DateTimeFormat('en', {
@@ -141,8 +139,7 @@
 		</Card.Content>
 	</Card.Root>
 {:else}
-	<!-- Beside the day list, which is far taller: it stays in view below the header. -->
-	<Card.Root class="@6xl/main:sticky @6xl/main:top-16">
+	<Card.Root class="@container/card">
 		<Card.Header>
 			<Card.Title>Hours each day</Card.Title>
 			<Card.Description>
@@ -153,10 +150,10 @@
 		</Card.Header>
 		<Card.Content class="px-2 pt-4 sm:px-6 sm:pt-6">
 			<LazyChart class="h-64">
-				{#snippet children({ BarChart, Chart, Legend, legendMotion })}
+				{#snippet children({ BarChart, Chart, legendMotion })}
 					<Chart.Container config={dailyConfig} class="aspect-auto h-64 w-full">
 						<BarChart
-							padding={chartPadding({ left: 44, legend: shownClients.length > 1 && dailyLegend })}
+							padding={chartPadding({ left: 44 })}
 							data={daily}
 							x="date"
 							xScale={scaleBand().padding(0.2)}
@@ -194,15 +191,14 @@
 									formatter={hoursRow}
 								/>
 							{/snippet}
-							{#snippet legend({ context })}
-								{#if shownClients.length > 1}
-									<Legend {context} bind:height={dailyLegend} />
-								{/if}
-							{/snippet}
 						</BarChart>
 					</Chart.Container>
 				{/snippet}
 			</LazyChart>
+			<!-- Each client's share stands as the chart's key, so the chart draws none of its own. -->
+			<div class="mt-6 px-2 sm:px-0">
+				<ClientBars totals={summary.clients} {clients} />
+			</div>
 		</Card.Content>
 	</Card.Root>
 {/if}

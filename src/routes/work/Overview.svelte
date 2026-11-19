@@ -8,6 +8,7 @@
 		completeDeductions,
 		daysOffBudget,
 		monthOf,
+		monthProjection,
 		summarizeMonth,
 		summarizeYear,
 		yearTakeHome
@@ -15,12 +16,12 @@
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import MonthPicker from '#lib/components/MonthPicker.svelte';
 	import { ChevronLeft, ChevronRight } from '@lucide/svelte';
-	import ClientBars from './ClientBars.svelte';
 	import MonthCharts from './MonthCharts.svelte';
 	import MonthStats from './MonthStats.svelte';
 	import TakeHome from './TakeHome.svelte';
 	import YearEmpty from './YearEmpty.svelte';
 	import YearHours from './YearHours.svelte';
+	import YearMonths from './YearMonths.svelte';
 	import YearTakeHome from './YearTakeHome.svelte';
 
 	let { store }: { store: WorkLogStore } = $props();
@@ -70,9 +71,9 @@
 		new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(monthDate)
 	);
 	const monthSummary = $derived(summarizeMonth({ data: store.data, month, today }));
-	/** Whether the money column has anything in it: take-home needs earnings, clients need two. */
-	const hasMonthMoney = $derived(
-		Object.keys(monthSummary.amounts).length > 0 || monthSummary.clients.length > 1
+	/** Whether the month has a take-home card to sit beside its pace. */
+	const hasTakeHome = $derived(
+		monthProjection({ data: store.data, summary: monthSummary }) !== undefined
 	);
 
 	const summary = $derived(summarizeYear({ data: store.data, year, today }));
@@ -128,95 +129,114 @@
 	});
 </script>
 
+{#snippet yearNav()}
+	<!-- Only when there is another year to go to. -->
+	{#if previousYear !== undefined || nextYear !== undefined}
+		<nav
+			aria-labelledby={navId}
+			class="ml-auto flex shrink-0 items-center rounded-md border bg-card"
+		>
+			<h3 id={navId} class="sr-only">Year</h3>
+			<Button
+				variant="ghost"
+				size="icon"
+				class="rounded-r-none"
+				href={previousYear === undefined ? undefined : `${resolve('/work')}?year=${previousYear}`}
+				disabled={previousYear === undefined}
+			>
+				<ChevronLeft /><span class="sr-only">Previous year</span>
+			</Button>
+			{#if year === thisYear}
+				<Button variant="ghost" size="sm" class="rounded-none border-x" disabled>This year</Button>
+			{:else}
+				<Button variant="ghost" size="sm" class="rounded-none border-x" href={resolve('/work')}>
+					This year
+				</Button>
+			{/if}
+			<Button
+				variant="ghost"
+				size="icon"
+				class="rounded-l-none"
+				href={nextYear === undefined ? undefined : `${resolve('/work')}?year=${nextYear}`}
+				disabled={nextYear === undefined}
+			>
+				<ChevronRight /><span class="sr-only">Next year</span>
+			</Button>
+		</nav>
+	{/if}
+{/snippet}
+
 <div class="flex flex-col gap-4 md:gap-6">
-	<!-- The year controls sit at the right edge, like the work log's month controls. -->
+	<!--
+		The month control sits at the right edge of the title's row, as on the work log, and is the only
+		place the month is named. The year's own controls go with the year's section below.
+	-->
 	<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-		<h1>{year}</h1>
-		<!-- Only when there is another year to go to. -->
-		{#if previousYear !== undefined || nextYear !== undefined}
-			<nav aria-labelledby={navId} class="flex shrink-0 items-center rounded-md border bg-card">
-				<h2 id={navId} class="sr-only">Year</h2>
-				<Button
-					variant="ghost"
-					size="icon"
-					class="rounded-r-none"
-					href={previousYear === undefined ? undefined : `${resolve('/work')}?year=${previousYear}`}
-					disabled={previousYear === undefined}
-				>
-					<ChevronLeft /><span class="sr-only">Previous year</span>
-				</Button>
-				{#if year === thisYear}
-					<Button variant="ghost" size="sm" class="rounded-none border-x" disabled>
-						This year
-					</Button>
-				{:else}
-					<Button variant="ghost" size="sm" class="rounded-none border-x" href={resolve('/work')}>
-						This year
-					</Button>
-				{/if}
-				<Button
-					variant="ghost"
-					size="icon"
-					class="rounded-l-none"
-					href={nextYear === undefined ? undefined : `${resolve('/work')}?year=${nextYear}`}
-					disabled={nextYear === undefined}
-				>
-					<ChevronRight /><span class="sr-only">Next year</span>
-				</Button>
-			</nav>
-		{/if}
+		<h1>Overview</h1>
+		<div class="ml-auto">
+			<MonthPicker path="/work" {month} current={thisMonth} label={monthLabel} />
+		</div>
 	</div>
 
 	<!--
 		The month leads, as it is the one still to act on, and the year follows as the longer view. A
-		month asked for keeps its section even in a year with nothing logged, so its picker stays in reach.
+		month asked for keeps its section even in a year with nothing logged.
 	-->
 	{#if summary.logged > 0 || requestedMonth}
-		<section aria-labelledby="{navId}-month" class="flex flex-col gap-4 md:gap-6">
-			<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-				<h2 id="{navId}-month" class="font-display text-xl font-medium">{monthName}</h2>
-				<div class="ml-auto">
-					<MonthPicker path="/work" {month} current={thisMonth} label={monthLabel} />
-				</div>
-			</div>
+		<section aria-labelledby="{navId}-month" class="flex flex-col gap-4 pb-2 md:gap-6 md:pb-4">
+			<h2 id="{navId}-month" class="sr-only">{monthName}</h2>
 			<MonthStats summary={monthSummary} data={store.data} current={month === thisMonth} />
-			<!-- Charts take the wider column, like the year's hours below, with the money beside them. -->
+			<!--
+				Pace and take-home share a row, so their cards end level. The hours each day take the full
+				width, which their thirty bars need, with each client's share under the chart.
+			-->
 			<div
-				class={[
-					'grid grid-cols-1 items-start gap-4 md:gap-6',
-					hasMonthMoney && '@5xl/main:grid-cols-[3fr_2fr]'
-				]}
+				class={['grid grid-cols-1 gap-4 md:gap-6', hasTakeHome && '@4xl/main:grid-cols-[3fr_2fr]']}
 			>
-				<div class="flex flex-col gap-4 md:gap-6">
-					<MonthCharts chart="pace" summary={monthSummary} clients={store.data.clients} {today} />
-					<MonthCharts chart="daily" summary={monthSummary} clients={store.data.clients} {today} />
-				</div>
-				<div class="flex flex-col gap-4 md:gap-6">
-					<ClientBars summary={monthSummary} clients={store.data.clients} />
-					<TakeHome data={store.data} summary={monthSummary} />
-				</div>
+				<MonthCharts chart="pace" summary={monthSummary} clients={store.data.clients} {today} />
+				<TakeHome data={store.data} summary={monthSummary} />
 			</div>
+			<MonthCharts chart="daily" summary={monthSummary} clients={store.data.clients} {today} />
 		</section>
 	{/if}
 
 	{#if summary.logged > 0}
-		<section aria-labelledby="{navId}-year" class="flex flex-col gap-4 md:gap-6">
-			<h2 id="{navId}-year" class="font-display text-xl font-medium">
-				{year === thisYear ? 'The year so far' : 'The year'}
-			</h2>
+		<!--
+			A ledger's double rule closes the month before the year opens, with room either side, so the
+			two sets of figures do not read as one.
+		-->
+		<section
+			aria-labelledby="{navId}-year"
+			class="flex flex-col gap-4 border-t-[3px] border-double border-(--rule) pt-6 md:gap-6 md:pt-10"
+		>
+			<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+				<h2 id="{navId}-year" class="font-display text-2xl font-medium text-(--heading)">
+					{year === thisYear ? `${year} so far` : year}
+				</h2>
+				{@render yearNav()}
+			</div>
 			<StatStrip {stats} />
-			<!-- Two columns only when there are earnings, as take-home shows nothing without them. -->
+			<!--
+				Like the month: hours and take-home share a row, and each month's figures take the full width
+				below. Two columns only when there are earnings, as take-home shows nothing without them.
+			-->
 			<div
 				class={[
-					'grid grid-cols-1 items-start gap-4 md:gap-6',
+					'grid grid-cols-1 gap-4 md:gap-6',
 					summary.earnings && '@4xl/main:grid-cols-[3fr_2fr]'
 				]}
 			>
-				<YearHours data={store.data} {summary} {today} />
+				<YearHours {summary} {today} />
 				<YearTakeHome data={store.data} {summary} />
 			</div>
+			<YearMonths data={store.data} {summary} {today} />
 		</section>
 	{:else}
-		<YearEmpty data={store.data} {year} {today} />
+		<div class="flex flex-col gap-4 md:gap-6">
+			{#if previousYear !== undefined || nextYear !== undefined}
+				<div class="flex">{@render yearNav()}</div>
+			{/if}
+			<YearEmpty data={store.data} {year} {today} />
+		</div>
 	{/if}
 </div>
