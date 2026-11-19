@@ -494,16 +494,3 @@
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
-
-<style>
-	/* Fades from a tint to nothing, so the entry you just saved is easy to find. */
-	:global(.just-added) {
-		animation: just-added 1200ms cubic-bezier(0.23, 1, 0.32, 1);
-	}
-
-	@keyframes just-added {
-		from {
-			background-color: color-mix(in oklch, var(--primary) 12%, transparent);
-		}
-	}
-</style>
