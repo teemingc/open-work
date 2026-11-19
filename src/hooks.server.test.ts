@@ -6,7 +6,12 @@ import { ORIGIN } from '#lib/origin.js';
 function request(url: string, { init, cookie }: { init?: ResponseInit; cookie?: string } = {}) {
 	const resolve = vi.fn(async () => new Response('page', init));
 	const headers = cookie ? { cookie } : undefined;
-	const event = { url: new URL(url), request: new Request(url, { headers }) } as RequestEvent;
+	const event = {
+		url: new URL(url),
+		request: new Request(url, { headers }),
+		// The token cookie is there, or there is no refresh token: nothing to renew.
+		cookies: { get: (name: string) => (cookie?.startsWith(`${name}=`) ? 'secret' : undefined) }
+	} as RequestEvent;
 	return { resolve, response: handle({ event, resolve }) };
 }
 

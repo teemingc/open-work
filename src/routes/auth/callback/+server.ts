@@ -1,17 +1,9 @@
 import { OC_CLIENT_ID, OC_CLIENT_SECRET } from '$app/env/private';
 import { redirect } from '@sveltejs/kit';
 import { oauthErrorCode, type OAuthError } from '#lib/oauth-error.js';
-import { setToken } from '#lib/server/session.js';
+import { setToken, type TokenResponse } from '#lib/server/session.js';
 import { callbackUrl, STATE_COOKIE, stateCookieOptions } from '../oauth';
 import type { RequestHandler } from './$types';
-
-interface TokenResponse {
-	access_token?: string;
-	expires_in?: number;
-	/** An OAuth error code, when the code could not be swapped. */
-	error?: string;
-	error_description?: string;
-}
 
 /** Open Collective sends the browser back here with a one-time code to swap for a token. */
 export const GET: RequestHandler = async ({ cookies, url, fetch }) => {
@@ -71,6 +63,11 @@ export const GET: RequestHandler = async ({ cookies, url, fetch }) => {
 		fail(status >= 500 ? 'unreachable' : oauthErrorCode(body.error));
 	}
 
-	setToken({ cookies, token: body.access_token!, maxAge: body.expires_in });
+	setToken({
+		cookies,
+		token: body.access_token!,
+		expiresIn: body.expires_in,
+		refreshToken: body.refresh_token
+	});
 	redirect(303, '/settings/connections');
 };
