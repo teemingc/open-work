@@ -4,7 +4,7 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { nextPeriod, toIsoDate } from '#lib/format.js';
-	import { missingFromSettings } from '#lib/settings.js';
+	import { missingFromSettings, requirementFix } from '#lib/settings.js';
 	import { CircleAlert, ExternalLink, TriangleAlert } from '@lucide/svelte';
 	import { getExpenses, getMe } from '#lib/opencollective.remote.js';
 	import { isHttpError } from '@sveltejs/kit';
@@ -12,6 +12,7 @@
 	import {
 		activeClients,
 		availableCredit,
+		defaultClient,
 		invoiceFrequency,
 		lastInvoicedEnd,
 		openCollectiveRate,
@@ -48,6 +49,11 @@
 					rate: store && openCollectiveRate(store.data.clients)
 				})
 			: []
+	);
+
+	/** The client whose rate the hourly-rate requirement is about. */
+	const openCollectiveClientId = $derived(
+		store && defaultClient(store.data.clients.filter((client) => client.openCollective))?.id
 	);
 
 	// Not awaited, so a slow or failing list never blocks starting an invoice.
@@ -162,12 +168,19 @@
 					</Alert.Description>
 				</Alert.Root>
 			{:else if missing.length > 0 && showExpenses}
+				<!--
+					Only the first thing in the way, in one line: each comes after the one before, as the
+					payout methods only load once you are connected.
+				-->
+				{const { fix, page, id } = requirementFix({
+					requirement: missing[0],
+					clientId: openCollectiveClientId
+				})}
 				<Alert.Root variant="warning">
 					<TriangleAlert />
-					<!-- One line: the notice is short, and the link is the only thing to do about it. -->
 					<Alert.Title>
-						Finish setup to submit invoices.
-						<a href={resolve('settings')} class="underline">Go to settings</a>
+						<a href="{resolve(page)}{id ? `#${id}` : ''}" class="underline">{fix}</a>
+						to submit invoices.
 					</Alert.Title>
 				</Alert.Root>
 			{/if}

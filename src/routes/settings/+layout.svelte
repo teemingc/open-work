@@ -9,6 +9,7 @@
 	import { ArrowLeft, Check, ChevronDown, CircleAlert } from '@lucide/svelte';
 	import type { ResolvedPathname } from '$app/types';
 	import type { Snippet } from 'svelte';
+	import type { Attachment } from 'svelte/attachments';
 	import { fade } from 'svelte/transition';
 
 	let { children }: { children: Snippet } = $props();
@@ -43,6 +44,29 @@
 	const current = $derived(TABS.find((tab) => tab.path === page.url.pathname));
 	/** Whether the list of sections is open on narrower screens, where it folds away. */
 	let sectionsOpen = $state(false);
+
+	/**
+	 * Scrolls to the field a link names, such as the payout method an invoice needs. Each section
+	 * waits for the work log to open, so the field appears after SvelteKit has looked for it.
+	 * Focused when it is a control, so you can fill it in straight away.
+	 */
+	const revealLinked: Attachment<HTMLElement> = (node) => {
+		const id = decodeURIComponent(page.url.hash.slice(1));
+		if (!id) return;
+		const reveal = () => {
+			const target = document.getElementById(id);
+			if (!target || !node.contains(target)) return false;
+			target.scrollIntoView({ block: 'center' });
+			if (target.matches('input, select, textarea, button')) target.focus({ preventScroll: true });
+			return true;
+		};
+		if (reveal()) return;
+		const observer = new MutationObserver(() => {
+			if (reveal()) observer.disconnect();
+		});
+		observer.observe(node, { childList: true, subtree: true });
+		return () => observer.disconnect();
+	};
 
 	afterNavigate(({ from }) => {
 		sectionsOpen = false;
@@ -146,5 +170,5 @@
 		<div class="hidden md:block">{@render sections()}</div>
 	</nav>
 
-	<div class="@container/settings min-w-0">{@render children()}</div>
+	<div class="@container/settings min-w-0" {@attach revealLinked}>{@render children()}</div>
 </div>

@@ -6,7 +6,7 @@
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import { formatDMY, formatMoney, workLogToHtml } from '#lib/format.js';
 	import { submitExpense, type Account } from '#lib/opencollective.remote.js';
-	import { missingForSubmit, type Settings } from '#lib/settings.js';
+	import { missingForSubmit, requirementFix, type Settings } from '#lib/settings.js';
 	import { workLogText } from '#lib/worklog.js';
 	import { Check, CircleAlert, Clipboard, Send, ChevronRight } from '@lucide/svelte';
 	import { isHttpError } from '@sveltejs/kit';
@@ -38,19 +38,17 @@
 			collective: draft.collective
 		})
 	);
-	/** Where each requirement other than the collective is met. */
-	const SETTINGS_PAGES = {
-		'Open Collective connection': '/settings/connections',
-		'payout method': '/settings/invoicing',
-		'hourly rate': '/settings/clients'
-	} as const;
+	type Problem = { text: string; href?: string };
 	/** Each with where it is fixed, if that is somewhere else. */
-	const problems: { text: string; href?: string }[] = $derived([
-		...missing.flatMap((item) => {
-			if (item === 'Open Collective connection')
-				return [{ text: 'Connect to Open Collective', href: resolve(SETTINGS_PAGES[item]) }];
-			if (item !== 'collective')
-				return [{ text: `Add your ${item} in settings`, href: resolve(SETTINGS_PAGES[item]) }];
+	const problems: Problem[] = $derived([
+		...missing.flatMap((item): Problem[] => {
+			if (item !== 'collective') {
+				const { fix, page, id } = requirementFix({
+					requirement: item,
+					clientId: draft.client?.openCollective ? draft.client.id : undefined
+				});
+				return [{ text: fix, href: `${resolve(page)}${id ? `#${id}` : ''}` }];
+			}
 			// Choosing the client comes first; its collective is asked for once it is chosen.
 			if (draft.needsClient) return [];
 			return [

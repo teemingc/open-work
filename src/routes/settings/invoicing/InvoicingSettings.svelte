@@ -8,31 +8,20 @@
 	import SettingsSection from '#lib/components/SettingsSection.svelte';
 	import { getMe } from '#lib/opencollective.remote.js';
 	import { saveSettings } from '#lib/settings.remote.js';
-	import { missingFromSettings, type SettingsRequirement } from '#lib/settings.js';
+	import { missingFromSettings, requirementFix, type SettingsRequirement } from '#lib/settings.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import { openCollectiveRate, type Client } from '#lib/worklog.js';
+	import { defaultClient, openCollectiveRate, type Client } from '#lib/worklog.js';
 	import { ChevronRight, CircleAlert, CircleCheck, TriangleAlert } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import InvoiceDetails from './InvoiceDetails.svelte';
 	import YourDetails from './YourDetails.svelte';
 
-	/** Where each missing requirement is fixed, in the order the warning lists them. */
-	const REQUIREMENT_FIELDS: Record<
-		SettingsRequirement,
-		{ id?: string; text: string; page?: '/settings/connections' | '/settings/clients' }
-	> = {
-		'Open Collective connection': {
-			id: 'oc-connection',
-			text: 'Connect Open Collective',
-			page: '/settings/connections'
-		},
-		'payout method': { id: 'payout-method', text: 'Choose a payout method' },
-		'hourly rate': {
-			text: 'Give your Open Collective client an hourly rate',
-			page: '/settings/clients'
-		}
-	};
-	const REQUIREMENTS = Object.keys(REQUIREMENT_FIELDS) as SettingsRequirement[];
+	/** In the order the warning lists them. */
+	const REQUIREMENTS: SettingsRequirement[] = [
+		'Open Collective connection',
+		'payout method',
+		'hourly rate'
+	];
 
 	let { store: storeProp }: { store: WorkLogStore } = $props();
 
@@ -45,6 +34,11 @@
 	function changeClient(client: Client, patch: Partial<Client>) {
 		store.updateClient({ ...$state.snapshot(store.client(client.id) ?? client), ...patch });
 	}
+
+	/** The client whose rate the hourly-rate requirement is about. */
+	const openCollectiveClientId = $derived(
+		defaultClient(store.data.clients.filter((client) => client.openCollective))?.id
+	);
 
 	const me = $derived(await getMe());
 	const settings = $derived(store.settings);
@@ -98,17 +92,20 @@
 		<Alert.Description>
 			<ul class="mt-1 space-y-0.5">
 				{#each listed as requirement (requirement)}
-					{const { id, text, page } = REQUIREMENT_FIELDS[requirement]}
+					{const {
+						fix: text,
+						page,
+						id
+					} = requirementFix({
+						requirement,
+						clientId: openCollectiveClientId
+					})}
 					<li class="flex items-center gap-1.5">
 						{#if missing.includes(requirement)}
 							<CircleAlert size={14} class="shrink-0 text-attention" />
-							{#if page}
-								<a href="{resolve(page)}{id ? `#${id}` : ''}" class="font-medium underline">
-									{text}
-								</a>
-							{:else}
-								<a href="#{id}" class="font-medium underline">{text}</a>
-							{/if}
+							<a href="{resolve(page)}{id ? `#${id}` : ''}" class="font-medium underline">
+								{text}
+							</a>
 						{:else}
 							<CircleCheck size={14} class="shrink-0 text-status-paid" />
 							<span class="line-through">{text}</span>

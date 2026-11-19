@@ -48,6 +48,49 @@ export type SettingsRequirement = 'Open Collective connection' | 'payout method'
 
 export type SubmitRequirement = SettingsRequirement | 'collective';
 
+/** What to do about a requirement, read as "<fix> to submit invoices", and where. */
+export type RequirementFix = {
+	fix: string;
+	page: '/settings/connections' | '/settings/invoicing' | '/settings/clients';
+	/** The field on `page` to link to. */
+	id?: string;
+};
+
+/** How to explain `requirement`, given the client invoiced through Open Collective, if any. */
+export function requirementFix({
+	requirement,
+	clientId
+}: {
+	requirement: SettingsRequirement;
+	clientId: string | undefined;
+}): RequirementFix {
+	switch (requirement) {
+		case 'Open Collective connection':
+			return {
+				fix: 'Connect Open Collective',
+				page: '/settings/connections',
+				id: 'oc-connection'
+			};
+		case 'payout method':
+			return {
+				fix: 'Choose a payout method',
+				page: '/settings/invoicing',
+				id: 'payout-method'
+			};
+		case 'hourly rate':
+			return clientId
+				? {
+						fix: "Set your Open Collective client's rate",
+						page: '/settings/clients',
+						id: `${clientId}-rate`
+					}
+				: {
+						fix: 'Add a client invoiced through Open Collective',
+						page: '/settings/clients'
+					};
+	}
+}
+
 /** What settings still lack before any invoice can be sent to Open Collective. */
 export function missingFromSettings({
 	settings,
