@@ -4,7 +4,7 @@
  * scans too slow for a page are kept fresh from here.
  */
 
-import kit from './.svelte-kit/cloudflare/_worker.js';
+import kit from './.svelte-kit/cloudflare/worker/index.js';
 import { ORIGIN } from './src/lib/origin.ts';
 
 export default {

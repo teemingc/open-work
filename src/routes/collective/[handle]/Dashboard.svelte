@@ -504,12 +504,12 @@
 		-->
 		<div class="flex min-w-0 flex-col gap-1">
 			<h1 class="leading-tight text-balance decoration-1 underline-offset-6 group-hover:underline">
-				{nameStart}<span class="whitespace-nowrap"
-					>{nameEnd}<ExternalLink
+				{nameStart}<span class="whitespace-nowrap">
+					{nameEnd}<ExternalLink
 						class="ml-[0.3em] inline-block size-[0.6em] align-[-0.05em] text-muted-foreground group-hover:text-foreground"
 						aria-hidden="true"
-					/></span
-				>
+					/>
+				</span>
 			</h1>
 			<span class="sr-only">on Open Collective (opens in a new tab)</span>
 			{#if data.months[0]}

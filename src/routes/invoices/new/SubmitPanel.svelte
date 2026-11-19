@@ -138,8 +138,10 @@
 			size="lg"
 			class="w-full motion-safe:active:scale-[0.98]"
 			disabled={problems.length > 0 || draft.hours <= 0}
-			onclick={() => (confirmOpen = true)}><Send />Submit to Open Collective</Button
+			onclick={() => (confirmOpen = true)}
 		>
+			<Send />Submit to Open Collective
+		</Button>
 
 		<details class="group border-t pt-2 text-sm">
 			<summary
@@ -220,8 +222,10 @@
 					type="button"
 					variant="outline"
 					onclick={() => (confirmOpen = false)}
-					disabled={submitExpense.pending > 0}>Cancel</Button
+					disabled={submitExpense.pending > 0}
 				>
+					Cancel
+				</Button>
 				<Button type="submit" disabled={submitExpense.pending > 0}>
 					{#if submitExpense.pending > 0}<Spinner />{/if}
 					Submit expense

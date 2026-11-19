@@ -230,8 +230,10 @@
 										style:font-size="max(0.6875rem, {node.r * 0.4}px)"
 										paint-order="stroke"
 										stroke-width="3"
-										class="fill-foreground stroke-muted font-medium">+{slot.rest.length}</text
+										class="fill-foreground stroke-muted font-medium"
 									>
+										+{slot.rest.length}
+									</text>
 								{/if}
 							</a>
 							<!-- eslint-enable svelte/no-navigation-without-resolve -->

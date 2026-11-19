@@ -36,9 +36,9 @@
 				{#each years as option (option)}
 					<Select.Item value={option}>{option}</Select.Item>
 				{/each}
-				<Select.Item value={String(Number(years.at(-1)) + 1)}
-					>{Number(years.at(-1)) + 1}</Select.Item
-				>
+				<Select.Item value={String(Number(years.at(-1)) + 1)}>
+					{Number(years.at(-1)) + 1}
+				</Select.Item>
 			</Select.Content>
 		</Select.Root>
 	{/snippet}

@@ -223,9 +223,9 @@
 	<div class="col-span-2 space-y-1.5 sm:col-span-1">
 		<Label for="{id}-client">Client</Label>
 		<Select.Root type="single" bind:value={rowClient}>
-			<Select.Trigger id="{id}-client" class="w-full"
-				>{#if client}<ClientName {client} />{:else}Choose one{/if}</Select.Trigger
-			>
+			<Select.Trigger id="{id}-client" class="w-full">
+				{#if client}<ClientName {client} />{:else}Choose one{/if}
+			</Select.Trigger>
 			<Select.Content>
 				{#each clients as client (client.id)}
 					<Select.Item value={client.id} label={client.name}><ClientName {client} /></Select.Item>

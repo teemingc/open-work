@@ -276,8 +276,9 @@
 					>
 						{monthLabel({ key: month.key })}
 						{#if partial}
-							<span class="font-normal text-muted-foreground italic">to {dayMonth.format(now)}</span
-							>
+							<span class="font-normal text-muted-foreground italic">
+								to {dayMonth.format(now)}
+							</span>
 						{/if}
 						<span class="sr-only">(opens in a new tab)</span>
 					</a>
@@ -335,9 +336,9 @@
 							</th>
 							<td class="px-1.5 py-2 text-right sm:px-4">{money.format(month.income)}</td>
 							<td class="px-1.5 py-2 text-right sm:px-4">{money.format(month.expenses)}</td>
-							<td class="hidden px-4 py-2 text-right sm:table-cell"
-								>{signed(Math.round(month.net))}</td
-							>
+							<td class="hidden px-4 py-2 text-right sm:table-cell">
+								{signed(Math.round(month.net))}
+							</td>
 							<td class="py-2 pr-3 pl-1.5 text-right sm:px-4">{money.format(month.balance)}</td>
 						</tr>
 					{/each}

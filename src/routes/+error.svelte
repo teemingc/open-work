@@ -74,8 +74,8 @@
 						rel="noreferrer"
 						class="text-foreground underline underline-offset-4 hover:text-primary"
 					>
-						Report it on GitHub<span class="sr-only"> (opens in a new tab)</span></a
-					>.
+						Report it on GitHub<span class="sr-only"> (opens in a new tab)</span>
+					</a>.
 					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				</p>
 			{/if}

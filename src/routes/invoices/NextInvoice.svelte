@@ -143,11 +143,11 @@
 								<span class="sr-only">Change dates,</span>
 								<!-- Too narrow for both dates, the end wraps under the start, its icon with it. -->
 								<span class="whitespace-nowrap">{formatDMY(chosen.startDate)} –</span>
-								<span class="whitespace-nowrap"
-									>{formatDMY(chosen.endDate)}<CalendarRange
+								<span class="whitespace-nowrap">
+									{formatDMY(chosen.endDate)}<CalendarRange
 										class="ml-1.5 inline size-[0.6em] align-[0.05em] text-muted-foreground transition-colors group-hover:text-foreground"
-									/></span
-								>
+									/>
+								</span>
 							</button>
 						{:else}
 							<Button {...props} variant="outline" class="font-normal">

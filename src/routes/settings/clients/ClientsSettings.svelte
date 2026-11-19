@@ -345,8 +345,10 @@
 							{#if client.targetShare !== undefined}
 								<span
 									class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-muted-foreground"
-									aria-hidden="true">%</span
+									aria-hidden="true"
 								>
+									%
+								</span>
 							{/if}
 						</div>
 					</div>
@@ -430,8 +432,9 @@
 							</p>
 							{#if client.rates?.length}
 								<div class="max-w-40 space-y-1.5">
-									<Label for="{client.id}-base-rate">Before {formatDMY(client.rates[0].from)}</Label
-									>
+									<Label for="{client.id}-base-rate">
+										Before {formatDMY(client.rates[0].from)}
+									</Label>
 									<Input
 										id="{client.id}-base-rate"
 										type="number"

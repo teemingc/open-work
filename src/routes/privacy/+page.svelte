@@ -90,9 +90,9 @@
 		</ul>
 		<p>
 			Open Work's use and transfer of information received from Google APIs adheres to the
-			<a href="https://developers.google.com/terms/api-services-user-data-policy"
-				>Google API Services User Data Policy</a
-			>, including the Limited Use requirements.
+			<a href="https://developers.google.com/terms/api-services-user-data-policy">
+				Google API Services User Data Policy
+			</a>, including the Limited Use requirements.
 		</p>
 
 		<h2>Other services</h2>
@@ -105,8 +105,9 @@
 			<li>
 				<a
 					href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement"
-					>GitHub</a
-				>, directly from your browser, to list the pull requests and issues you worked on.
+				>
+					GitHub
+				</a>, directly from your browser, to list the pull requests and issues you worked on.
 			</li>
 			<li>
 				<a href="https://policies.google.com/privacy">Google</a>, for sign-in and Drive sync.

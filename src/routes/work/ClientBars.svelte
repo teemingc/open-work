@@ -34,9 +34,9 @@
 									{#if target !== undefined}of {formatHours(target)}{/if}
 									hours
 								</span>
-								<span class="min-w-16 text-right font-medium"
-									>{formatMoney(amount, client.currency)}</span
-								>
+								<span class="min-w-16 text-right font-medium">
+									{formatMoney(amount, client.currency)}
+								</span>
 							</div>
 						</div>
 						<Progress

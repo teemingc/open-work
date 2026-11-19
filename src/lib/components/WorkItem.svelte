@@ -27,9 +27,9 @@
 		<span class="relative min-w-0 wrap-break-word">
 			<span class="text-muted-foreground">{repository}</span>
 			<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
-			<a href={url} target="_blank" rel="noreferrer" class="hover:underline"
-				>{item}<span class="sr-only"> (opens in a new tab)</span></a
-			>
+			<a href={url} target="_blank" rel="noreferrer" class="hover:underline">
+				{item}<span class="sr-only"> (opens in a new tab)</span>
+			</a>
 			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		</span>
 	{:else}

@@ -71,9 +71,9 @@
 			<thead>
 				<tr class="bg-slate-100 text-left">
 					<!-- The same as the date above, so a phone leaves it out to give the description room. -->
-					<th class="hidden w-[5.5rem] border border-neutral-200 p-2 font-semibold sm:table-cell"
-						>Date</th
-					>
+					<th class="hidden w-[5.5rem] border border-neutral-200 p-2 font-semibold sm:table-cell">
+						Date
+					</th>
 					<th class="border border-neutral-200 p-2 font-semibold">Description</th>
 					<th class="w-[5.5rem] border border-neutral-200 p-2 text-right font-semibold">
 						Amount

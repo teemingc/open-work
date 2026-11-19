@@ -49,9 +49,9 @@
 		/>
 	</div>
 	<div class="col-span-2 space-y-1.5 @xl/settings:col-span-4">
-		<Label for="{id}-extra"
-			>Address line 2 <span class="text-muted-foreground">(optional)</span></Label
-		>
+		<Label for="{id}-extra">
+			Address line 2 <span class="text-muted-foreground">(optional)</span>
+		</Label>
 		<Input
 			id="{id}-extra"
 			autocomplete={fill('address-line2')}

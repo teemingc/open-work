@@ -69,9 +69,9 @@
 				</Select.Trigger>
 				<Select.Content>
 					{#each clients as option (option.id)}
-						<Select.Item value={option.id} label={option.name}
-							><ClientName client={option} /></Select.Item
-						>
+						<Select.Item value={option.id} label={option.name}>
+							<ClientName client={option} />
+						</Select.Item>
 					{/each}
 				</Select.Content>
 			</Select.Root>
@@ -81,9 +81,9 @@
 	{#if clients.length === 0}
 		<p class="text-sm text-muted-foreground">
 			Add the client you invoice in
-			<a href={resolve('/settings/clients')} class="font-medium text-foreground underline"
-				>Clients settings</a
-			>, then log your time.
+			<a href={resolve('/settings/clients')} class="font-medium text-foreground underline">
+				Clients settings
+			</a>, then log your time.
 		</p>
 	{:else if days.length === 0}
 		<p class="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">

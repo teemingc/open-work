@@ -78,9 +78,9 @@
 						class="self-end"
 						onclick={() => draft.adjustments.splice(index, 1)}
 					>
-						<Trash2 size={16} /><span class="sr-only"
-							>Remove {adjustment.description || 'this adjustment'}</span
-						>
+						<Trash2 size={16} /><span class="sr-only">
+							Remove {adjustment.description || 'this adjustment'}
+						</span>
 					</Button>
 				</li>
 			{/each}

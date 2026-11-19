@@ -224,8 +224,10 @@
 										<h3 class="font-medium tabular-nums">{formatDay(day.date)}</h3>
 										<span class="whitespace-nowrap tabular-nums">
 											<span class="font-semibold">0</span>{#if day.expected}<span
-													class="text-muted-foreground">{` / ${formatHours(day.expected)}`}</span
-												>{/if}
+													class="text-muted-foreground"
+												>
+													{` / ${formatHours(day.expected)}`}
+												</span>{/if}
 											h
 										</span>
 									</li>
@@ -255,9 +257,9 @@
 					{selectedHere.length} selected
 				</span>
 				<Button variant="outline" size="sm" onclick={() => (moving = [...selectedHere])}>
-					<CalendarArrowUp />Move<span class="tabular-nums @xs/card-header:hidden"
-						>{selectedHere.length}<span class="sr-only"> selected</span></span
-					>
+					<CalendarArrowUp />Move<span class="tabular-nums @xs/card-header:hidden">
+						{selectedHere.length}<span class="sr-only"> selected</span>
+					</span>
 				</Button>
 				<Button variant="ghost" size="icon-sm" onclick={clearSelection}>
 					<X />
@@ -317,9 +319,9 @@
 									{/if}
 									<div class="flex min-w-0 items-baseline gap-2">
 										<h3 class="min-w-0">
-											<span class="font-medium tabular-nums"
-												>{dayFormat.format(parseIsoDate(day.date))}</span
-											>
+											<span class="font-medium tabular-nums">
+												{dayFormat.format(parseIsoDate(day.date))}
+											</span>
 											{#if day.kind === 'holiday'}
 												<span class="ml-1.5 text-muted-foreground">
 													Holiday{day.name ? `: ${day.name}` : ''}
@@ -328,10 +330,11 @@
 										</h3>
 									</div>
 									<span class="whitespace-nowrap tabular-nums">
-										<span class="font-semibold">{formatHours(day.logged)}</span
-										>{#if day.expected}<span class="text-muted-foreground"
-												>{` / ${formatHours(day.expected)}`}</span
-											>{/if}
+										<span class="font-semibold">
+											{formatHours(day.logged)}
+										</span>{#if day.expected}<span class="text-muted-foreground">
+												{` / ${formatHours(day.expected)}`}
+											</span>{/if}
 										h
 									</span>
 								</div>
@@ -407,8 +410,10 @@
 																{#if drag.isDragging && draggedIds.length > 1}
 																	<span
 																		class="absolute -top-2.5 -left-1.5 rounded-full bg-primary px-1.5 text-xs leading-5 font-semibold text-primary-foreground tabular-nums"
-																		aria-hidden="true">{draggedIds.length}</span
+																		aria-hidden="true"
 																	>
+																		{draggedIds.length}
+																	</span>
 																{/if}
 															{/snippet}
 														</EntryRow>

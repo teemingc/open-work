@@ -6,7 +6,7 @@
 	"main": "worker.ts",
 	"assets": {
 		"binding": "ASSETS",
-		"directory": ".svelte-kit/cloudflare"
+		"directory": ".svelte-kit/cloudflare/client"
 	},
 	"routes": [
 		{

@@ -641,9 +641,9 @@
 										</a>
 										<!-- eslint-enable svelte/no-navigation-without-resolve -->
 									{/if}
-									<span class="shrink-0 font-medium tabular-nums"
-										>{money.format(backer.amount)}</span
-									>
+									<span class="shrink-0 font-medium tabular-nums">
+										{money.format(backer.amount)}
+									</span>
 								</div>
 								<!--
 							The whole track is everything contributed in these months. The pale run is what the rows
@@ -683,9 +683,9 @@
 												.join(', ')}
 										</span>
 										{#if backer.recurring}
-											<Badge variant="secondary"
-												>{money.format(backer.amount / months.length)} a month on average</Badge
-											>
+											<Badge variant="secondary">
+												{money.format(backer.amount / months.length)} a month on average
+											</Badge>
 										{/if}
 									</div>
 								{/if}
@@ -725,9 +725,9 @@
 												{const first = $derived(backer.history.first.slice(0, 7))}
 												{const active = $derived(months.filter((month) => month >= first).length)}
 												{#if active}
-													<Badge variant="secondary"
-														>{money.format(backer.amount / active)} a month on average</Badge
-													>
+													<Badge variant="secondary">
+														{money.format(backer.amount / active)} a month on average
+													</Badge>
 												{/if}
 											{:else if status === 'Stopped'}
 												<!--
@@ -753,18 +753,18 @@
 													<Badge variant="outline">Stopped</Badge>
 												{/if}
 												{#if per}
-													<span class="whitespace-nowrap"
-														>was {money.format(backer.history.lastAmount)} a {per}</span
-													>
+													<span class="whitespace-nowrap">
+														was {money.format(backer.history.lastAmount)} a {per}
+													</span>
 												{/if}
 											{:else if per}
-												<Badge variant="secondary"
-													>{money.format(backer.history.lastAmount)} a {per}</Badge
-												>
+												<Badge variant="secondary">
+													{money.format(backer.history.lastAmount)} a {per}
+												</Badge>
 											{:else}
-												<Badge variant="secondary"
-													>{backer.history.lastTransfer ? 'Balance transfer' : status}</Badge
-												>
+												<Badge variant="secondary">
+													{backer.history.lastTransfer ? 'Balance transfer' : status}
+												</Badge>
 											{/if}
 										</span>
 									</div>

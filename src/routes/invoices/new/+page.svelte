@@ -208,8 +208,9 @@
 									size="sm"
 									class="-my-1 -mr-2.5"
 									onclick={() => (draft.hoursOverride = undefined)}
-									><RotateCcw />Use logged ({formatHours(draft.loggedHours)})</Button
 								>
+									<RotateCcw />Use logged ({formatHours(draft.loggedHours)})
+								</Button>
 							{/if}
 						</div>
 						<Input
@@ -232,8 +233,9 @@
 									size="sm"
 									class="-my-1 -mr-2.5"
 									onclick={() => (draft.rateOverride = undefined)}
-									><RotateCcw />Use logged rates</Button
 								>
+									<RotateCcw />Use logged rates
+								</Button>
 							{/if}
 						</div>
 						<Input
@@ -291,8 +293,9 @@
 											size="sm"
 											class="-my-1 -mr-2.5"
 											onclick={() => (draft.titleOverride = undefined)}
-											><RotateCcw />Use the standard title</Button
 										>
+											<RotateCcw />Use the standard title
+										</Button>
 									{/if}
 								</div>
 								<Input
@@ -310,8 +313,9 @@
 											size="sm"
 											class="-my-1 -mr-2.5"
 											onclick={() => (draft.descriptionOverride = undefined)}
-											><RotateCcw />Use the standard text</Button
 										>
+											<RotateCcw />Use the standard text
+										</Button>
 									{/if}
 								</div>
 								<Textarea
@@ -331,8 +335,10 @@
 
 									<a
 										href="{resolve('/settings/invoicing')}#invoice-notes"
-										class="font-medium text-foreground underline">Add it in settings</a
+										class="font-medium text-foreground underline"
 									>
+										Add it in settings
+									</a>
 								{/if}
 							</p>
 						</div>

@@ -110,12 +110,14 @@
 	-->
 	<Card.Root>
 		<Card.Header>
-			<Card.Title class="font-display text-2xl font-medium text-(--heading)">Get started</Card.Title
-			>
+			<Card.Title class="font-display text-2xl font-medium text-(--heading)">
+				Get started
+			</Card.Title>
 			<Card.Description>A few settings, then your first hours fill in this page.</Card.Description>
 			<Card.Action>
-				<span class="text-sm text-muted-foreground tabular-nums">{done} of {steps.length} done</span
-				>
+				<span class="text-sm text-muted-foreground tabular-nums">
+					{done} of {steps.length} done
+				</span>
 			</Card.Action>
 		</Card.Header>
 		<Card.Content class="px-0">
@@ -137,8 +139,10 @@
 							{:else}
 								<span
 									class="grid size-7 place-items-center rounded-full border font-display text-sm tabular-nums"
-									aria-hidden="true">{index + 1}</span
+									aria-hidden="true"
 								>
+									{index + 1}
+								</span>
 							{/if}
 							<div class="min-w-0">
 								<h3

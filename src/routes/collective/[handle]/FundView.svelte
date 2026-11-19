@@ -260,13 +260,13 @@
 <div class="grid gap-4 md:gap-6 @5xl/main:grid-cols-2">
 	<Card.Root>
 		<Card.Header>
-			<Card.Title
-				>{people ? 'Projects and maintainers it funds' : 'Collectives it funds'}</Card.Title
-			>
-			<Card.Description
-				>Each {people ? 'one' : 'collective'} it contributes to, sized by the total amount, with the smallest
-				enlarged so their logos can be seen.</Card.Description
-			>
+			<Card.Title>
+				{people ? 'Projects and maintainers it funds' : 'Collectives it funds'}
+			</Card.Title>
+			<Card.Description>
+				Each {people ? 'one' : 'collective'} it contributes to, sized by the total amount, with the smallest
+				enlarged so their logos can be seen.
+			</Card.Description>
 		</Card.Header>
 		<Card.Content>
 			<LogoPack {recipients} {linked} slug={data.slug} currency={data.currency} />

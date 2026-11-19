@@ -62,8 +62,9 @@
 						<a
 							href={resolve('/invoices/[id]', { id: invoice.id })}
 							class="font-medium whitespace-nowrap underline-offset-4 hover:underline"
-							>{invoice.number || 'Invoice'}</a
 						>
+							{invoice.number || 'Invoice'}
+						</a>
 						<span class="block text-xs text-muted-foreground">
 							{store.client(invoice.clientId)?.name ?? 'Removed client'}
 						</span>

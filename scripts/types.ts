@@ -11,7 +11,10 @@ const hiddenEntryPath = `${entryPath}.hidden`;
 const entryExists = existsSync(entryPath);
 if (entryExists) renameSync(entryPath, hiddenEntryPath);
 try {
-	execFileSync('wrangler', ['types', ...process.argv.slice(2)], { stdio: 'inherit' });
+	// Named, as after a build Wrangler would otherwise read the adapter's config.
+	execFileSync('wrangler', ['types', '--config', 'wrangler.jsonc', ...process.argv.slice(2)], {
+		stdio: 'inherit'
+	});
 } catch {
 	process.exitCode = 1;
 } finally {

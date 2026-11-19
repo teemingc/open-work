@@ -421,9 +421,9 @@
 											class="flex min-w-0 items-center gap-2 rounded-sm pl-1 hover:underline"
 										>
 											{@render payeeLabel(account)}
-											<span class="sr-only"
-												>: their expenses on Open Collective (opens in a new tab)</span
-											>
+											<span class="sr-only">
+												: their expenses on Open Collective (opens in a new tab)
+											</span>
 										</a>
 										<!-- eslint-enable svelte/no-navigation-without-resolve -->
 									{/if}
@@ -595,9 +595,9 @@
 											></span>
 											<span class="flex-1 pr-1 text-right">{payeeTotalFormat.format(total)}</span>
 										{/if}
-										<span class="sr-only"
-											>: their expenses on Open Collective (opens in a new tab)</span
-										>
+										<span class="sr-only">
+											: their expenses on Open Collective (opens in a new tab)
+										</span>
 									</a>
 									<!-- eslint-enable svelte/no-navigation-without-resolve -->
 								{/if}

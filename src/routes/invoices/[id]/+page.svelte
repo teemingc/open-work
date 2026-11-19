@@ -183,17 +183,17 @@
 					<Mail /><span>Email<span class="@max-md/main:sr-only"> {client.name}</span></span>
 				</Button>
 				{#if invoice.status === 'draft'}
-					<Button class="order-first @md/main:order-none" onclick={() => markSent(invoice, client)}
-						><Check /> Mark sent</Button
-					>
+					<Button class="order-first @md/main:order-none" onclick={() => markSent(invoice, client)}>
+						<Check /> Mark sent
+					</Button>
 				{:else if invoice.status === 'sent'}
 					{const due = $derived(invoiceTotals({ invoice, client }).due)}
 					<Popover.Root bind:open={paying}>
 						<Popover.Trigger>
 							{#snippet child({ props })}
-								<Button {...props} class="order-first @md/main:order-none"
-									><Check /> Mark paid</Button
-								>
+								<Button {...props} class="order-first @md/main:order-none">
+									<Check /> Mark paid
+								</Button>
 							{/snippet}
 						</Popover.Trigger>
 						<Popover.Content align="end" class="w-72">

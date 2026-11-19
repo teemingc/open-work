@@ -237,9 +237,14 @@
 									recurring={false}
 									mark="+"
 								/>
-								<text x={INSET} y={top + 1.0625 * rem} font-size="0.8125rem" class="fill-foreground"
-									>{row.rest.length} other collectives{@render given(row)}</text
+								<text
+									x={INSET}
+									y={top + 1.0625 * rem}
+									font-size="0.8125rem"
+									class="fill-foreground"
 								>
+									{row.rest.length} other collectives{@render given(row)}
+								</text>
 							{:else}
 								<LogoMark
 									x={8}
@@ -249,9 +254,14 @@
 									imageUrl={row.imageUrl}
 									recurring={row.monthly > 0}
 								/>
-								<text x={INSET} y={top + 1.0625 * rem} font-size="0.8125rem" class="fill-foreground"
-									>{row.name}{@render given(row)}</text
+								<text
+									x={INSET}
+									y={top + 1.0625 * rem}
+									font-size="0.8125rem"
+									class="fill-foreground"
 								>
+									{row.name}{@render given(row)}
+								</text>
 							{/if}
 							<text
 								x={context.width}
@@ -259,10 +269,9 @@
 								font-size="0.8125rem"
 								text-anchor="end"
 								class="fill-foreground font-medium tabular-nums"
-								>{'rest' in row
-									? `up to ${fundedLength(row.share)}`
-									: fundedLength(row.share)}</text
 							>
+								{'rest' in row ? `up to ${fundedLength(row.share)}` : fundedLength(row.share)}
+							</text>
 						{/each}
 					{/snippet}
 					{#snippet tooltip({ context })}

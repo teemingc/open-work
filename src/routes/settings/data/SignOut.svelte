@@ -98,9 +98,9 @@
 		{#if signedOutOfGoogle}
 			<Dialog.Header>
 				<Dialog.Title>Signed out of Open Work</Dialog.Title>
-				<Dialog.Description
-					>This browser is still signed in to your Google account.</Dialog.Description
-				>
+				<Dialog.Description>
+					This browser is still signed in to your Google account.
+				</Dialog.Description>
 			</Dialog.Header>
 			<Dialog.Footer>
 				<Button variant="outline" onclick={close}>Done</Button>

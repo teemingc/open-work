@@ -105,8 +105,9 @@
 		dominant-baseline="central"
 		class="fill-muted-foreground font-medium"
 		font-size={mark && mark.length > 1 ? logo * 0.6 : logo}
-		>{mark ?? name.slice(0, 1).toUpperCase()}</text
 	>
+		{mark ?? name.slice(0, 1).toUpperCase()}
+	</text>
 {/if}
 {#if recurring}
 	<circle

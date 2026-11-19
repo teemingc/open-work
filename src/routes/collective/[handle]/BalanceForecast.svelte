@@ -148,8 +148,9 @@
 
 {#snippet forecastLabel({ props }: { props: TextProps })}
 	<g transform="translate({props.x} {props.y})" class="pointer-events-none">
-		<text class="fill-muted-foreground text-xs font-medium" {@attach measureForecast}>Forecast</text
-		>
+		<text class="fill-muted-foreground text-xs font-medium" {@attach measureForecast}>
+			Forecast
+		</text>
 		<ArrowRight x={forecastWidth + 3} y={-10} size={12} class="text-muted-foreground" />
 	</g>
 {/snippet}

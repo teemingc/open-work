@@ -18,9 +18,9 @@
 	<table class="ledger text-sm @max-[15.5rem]:ledger-stacked">
 		<thead>
 			<tr>
-				<th scope="col" class="px-2 py-2 text-left font-normal sm:px-3"
-					><span class="sr-only">Line, in </span>{currency}</th
-				>
+				<th scope="col" class="px-2 py-2 text-left font-normal sm:px-3">
+					<span class="sr-only">Line, in </span>{currency}
+				</th>
 				<th scope="col" class="px-2 py-2 text-right font-medium sm:px-3">So far</th>
 				<th scope="col" class="px-2 py-2 text-right font-medium sm:px-3">Projected</th>
 			</tr>
@@ -29,9 +29,9 @@
 			<tr>
 				<th scope="row" class="px-2 py-2 text-left font-normal sm:px-3">Gross</th>
 				<td data-label="So far" class="px-2 py-2 text-right sm:px-3">{amount(soFar.gross)}</td>
-				<td data-label="Projected" class="px-2 py-2 text-right sm:px-3"
-					>{amount(projected.gross)}</td
-				>
+				<td data-label="Projected" class="px-2 py-2 text-right sm:px-3">
+					{amount(projected.gross)}
+				</td>
 			</tr>
 			{#each soFar.lines as line, index (line.deduction.id)}
 				<tr>
@@ -41,9 +41,9 @@
 							<span class="tabular-nums">{line.deduction.rate}%</span>
 						{/if}
 					</th>
-					<td data-label="So far" class="px-2 py-2 text-right text-muted-foreground sm:px-3"
-						>−{amount(line.amount)}</td
-					>
+					<td data-label="So far" class="px-2 py-2 text-right text-muted-foreground sm:px-3">
+						−{amount(line.amount)}
+					</td>
 					<td data-label="Projected" class="px-2 py-2 text-right text-muted-foreground sm:px-3">
 						−{amount(projected.lines[index].amount)}
 					</td>

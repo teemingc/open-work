@@ -362,8 +362,9 @@
 									paint-order="stroke"
 									stroke-width="4"
 									class="pointer-events-none fill-chart-expenses stroke-card! font-medium tabular-nums"
-									>+{compact.format(step.round.total)}</text
 								>
+									+{compact.format(step.round.total)}
+								</text>
 							{/if}
 						{/each}
 						{#if !ownMoney}
@@ -373,8 +374,9 @@
 								paint-order="stroke"
 								stroke-width="4"
 								class="pointer-events-none fill-chart-income stroke-card! font-medium"
-								>{config.received.label}</text
 							>
+								{config.received.label}
+							</text>
 						{/if}
 						<text
 							x={context.width - 6}
@@ -383,8 +385,9 @@
 							paint-order="stroke"
 							stroke-width="4"
 							class="pointer-events-none fill-chart-expenses stroke-card! font-medium"
-							>{config.given.label}</text
 						>
+							{config.given.label}
+						</text>
 						{#if !ahead.length && !ownMoney}
 							<text
 								x={context.width - 6}
@@ -394,8 +397,9 @@
 								paint-order="stroke"
 								stroke-width="4"
 								class="pointer-events-none fill-chart-balance stroke-card! font-medium"
-								>Still to contribute</text
 							>
+								Still to contribute
+							</text>
 						{/if}
 					{/snippet}
 					{#snippet tooltip({ context })}
@@ -412,9 +416,9 @@
 										{const amount = $derived(money.format(step.round.total))}
 										<div class="grid gap-2">
 											<p class="max-w-80 text-pretty text-muted-foreground">
-												Contributed <span class="font-medium text-foreground tabular-nums"
-													>{amount}</span
-												>
+												Contributed <span class="font-medium text-foreground tabular-nums">
+													{amount}
+												</span>
 												to {whom(gifts)}
 											</p>
 											{@render logos(gifts.map((gift) => ({ ...gift, ringed: gift.recurring })))}
@@ -424,9 +428,9 @@
 										{#if projects.length}
 											<div class="grid gap-2">
 												<p class="max-w-80 text-pretty text-muted-foreground">
-													Contributed <span class="font-medium text-foreground tabular-nums"
-														>{money.format(value)}</span
-													>
+													Contributed <span class="font-medium text-foreground tabular-nums">
+														{money.format(value)}
+													</span>
 													so far to {whom(projects)}
 												</p>
 												{@render logos(
@@ -577,8 +581,9 @@
 								paint-order="stroke"
 								stroke-width="4"
 								class="pointer-events-none fill-muted-foreground stroke-card! font-medium"
-								>Today</text
 							>
+								Today
+							</text>
 						{/snippet}
 						{#snippet tooltip()}
 							<Chart.Tooltip labelFormatter={(d: Date) => monthYear.format(d)} link={aheadLink}>
@@ -587,9 +592,9 @@
 										<!-- Why the line climbs: the monthly gifts, and who they go to. -->
 										<div class="grid w-full gap-2">
 											<p class="text-muted-foreground">
-												Contributes <span class="font-medium text-foreground tabular-nums"
-													>{money.format(perMonth)}</span
-												>
+												Contributes <span class="font-medium text-foreground tabular-nums">
+													{money.format(perMonth)}
+												</span>
 												to {monthly.length}
 												{monthly.length === 1 ? 'project' : 'projects'} every month
 											</p>

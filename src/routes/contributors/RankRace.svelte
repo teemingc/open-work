@@ -352,12 +352,12 @@
 							onpointerleave={unfollow}
 						>
 							<defs>
-								<linearGradient id="{name}-{slug}-in"
-									><stop offset="0" stop-opacity="0" /><stop offset="1" /></linearGradient
-								>
-								<linearGradient id="{name}-{slug}-out"
-									><stop offset="0" /><stop offset="1" stop-opacity="0" /></linearGradient
-								>
+								<linearGradient id="{name}-{slug}-in">
+									<stop offset="0" stop-opacity="0" /><stop offset="1" />
+								</linearGradient>
+								<linearGradient id="{name}-{slug}-out">
+									<stop offset="0" /><stop offset="1" stop-opacity="0" />
+								</linearGradient>
 							</defs>
 							{#each line.steps as { from, to } (from.x)}
 								{@render curve({ from: [from.x, y(from.rank)], to: [to.x, y(to.rank)] })}
@@ -398,8 +398,10 @@
 									y={y(point.rank)}
 									text-anchor="middle"
 									dominant-baseline="central"
-									class="dot-rank">{point.rank}</text
+									class="dot-rank"
 								>
+									{point.rank}
+								</text>
 							{/each}
 						</g>
 					{/each}

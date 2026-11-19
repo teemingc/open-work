@@ -146,8 +146,9 @@
 					<ChevronLeft /><span class="sr-only">Previous year</span>
 				</Button>
 				{#if year === thisYear}
-					<Button variant="ghost" size="sm" class="rounded-none border-x" disabled>This year</Button
-					>
+					<Button variant="ghost" size="sm" class="rounded-none border-x" disabled>
+						This year
+					</Button>
 				{:else}
 					<Button variant="ghost" size="sm" class="rounded-none border-x" href={resolve('/work')}>
 						This year

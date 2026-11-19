@@ -5,8 +5,7 @@
  */
 import { read } from '$app/server';
 import { env, waitUntil } from 'cloudflare:workers';
-import { Resvg } from '@cf-wasm/resvg';
-import { satori, type Font } from '@cf-wasm/satori';
+import type { Font } from '@cf-wasm/satori';
 import { collectiveImageVersion } from '#lib/share-image.js';
 import { isFund } from '#lib/grants.js';
 import { getCollectiveStats } from '#lib/collective-stats.remote.js';
@@ -109,6 +108,11 @@ export const GET: RequestHandler = async ({ params, url }) => {
 			? fundCard(stats, image, await given(stats))
 			: collectiveCard(stats, image);
 
+	// Loaded here, as Node can't load the Worker builds' WebAssembly when SvelteKit analyses the build.
+	const [{ satori }, { Resvg }] = await Promise.all([
+		import('@cf-wasm/satori'),
+		import('@cf-wasm/resvg')
+	]);
 	const svg = await satori(element, { width: WIDTH, height: HEIGHT, fonts: await loadFonts() });
 	const png = (await Resvg.async(svg)).render().asPng() as Uint8Array<ArrayBuffer>;
 

@@ -27,12 +27,30 @@ function warnOnPortFallback(): Plugin {
 	};
 }
 
+/**
+ * Loads the Node builds of the share image's renderers in dev. The adapter resolves packages as
+ * workerd does, but dev runs the server in Node, which can't load the Worker builds' WebAssembly.
+ */
+function nodeImageRenderers(): Plugin {
+	const renderers = new Set(['@cf-wasm/resvg', '@cf-wasm/satori']);
+	return {
+		name: 'node-image-renderers',
+		apply: 'serve',
+		enforce: 'pre',
+		resolveId(id, importer, options) {
+			if (this.environment.name !== 'ssr' || !renderers.has(id)) return;
+			return this.resolve(`${id}/node`, importer, { ...options, skipSelf: true });
+		}
+	};
+}
+
 export default defineConfig({
 	server: { port: DEV_PORT },
 	// Found only once the work log renders, which made the first visit bundle them and then reload the page.
 	optimizeDeps: { include: ['layerchart', 'layerchart/svg'] },
 	plugins: [
 		warnOnPortFallback(),
+		nodeImageRenderers(),
 		tailwindcss(),
 		sveltekit({
 			paths: { origin: ORIGIN },

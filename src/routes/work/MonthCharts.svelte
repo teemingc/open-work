@@ -145,11 +145,11 @@
 	<Card.Root class="@6xl/main:sticky @6xl/main:top-16">
 		<Card.Header>
 			<Card.Title>Hours each day</Card.Title>
-			<Card.Description
-				>By client. Currently aiming for {formatHours(
+			<Card.Description>
+				By client. Currently aiming for {formatHours(
 					summary.expected / Math.max(1, summary.workingDays)
-				)} h a working day.</Card.Description
-			>
+				)} h a working day.
+			</Card.Description>
 		</Card.Header>
 		<Card.Content class="px-2 pt-4 sm:px-6 sm:pt-6">
 			<LazyChart class="h-64">

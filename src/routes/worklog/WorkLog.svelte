@@ -206,9 +206,9 @@
 		{#if clients.length === 0}
 			<p class="text-sm text-muted-foreground">
 				Add a client in
-				<a href={resolve('/settings/clients')} class="font-medium text-foreground underline"
-					>Clients settings</a
-				>
+				<a href={resolve('/settings/clients')} class="font-medium text-foreground underline">
+					Clients settings
+				</a>
 				to start logging.
 			</p>
 		{:else}
