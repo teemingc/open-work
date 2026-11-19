@@ -52,11 +52,7 @@
 
 	// Not awaited, so a slow or failing list never blocks starting an invoice.
 	const expensesQuery = $derived(me ? getExpenses() : undefined);
-	const loadError = $derived.by(() => {
-		const error = expensesQuery?.error;
-		if (!error) return '';
-		return isHttpError(error) ? error.body.message : 'Failed to load your expenses.';
-	});
+	const loadError = $derived(expensesQuery?.error);
 	const clients = $derived(store ? activeClients(store.data.clients) : []);
 	/** Where your clients are invoiced, archived ones too, so their past expenses still show. */
 	const collectives = $derived(
@@ -106,7 +102,7 @@
 				// The suggested dates come from the latest invoice, so they wait for the list.
 				pending: !byEmail && expensesPending,
 				// Without the list, a suggestion could repeat a period already invoiced.
-				failed: !byEmail && !!loadError,
+				error: byEmail ? undefined : loadError,
 				period
 			};
 		});
@@ -190,7 +186,8 @@
 									client={next?.client}
 									period={next?.period}
 									pending={!next || next.pending}
-									failed={next?.failed}
+									error={next?.error}
+									onretry={() => expensesQuery?.refresh()}
 									{today}
 									entries={store?.data.entries}
 									credit={store && next?.client && !next.client.openCollective

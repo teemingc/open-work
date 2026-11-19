@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ClientName from '#lib/components/ClientName.svelte';
+	import RetryableError from '#lib/components/RetryableError.svelte';
 	import { resolve } from '$app/paths';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Popover from '#lib/components/ui/popover/index.js';
@@ -22,7 +23,8 @@
 		client,
 		period,
 		pending = false,
-		failed = false,
+		error,
+		onretry = () => {},
 		today,
 		entries = [],
 		credit = 0,
@@ -33,8 +35,10 @@
 		period?: { startDate: string; endDate: string };
 		/** Waiting for the last invoice, which the suggestion follows. */
 		pending?: boolean;
-		/** The last invoice is unknown, so there is no suggestion and the dates must be picked. */
-		failed?: boolean;
+		/** Why the last invoice is unknown, so there is no suggestion and the dates must be picked. */
+		error?: unknown;
+		/** Ask again for the last invoice. */
+		onretry?: () => unknown;
 		today: string;
 		/** The work log, to show what the period bills so far. */
 		entries?: WorkLogEntry[];
@@ -49,6 +53,7 @@
 	/** Two months fit side by side from this width (see range-calendar-months.svelte). */
 	const twoMonths = new MediaQuery('min-width: 32rem');
 
+	const failed = $derived(error !== undefined);
 	const suggested = $derived(failed ? undefined : period);
 	const chosen = $derived(
 		picked?.start && picked.end
@@ -170,9 +175,10 @@
 				</Popover.Content>
 			</Popover.Root>
 			{#if failed && !chosen}
-				<p class="mt-2 text-sm text-muted-foreground">
-					Could not check what you last invoiced, so pick the dates yourself.
-				</p>
+				<div class="mt-2 space-y-2 text-sm text-muted-foreground" role="alert">
+					<p>Could not check what you last invoiced, so pick the dates yourself or try again.</p>
+					<RetryableError {error} {onretry} />
+				</div>
 			{:else if chosen}
 				<!-- What the invoice would come to, so you know before opening it. -->
 				<p class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
