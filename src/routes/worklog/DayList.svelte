@@ -260,14 +260,14 @@
 		<Card.Title class="whitespace-nowrap">Days logged</Card.Title>
 		{#if status}
 			<div
-				class="order-last basis-full @xl/entries:order-none @xl/entries:ml-auto @xl/entries:basis-auto"
+				class="order-last basis-full @md/entries:order-none @md/entries:ml-auto @md/entries:basis-auto"
 			>
 				{@render status()}
 			</div>
 		{/if}
 		{#if selectedHere.length > 0}
 			<!-- Centred in the row, where Card.Action would sit at its top. -->
-			<Card.Action class="ml-auto flex items-center gap-2 self-center @xl/entries:ml-0">
+			<Card.Action class="ml-auto flex items-center gap-2 self-center @md/entries:ml-0">
 				<!-- On a narrow card the count moves into the button, so neither wraps. -->
 				<span
 					class="hidden text-sm whitespace-nowrap text-muted-foreground tabular-nums @xs/card-header:inline"
@@ -285,7 +285,7 @@
 				</Button>
 			</Card.Action>
 		{:else if actions}
-			<div class="ml-auto shrink-0 self-center @xl/entries:ml-0">{@render actions()}</div>
+			<div class="ml-auto shrink-0 self-center @md/entries:ml-0">{@render actions()}</div>
 		{/if}
 	</Card.Header>
 	{#if days.length === 0}
