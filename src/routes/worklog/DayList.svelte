@@ -35,12 +35,15 @@
 		summary,
 		organization,
 		today,
+		limit = Infinity,
 		justAdded = $bindable()
 	}: {
 		store: WorkLogStore;
 		summary: MonthSummary;
 		today: string;
 		organization?: string;
+		/** How many of the newest days to draw. */
+		limit?: number;
 		/** The entry just saved, tinted once and then cleared, so it does not tint again later. */
 		justAdded?: string;
 	} = $props();
@@ -72,6 +75,9 @@
 
 	const clientIndex = $derived(new Map(store.data.clients.map((client, i) => [client.id, i])));
 
+	/** Every entry by its date, in one pass over the log rather than one a day. */
+	const byDate = $derived(Map.groupBy(store.data.entries, (entry) => entry.date));
+
 	/**
 	 * Days with something to show, newest first so today's work is at the top, and each day's work
 	 * newest first too, so the whole list runs back in time. Entries without times stay at the end.
@@ -79,7 +85,7 @@
 	const days = $derived(
 		summary.days
 			.map((day) => {
-				const worked = inDayOrder(store.data.entries.filter((entry) => entry.date === day.date));
+				const worked = inDayOrder(byDate.get(day.date) ?? []);
 				return {
 					...day,
 					worked,
@@ -280,7 +286,7 @@
 				{#if gaps['']}
 					{@render gap('', gaps[''])}
 				{/if}
-				{#each days as day (day.date)}
+				{#each days.slice(0, limit) as day (day.date)}
 					<DayDrop date={day.date} disabled={!draggingEntry || day.date === draggingEntry.date}>
 						{#snippet children(dropZone)}
 							<li

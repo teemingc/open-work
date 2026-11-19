@@ -19,7 +19,7 @@
 	import { CircleAlert, CircleCheck, GitPullRequest, TriangleAlert } from '@lucide/svelte';
 	import type { Settings } from '#lib/settings.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import { onMount, untrack } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { today as currentDay } from './today.js';
 	import DayList from './DayList.svelte';
 	import EntryForm from '#lib/components/EntryForm.svelte';
@@ -95,9 +95,16 @@
 		}
 	}
 
+	/**
+	 * Days drawn as the page opens. Each entry has its own drag handle, checkbox and menu, so a full
+	 * month of them held up the click on Work log for a moment; these fill the screen under the form,
+	 * and the rest of the month follows on the next frame.
+	 */
+	let drawnDays = $state(3);
+
 	// SvelteKit puts the scroll back on a reload before the log arrives from IndexedDB, while the
 	// shorter skeleton is showing, so the page can't reach it. Keep it as the page unloads and put it
-	// back once the log is drawn. Read once, so later visits in the same tab start at the top.
+	// back once the whole month is drawn. Read once, so later visits in the same tab start at the top.
 	const SCROLL_KEY = 'worklog:scroll';
 
 	onMount(() => {
@@ -106,10 +113,15 @@
 		const [navigation] = performance.getEntriesByType(
 			'navigation'
 		) as PerformanceNavigationTiming[];
-		if (saved && navigation?.type !== 'navigate') {
-			const { href, x, y } = JSON.parse(saved);
-			if (href === location.href) scrollTo(x, y);
-		}
+
+		const frame = requestAnimationFrame(async () => {
+			drawnDays = Infinity;
+			await tick();
+			if (saved && navigation?.type !== 'navigate') {
+				const { href, x, y } = JSON.parse(saved);
+				if (href === location.href) scrollTo(x, y);
+			}
+		});
 
 		function save() {
 			sessionStorage.setItem(
@@ -118,7 +130,10 @@
 			);
 		}
 		addEventListener('pagehide', save);
-		return () => removeEventListener('pagehide', save);
+		return () => {
+			cancelAnimationFrame(frame);
+			removeEventListener('pagehide', save);
+		};
 	});
 </script>
 
@@ -215,6 +230,13 @@
 				</Card.Content>
 			</Card.Root>
 		{/if}
-		<DayList {store} {summary} {today} organization={settings.organization} bind:justAdded />
+		<DayList
+			{store}
+			{summary}
+			{today}
+			organization={settings.organization}
+			limit={drawnDays}
+			bind:justAdded
+		/>
 	</div>
 </div>
