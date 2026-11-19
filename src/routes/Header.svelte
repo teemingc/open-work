@@ -277,10 +277,11 @@
 				<a href={resolve('/settings/clients')} aria-current={current('/settings')} class={SUB_LINK}>
 					<!-- A dot on the icon's corner, like an app badge, so it takes no room of its own and does
 						not read as a warning about the word beside it. Only on Settings, not on Work: visitors
-						who never set up would otherwise be nagged on every page. -->
+						who never set up would otherwise be nagged on every page. Not in Settings itself, where
+						its own menu marks the section that needs you. -->
 					<span class="relative flex">
 						<Settings size={14} />
-						{#if needsSetup}
+						{#if needsSetup && !current('/settings')}
 							<span
 								class="absolute -top-1 -right-1 size-2 rounded-full bg-attention ring-2 ring-accent"
 								aria-hidden="true"
@@ -288,7 +289,9 @@
 						{/if}
 					</span>
 					<span class={label('/settings')}>Settings</span>
-					{#if needsSetup}<span class="sr-only">(setup unfinished)</span>{/if}
+					{#if needsSetup && !current('/settings')}<span class="sr-only">
+							(setup unfinished)
+						</span>{/if}
 				</a>
 			</nav>
 		</div>
