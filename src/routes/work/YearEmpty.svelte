@@ -1,86 +1,177 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { Badge } from '#lib/components/ui/badge/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Empty from '#lib/components/ui/empty/index.js';
-	import { formatHours, parseIsoDate } from '#lib/format.js';
-	import { summarizeMonth, type WorkLogData } from '#lib/worklog.js';
-	import { NotebookPen } from '@lucide/svelte';
+	import { formatHours, formatMoney } from '#lib/format.js';
+	import { activeClients, monthOf, type WorkLogData } from '#lib/worklog.js';
+	import { CircleCheck, NotebookPen } from '@lucide/svelte';
 
 	let { data, year, today }: { data: WorkLogData; year: number; today: string } = $props();
 
-	const longMonth = new Intl.DateTimeFormat('en', { month: 'long' });
+	interface Step {
+		title: string;
+		/** Why it is worth doing, while it isn't done. */
+		why: string;
+		/** What was set, once it is done. */
+		set?: string;
+		action: string;
+		/** What the Change button changes, for screen readers. */
+		topic: string;
+		href: string;
+		optional?: boolean;
+	}
 
-	/** Every month of the year, as the year's summary leaves out months before you first logged. */
-	const months = $derived(
-		Array.from({ length: 12 }, (_, i) =>
-			summarizeMonth({ data, month: `${year}-${String(i + 1).padStart(2, '0')}`, today })
-		)
+	const clients = $derived(activeClients(data.clients));
+	const github = $derived(data.settings?.githubUsername);
+
+	/** Each step is done once its setting is, so the list follows what is already in the log. */
+	const steps = $derived.by((): Step[] => {
+		const [first, ...more] = clients;
+		const holidays = data.holidays.filter((day) => day.date.startsWith(`${year}-`)).length;
+		const timeOff = [
+			data.allowance && `${formatHours(data.allowance.days)} days off a year`,
+			holidays > 0 && `${holidays} public ${holidays === 1 ? 'holiday' : 'holidays'} in ${year}`
+		].filter(Boolean);
+		return [
+			{
+				title: 'Add a client',
+				why: 'Who you work for and what an hour costs them, so your hours count towards earnings.',
+				set:
+					first &&
+					`${first.name} at ${formatMoney(first.rate, first.currency)} an hour${more.length > 0 ? `, and ${more.length} more` : ''}`,
+				action: 'Add a client',
+				topic: 'clients',
+				href: resolve('/settings/clients')
+			},
+			{
+				title: 'Set your time off',
+				why: 'Public holidays and days off come out of the hours each month expects of you.',
+				set: timeOff.length > 0 ? timeOff.join(' and ') : undefined,
+				action: 'Set time off',
+				topic: 'time off',
+				href: resolve('/settings/time-off')
+			},
+			{
+				title: 'Connect GitHub',
+				why: 'Add the pull requests and issues you worked on to the log in one go.',
+				set: github && `As ${github}`,
+				action: 'Connect GitHub',
+				topic: 'GitHub connection',
+				href: resolve('/settings/connections'),
+				optional: true
+			},
+			{
+				title: 'Log your first hours',
+				why: 'Your pace, earnings and take-home fill this page in from the first entry.',
+				action: 'Log time',
+				topic: 'entries',
+				href: resolve('/worklog')
+			}
+		];
+	});
+	const done = $derived(steps.filter((step) => step.set).length);
+	/** The first step left is the one to do next, and the only one drawn as the main action. */
+	const next = $derived(steps.findIndex((step) => !step.set));
+
+	const thisYear = $derived(Number(monthOf(today).slice(0, 4)));
+	/** Where logging for this year starts: today in this year, else its first month. */
+	const logHref = $derived(
+		year === thisYear ? resolve('/worklog') : `${resolve('/worklog')}?month=${year}-01`
 	);
-	const expected = $derived(months.reduce((sum, month) => sum + month.expected, 0));
-	const workingDays = $derived(months.reduce((sum, month) => sum + month.workingDays, 0));
-	const thisMonth = $derived(today.slice(0, 7));
-	const hasClients = $derived(data.clients.some((client) => !client.archived));
 </script>
 
-<!--
-	An empty year reads as a blank ledger spread: the year's target and what to do on the left, and on
-	the right the months already ruled with the hours each one expects.
--->
-<Card.Root class="@container/card gap-0 overflow-hidden py-0">
-	<div class="grid @3xl/card:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-		<Empty.Root
-			class="rounded-none border-b-[3px] border-double border-rule p-6 @3xl/card:items-start @3xl/card:border-r-[3px] @3xl/card:border-b-0 @3xl/card:p-10 @3xl/card:text-left"
-		>
-			<Empty.Header class="@3xl/card:items-start">
+{#if data.entries.length > 0}
+	<!-- Set up already, with time logged in other years: nothing to walk through, just this year empty. -->
+	<Card.Root>
+		<Empty.Root class="p-6 md:p-10">
+			<Empty.Header>
 				<Empty.Media variant="icon" class="size-12 bg-accent text-accent-foreground">
 					<NotebookPen class="size-6" aria-hidden="true" />
 				</Empty.Media>
-				<h2 class="font-display text-3xl font-medium text-(--heading) tabular-nums">
-					{formatHours(expected)} hours to log
-				</h2>
-				<Empty.Description class="text-base">
-					Over {workingDays} working days, at {formatHours(data.hoursPerDay)} hours a day.
+				<h2 class="font-display text-2xl font-medium text-(--heading)">Nothing logged in {year}</h2>
+				<Empty.Description>
+					{year < thisYear
+						? 'Time logged for this year would show here.'
+						: 'Your figures for the year start from its first entry.'}
 				</Empty.Description>
 			</Empty.Header>
-			<Empty.Content class="@3xl/card:items-start">
-				<div class="grid w-full gap-2 @md/card:flex @md/card:w-auto">
-					{#if hasClients}
-						<Button href={resolve('/worklog')}>Log time</Button>
-					{:else}
-						<Button href={resolve('/settings/clients')}>Add a client</Button>
-					{/if}
-					<Button href={resolve('/settings/hours')} variant="outline">Change hours</Button>
-				</div>
+			<Empty.Content>
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved path plus a query string -->
+				<Button href={logHref}>Log time</Button>
 			</Empty.Content>
 		</Empty.Root>
-
-		<div class="px-2 py-4 @3xl/card:px-6 @3xl/card:py-8">
-			<table class="ledger text-sm">
-				<caption class="sr-only">Hours expected each month of {year}</caption>
-				<thead class="text-xs">
-					<tr>
-						<th class="px-3 py-2 font-medium">Month</th>
-						<th class="px-3 py-2 text-right font-medium">Hours logged</th>
-						<th class="px-3 py-2 text-right font-medium">Hours expected</th>
-					</tr>
-				</thead>
-				<tbody class="text-muted-foreground tabular-nums">
-					{#each months as month (month.month)}
-						{const current = $derived(month.month === thisMonth)}
-						<tr class={[current && 'font-medium text-foreground']}>
-							<td class="px-3 py-1.5">
-								<a href="{resolve('/worklog')}?month={month.month}" class="hover:underline">
-									{longMonth.format(parseIsoDate(`${month.month}-01`))}
-								</a>
-								{#if current}<span class="sr-only">(this month)</span>{/if}
-							</td>
-							<td class="px-3 py-1.5 text-right">—</td>
-							<td class="px-3 py-1.5 text-right">{formatHours(month.expected)}</td>
-						</tr>
+	</Card.Root>
+{:else}
+	<!--
+		A first visit reads as a short ledger of what to set up, each line ticked off as its setting is
+		made. Done steps keep their row, showing what was set, so the list doesn't jump about.
+	-->
+	<Card.Root>
+		<Card.Header>
+			<Card.Title class="font-display text-2xl font-medium text-(--heading)">Get started</Card.Title
+			>
+			<Card.Description>A few settings, then your first hours fill in this page.</Card.Description>
+			<Card.Action>
+				<span class="text-sm text-muted-foreground tabular-nums">{done} of {steps.length} done</span
+				>
+			</Card.Action>
+		</Card.Header>
+		<Card.Content class="px-0">
+			<!--
+				The rows share the list's columns, so every button is as wide as the widest. Narrow, each
+				button goes under its step's text, as wide as the text.
+			-->
+			<div class="@container/steps">
+				<ol
+					class="ledger-rows grid grid-cols-[auto_minmax(0,1fr)] border-y @lg/steps:grid-cols-[auto_minmax(0,1fr)_auto]"
+				>
+					{#each steps as step, index (step.title)}
+						<li
+							class="col-span-full grid grid-cols-subgrid items-start gap-x-4 gap-y-3 px-(--card-padding) py-4 @lg/steps:items-center"
+						>
+							<!-- A tick or the step's number: the shape says which, not only the colour. -->
+							{#if step.set}
+								<CircleCheck class="size-7 text-status-paid" aria-hidden="true" />
+							{:else}
+								<span
+									class="grid size-7 place-items-center rounded-full border font-display text-sm tabular-nums"
+									aria-hidden="true">{index + 1}</span
+								>
+							{/if}
+							<div class="min-w-0">
+								<h3
+									class={[
+										'flex flex-wrap items-center gap-2 text-base',
+										step.set && 'font-medium text-muted-foreground'
+									]}
+								>
+									{#if step.set}<span class="sr-only">Done:</span>{/if}
+									{step.title}
+									{#if step.optional && !step.set}<Badge variant="outline">Optional</Badge>{/if}
+								</h3>
+								<p class="text-sm text-muted-foreground">{step.set ?? step.why}</p>
+							</div>
+							<Button
+								href={step.href}
+								variant={index === next ? 'default' : 'outline'}
+								size="sm"
+								class="col-start-2 @lg/steps:col-start-3"
+							>
+								{step.set ? 'Change' : step.action}
+								{#if step.set}<span class="sr-only">{step.topic}</span>{/if}
+							</Button>
+						</li>
 					{/each}
-				</tbody>
-			</table>
-		</div>
-	</div>
-</Card.Root>
+				</ol>
+			</div>
+		</Card.Content>
+		<Card.Footer class="text-sm text-muted-foreground">
+			<p>
+				Each working day expects {formatHours(data.hoursPerDay)} h.
+				<a href={resolve('/settings/hours')} class="text-foreground underline">Change hours</a>
+			</p>
+		</Card.Footer>
+	</Card.Root>
+{/if}

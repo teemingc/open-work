@@ -16,27 +16,16 @@
 		taskNames,
 		unloggedItems
 	} from '#lib/worklog.js';
-	import {
-		CircleAlert,
-		CircleCheck,
-		GitPullRequest,
-		Settings2,
-		TriangleAlert
-	} from '@lucide/svelte';
+	import { CircleAlert, CircleCheck, GitPullRequest, TriangleAlert } from '@lucide/svelte';
 	import type { Settings } from '#lib/settings.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import { onMount, untrack } from 'svelte';
 	import { today as currentDay } from './today.js';
-	import ClientBars from './ClientBars.svelte';
 	import DayList from './DayList.svelte';
 	import EntryForm from '#lib/components/EntryForm.svelte';
-	import MonthCharts from './MonthCharts.svelte';
-	import MonthPicker from './MonthPicker.svelte';
-	import MonthStats from './MonthStats.svelte';
-	import TakeHome from './TakeHome.svelte';
+	import MonthPicker from '#lib/components/MonthPicker.svelte';
 
 	let { data }: { data: { settings: Settings; store: WorkLogStore } } = $props();
-	const uid = $props.id();
 
 	const settings = $derived(data.settings);
 	// The same store for the page's whole life, so it is read once, not tracked.
@@ -136,14 +125,13 @@
 <div class="flex flex-col gap-4 md:gap-6">
 	<!--
 		The month control sits at the right edge of the title's row, and wraps under it only when the text
-		is too large for both. The GitHub and settings buttons are left off phones, where they would be
-		bare icons; settings stay in the tabs.
+		is too large for both. The GitHub button is left off phones, where it would be a bare icon.
 	-->
 	<header class="flex flex-col gap-2">
 		<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
 			<h1>Work log</h1>
 			<div class="ml-auto">
-				<MonthPicker {month} current={monthOf(today)} label={monthName} />
+				<MonthPicker path="/worklog" {month} current={monthOf(today)} label={monthName} />
 			</div>
 		</div>
 		<div class="flex items-center justify-between gap-2">
@@ -161,9 +149,6 @@
 						Add from GitHub
 					</Button>
 				{/if}
-				<Button variant="outline" size="sm" href={resolve('/settings/hours')}>
-					<Settings2 /> Settings
-				</Button>
 			</div>
 		</div>
 	</header>
@@ -200,57 +185,36 @@
 
 	<!--
 		Logging comes first, so the form is in reach as the page opens, with what you log showing up just
-		below it. In one column the month's figures and charts follow. In two, the figures are one short
-		strip above the form, and the take-home and charts sit beside the form and the days logged. The
-		hours each day stretch down beside the far taller list, so their card can stay in view.
+		below it. The month's figures and charts are on the overview.
 	-->
-	<div class="grid grid-cols-1 items-start gap-4 md:gap-6 @5xl/main:grid-cols-2">
-		<div class="flex flex-col gap-4 md:gap-6 @5xl/main:col-start-1 @5xl/main:row-start-2">
-			{#if clients.length === 0}
-				<p class="text-sm text-muted-foreground">
-					Add a client in
-					<a href={resolve('/settings/clients')} class="font-medium text-foreground underline"
-						>Clients settings</a
-					>
-					to start logging.
-				</p>
-			{:else}
-				<Card.Root>
-					<Card.Header>
-						<Card.Title>Log time</Card.Title>
-					</Card.Header>
-					<Card.Content>
-						<EntryForm
-							{clients}
-							organization={settings.organization}
-							tasks={taskNames(store.data)}
-							onhidetask={(text) => store.hideTask(text)}
-							entries={store.data.entries}
-							date={defaultDate}
-							clientId={githubClient?.id}
-							onsave={(entry) => (justAdded = store.addEntry(entry).id)}
-						/>
-					</Card.Content>
-				</Card.Root>
-			{/if}
-			<DayList {store} {summary} {today} organization={settings.organization} bind:justAdded />
-		</div>
-		<section
-			aria-labelledby="{uid}-summary"
-			class="@5xl/main:col-span-2 @5xl/main:col-start-1 @5xl/main:row-start-1"
-		>
-			<h2 id="{uid}-summary" class="sr-only">Summary</h2>
-			<MonthStats {summary} data={store.data} {current} />
-		</section>
-		<div
-			class="flex flex-col gap-4 self-stretch md:gap-6 @5xl/main:col-start-2 @5xl/main:row-start-2"
-		>
-			<ClientBars {summary} clients={store.data.clients} />
-			<TakeHome data={store.data} {summary} />
-			<MonthCharts chart="pace" {summary} clients={store.data.clients} {today} />
-			<div class="flex-1">
-				<MonthCharts chart="daily" {summary} clients={store.data.clients} {today} />
-			</div>
-		</div>
+	<div class="flex flex-col gap-4 md:gap-6">
+		{#if clients.length === 0}
+			<p class="text-sm text-muted-foreground">
+				Add a client in
+				<a href={resolve('/settings/clients')} class="font-medium text-foreground underline"
+					>Clients settings</a
+				>
+				to start logging.
+			</p>
+		{:else}
+			<Card.Root>
+				<Card.Header>
+					<Card.Title>Log time</Card.Title>
+				</Card.Header>
+				<Card.Content>
+					<EntryForm
+						{clients}
+						organization={settings.organization}
+						tasks={taskNames(store.data)}
+						onhidetask={(text) => store.hideTask(text)}
+						entries={store.data.entries}
+						date={defaultDate}
+						clientId={githubClient?.id}
+						onsave={(entry) => (justAdded = store.addEntry(entry).id)}
+					/>
+				</Card.Content>
+			</Card.Root>
+		{/if}
+		<DayList {store} {summary} {today} organization={settings.organization} bind:justAdded />
 	</div>
 </div>

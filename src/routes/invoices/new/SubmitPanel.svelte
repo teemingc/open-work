@@ -47,6 +47,8 @@
 	/** Each with where it is fixed, if that is somewhere else. */
 	const problems: { text: string; href?: string }[] = $derived([
 		...missing.flatMap((item) => {
+			if (item === 'Open Collective connection')
+				return [{ text: 'Connect to Open Collective', href: resolve(SETTINGS_PAGES[item]) }];
 			if (item !== 'collective')
 				return [{ text: `Add your ${item} in settings`, href: resolve(SETTINGS_PAGES[item]) }];
 			// Choosing the client comes first; its collective is asked for once it is chosen.

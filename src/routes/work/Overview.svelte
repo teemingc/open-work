@@ -4,9 +4,21 @@
 	import StatStrip, { type Stat } from '#lib/components/StatStrip.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { formatHours, formatMoney, toIsoDate } from '#lib/format.js';
-	import { completeDeductions, daysOffBudget, summarizeYear, yearTakeHome } from '#lib/worklog.js';
+	import {
+		completeDeductions,
+		daysOffBudget,
+		monthOf,
+		summarizeMonth,
+		summarizeYear,
+		yearTakeHome
+	} from '#lib/worklog.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
-	import { ChevronLeft, ChevronRight } from '@lucide/svelte';
+	import MonthPicker from '#lib/components/MonthPicker.svelte';
+	import { ChevronLeft, ChevronRight, Clock } from '@lucide/svelte';
+	import ClientBars from './ClientBars.svelte';
+	import MonthCharts from './MonthCharts.svelte';
+	import MonthStats from './MonthStats.svelte';
+	import TakeHome from './TakeHome.svelte';
 	import YearEmpty from './YearEmpty.svelte';
 	import YearHours from './YearHours.svelte';
 	import YearTakeHome from './YearTakeHome.svelte';
@@ -16,7 +28,13 @@
 
 	const today = toIsoDate(new Date());
 	const thisYear = Number(today.slice(0, 4));
+	/** A month asked for in the address, which also sets the year. */
+	const requestedMonth = $derived.by(() => {
+		const requested = page.url.searchParams.get('month');
+		return requested && /^\d{4}-(0[1-9]|1[0-2])$/.test(requested) ? requested : undefined;
+	});
 	const year = $derived.by(() => {
+		if (requestedMonth) return Number(requestedMonth.slice(0, 4));
 		const requested = page.url.searchParams.get('year');
 		return requested && /^\d{4}$/.test(requested) ? Number(requested) : thisYear;
 	});
@@ -32,6 +50,30 @@
 	);
 	const previousYear = $derived(years.findLast((other) => other < year));
 	const nextYear = $derived(years.find((other) => other > year));
+
+	const thisMonth = monthOf(today);
+	/**
+	 * The month on screen: the one asked for, else this one in this year. A past year opens on its
+	 * last month with time logged, as that is where the year ended.
+	 */
+	const month = $derived.by(() => {
+		if (requestedMonth) return requestedMonth;
+		if (year === thisYear) return thisMonth;
+		const logged = store.data.entries
+			.map((entry) => monthOf(entry.date))
+			.filter((other) => other.startsWith(`${year}-`));
+		return logged.length > 0 ? logged.reduce((a, b) => (a > b ? a : b)) : `${year}-12`;
+	});
+	const monthDate = $derived(new Date(`${month}-01T00:00:00`));
+	const monthName = $derived(new Intl.DateTimeFormat('en', { month: 'long' }).format(monthDate));
+	const monthLabel = $derived(
+		new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(monthDate)
+	);
+	const monthSummary = $derived(summarizeMonth({ data: store.data, month, today }));
+	/** Whether the money column has anything in it: take-home needs earnings, clients need two. */
+	const hasMonthMoney = $derived(
+		Object.keys(monthSummary.amounts).length > 0 || monthSummary.clients.length > 1
+	);
 
 	const summary = $derived(summarizeYear({ data: store.data, year, today }));
 	const daysOff = $derived(daysOffBudget({ data: store.data, year, today }));
@@ -124,18 +166,58 @@
 		{/if}
 	</div>
 
+	<!--
+		The month leads, as it is the one still to act on, and the year follows as the longer view. A
+		month asked for keeps its section even in a year with nothing logged, so its picker stays in reach.
+	-->
+	{#if summary.logged > 0 || requestedMonth}
+		<section aria-labelledby="{navId}-month" class="flex flex-col gap-4 md:gap-6">
+			<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+				<h2 id="{navId}-month" class="font-display text-xl font-medium">{monthName}</h2>
+				<div class="ml-auto flex items-center gap-2">
+					<Button variant="ghost" size="sm" href="{resolve('/worklog')}?month={month}">
+						<Clock /><span class="max-sm:sr-only">Work log</span>
+					</Button>
+					<MonthPicker path="/work" {month} current={thisMonth} label={monthLabel} />
+				</div>
+			</div>
+			<MonthStats summary={monthSummary} data={store.data} current={month === thisMonth} />
+			<!-- Charts take the wider column, like the year's hours below, with the money beside them. -->
+			<div
+				class={[
+					'grid grid-cols-1 items-start gap-4 md:gap-6',
+					hasMonthMoney && '@5xl/main:grid-cols-[3fr_2fr]'
+				]}
+			>
+				<div class="flex flex-col gap-4 md:gap-6">
+					<MonthCharts chart="pace" summary={monthSummary} clients={store.data.clients} {today} />
+					<MonthCharts chart="daily" summary={monthSummary} clients={store.data.clients} {today} />
+				</div>
+				<div class="flex flex-col gap-4 md:gap-6">
+					<ClientBars summary={monthSummary} clients={store.data.clients} />
+					<TakeHome data={store.data} summary={monthSummary} />
+				</div>
+			</div>
+		</section>
+	{/if}
+
 	{#if summary.logged > 0}
-		<StatStrip {stats} />
-		<!-- Two columns only when there are earnings, as take-home shows nothing without them. -->
-		<div
-			class={[
-				'grid grid-cols-1 items-start gap-4 md:gap-6',
-				summary.earnings && '@4xl/main:grid-cols-[3fr_2fr]'
-			]}
-		>
-			<YearHours data={store.data} {summary} {today} />
-			<YearTakeHome data={store.data} {summary} />
-		</div>
+		<section aria-labelledby="{navId}-year" class="flex flex-col gap-4 md:gap-6">
+			<h2 id="{navId}-year" class="font-display text-xl font-medium">
+				{year === thisYear ? 'The year so far' : 'The year'}
+			</h2>
+			<StatStrip {stats} />
+			<!-- Two columns only when there are earnings, as take-home shows nothing without them. -->
+			<div
+				class={[
+					'grid grid-cols-1 items-start gap-4 md:gap-6',
+					summary.earnings && '@4xl/main:grid-cols-[3fr_2fr]'
+				]}
+			>
+				<YearHours data={store.data} {summary} {today} />
+				<YearTakeHome data={store.data} {summary} />
+			</div>
+		</section>
 	{:else}
 		<YearEmpty data={store.data} {year} {today} />
 	{/if}

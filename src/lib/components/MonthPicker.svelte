@@ -7,10 +7,13 @@
 	import { ChevronDown, ChevronLeft, ChevronRight } from '@lucide/svelte';
 
 	let {
+		path,
 		month,
 		current,
 		label
 	}: {
+		/** The page whose `?month=` the picker steps through. */
+		path: '/worklog' | '/work';
 		/** The month on screen, as "YYYY-MM". */
 		month: string;
 		/** This month, as "YYYY-MM". */
@@ -43,7 +46,7 @@
 	function choose(next: string) {
 		open = false;
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved path plus a query string
-		void goto(`${resolve('/worklog')}?month=${next}`);
+		void goto(`${resolve(path)}?month=${next}`);
 	}
 </script>
 
@@ -54,7 +57,7 @@
 -->
 <div class="flex shrink-0 items-center gap-2">
 	{#if month !== current}
-		<Button variant="outline" class="max-sm:hidden" href={resolve('/worklog')}>Today</Button>
+		<Button variant="outline" class="max-sm:hidden" href={resolve(path)}>Today</Button>
 	{/if}
 	<nav aria-labelledby="{id}-month" class="flex items-center rounded-md border bg-card">
 		<h2 id="{id}-month" class="sr-only">Month</h2>
@@ -62,7 +65,7 @@
 			variant="ghost"
 			size="icon"
 			class="rounded-r-none"
-			href="{resolve('/worklog')}?month={addMonths(month, -1)}"
+			href="{resolve(path)}?month={addMonths(month, -1)}"
 		>
 			<ChevronLeft /><span class="sr-only">Previous month</span>
 		</Button>
@@ -120,7 +123,7 @@
 			variant="ghost"
 			size="icon"
 			class="rounded-l-none"
-			href="{resolve('/worklog')}?month={addMonths(month, 1)}"
+			href="{resolve(path)}?month={addMonths(month, 1)}"
 		>
 			<ChevronRight /><span class="sr-only">Next month</span>
 		</Button>
