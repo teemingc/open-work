@@ -38,18 +38,24 @@
 		},
 		started
 			? {
-					label: current ? 'Pace' : 'Against expected',
+					label: current ? 'Pace' : 'Balance',
 					value: `${summary.pace > 0 ? '+' : ''}${formatHours(summary.pace)} h`,
 					tone: summary.pace >= 0 ? 'text-status-paid' : 'text-destructive',
 					note: `${formatHours(summary.expectedSoFar)} h expected ${current ? 'by today' : 'this month'}`,
 					badge: {
-						text: summary.pace >= 0 ? 'Ahead' : 'Behind',
+						text: current
+							? summary.pace >= 0
+								? 'Ahead'
+								: 'Behind'
+							: summary.pace >= 0
+								? 'Over'
+								: 'Under',
 						icon: summary.pace >= 0 ? 'up' : 'down'
 					}
 				}
 			: {
 					// Nothing logged yet is not falling behind: no red number until there is work to compare.
-					label: current ? 'Pace' : 'Against expected',
+					label: current ? 'Pace' : 'Balance',
 					value: '—',
 					tone: 'text-muted-foreground',
 					note: 'Nothing logged yet this month'

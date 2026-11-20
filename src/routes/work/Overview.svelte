@@ -90,12 +90,19 @@
 	const stats = $derived.by(() => {
 		const stats: Stat[] = [
 			{
-				label: year === thisYear ? 'Pace' : 'Against expected',
+				label: year === thisYear ? 'Pace' : 'Balance',
 				value: `${summary.pace > 0 ? '+' : ''}${formatHours(summary.pace)} h`,
 				tone: summary.pace >= 0 ? 'text-status-paid' : 'text-destructive',
 				note: `${formatHours(summary.logged)} h logged of ${formatHours(summary.expectedSoFar)} h expected`,
 				badge: {
-					text: summary.pace >= 0 ? 'Ahead' : 'Behind',
+					text:
+						year === thisYear
+							? summary.pace >= 0
+								? 'Ahead'
+								: 'Behind'
+							: summary.pace >= 0
+								? 'Over'
+								: 'Under',
 					icon: summary.pace >= 0 ? 'up' : 'down'
 				}
 			}

@@ -139,7 +139,7 @@
 					{/if}
 					<tr>
 						<th scope="row" class="px-3 py-2 font-normal whitespace-nowrap text-muted-foreground">
-							Against expected
+							Balance
 						</th>
 						{#each year as column (column.month)}
 							<td
@@ -181,7 +181,7 @@
 								<th class="px-3 py-2 text-right font-medium @max-xl/card:hidden">{client.name}</th>
 							{/each}
 						{/if}
-						<th class="px-3 py-2 text-right font-medium">Against expected</th>
+						<th class="px-3 py-2 text-right font-medium">Balance</th>
 						<th class="px-3 py-2 text-right font-medium">Earned</th>
 					</tr>
 				</thead>
@@ -207,7 +207,7 @@
 								{/each}
 							{/if}
 							<td
-								data-label="Against expected"
+								data-label="Balance"
 								class={[
 									'px-3 py-2 text-right',
 									row.difference >= 0 ? 'text-status-paid' : 'text-destructive'
