@@ -79,6 +79,15 @@
 		!!store && (store.data.invoices.length > 0 || clients.some((other) => !other.openCollective))
 	);
 
+	/** Invoices sent as expenses, which Open Collective lists rather than this page. */
+	const pastOnOpenCollective = $derived(!!me && showExpenses);
+	/** Whose invoices those are, so it is clear why they are missing from the list here. */
+	const openCollectiveNames = $derived(
+		new Intl.ListFormat('en', { type: 'conjunction' }).format(
+			clients.filter((client) => client.openCollective).map((client) => client.name)
+		)
+	);
+
 	/** The list of expenses Open Collective clients' suggested dates wait for. */
 	const expensesPending = $derived(
 		!ready ||
@@ -129,27 +138,7 @@
 </svelte:head>
 
 <div class="flex flex-col gap-4 md:gap-6">
-	<div class="flex flex-wrap items-baseline justify-between gap-2">
-		<h1>Invoices</h1>
-		{#if me && showExpenses}
-			<!--
-				Open Collective keeps the history of expenses sent there, so link to it rather than repeat it.
-				The button's baseline is its icon's bottom edge, 2.5px below its text, so it is moved
-				down that much to sit the text on the heading's baseline.
-			-->
-			<Button
-				variant="outline"
-				size="sm"
-				class="translate-y-[0.15625rem]"
-				href="https://opencollective.com/dashboard/{me.slug}/submitted-expenses"
-				target="_blank"
-				rel="noopener noreferrer"
-			>
-				<ExternalLink />
-				<span><span class="hidden @md/main:inline">Expenses on</span> Open Collective</span>
-			</Button>
-		{/if}
-	</div>
+	<h1>Invoices</h1>
 
 	<!--
 		Everything below waits until your account and settings are known, then fades in at once,
@@ -214,17 +203,55 @@
 				</Card.Root>
 			</section>
 
-			{#if showEmailed && store}
-				<section aria-labelledby="emailed-heading">
-					<h2 id="emailed-heading" class="mb-3 text-lg">Invoiced by email</h2>
-					{#if store.data.invoices.length === 0}
+			{#if store && (showEmailed || pastOnOpenCollective)}
+				<section aria-labelledby="past-heading">
+					<h2 id="past-heading" class="mb-3 text-lg">Past invoices</h2>
+					{#if store.data.invoices.length === 0 && !pastOnOpenCollective}
 						<p
 							class="rounded-xl border border-dashed bg-card/50 p-4 text-sm text-muted-foreground sm:p-6"
 						>
 							No invoices yet.
 						</p>
 					{:else}
-						<EmailInvoicesTable {store} />
+						<Card.Root class="animate-in gap-0 overflow-hidden py-0 duration-300 fade-in">
+							{#if store.data.invoices.length > 0}
+								<EmailInvoicesTable {store} />
+							{:else if showEmailed}
+								<p class="px-(--card-padding) py-4 text-sm text-muted-foreground">
+									No invoices sent by email yet.
+								</p>
+							{/if}
+							{#if me && pastOnOpenCollective}
+								<!--
+									Open Collective keeps the history of expenses sent there, so the list ends with
+									the way to it rather than repeating it: where you would look for those invoices.
+								-->
+								<div
+									class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-(--card-padding) py-4 text-sm not-first:border-t"
+								>
+									<p class="min-w-0 text-muted-foreground">
+										Invoices to
+										{#if openCollectiveNames}
+											<span class="text-foreground">{openCollectiveNames}</span>
+										{:else}
+											collectives
+										{/if}
+										are kept as expenses on Open Collective.
+									</p>
+									<Button
+										variant="outline"
+										size="sm"
+										class="w-full @xl/main:w-auto"
+										href="https://opencollective.com/dashboard/{me.slug}/submitted-expenses"
+										target="_blank"
+										rel="noopener noreferrer"
+									>
+										<ExternalLink />
+										Expenses on Open Collective
+									</Button>
+								</div>
+							{/if}
+						</Card.Root>
 					{/if}
 				</section>
 			{/if}

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { formatDMY, formatMoney, toIsoDate } from '#lib/format.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
@@ -37,9 +36,10 @@
 	A ledger on a wide screen, its cells padded less until there is room for every column. Narrower,
 	each invoice takes two lines instead of scrolling sideways:
 	what it is and what it is for, then where it is at and what to do next. The outer cells take the
-	card's padding, so the table's edges line up with the next invoices above it.
+	card's padding, so the table's edges line up with the next invoices above it. The page gives it
+	its card, which it shares with the way to the invoices kept on Open Collective.
 -->
-<Card.Root class="@container animate-in gap-0 overflow-hidden py-0 duration-300 fade-in">
+<div class="@container">
 	<table class="ledger text-sm">
 		<thead class="max-md:sr-only">
 			<tr>
@@ -139,7 +139,7 @@
 			{/each}
 		</tbody>
 	</table>
-</Card.Root>
+</div>
 
 <Dialog.Root bind:open={() => removing !== undefined, (open) => !open && (removing = undefined)}>
 	<Dialog.Content>
