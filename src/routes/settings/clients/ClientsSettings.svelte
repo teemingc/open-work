@@ -345,9 +345,10 @@
 								</DropdownMenu.Content>
 							</DropdownMenu.Root>
 						</div>
-						<div
-							class="grid gap-x-3 gap-y-4 p-3 *:min-w-0 @md/card:grid-cols-2 @3xl/card:grid-cols-4"
-						>
+						<!-- Two columns at most: four in a row left each field a sliver of a wide card, and the
+							card narrows by 24px when the window reaches `lg`, which undid that step there. From
+							`@lg` rather than `@md`, so a column holds "Since 01/02/2026 Rate history" on one line. -->
+						<div class="grid gap-x-3 gap-y-4 p-3 *:min-w-0 @lg/card:grid-cols-2">
 							<div class="space-y-1.5">
 								<Label for="{client.id}-rate" id="{client.id}-rate-label">Per hour</Label>
 								<!-- The currency is part of the rate, so it is attached to it rather than a field of its own. -->
@@ -477,7 +478,7 @@
 							</div>
 							<!-- A collective's logo and colour come from Open Collective, so only other clients need one. -->
 							{#if !client.openCollective}
-								<div class="space-y-1.5 @3xl/card:col-span-2">
+								<div class="space-y-1.5">
 									<Label for="{client.id}-website">Website</Label>
 									{@render lookupField({
 										client,
