@@ -11,18 +11,17 @@
 	import { clientColor } from '#lib/client-colors.js';
 	import { getCollectiveLogo } from '#lib/collective-stats.remote.js';
 	import { logoColor } from './logo-color';
+	import RateHistory from './RateHistory.svelte';
 	import { getSiteLook } from './site-look.remote';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import type { Settings } from '#lib/settings.js';
-	import { formatDMY, toIsoDate } from '#lib/format.js';
+	import { toIsoDate } from '#lib/format.js';
 	import {
 		invoiceFrequency,
 		rateOn,
 		withCurrentRate,
-		withRates,
 		type Client,
-		type InvoiceFrequency,
-		type RateChange
+		type InvoiceFrequency
 	} from '#lib/worklog.js';
 	import {
 		Archive,
@@ -144,13 +143,6 @@
 		return lookUp(client, { collective: collective || undefined }, () =>
 			getCollectiveLogo(collective)
 		);
-	}
-
-	function changeRates(client: Client, change: (rates: RateChange[]) => void) {
-		const snapshot = latest(client);
-		const rates = snapshot.rates ?? [];
-		change(rates);
-		store.updateClient(withRates({ client: snapshot, rates }));
 	}
 </script>
 
@@ -400,6 +392,12 @@
 										</Select.Content>
 									</Select.Root>
 								</div>
+								<!-- Dated rates are kept out of the card, so it has one field for the rate: today's,
+								which is changed here and nowhere else. -->
+								<RateHistory
+									{client}
+									onchange={(change) => store.updateClient(change(latest(client)))}
+								/>
 							</div>
 							<div class="space-y-1.5">
 								<Label for="{client.id}-share">Share of hours</Label>
@@ -489,106 +487,6 @@
 									})}
 								</div>
 							{/if}
-							<!-- Opened once, for a client with rate changes. An `open` attribute would be set again on
-						every change to the client, opening it straight after you close it. -->
-							<details
-								class="group @md/card:col-span-2 @3xl/card:col-span-4"
-								{@attach (details) => {
-									details.open = untrack(() => (client.rates?.length ?? 0) > 0);
-								}}
-							>
-								<summary
-									class="flex min-h-10 w-fit cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden"
-								>
-									<ChevronRight
-										size={15}
-										class="transition-transform group-open:rotate-90 motion-reduce:transition-none"
-									/>
-									Rate changes
-								</summary>
-								<div class="mt-3 space-y-3">
-									<p class="text-xs text-muted-foreground">
-										Each rate applies from its date until the next change, so past work earns what
-										you billed at the time.
-									</p>
-									{#if client.rates?.length}
-										<div class="max-w-40 space-y-1.5">
-											<Label for="{client.id}-base-rate">
-												Before {formatDMY(client.rates[0].from)}
-											</Label>
-											<Input
-												id="{client.id}-base-rate"
-												type="number"
-												inputmode="decimal"
-												min="0"
-												step="0.01"
-												class="tabular-nums"
-												value={client.rate}
-												onchange={(event) => {
-													const rate = Number(event.currentTarget.value);
-													if (Number.isFinite(rate) && rate >= 0) changeClient(client, { rate });
-												}}
-											/>
-										</div>
-									{/if}
-									{#each client.rates ?? [] as change, index (index)}
-										<!-- The rate and its button go under the date when a row is too narrow for all three. -->
-										<div class="flex flex-wrap items-end gap-3">
-											<div class="min-w-36 flex-1 space-y-1.5">
-												<Label for="{client.id}-rate-{index}-from">From</Label>
-												<Input
-													id="{client.id}-rate-{index}-from"
-													type="date"
-													value={change.from}
-													onchange={(event) => {
-														const from = event.currentTarget.value;
-														if (from) changeRates(client, (rates) => (rates[index].from = from));
-													}}
-												/>
-											</div>
-											<div class="w-20 space-y-1.5 @md/card:w-28">
-												<Label for="{client.id}-rate-{index}-rate">Per hour</Label>
-												<Input
-													id="{client.id}-rate-{index}-rate"
-													type="number"
-													inputmode="decimal"
-													min="0"
-													step="0.01"
-													class="tabular-nums"
-													value={change.rate}
-													onchange={(event) => {
-														const rate = Number(event.currentTarget.value);
-														if (Number.isFinite(rate) && rate >= 0) {
-															changeRates(client, (rates) => (rates[index].rate = rate));
-														}
-													}}
-												/>
-											</div>
-											<Button
-												variant="ghost"
-												size="icon"
-												onclick={() => changeRates(client, (rates) => rates.splice(index, 1))}
-											>
-												<Trash2 size={16} />
-												<span class="sr-only">Remove the rate from {change.from}</span>
-											</Button>
-										</div>
-									{/each}
-									<Button
-										variant="outline"
-										size="sm"
-										onclick={() =>
-											changeRates(client, (rates) =>
-												rates.push({
-													from: toIsoDate(new Date()),
-													rate: rateOn(client, toIsoDate(new Date()))
-												})
-											)}
-									>
-										<Plus /> Add a rate change
-									</Button>
-								</div>
-							</details>
 						</div>
 					</div>
 				{/if}

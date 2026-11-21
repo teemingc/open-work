@@ -136,8 +136,12 @@
 		{:else}
 			<span class="size-5 rounded bg-muted"></span>
 		{/if}
-		<span class="min-w-0 wrap-break-word">{match.name}</span>
-		<span class="ml-auto min-w-0 text-xs wrap-anywhere text-muted-foreground">{match.slug}</span>
+		<!-- The slug sits under the name, each on one line, so a long one is cut short rather than
+		wrapping beside the other and making its row taller than the rest. -->
+		<span class="grid min-w-0 flex-1">
+			<span class="truncate">{match.name}</span>
+			<span class="truncate text-xs text-muted-foreground">{match.slug}</span>
+		</span>
 		{#if removable}
 			<!-- Small so the row keeps its height, with a fingertip's worth of room to hit it. -->
 			<Button

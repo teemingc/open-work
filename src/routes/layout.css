@@ -268,6 +268,16 @@
 	--color-chart-balance: var(--chart-balance);
 }
 
+/*
+ * The Input is a flex box, and in Chrome that shrinks a date field's insides to the width of the
+ * date, which left the calendar button in the middle of a wider field. As a grid the insides fill
+ * the field and the button sits at its end. Outside the layers so it outweighs the Input's `flex`.
+ */
+input[type='date'] {
+	display: grid;
+	align-items: center;
+}
+
 @layer base {
 	* {
 		@apply border-border outline-ring/50;
