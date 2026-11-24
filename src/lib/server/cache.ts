@@ -2,7 +2,8 @@
  * Reuse a result across requests so Open Collective is asked again only once it is stale.
  *
  * A stored result is served straight away, however old, and refreshed in the background once it
- * is stale, so a visitor only waits on Open Collective when nothing has been stored yet. Results go
+ * is stale, so a visitor only waits on Open Collective when nothing has been stored yet, or what is
+ * stored is older than its `maxStaleMs`. Results go
  * in Workers KV, which every data centre shares and which keeps them until they go unused for a
  * while, or in the Cache API for results that are cheap to fetch again. When a refresh fails, for
  * example because Open Collective rate-limits us, the stored result stays.
@@ -92,8 +93,12 @@ function edgeStore<T>(key: string): Store<T> {
 export interface Cached<T> {
 	/** The stored result, or a fresh one when nothing is stored yet. */
 	(): Promise<T>;
+	/** The same, with when it was fetched: what it says is true as of then, not as of now. */
+	entry(): Promise<Entry<T>>;
 	/** The stored result, however old, without waiting on Open Collective. */
 	peek(): Promise<T | undefined>;
+	/** The same, with when it was fetched. */
+	peekEntry(): Promise<Entry<T> | undefined>;
 	/**
 	 * Waits until a result no older than `maxAgeMs` is stored, fetching one only if there is none,
 	 * so calling it often asks Open Collective no more often than visitors would.
@@ -113,6 +118,7 @@ function within<T>(promise: Promise<T>, ms: number, fallback: () => Promise<T>):
 export function cached<T>({
 	key,
 	maxAgeMs,
+	maxStaleMs = Infinity,
 	load,
 	store = 'kv',
 	scheduled = false
@@ -121,6 +127,12 @@ export function cached<T>({
 	key: string;
 	/** How old a result can get before it is refreshed in the background. */
 	maxAgeMs: number;
+	/**
+	 * How old a stored result can be and still be served while it refreshes. An older one waits for
+	 * the refresh, and is served only if that fails: for results that mislead once they are far out
+	 * of date and are quick to refresh.
+	 */
+	maxStaleMs?: number;
 	/** Fetches a fresh result. Given the stored one, if any, to fetch only what changed. */
 	load: (previous: T | undefined) => Promise<T>;
 	/** Where the result outlives this instance: KV everywhere, or the Cache API, per data centre. */
@@ -133,7 +145,7 @@ export function cached<T>({
 }): Cached<T> {
 	const shared = store === 'kv' ? kvStore<T>(key) : edgeStore<T>(key);
 	let memory: Entry<T> | undefined;
-	let inFlight: { promise: Promise<T>; started: number } | undefined;
+	let inFlight: { promise: Promise<Entry<T>>; started: number } | undefined;
 
 	const fresh = (entry: Entry<T> | undefined): entry is Entry<T> =>
 		!!entry && Date.now() - entry.at < maxAgeMs;
@@ -144,13 +156,13 @@ export function cached<T>({
 		if (stored && (!memory || stored.at > memory.at)) memory = stored;
 	}
 
-	function start(): Promise<T> {
+	function start(): Promise<Entry<T>> {
 		const promise = (async () => {
 			const value = await load(memory?.value);
 			const entry = { at: Date.now(), value };
 			if (!memory || entry.at > memory.at) memory = entry;
 			await shared.write(entry);
-			return value;
+			return entry;
 		})();
 		inFlight = { promise, started: Date.now() };
 		void promise
@@ -167,7 +179,7 @@ export function cached<T>({
 	const waitLeft = () => (inFlight ? SHARED_WAIT_MS - (Date.now() - inFlight.started) : 0);
 
 	/** Joins a fetch another request started, unless it has run so long it may be stuck. */
-	function refresh(): Promise<T> {
+	function refresh(): Promise<Entry<T>> {
 		const left = waitLeft();
 		return inFlight && left > 0 ? within(inFlight.promise, left, start) : start();
 	}
@@ -182,22 +194,26 @@ export function cached<T>({
 		return memory;
 	}
 
-	return Object.assign(
-		async () => {
-			const entry = await stored();
-			if (!entry) return refresh();
-			revalidate();
-			return entry.value;
-		},
-		{
-			async peek() {
-				const entry = await stored();
-				if (entry) revalidate();
-				return entry?.value;
-			},
-			async warm() {
-				if (!fresh(await stored())) await refresh();
-			}
+	async function entry(): Promise<Entry<T>> {
+		const entry = await stored();
+		if (!entry) return refresh();
+		if (!scheduled && Date.now() - entry.at >= maxStaleMs) return refresh().catch(() => entry);
+		revalidate();
+		return entry;
+	}
+
+	async function peekEntry() {
+		const entry = await stored();
+		if (entry) revalidate();
+		return entry;
+	}
+
+	return Object.assign(async () => (await entry()).value, {
+		entry,
+		peekEntry,
+		peek: async () => (await peekEntry())?.value,
+		async warm() {
+			if (!fresh(await stored())) await refresh();
 		}
-	);
+	});
 }

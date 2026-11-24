@@ -1,7 +1,7 @@
 import { query } from '$app/server';
 import { error, isHttpError } from '@sveltejs/kit';
 import * as v from 'valibot';
-import { cached, kvStore, type Cached } from '#lib/server/cache.js';
+import { cached, kvStore, type Cached, type Entry } from '#lib/server/cache.js';
 import { graphql, publicGraphql, toHttpError } from '#lib/server/opencollective.js';
 import {
 	isFunded,
@@ -70,11 +70,14 @@ const askPublicly: Ask = <R>(request: Parameters<Ask>[0]) => publicGraphql<R>(re
 function perKey<T>({
 	cacheKey,
 	maxAgeMs,
+	maxStaleMs,
 	store,
 	load
 }: {
 	cacheKey: (key: string) => string;
 	maxAgeMs: number;
+	/** How old a stored result can be before a visitor waits for its refresh, if ever. */
+	maxStaleMs?: number;
 	store?: 'kv' | 'edge';
 	/** Given the stored result when refreshing it, to fetch only what changed. */
 	load: (key: string, ask: Ask, previous?: T) => Promise<T>;
@@ -87,6 +90,7 @@ function perKey<T>({
 			cachedLoad = cached({
 				key: cacheKey(key),
 				maxAgeMs,
+				maxStaleMs,
 				store,
 				load: (previous) => load(key, askPublicly, previous)
 			});
@@ -94,26 +98,30 @@ function perKey<T>({
 		}
 		return cachedLoad;
 	};
-	return Object.assign(
-		async (key: string) => {
+	/** The result with when it was fetched, which is now for one fetched with a visitor's token. */
+	async function entry(key: string): Promise<Entry<T>> {
+		try {
+			return await loader(key).entry();
+		} catch (err) {
+			const token = getToken();
+			if (!token || !isHttpError(err, 429)) throw err;
 			try {
-				return await loader(key)();
-			} catch (err) {
-				const token = getToken();
-				if (!token || !isHttpError(err, 429)) throw err;
-				try {
-					return await load(key, <R>(request: Parameters<Ask>[0]) =>
-						graphql<R>({ ...request, token })
-					);
-				} catch (own) {
-					// Your token lacks the scope for this, so there is no point suggesting you connect.
-					if (isHttpError(own, 403)) error(429, { ...err.body, connect: undefined });
-					throw own;
-				}
+				const value = await load(key, <R>(request: Parameters<Ask>[0]) =>
+					graphql<R>({ ...request, token })
+				);
+				return { at: Date.now(), value };
+			} catch (own) {
+				// Your token lacks the scope for this, so there is no point suggesting you connect.
+				if (isHttpError(own, 403)) error(429, { ...err.body, connect: undefined });
+				throw own;
 			}
-		},
-		{ peek: (key: string) => loader(key).peek() }
-	);
+		}
+	}
+	return Object.assign(async (key: string) => (await entry(key)).value, {
+		entry,
+		peek: (key: string) => loader(key).peek(),
+		peekEntry: (key: string) => loader(key).peekEntry()
+	});
 }
 
 /** Open Collective rate-limits public requests, so each result is refreshed at most hourly. */
@@ -700,6 +708,8 @@ async function fetchContributions({
 const loadContributions = perKey({
 	cacheKey: (slug) => `contributions:v7:${slug}`,
 	maxAgeMs: CACHE_MS,
+	// A refresh is one request, so a visitor waits for it rather than see a day-old list.
+	maxStaleMs: 24 * CACHE_MS,
 	load: async (slug, ask, previous): Promise<ContributionNode[]> => {
 		try {
 			if (previous) {
@@ -726,8 +736,10 @@ const loadContributions = perKey({
  * Where the collective's money comes from: recurring and one-off contributions per month, the
  * one-offs of the last year and the year before, and the biggest backers over the last year, 2 years and all time.
  */
-function incomeSources(nodes: ContributionNode[]) {
-	const now = new Date();
+function incomeSources({ at, value: nodes }: Entry<ContributionNode[]>) {
+	// As of when the contributions were fetched: stored ones can be weeks old, and judged against
+	// today every recurring backer in them would look overdue, and so stopped.
+	const now = new Date(at);
 	const { months, backers } = toContributions(nodes, CHANNELS);
 	const history = backerHistory(nodes);
 	/** Each backer's avatar or logo, for those Open Collective has one for. */
@@ -772,6 +784,7 @@ function incomeSources(nodes: ContributionNode[]) {
 		return [...ranked, ...via, ...others].sort((a, b) => b.amount - a.amount);
 	};
 	return {
+		fetchedAt: at,
 		months,
 		oneOffs: oneOffSummary({ nodes, months: lastMonthKeys(now, 12), channels: CHANNELS }),
 		oneOffsBefore: oneOffSummary({
@@ -789,7 +802,7 @@ function incomeSources(nodes: ContributionNode[]) {
 }
 
 export const getIncomeSources = query(Slug, async (handle) =>
-	incomeSources(await loadContributions(slug(handle)))
+	incomeSources(await loadContributions.entry(slug(handle)))
 );
 
 /**
@@ -798,8 +811,8 @@ export const getIncomeSources = query(Slug, async (handle) =>
  * Fetching them can take many seconds, so when they are not ready the page asks afterwards.
  */
 export const getCachedIncomeSources = query(Slug, async (handle) => {
-	const nodes = await loadContributions.peek(slug(handle));
-	return nodes ? incomeSources(nodes) : null;
+	const stored = await loadContributions.peekEntry(slug(handle));
+	return stored ? incomeSources(stored) : null;
 });
 
 /** Where a backer still gives regularly, as Open Collective's public profile shows it. */

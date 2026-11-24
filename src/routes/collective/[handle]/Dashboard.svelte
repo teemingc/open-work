@@ -758,7 +758,6 @@
 				months={fund ? data.months.map((m) => m.key) : shownKeys}
 				{partialKey}
 				range={fund ? 'all' : range}
-				{now}
 				backersOnly={fund}
 			/>
 		{:else if incomeQuery?.error}

@@ -113,6 +113,26 @@ describe('cached', () => {
 		expect(await get()).toBe('good');
 	});
 
+	it('waits for the refresh of a result older than maxStaleMs, and serves it only if that fails', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		let fail = false;
+		const load = vi.fn(async () => {
+			if (fail) throw new Error('429');
+			return load.mock.calls.length;
+		});
+		const get = cached({ key: 'old', maxAgeMs: 1000, maxStaleMs: 10_000, load });
+
+		expect(await get()).toBe(1);
+		vi.advanceTimersByTime(10_000);
+		// Says when it was fetched, as what a stored result shows is true as of then.
+		expect(await get.entry()).toEqual({ at: Date.now(), value: 2 });
+
+		fail = true;
+		const fetched = Date.now();
+		vi.advanceTimersByTime(10_000);
+		expect(await get.entry()).toEqual({ at: fetched, value: 2 });
+	});
+
 	it('peeks at a stored result, however old, without waiting for one', async () => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		const load = vi.fn(async () => 'value');

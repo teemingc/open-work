@@ -31,7 +31,6 @@
 		months,
 		partialKey,
 		range,
-		now,
 		backersOnly = false
 	}: {
 		/**
@@ -47,7 +46,6 @@
 		months: string[];
 		partialKey?: string;
 		range: '1y' | '2y' | 'all';
-		now: Date;
 		/** Only who gives, for a fund, which passes on one or two big gifts rather than living on them. */
 		backersOnly?: boolean;
 	} = $props();
@@ -72,6 +70,11 @@
 			.filter((group) => group.tiers.length);
 	}
 
+	/**
+	 * When the contributions were fetched, which a backer's status is judged against: against today,
+	 * a list fetched weeks ago would show everyone in it as stopped.
+	 */
+	const now = $derived(new Date(income.fetchedAt));
 	const money = $derived(moneyFormat(currency));
 	const compact = $derived(compactFormat(currency));
 	const percent = new Intl.NumberFormat('en-US', { style: 'percent' });
