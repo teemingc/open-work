@@ -5,13 +5,16 @@
 	let {
 		backers,
 		money,
-		period
+		period,
+		topShare
 	}: {
 		/** Top backers, biggest first, and an "others" row without a slug. */
 		backers: { slug: string; name: string; amount: number; channel: boolean }[];
 		money: Intl.NumberFormat;
 		/** When the contributions were made, like "in the last year". */
 		period: string;
+		/** The biggest single backer's share of the total, from 0 to 1, or 0 to leave it unsaid. */
+		topShare: number;
 	} = $props();
 
 	// Categorical hues in a fixed order for named backers, as in the other charts, then fading shades of the
@@ -81,8 +84,13 @@
 
 <Card.Root class="@container @5xl/main:col-span-2">
 	<Card.Header>
-		<Card.Title>Contributors</Card.Title>
-		<Card.Description>Each square is 1% of contributions {period}.</Card.Description>
+		<Card.Title>Contributor share</Card.Title>
+		<Card.Description>
+			Each square is 1% of contributions {period}.
+			{#if topShare}
+				The biggest contributed {percent.format(topShare)} of the total.
+			{/if}
+		</Card.Description>
 	</Card.Header>
 	<Card.Content class="flex flex-col gap-6">
 		<!--
@@ -114,13 +122,16 @@
 			{#each groups as group, index (group.key)}
 				<li
 					class={[
-						'flex break-inside-avoid items-center gap-2 rounded-md px-2 py-1',
+						'flex break-inside-avoid items-start gap-2 rounded-md px-2 py-1',
 						hovered === index && 'bg-muted'
 					]}
 					onpointerenter={() => (hovered = index)}
 					onpointerleave={leave}
 				>
-					<span class="size-2.5 shrink-0 rounded-[2px] {group.swatch}" aria-hidden="true"></span>
+					<!-- The swatch and the figures stay on the first line of a name that wraps. -->
+					<span class="flex h-lh shrink-0 items-center" aria-hidden="true">
+						<span class={['size-2.5 rounded-[2px]', group.swatch]}></span>
+					</span>
 					<span class="min-w-0 flex-1 wrap-break-word">{group.label}</span>
 					<span class="text-muted-foreground tabular-nums">
 						{percent.format(total ? group.amount / total : 0)}

@@ -60,4 +60,59 @@ describe('stackMarks', () => {
 			{ kind: 'mixed', more: 3, offset: -38 }
 		]);
 	});
+
+	it('counts those who started without a mark of their own after the marks', () => {
+		// e18e in November 2025: six started giving regularly, three of them top backers with logos,
+		// and the three logos alone read as three starts.
+		const marks = stackMarks({
+			starts: ['a', 'b', 'c'],
+			stops: [],
+			otherStarts: 3,
+			above: 110,
+			below: 95,
+			...size
+		});
+		expect(marks).toEqual([
+			{ kind: 'started', item: 'a', offset: -19 },
+			{ kind: 'started', item: 'b', offset: -38 },
+			{ kind: 'started', item: 'c', offset: -57 },
+			{ kind: 'started', more: 3, offset: -76 }
+		]);
+	});
+
+	it('counts unmarked starts above the line when the only mark is a stop below it', () => {
+		// e18e in July 2026: a top backer stopped and three others started, with more room below the
+		// point than above it, and a count of starts under the stopped logo read as part of the stop.
+		const marks = stackMarks({
+			starts: [],
+			stops: ['a'],
+			otherStarts: 3,
+			above: 80,
+			below: 120,
+			...size
+		});
+		expect(marks).toEqual([
+			{ kind: 'stopped', item: 'a', offset: 19 },
+			{ kind: 'started', more: 3, offset: -19 }
+		]);
+	});
+
+	it('counts unmarked starts and stops apart, each on its own side', () => {
+		// e18e in August 2026: a top backer started, and of the others one started and one stopped,
+		// which a single grey "+2" did not tell apart.
+		const marks = stackMarks({
+			starts: ['a'],
+			stops: [],
+			otherStarts: 1,
+			otherStops: 1,
+			above: 80,
+			below: 120,
+			...size
+		});
+		expect(marks).toEqual([
+			{ kind: 'started', item: 'a', offset: -19 },
+			{ kind: 'started', more: 1, offset: -38 },
+			{ kind: 'stopped', more: 1, offset: 19 }
+		]);
+	});
 });

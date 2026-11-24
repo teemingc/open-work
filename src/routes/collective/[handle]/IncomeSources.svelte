@@ -123,18 +123,11 @@
 			)
 			.sort((a, b) => b.amount - a.amount)
 	);
-	/** Each bar is that backer's share of everything contributed in the range. */
-	const share = (amount: number) => (total ? (amount / total) * 100 : 0);
-	/** Rounded, but never down to a misleading 0%. */
-	const shareLabel = (amount: number) =>
-		amount > 0 && share(amount) < 1 ? '<1%' : percent.format(share(amount) / 100);
-	/** Where each row's bar starts: the share of everyone listed above it, so the bars step down the list. */
-	const offsets = $derived(
-		backers.reduce<number[]>((starts, backer, index) => {
-			starts.push(index ? starts[index - 1] + share(backers[index - 1].amount) : 0);
-			return starts;
-		}, [])
-	);
+	/** A backer's share of everything contributed in the range: rounded, but never down to a misleading 0%. */
+	const shareLabel = (amount: number) => {
+		const share = total ? amount / total : 0;
+		return amount > 0 && share < 0.01 ? '<1%' : percent.format(share);
+	};
 	/** The biggest single backer: not the others together, nor a platform passing on many gifts. */
 	const biggest = $derived(backers.find((backer) => backer.slug && !backer.channel));
 	const topShare = $derived(total && biggest ? biggest.amount / total : 0);
@@ -187,17 +180,24 @@
 	);
 	/**
 	 * The months a top backer started or stopped giving regularly in, with the count that month to
-	 * place their logos by. Where each logo goes is worked out as the chart is drawn, from the room
+	 * place their logos by, and how many others did the same that month, so the logos are not read
+	 * as everyone who did. Where each logo goes is worked out as the chart is drawn, from the room
 	 * around the point.
 	 */
 	const topChanges = $derived(
 		changes
-			.map((change) => ({
-				month: change.month,
-				active: change.active,
-				starts: change.startedBy.filter((backer) => topSlugs.has(backer.slug)),
-				stops: change.stoppedBy.filter((backer) => topSlugs.has(backer.slug))
-			}))
+			.map((change) => {
+				const starts = change.startedBy.filter((backer) => topSlugs.has(backer.slug));
+				const stops = change.stoppedBy.filter((backer) => topSlugs.has(backer.slug));
+				return {
+					month: change.month,
+					active: change.active,
+					starts,
+					stops,
+					otherStarts: change.startedBy.length - starts.length,
+					otherStops: change.stoppedBy.length - stops.length
+				};
+			})
 			.filter((change) => change.starts.length || change.stops.length)
 	);
 	/** Only whole backers on the axis, as a count of one would otherwise tick at 0.2, 0.4 and so on. */
@@ -474,13 +474,15 @@
 														stackMarks({
 															starts: change.starts,
 															stops: change.stops,
+															otherStarts: change.otherStarts,
+															otherStops: change.otherStops,
 															above: y + context.padding.top,
 															below: context.height - y,
 															step: MARK_STEP,
 															radius: MARK_EXTENT
 														})
 													)}
-													{#each stack as mark ('item' in mark ? `${mark.kind}:${mark.item.slug}` : 'count')}
+													{#each stack as mark ('item' in mark ? `${mark.kind}:${mark.item.slug}` : `count:${mark.kind}`)}
 														{#if 'item' in mark}
 															<g class="pointer-events-none">
 																<LogoMark
@@ -503,26 +505,41 @@
 															</g>
 														{:else}
 															<!--
-																How many more did not fit, in the colour of what they did, or grey for both.
-																Outlined in the card's colour to read over the line.
-															-->
-															<text
-																{x}
-																y={y + mark.offset}
-																text-anchor="middle"
-																dominant-baseline="central"
-																font-size="0.75rem"
-																paint-order="stroke"
-																stroke-width="3"
-																class="pointer-events-none stroke-card font-medium {mark.kind ===
-																'started'
-																	? 'fill-chart-income'
+	How many more started or stopped, with no logo of their own or no room for it: a
+	disc and ring the size of a logo's, in the colour of what they did, around the
+	number, so it reads as that many more logos. The number keeps the text colour:
+	in the ring's colour it was hard to read at this size. Grey when there was only room to
+	count both together. A count of ten or more is squeezed to the disc's width.
+-->
+															{const label = $derived(`+${mark.more}`)}
+															{const ring = $derived(
+																mark.kind === 'started'
+																	? 'stroke-chart-income'
 																	: mark.kind === 'stopped'
-																		? 'fill-chart-expenses'
-																		: 'fill-muted-foreground'}"
-															>
-																+{mark.more}
-															</text>
+																		? 'stroke-chart-expenses'
+																		: 'stroke-muted-foreground'
+															)}
+															<g class="pointer-events-none">
+																<circle
+																	cx={x}
+																	cy={y + mark.offset}
+																	r={MARK_RADIUS + 1.5}
+																	class={['fill-card', ring]}
+																	stroke-width="1.5"
+																/>
+																<text
+																	{x}
+																	y={y + mark.offset}
+																	text-anchor="middle"
+																	dominant-baseline="central"
+																	font-size="0.75rem"
+																	textLength={label.length > 2 ? 2 * MARK_RADIUS : undefined}
+																	lengthAdjust="spacingAndGlyphs"
+																	class="fill-foreground font-medium"
+																>
+																	{label}
+																</text>
+															</g>
 														{/if}
 													{/each}
 												{/each}
@@ -586,216 +603,207 @@
 			</div>
 		{/if}
 
-		<Card.Root>
+		<!-- At its own height too: stretched to the charts beside it, it ended in blank card. -->
+		<Card.Root class="@container self-start">
 			<Card.Header>
-				<Card.Title>Top contributors</Card.Title>
+				<Card.Title>Contribution frequency</Card.Title>
 				<Card.Description>
 					<!-- Says the period first, as every figure below, the others' split included, covers it. -->
-					What each contributor contributed {periodPhrase(months)}.
-					{#if topShare}
+					What each contributor contributed {periodPhrase(months)}, and how often.
+					<!-- On a collective the share panel says this, beside the shares it is about. -->
+					{#if topShare && backersOnly}
 						The biggest contributed {percent.format(topShare)} of the total.
 					{/if}
 				</Card.Description>
 			</Card.Header>
 			<Card.Content>
-				<ol class="flex flex-col gap-4 text-sm">
-					{#each backers as backer, index (backer.slug || backer.name)}
-						<li class="flex items-start gap-2 sm:gap-3">
-							<!--
-							The share leads each row, so the column of figures reads as the breakdown. Nudged
-							down so the tops of its figures line up with the tops of the name's letters.
+				<!--
+					Two columns on a wide card, still ranked top to bottom, as in the share panel's legend:
+					in one, each amount sat a card's width away from its name.
+				-->
+				<ol class="flex flex-col gap-5 text-sm @3xl:block @3xl:columns-2 @3xl:gap-x-12">
+					{#each backers as backer (backer.slug || backer.name)}
+						<!--
+							A ledger entry: the logo beside the name, which may take as many lines as it needs, and
+							the amount at the top right whatever the name does. Shares are left to the share panel,
+							except on a fund, which has none.
 						-->
-							<span
-								class="mt-0.5 min-w-10 shrink-0 text-right font-display text-base leading-none font-medium text-(--heading) tabular-nums sm:min-w-13 sm:text-xl"
-							>
-								{shareLabel(backer.amount)}
-							</span>
-							<div class="flex min-w-0 flex-1 flex-col gap-1.5">
-								<!-- On phones the amount goes under the name, so the name is not cut short. -->
-								<div
-									class="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3"
+						<li
+							class="grid break-inside-avoid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-0.5 @3xl:not-last:mb-5"
+						>
+							{#if backer.slug}
+								<!-- Their avatar or logo, as in "Expenses by recipient", or a blank disc without one. The link's `before` reaches back over it and 24px below the name, over the details, so the logo opens the same page and the whole is at least 44px tall to tap. Not above the name: at the top of the second column that part is drawn at the foot of the first, over its last badge. -->
+								{#if backer.imageUrl}
+									<img
+										src={backer.imageUrl}
+										alt=""
+										class="row-span-2 size-8 rounded-full border bg-card object-cover"
+										loading="lazy"
+									/>
+								{:else}
+									<span class="row-span-2 size-8 rounded-full border bg-muted"></span>
+								{/if}
+								<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
+								<a
+									href={transactionsUrl({
+										slug,
+										account: backer.slug,
+										kinds: CONTRIBUTION_KINDS
+									})}
+									target="_blank"
+									rel="noreferrer"
+									class="relative justify-self-start font-medium text-pretty wrap-break-word before:absolute before:top-0 before:right-0 before:-bottom-6 before:-left-11 hover:underline @xl/main:text-base"
 								>
-									{#if backer.slug}
-										<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
-										<a
-											href={transactionsUrl({
-												slug,
-												account: backer.slug,
-												kinds: CONTRIBUTION_KINDS
-											})}
-											target="_blank"
-											rel="noreferrer"
-											class="flex max-w-full min-w-0 items-center gap-2 font-medium hover:underline"
-										>
-											<!-- Their avatar or logo, as in "Expenses by recipient", or a blank disc without one. -->
-											{#if backer.imageUrl}
-												<img
-													src={backer.imageUrl}
-													alt=""
-													class="size-5 shrink-0 rounded-full border bg-card object-cover"
-													loading="lazy"
-												/>
-											{:else}
-												<span class="size-5 shrink-0 rounded-full border bg-muted"></span>
-											{/if}
-											<span class="min-w-0 wrap-break-word">{backer.name}</span>
-											<ExternalLink size={12} class="shrink-0 text-muted-foreground" />
-											<span class="sr-only">(opens in a new tab)</span>
-										</a>
-										<!-- eslint-enable svelte/no-navigation-without-resolve -->
-									{:else}
-										<!-- Everyone outside the top backers. The page cannot leave those out, so it lists every contribution in these months. -->
-										<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
-										<a
-											href={transactionsUrl({
-												slug,
-												between: { from: months[0], to: months[months.length - 1] },
-												kinds: CONTRIBUTION_KINDS
-											})}
-											target="_blank"
-											rel="noreferrer"
-											class="flex max-w-full min-w-0 items-center gap-2 font-medium text-muted-foreground hover:text-foreground hover:underline"
-										>
-											<span
-												class="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
-											>
-												<Users class="size-3" aria-hidden="true" />
-											</span>
-											<span class="min-w-0">{backer.name}</span>
-											<ExternalLink size={12} class="shrink-0" />
-											<span class="sr-only">(opens in a new tab)</span>
-										</a>
-										<!-- eslint-enable svelte/no-navigation-without-resolve -->
-									{/if}
-									<span class="shrink-0 font-medium tabular-nums">
-										{money.format(backer.amount)}
+									{backer.name}<!-- Within the text and joined to its last word, so the icon never wraps alone. -->&#8288;<ExternalLink
+										class="ml-1.5 inline size-3 align-baseline text-muted-foreground"
+									/>
+									<span class="sr-only">(opens in a new tab)</span>
+								</a>
+								<!-- eslint-enable svelte/no-navigation-without-resolve -->
+							{:else}
+								<span
+									class="row-span-2 flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground"
+								>
+									<Users class="size-4" aria-hidden="true" />
+								</span>
+								<!-- Everyone outside the top backers. The page cannot leave those out, so it lists every contribution in these months. -->
+								<!-- eslint-disable svelte/no-navigation-without-resolve -- external site -->
+								<a
+									href={transactionsUrl({
+										slug,
+										between: { from: months[0], to: months[months.length - 1] },
+										kinds: CONTRIBUTION_KINDS
+									})}
+									target="_blank"
+									rel="noreferrer"
+									class="relative justify-self-start font-medium text-pretty text-muted-foreground before:absolute before:top-0 before:right-0 before:-bottom-6 before:-left-11 hover:text-foreground hover:underline @xl/main:text-base"
+								>
+									{backer.name}&#8288;<ExternalLink class="ml-1.5 inline size-3 align-baseline" />
+									<span class="sr-only">(opens in a new tab)</span>
+								</a>
+								<!-- eslint-enable svelte/no-navigation-without-resolve -->
+							{/if}
+							<span class="flex items-baseline gap-2 tabular-nums">
+								<!-- A fund has no share panel, so each entry says its own share. -->
+								{#if backersOnly}
+									<span class="text-muted-foreground">{shareLabel(backer.amount)}</span>
+								{/if}
+								<span class="font-display font-medium text-(--heading) @xl/main:text-base">
+									{money.format(backer.amount)}
+								</span>
+							</span>
+							{#if backer.tiers?.length}
+								<!-- How many gave how much, and for those who give regularly, what that averages a month. -->
+								<div
+									class="col-span-2 col-start-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm text-muted-foreground @3xl/main:text-xs"
+								>
+									<span>
+										{backer.tiers
+											.map(
+												(tier) =>
+													`${tier.count} ${
+														tier.max === null
+															? `contributed ${money.format(tier.min)}+`
+															: tier.min === 0
+																? `contributed under ${money.format(tier.max)}`
+																: `contributed ${money.format(tier.min)}–${money.format(tier.max - 1)}`
+													}`
+											)
+											.join(', ')}
 									</span>
-								</div>
-								<!--
-							The whole track is everything contributed in these months. The pale run is what the rows
-							above gave, so each bar picks up where the last one stopped.
-						-->
-								<div class="relative h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-									<div
-										class="absolute inset-y-0 left-0 bg-chart-income-muted/45"
-										style:width="{offsets[index]}%"
-									></div>
-									<!-- The others who gave once or now and then are paler, as one-off giving is in the chart above. -->
-									<div
-										class="absolute inset-y-0 rounded-full {backer.recurring === false
-											? 'bg-chart-income-muted'
-											: 'bg-chart-income'}"
-										style:left="{offsets[index]}%"
-										style:width="max({share(backer.amount)}%, 0.25rem)"
-									></div>
-								</div>
-								{#if backer.tiers?.length}
-									<!-- How many gave how much, and for those who give regularly, what that averages a month. -->
-									<div
-										class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground @3xl/main:text-xs"
-									>
-										<span>
-											{backer.tiers
-												.map(
-													(tier) =>
-														`${tier.count} ${
-															tier.max === null
-																? `contributed ${money.format(tier.min)}+`
-																: tier.min === 0
-																	? `contributed under ${money.format(tier.max)}`
-																	: `contributed ${money.format(tier.min)}–${money.format(tier.max - 1)}`
-														}`
-												)
-												.join(', ')}
-										</span>
-										{#if backer.recurring}
+									{#if backer.recurring}
+										<span class="basis-full">
 											<Badge variant="secondary">
 												{money.format(backer.amount / months.length)} a month on average
 											</Badge>
-										{/if}
-									</div>
-								{/if}
-								{#if backer.history}
-									{const status = $derived(backerStatus({ ...backer.history, now }))}
-									{const per = $derived(
-										backer.history.frequency === 'MONTHLY'
-											? 'month'
-											: backer.history.frequency === 'YEARLY'
-												? 'year'
-												: undefined
-									)}
-									<div
-										class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground @3xl/main:text-xs"
-									>
-										<!-- Shortens to "Oct 2026" or "Mar – May 2026" when the ends share a month or year. -->
-										<span>
-											{monthYear.formatRange(
-												new Date(backer.history.first),
-												new Date(backer.history.last)
-											)},
 										</span>
-										<span>
-											{backer.history.contributions}
-											{backer.history.contributions === 1 ? 'contribution' : 'contributions'}
-										</span>
-										<!--
+									{/if}
+								</div>
+							{/if}
+							{#if backer.history}
+								{const status = $derived(backerStatus({ ...backer.history, now }))}
+								{const per = $derived(
+									backer.history.frequency === 'MONTHLY'
+										? 'month'
+										: backer.history.frequency === 'YEARLY'
+											? 'year'
+											: undefined
+								)}
+								{const first = $derived(backer.history.first.slice(0, 7))}
+								{const active = $derived(months.filter((month) => month >= first).length)}
+								<div
+									class="col-span-2 col-start-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm text-muted-foreground @3xl/main:text-xs"
+								>
+									<!-- Shortens to "Oct 2026" or "Mar – May 2026" when the ends share a month or year. -->
+									<span>
+										{monthYear.formatRange(
+											new Date(backer.history.first),
+											new Date(backer.history.last)
+										)},
+									</span>
+									<span>
+										{backer.history.contributions}
+										{backer.history.contributions === 1 ? 'contribution' : 'contributions'}
+									</span>
+									<!--
 									A platform passes on many people's money in batches that Open Collective records as
 									one-off, whatever each person chose, so it gets an average per month instead of a
 									frequency, counted from its first contribution in these months.
 								-->
-										<!-- On phones the badge always takes its own line, rather than whichever line it fits on. -->
-										<span
-											class="flex basis-full flex-wrap items-center gap-x-2 gap-y-1 sm:basis-auto"
-										>
-											{#if backer.channel}
-												{const first = $derived(backer.history.first.slice(0, 7))}
-												{const active = $derived(months.filter((month) => month >= first).length)}
-												{#if active}
-													<Badge variant="secondary">
-														{money.format(backer.amount / active)} a month on average
-													</Badge>
-												{/if}
-											{:else if status === 'Stopped'}
-												<!--
+									<!-- Always on its own line under the dates and the count it describes, so the badges start in one column instead of wherever that text stops. -->
+									<span
+										class={[
+											'flex basis-full flex-wrap items-center gap-x-2 gap-y-1',
+											// A platform with no month to average over has no badge, and an empty line would still take its gap.
+											backer.channel && !active && 'hidden'
+										]}
+									>
+										{#if backer.channel}
+											{#if active}
+												<Badge variant="secondary">
+													{money.format(backer.amount / active)} a month on average
+												</Badge>
+											{/if}
+										{:else if status === 'Stopped'}
+											<!--
 													An asterisk when it stopped all its regular giving on Open Collective, not only
 													here, which hovering with a mouse or a tap on a phone explains. A plain "Stopped"
 													already means here.
 												-->
-												{#if stoppedWhere(backer.slug) === 'everywhere'}
-													<Popover.Root>
-														<Popover.Trigger
-															openOnHover
-															openDelay={200}
-															class={cn(badgeVariants({ variant: 'outline' }), 'hover:bg-muted')}
-														>
-															Stopped<Asterisk class="-ml-0.5 size-2.5!" aria-hidden="true" />
-															<span class="sr-only">: {STOPPED_EVERYWHERE}</span>
-														</Popover.Trigger>
-														<Popover.Content class="w-64 p-3 text-sm" align="start">
-															{STOPPED_EVERYWHERE}
-														</Popover.Content>
-													</Popover.Root>
-												{:else}
-													<Badge variant="outline">Stopped</Badge>
-												{/if}
-												{#if per}
-													<span class="whitespace-nowrap">
-														was {money.format(backer.history.lastAmount)} a {per}
-													</span>
-												{/if}
-											{:else if per}
-												<Badge variant="secondary">
-													{money.format(backer.history.lastAmount)} a {per}
-												</Badge>
+											{#if stoppedWhere(backer.slug) === 'everywhere'}
+												<Popover.Root>
+													<Popover.Trigger
+														openOnHover
+														openDelay={200}
+														class={cn(badgeVariants({ variant: 'outline' }), 'hover:bg-muted')}
+													>
+														Stopped<Asterisk class="-ml-0.5 size-2.5!" aria-hidden="true" />
+														<span class="sr-only">: {STOPPED_EVERYWHERE}</span>
+													</Popover.Trigger>
+													<Popover.Content class="w-64 p-3 text-sm" align="start">
+														{STOPPED_EVERYWHERE}
+													</Popover.Content>
+												</Popover.Root>
 											{:else}
-												<Badge variant="secondary">
-													{backer.history.lastTransfer ? 'Balance transfer' : status}
-												</Badge>
+												<Badge variant="outline">Stopped</Badge>
 											{/if}
-										</span>
-									</div>
-								{/if}
-							</div>
+											{#if per}
+												<span class="whitespace-nowrap">
+													was {money.format(backer.history.lastAmount)} a {per}
+												</span>
+											{/if}
+										{:else if per}
+											<Badge variant="secondary">
+												{money.format(backer.history.lastAmount)} a {per}
+											</Badge>
+										{:else}
+											<Badge variant="secondary">
+												{backer.history.lastTransfer ? 'Balance transfer' : status}
+											</Badge>
+										{/if}
+									</span>
+								</div>
+							{/if}
 						</li>
 					{/each}
 				</ol>
@@ -804,7 +812,12 @@
 
 		<!-- What share each backer, platform and everyone else gives. A fund's few backers are clear without it. -->
 		{#if !backersOnly}
-			<BackerWaffle backers={income.backers[range]} {money} period={periodPhrase(months)} />
+			<BackerWaffle
+				backers={income.backers[range]}
+				{money}
+				period={periodPhrase(months)}
+				{topShare}
+			/>
 		{/if}
 	</div>
 {/if}
