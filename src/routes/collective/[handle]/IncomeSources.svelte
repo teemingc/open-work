@@ -622,9 +622,13 @@
 											})}
 											target="_blank"
 											rel="noreferrer"
-											class="flex max-w-full min-w-0 items-center gap-2 font-medium hover:underline"
+											class="flex max-w-full min-w-0 items-start gap-2 font-medium hover:underline"
 										>
-											<!-- Their avatar or logo, as in "Expenses by recipient", or a blank disc without one. -->
+											<!--
+												Their avatar or logo, as in "Expenses by recipient", or a blank disc without one.
+												As tall as a line of the name, so it and the link icon stay on the first line of
+												a name that wraps rather than centring on all of them.
+											-->
 											{#if backer.imageUrl}
 												<img
 													src={backer.imageUrl}
@@ -636,7 +640,7 @@
 												<span class="size-5 shrink-0 rounded-full border bg-muted"></span>
 											{/if}
 											<span class="min-w-0 wrap-break-word">{backer.name}</span>
-											<ExternalLink size={12} class="shrink-0 text-muted-foreground" />
+											<ExternalLink size={12} class="mt-1 shrink-0 text-muted-foreground" />
 											<span class="sr-only">(opens in a new tab)</span>
 										</a>
 										<!-- eslint-enable svelte/no-navigation-without-resolve -->
