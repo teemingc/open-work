@@ -19,12 +19,14 @@ A strip of one day with the block of time being entered drawn to scale on it, be
 | Logged work      | `bg-muted-foreground/45`, shorter than the block. Includes the neighbouring days' work that falls here |
 | The block        | `bg-primary`, with a mark at each end once it is 20px wide                                             |
 | Overlap          | The shared stretch hatched in `--destructive`, with the note saying what it overlaps                   |
-| Length           | `font-display` above the block, centred on it and kept within the strip                                |
+| Length           | `font-display` above the block's start, so it stays put as the end changes; kept within the strip      |
 | Note             | One line under the strip, always there so the form does not move: an overlap, or an end the next day   |
 
 ## Dragging
 
-- The block's middle moves it; a stretch at each end resizes it. Each is 40px tall to the finger, and a block too short to hold gets a 12px middle with its ends outside it.
+- The block's middle moves it; a stretch at each end resizes it. Each is 40px tall to the finger, and a block too short to hold gets a middle of 12px, or 24px for a finger, with its ends outside it.
+- The block and its length are drawn at their new place at once, typed or dragged: no slide, as it trailed behind the keys and left the overlap's hatching out of step.
+- While held, the block and its hatching stand 15% taller (`scale-y`, 150ms), so taking hold is seen before anything moves. This is the ruler's only motion, and it is off under reduced motion.
 - Steps are 15 minutes. A tap changes nothing: the pointer must travel 4px first.
 - A block's start stays on its side of midnight, and it stops short of where the day's order would read it as the next morning's.
 - Sideways drags belong to the block; up and down still scrolls the page.

@@ -85,10 +85,12 @@
 			(Math.min(minutes, DAY_RULER_MINUTES) / DAY_RULER_MINUTES) * width;
 		const [left, right] = [px(shown.from), px(shown.to)];
 		const end = coarse.current ? 24 : 16;
-		const inside = Math.min(Math.max((right - left - 12) / 2, 0), end / 2);
+		// The least a middle can be and still be taken hold of, wider for a finger.
+		const middle = coarse.current ? 24 : 12;
+		const inside = Math.min(Math.max((right - left - middle) / 2, 0), end / 2);
 		const centre = (left + right) / 2;
-		const from = Math.min(left + inside, centre - 6);
-		const to = Math.max(right - inside, centre + 6);
+		const from = Math.min(left + inside, centre - middle / 2);
+		const to = Math.max(right - inside, centre + middle / 2);
 		return {
 			start: { left: from - end, width: end },
 			move: { left: from, width: to - from },
@@ -154,6 +156,15 @@
 		return `left:${(left / DAY_RULER_MINUTES) * 100}%;width:${((right - left) / DAY_RULER_MINUTES) * 100}%`;
 	}
 
+	/**
+	 * The block stands a little taller while it is held, with the hatching on it, so taking hold of
+	 * it is seen before it moves, as a finger has no cursor to show it.
+	 */
+	const held = $derived([
+		'motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-[cubic-bezier(0.25,0.46,0.45,0.94)]',
+		drag && 'motion-safe:scale-y-[1.15]'
+	]);
+
 	const clock = (minutes: number) =>
 		`${String(Math.floor((minutes % DAY) / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 </script>
@@ -164,22 +175,18 @@
 -->
 <div class="space-y-1">
 	<!--
-		The block's length rides above it, so it is read where the eye and the finger already are. It
-		stops at the ruler's ends rather than hang over them.
+		The block's length rides above its start, so it is read where the eye and the finger already
+		are, and stays where it is as the end is typed or dragged: centred, it drifted at half the pace
+		of whichever end moved. It stops at the ruler's end rather than hang over it. Neither it nor the
+		block slides to a new place: the times are mostly typed, and a block trailing behind the keys
+		says less than one that is simply there.
 	-->
 	<p class="relative h-5 text-sm leading-5">
 		{#if shown && hours > 0}
 			<span
-				class={[
-					'absolute -translate-x-1/2 font-display font-semibold whitespace-nowrap tabular-nums',
-					!drag && 'motion-safe:transition-[left] motion-safe:duration-200 motion-safe:ease-out'
-				]}
+				class="absolute font-display font-semibold whitespace-nowrap tabular-nums"
 				bind:offsetWidth={lengthWidth}
-				style:left="clamp({lengthWidth / 2}px, {((shown.from +
-					Math.min(shown.to, DAY_RULER_MINUTES)) /
-					2 /
-					DAY_RULER_MINUTES) *
-					100}%, 100% - {lengthWidth / 2}px)"
+				style:left="clamp(0px, {(shown.from / DAY_RULER_MINUTES) * 100}%, 100% - {lengthWidth}px)"
 			>
 				{+hours.toFixed(2)} h
 			</span>
@@ -226,8 +233,7 @@
 					<div
 						class={[
 							'absolute inset-y-1 flex min-w-0.5 justify-between rounded-[2px] bg-primary px-[3px] py-1.5',
-							!drag &&
-								'motion-safe:transition-[left,width] motion-safe:duration-200 motion-safe:ease-out'
+							held
 						]}
 						style={place(shown)}
 					>
@@ -238,7 +244,10 @@
 					</div>
 					{#each clashes as clash (clash.entry)}
 						<div
-							class="absolute inset-y-1 min-w-0.5 border-y-[3px] border-primary bg-[repeating-linear-gradient(135deg,var(--destructive)_0_2px,var(--card)_2px_5px)]"
+							class={[
+								'absolute inset-y-1 min-w-0.5 border-y-[3px] border-primary bg-[repeating-linear-gradient(135deg,var(--destructive)_0_2px,var(--card)_2px_5px)]',
+								held
+							]}
 							style={place({
 								from: Math.max(shown.from, clash.from),
 								to: Math.min(shown.to, clash.to)
