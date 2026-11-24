@@ -19,6 +19,7 @@
 	import { backerStatus, transactionsUrl, type Backer, type SizeTier } from '#lib/financials.js';
 	import BackerWaffle from './BackerWaffle.svelte';
 	import LogoMark from './LogoMark.svelte';
+	import { stackMarks } from './mark-stack.js';
 	import MoneyRow from './MoneyRow.svelte';
 	import { getGivingNow, type IncomeSources } from '#lib/collective-stats.remote.js';
 
@@ -180,33 +181,19 @@
 		new Set(backers.filter((backer) => backer.slug && !backer.channel).map((backer) => backer.slug))
 	);
 	/**
-	 * When a top backer started or stopped giving regularly, with the count that month to place it
-	 * by. `index` stacks a month's starts above the line, and its stops below, one after another. With
-	 * no one left there is no room below the line, so the stops stack above it after the starts
-	 * instead of landing on the month labels.
+	 * The months a top backer started or stopped giving regularly in, with the count that month to
+	 * place their logos by. Where each logo goes is worked out as the chart is drawn, from the room
+	 * around the point.
 	 */
 	const topChanges = $derived(
-		changes.flatMap((change) => {
-			const starts = change.startedBy.filter((backer) => topSlugs.has(backer.slug));
-			const stops = change.stoppedBy.filter((backer) => topSlugs.has(backer.slug));
-			const place = { month: change.month, active: change.active };
-			return [
-				...starts.map((backer, index) => ({
-					...place,
-					kind: 'started' as const,
-					backer,
-					index,
-					below: false
-				})),
-				...stops.map((backer, index) => ({
-					...place,
-					kind: 'stopped' as const,
-					backer,
-					index: change.active ? index : starts.length + index,
-					below: change.active > 0
-				}))
-			];
-		})
+		changes
+			.map((change) => ({
+				month: change.month,
+				active: change.active,
+				starts: change.startedBy.filter((backer) => topSlugs.has(backer.slug)),
+				stops: change.stoppedBy.filter((backer) => topSlugs.has(backer.slug))
+			}))
+			.filter((change) => change.starts.length || change.stops.length)
 	);
 	/** Only whole backers on the axis, as a count of one would otherwise tick at 0.2, 0.4 and so on. */
 	const wholeTicks = (scale: { ticks?: () => number[] }) =>
@@ -224,9 +211,7 @@
 							backerStatus({ ...backer.history, now }) === 'Stopped'
 					)
 					.map((backer) => backer.slug),
-				...topChanges
-					.filter((change) => change.kind === 'stopped')
-					.map((change) => change.backer.slug)
+				...topChanges.flatMap((change) => change.stops.map((backer) => backer.slug))
 			])
 		].sort()
 	);
@@ -476,29 +461,42 @@
 												<Area seriesKey="active" fill="none" line={{ strokeWidth: 2 }} />
 											{/snippet}
 											{#snippet aboveMarks({ context })}
-												{#each topChanges as change (change.month + change.kind + change.backer.slug)}
+												{#each topChanges as change (change.month)}
 													{const x = $derived(context.xScale(change.month) ?? 0)}
 													{const y = $derived(context.yScale(change.active) ?? 0)}
-													{const offset = $derived((change.index + 1) * MARK_STEP)}
-													<g class="pointer-events-none">
-														<LogoMark
-															{x}
-															y={change.below ? y + offset : y - offset}
-															r={MARK_RADIUS}
-															name={change.backer.name}
-															imageUrl={change.backer.imageUrl}
-															recurring={false}
-														/>
-														<circle
-															cx={x}
-															cy={change.below ? y + offset : y - offset}
-															r={MARK_RADIUS + 1.5}
-															class="fill-none {change.kind === 'started'
-																? 'stroke-chart-income'
-																: 'stroke-chart-expenses'}"
-															stroke-width="1.5"
-														/>
-													</g>
+													<!-- Up into the padding over the plot, and down no further than the baseline. -->
+													{const stack = $derived(
+														stackMarks({
+															starts: change.starts,
+															stops: change.stops,
+															above: y + context.padding.top,
+															below: context.height - y,
+															step: MARK_STEP,
+															radius: MARK_RADIUS + 2
+														})
+													)}
+													{#each stack as mark (mark.kind + (mark.item?.slug ?? 'more'))}
+														<g class="pointer-events-none">
+															<LogoMark
+																{x}
+																y={y + mark.offset}
+																r={MARK_RADIUS}
+																name={mark.item?.name ?? ''}
+																imageUrl={mark.item?.imageUrl ?? null}
+																recurring={false}
+																mark={mark.more ? `+${mark.more}` : undefined}
+															/>
+															<circle
+																cx={x}
+																cy={y + mark.offset}
+																r={MARK_RADIUS + 1.5}
+																class="fill-none {mark.kind === 'started'
+																	? 'stroke-chart-income'
+																	: 'stroke-chart-expenses'}"
+																stroke-width="1.5"
+															/>
+														</g>
+													{/each}
 												{/each}
 											{/snippet}
 											{#snippet tooltip({ context })}
