@@ -608,7 +608,10 @@
 								{shareLabel(backer.amount)}
 							</span>
 							<div class="flex min-w-0 flex-1 flex-col gap-1.5">
-								<!-- On phones the amount goes under the name, so the name is not cut short. -->
+								<!--
+									On phones the amount goes under the name, so the name is not cut short, and is indented
+									past the avatar to read on from the name's last line.
+								-->
 								<div
 									class="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3"
 								>
@@ -655,7 +658,7 @@
 											})}
 											target="_blank"
 											rel="noreferrer"
-											class="flex max-w-full min-w-0 items-center gap-2 font-medium text-muted-foreground hover:text-foreground hover:underline"
+											class="flex max-w-full min-w-0 items-start gap-2 font-medium text-muted-foreground hover:text-foreground hover:underline"
 										>
 											<span
 												class="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
@@ -663,12 +666,12 @@
 												<Users class="size-3" aria-hidden="true" />
 											</span>
 											<span class="min-w-0">{backer.name}</span>
-											<ExternalLink size={12} class="shrink-0" />
+											<ExternalLink size={12} class="mt-1 shrink-0" />
 											<span class="sr-only">(opens in a new tab)</span>
 										</a>
 										<!-- eslint-enable svelte/no-navigation-without-resolve -->
 									{/if}
-									<span class="shrink-0 font-medium tabular-nums">
+									<span class="shrink-0 pl-7 font-medium tabular-nums sm:pl-0">
 										{money.format(backer.amount)}
 									</span>
 								</div>
