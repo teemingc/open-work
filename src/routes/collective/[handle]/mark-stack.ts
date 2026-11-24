@@ -1,19 +1,14 @@
-/** A mark stacked off a point on a line: what it stands for, and how far from the point its centre is. */
-export type StackedMark<T> = {
-	kind: 'started' | 'stopped';
-	/** What the mark shows, or nothing for the one that counts those left out. */
-	item?: T;
-	/** How many it stands for when it counts those left out, like "+3". */
-	more?: number;
-	/** Pixels from the point to the mark's centre: negative above the line, positive below. */
-	offset: number;
-};
+/** A mark stacked off a point on a line, `offset` pixels from it: negative above, positive below. */
+export type StackedMark<T> =
+	| { kind: 'started' | 'stopped'; item: T; offset: number }
+	/** In place of the `more` marks that did not fit: `mixed` when some started and some stopped. */
+	| { kind: 'started' | 'stopped' | 'mixed'; more: number; offset: number };
 
 /**
- * Where a month's marks go around its point on the line: starts above, stops below when they all
- * fit between the line and the baseline, and above after the starts when they do not, so they never
- * land on the axis labels. When the stack above is taller than the room, its last place counts the
- * marks left out.
+ * Where a month's marks go around its point on the line. Starts go above and stops below, as far
+ * as each side has room; those that do not fit on their own side go on the other, after the marks
+ * already there, so none lands on the axis labels or outside the chart. When both sides are full,
+ * the last place on the roomier side counts the marks left out.
  */
 export function stackMarks<T>({
 	starts,
@@ -34,37 +29,41 @@ export function stackMarks<T>({
 	radius: number;
 }): StackedMark<T>[] {
 	const fits = (room: number) => Math.max(0, Math.floor((room - radius) / step));
-	const stopsBelow = stops.length <= fits(below);
+	let up = fits(above);
+	let down = fits(below);
+	const over = starts.length + stops.length > up + down;
+	const countAbove = above >= below;
+	if (over && countAbove) up = Math.max(0, up - 1);
+	if (over && !countAbove) down = Math.max(0, down - 1);
 
-	const up = [
-		...starts.map((item) => ({ kind: 'started' as const, item })),
-		...(stopsBelow ? [] : stops.map((item) => ({ kind: 'stopped' as const, item })))
+	const startsUp = Math.min(starts.length, up);
+	const stopsDown = Math.min(stops.length, down);
+	const stopsUp = Math.min(stops.length - stopsDown, up - startsUp);
+	const startsDown = Math.min(starts.length - startsUp, down - stopsDown);
+
+	const started = (item: T) => ({ kind: 'started' as const, item });
+	const stopped = (item: T) => ({ kind: 'stopped' as const, item });
+	const upper = [
+		...starts.slice(0, startsUp).map(started),
+		...stops.slice(stopsDown, stopsDown + stopsUp).map(stopped)
 	];
-	// Always room for one mark, so a month's changes never vanish from a very short chart.
-	const places = Math.max(1, fits(above));
-	const shown = up.length > places ? up.slice(0, places - 1) : up;
-	const hidden = up.slice(shown.length);
+	const lower = [
+		...stops.slice(0, stopsDown).map(stopped),
+		...starts.slice(startsUp, startsUp + startsDown).map(started)
+	];
 
-	const marks: StackedMark<T>[] = shown.map((mark, index) => ({
-		...mark,
-		offset: -(index + 1) * step
-	}));
-	if (hidden.length) {
-		// Stops come last, so whatever is left out ends with them.
+	const marks: StackedMark<T>[] = [
+		...upper.map((mark, index) => ({ ...mark, offset: -(index + 1) * step })),
+		...lower.map((mark, index) => ({ ...mark, offset: (index + 1) * step }))
+	];
+	const hiddenStarts = starts.length - startsUp - startsDown;
+	const hiddenStops = stops.length - stopsDown - stopsUp;
+	if (hiddenStarts + hiddenStops) {
 		marks.push({
-			kind: hidden[hidden.length - 1].kind,
-			more: hidden.length,
-			offset: -(shown.length + 1) * step
+			kind: !hiddenStops ? 'started' : !hiddenStarts ? 'stopped' : 'mixed',
+			more: hiddenStarts + hiddenStops,
+			offset: countAbove ? -(upper.length + 1) * step : (lower.length + 1) * step
 		});
-	}
-	if (stopsBelow) {
-		marks.push(
-			...stops.map((item, index) => ({
-				kind: 'stopped' as const,
-				item,
-				offset: (index + 1) * step
-			}))
-		);
 	}
 	return marks;
 }

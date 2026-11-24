@@ -176,6 +176,8 @@
 	/** The top backers' logos on the line: this big, and stacked this far apart in a busy month. */
 	const MARK_RADIUS = 7;
 	const MARK_STEP = 2 * MARK_RADIUS + 5;
+	/** From a mark's centre to the outside of the ring around it. */
+	const MARK_EXTENT = MARK_RADIUS + 2.25;
 	/** The top backers shown below, the ones whose starts and stops are marked on the line. */
 	const topSlugs = $derived(
 		new Set(backers.filter((backer) => backer.slug && !backer.channel).map((backer) => backer.slug))
@@ -400,7 +402,7 @@
 									month's point sits where the bars above centre theirs.
 								-->
 										<AreaChart
-											padding={chartPadding()}
+											padding={chartPadding({ top: Math.ceil(MARK_STEP + MARK_EXTENT) })}
 											data={changes}
 											x="month"
 											xScale={scalePoint().padding(0.6)}
@@ -464,7 +466,7 @@
 												{#each topChanges as change (change.month)}
 													{const x = $derived(context.xScale(change.month) ?? 0)}
 													{const y = $derived(context.yScale(change.active) ?? 0)}
-													<!-- Up into the padding over the plot, and down no further than the baseline. -->
+													<!-- Up into the padding over the plot, which fits one mark over the highest point, and down no further than the baseline. -->
 													{const stack = $derived(
 														stackMarks({
 															starts: change.starts,
@@ -472,30 +474,53 @@
 															above: y + context.padding.top,
 															below: context.height - y,
 															step: MARK_STEP,
-															radius: MARK_RADIUS + 2
+															radius: MARK_EXTENT
 														})
 													)}
-													{#each stack as mark (mark.kind + (mark.item?.slug ?? 'more'))}
-														<g class="pointer-events-none">
-															<LogoMark
+													{#each stack as mark ('item' in mark ? `${mark.kind}:${mark.item.slug}` : 'count')}
+														{#if 'item' in mark}
+															<g class="pointer-events-none">
+																<LogoMark
+																	{x}
+																	y={y + mark.offset}
+																	r={MARK_RADIUS}
+																	name={mark.item.name}
+																	imageUrl={mark.item.imageUrl}
+																	recurring={false}
+																/>
+																<circle
+																	cx={x}
+																	cy={y + mark.offset}
+																	r={MARK_RADIUS + 1.5}
+																	class="fill-none {mark.kind === 'started'
+																		? 'stroke-chart-income'
+																		: 'stroke-chart-expenses'}"
+																	stroke-width="1.5"
+																/>
+															</g>
+														{:else}
+															<!--
+																How many more did not fit, in the colour of what they did, or grey for both.
+																Outlined in the card's colour to read over the line.
+															-->
+															<text
 																{x}
 																y={y + mark.offset}
-																r={MARK_RADIUS}
-																name={mark.item?.name ?? ''}
-																imageUrl={mark.item?.imageUrl ?? null}
-																recurring={false}
-																mark={mark.more ? `+${mark.more}` : undefined}
-															/>
-															<circle
-																cx={x}
-																cy={y + mark.offset}
-																r={MARK_RADIUS + 1.5}
-																class="fill-none {mark.kind === 'started'
-																	? 'stroke-chart-income'
-																	: 'stroke-chart-expenses'}"
-																stroke-width="1.5"
-															/>
-														</g>
+																text-anchor="middle"
+																dominant-baseline="central"
+																font-size="0.75rem"
+																paint-order="stroke"
+																stroke-width="3"
+																class="pointer-events-none stroke-card font-medium {mark.kind ===
+																'started'
+																	? 'fill-chart-income'
+																	: mark.kind === 'stopped'
+																		? 'fill-chart-expenses'
+																		: 'fill-muted-foreground'}"
+															>
+																+{mark.more}
+															</text>
+														{/if}
 													{/each}
 												{/each}
 											{/snippet}

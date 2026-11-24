@@ -14,10 +14,13 @@ export const X_TICK_OCCLUSION = { padding: 12 } as const;
 export const Y_TICK_LABEL = { verticalAnchor: 'end', dy: -3 } as const;
 
 export function chartPadding({
+	top = 18,
 	left = 48,
 	right = 8,
 	legend = false
 }: {
+	/** More than the usual room over the plot, for marks drawn above its highest point. */
+	top?: number;
 	left?: number;
 	right?: number;
 	/** Whether there is a legend under the x-axis, or how tall it is once it wraps. */
@@ -33,7 +36,7 @@ export function chartPadding({
 	const em = remScale();
 	const legendHeight = legend === true ? 20 * em : legend || 0;
 	return {
-		top: 18 * em,
+		top: top * em,
 		right: right * em,
 		bottom: legendHeight ? 38 * em + legendHeight : 26 * em,
 		left: (left + 6) * em
