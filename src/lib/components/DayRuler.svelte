@@ -200,7 +200,7 @@
 				tinted, and ruled across so it is not taken for this one.
 			-->
 				<div
-					class="absolute inset-y-0 right-0 bg-[repeating-linear-gradient(45deg,var(--input)_0_1px,transparent_1px_5px)]"
+					class="absolute inset-y-0 right-0 bg-[repeating-linear-gradient(45deg,var(--input)_0_1.5px,transparent_1.5px_6px)]"
 					style:width="{100 - (DAY / DAY_RULER_MINUTES) * 100}%"
 				></div>
 				{#each TICKS as hour (hour)}
@@ -210,8 +210,8 @@
 							hour === 24
 								? 'top-0 border-rule/50'
 								: hour % 6 === 0
-									? 'h-3 border-input'
-									: 'h-1.5 border-input'
+									? 'h-3 border-muted-foreground/50'
+									: 'h-1.5 border-muted-foreground/50'
 						]}
 						style:left="{(hour / HOURS) * 100}%"
 					></div>
@@ -238,7 +238,7 @@
 					</div>
 					{#each clashes as clash (clash.entry)}
 						<div
-							class="absolute inset-y-1 min-w-0.5 bg-[repeating-linear-gradient(135deg,var(--destructive)_0_2px,var(--card)_2px_5px)]"
+							class="absolute inset-y-1 min-w-0.5 border-y-[3px] border-primary bg-[repeating-linear-gradient(135deg,var(--destructive)_0_2px,var(--card)_2px_5px)]"
 							style={place({
 								from: Math.max(shown.from, clash.from),
 								to: Math.min(shown.to, clash.to)
