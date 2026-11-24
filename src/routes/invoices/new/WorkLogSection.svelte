@@ -135,6 +135,7 @@
 				clients={clientChoices({ clients: store.data.clients, clientId: entry.clientId })}
 				{organization}
 				{entry}
+				entries={store.data.entries}
 				tasks={taskNames(store.data)}
 				onhidetask={(text) => store.hideTask(text)}
 				date={entry.date}

@@ -4,14 +4,11 @@
 
 	let {
 		value = $bindable(''),
-		label,
-		aside
+		label
 	}: {
 		/** "22:30", or empty for none. */
 		value?: string;
 		label: string;
-		/** Shown at the end of the label's line. */
-		aside?: string;
 	} = $props();
 
 	// Follows `value`, and holds a time typed halfway until it is whole.
@@ -39,14 +36,9 @@
 		granularity="minute"
 		locale="en-US"
 	>
-		<div class="flex items-baseline justify-between gap-2">
-			<TimeField.Label class="block text-sm leading-none font-medium select-none">
-				{label}
-			</TimeField.Label>
-			{#if aside}
-				<span class="text-sm leading-none text-muted-foreground tabular-nums">{aside}</span>
-			{/if}
-		</div>
+		<TimeField.Label class="block text-sm leading-none font-medium select-none">
+			{label}
+		</TimeField.Label>
 		<TimeField.Input
 			class="flex min-h-9 w-full flex-wrap items-center rounded-md border border-input bg-card px-3 text-sm tabular-nums transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 pointer-coarse:min-h-10 pointer-coarse:text-base"
 		>

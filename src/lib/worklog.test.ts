@@ -19,7 +19,11 @@ import {
 	latestEnd,
 	entryRate,
 	insertionIndex,
+	daySpans,
+	neighbourSpans,
+	dragSpan,
 	inDayOrder,
+	overlapping,
 	startsPastMidnight,
 	availableCredit,
 	invoiceEmailHref,
@@ -268,6 +272,87 @@ describe('notes', () => {
 			{ start: '22:00', end: '23:00' }
 		]);
 		expect(night.map((entry) => entry.start)).toEqual(['22:00', '23:30', '00:00', '07:00']);
+	});
+
+	it("places a day's entries on its ruler, with the small hours of a late night after 24:00", () => {
+		const afternoon = { start: '14:30', end: '15:00' };
+		const meeting = { start: '00:00', end: '00:30' };
+		// 11:30 PM to noon, typed for midnight: the case that showed the need for the ruler.
+		const mistyped = { start: '23:30', end: '12:00' };
+		const spans = daySpans([afternoon, meeting, mistyped]);
+		const at = (entry: object) => spans.find((span) => span.entry === entry)!;
+		expect(at(afternoon)).toMatchObject({ from: 870, to: 900 });
+		expect(at(meeting)).toMatchObject({ from: 1440, to: 1470 });
+		expect(at(mistyped)).toMatchObject({ from: 1410, to: 2160 });
+		expect(overlapping({ span: at(mistyped), spans }).map((span) => span.entry)).toEqual([meeting]);
+		expect(overlapping({ span: at(afternoon), spans })).toEqual([]);
+
+		// Blocks that only touch do not overlap, and one of no length overlaps nothing.
+		const touching = daySpans([
+			{ start: '09:00', end: '10:00' },
+			{ start: '10:00', end: '11:00' },
+			{ start: '09:30', end: '09:30' }
+		]);
+		expect(touching.flatMap((span) => overlapping({ span, spans: touching }))).toEqual([]);
+
+		// Unmarked work from 6:00 AM keeps its place on the clock, though the list has it past midnight.
+		const night = [
+			{ start: '00:00', end: '04:30', afterMidnight: true as const },
+			{ start: '07:00', end: '08:00' },
+			{ start: '22:00', end: '23:00' }
+		];
+		expect(daySpans(night).find((span) => span.entry === night[1])).toMatchObject({ from: 420 });
+
+		// Alone in the small hours, or marked, an entry is where its day says it is.
+		expect(daySpans([{ start: '02:00', end: '03:00' }])[0]).toMatchObject({ from: 120 });
+		expect(
+			daySpans([{ start: '02:00', end: '03:00', afterMidnight: true as const }])[0]
+		).toMatchObject({ from: 1560, to: 1620 });
+	});
+
+	it("puts the neighbouring days' work that falls on a day on its ruler", () => {
+		const lateNight = { date: '2026-11-17', start: '23:00', end: '02:00' };
+		const marked = {
+			date: '2026-11-17',
+			start: '03:00',
+			end: '03:30',
+			afterMidnight: true as const
+		};
+		const smallHours = { date: '2026-11-19', start: '01:00', end: '01:30' };
+		const entries = [
+			lateNight,
+			marked,
+			smallHours,
+			{ date: '2026-11-17', start: '09:00', end: '17:00' },
+			{ date: '2026-11-18', start: '09:00', end: '17:00' },
+			{ date: '2026-11-19', start: '09:00', end: '17:00' }
+		];
+		expect(neighbourSpans({ entries, date: '2026-11-18' })).toEqual([
+			{ entry: lateNight, from: -60, to: 120 },
+			{ entry: marked, from: 180, to: 210 },
+			{ entry: smallHours, from: 1500, to: 1530 }
+		]);
+	});
+
+	it('drags a block on the ruler in steps of 15 minutes, keeping its start on its day', () => {
+		const span = { from: 870, to: 900 };
+		expect(dragSpan({ span, part: 'move', minutes: 67 })).toEqual({ from: 930, to: 960 });
+		expect(dragSpan({ span, part: 'end', minutes: 1000 })).toEqual({ from: 870, to: 1005 });
+		expect(dragSpan({ span, part: 'start', minutes: 800 })).toEqual({ from: 795, to: 900 });
+		// An end cannot pass the other, and a block cannot leave its day or the ruler.
+		expect(dragSpan({ span, part: 'end', minutes: 0 })).toEqual({ from: 870, to: 885 });
+		expect(dragSpan({ span, part: 'start', minutes: 2000 })).toEqual({ from: 885, to: 900 });
+		expect(dragSpan({ span, part: 'move', minutes: -5000 })).toEqual({ from: 0, to: 30 });
+		expect(dragSpan({ span, part: 'move', minutes: 5000 })).toEqual({ from: 1425, to: 1455 });
+		expect(dragSpan({ span, part: 'end', minutes: 5000 })).toEqual({ from: 870, to: 1800 });
+		// Past midnight it stays there, and one cut off by the ruler's end can be pulled back in.
+		const late = { from: 1470, to: 1500 };
+		expect(dragSpan({ span: late, part: 'move', minutes: -600 })).toEqual({ from: 1440, to: 1470 });
+		expect(dragSpan({ span: late, part: 'move', minutes: 600 })).toEqual({ from: 1785, to: 1815 });
+		expect(dragSpan({ span: { from: 1410, to: 2160 }, part: 'end', minutes: 1440 })).toEqual({
+			from: 1410,
+			to: 1440
+		});
 	});
 
 	it('tells which entries of a day started after midnight', () => {

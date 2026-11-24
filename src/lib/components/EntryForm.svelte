@@ -30,16 +30,18 @@
 
 <script lang="ts">
 	import ClientName from '#lib/components/ClientName.svelte';
+	import DayRuler from '#lib/components/DayRuler.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
 	import * as Select from '#lib/components/ui/select/index.js';
 	import WorkItem from '#lib/components/WorkItem.svelte';
-	import { formatHours, toIsoDate } from '#lib/format.js';
+	import { toIsoDate } from '#lib/format.js';
 	import {
 		describeRef,
 		entryHours,
 		latestEnd,
+		neighbourSpans,
 		parseRef,
 		refKey,
 		type Client,
@@ -67,8 +69,11 @@
 		organization?: string;
 		/** Task names to suggest while typing an item. */
 		tasks?: string[];
-		/** Logged entries, so a new one doesn't start before the last one on its day ends. */
-		entries?: Pick<WorkLogEntry, 'date' | 'start' | 'end'>[];
+		/**
+		 * Logged entries, so a new one doesn't start before the last one on its day ends, and the block
+		 * being entered is seen beside the rest of its day.
+		 */
+		entries?: WorkLogEntry[];
 		/** The entry being edited. Without one, the form adds a new entry. */
 		entry?: WorkLogEntry;
 		/** Starting values for a new entry. */
@@ -139,6 +144,21 @@
 	const timed = $derived(!!rowStart && !!rowEnd);
 	const hours = $derived(entryHours({ start: rowStart, end: rowEnd, hours: rowHours }));
 	const client = $derived(clients.find((other) => other.id === rowClient));
+	const rest = $derived(entries.filter((other) => other.id !== entry?.id));
+	const logged = $derived(rest.filter((other) => other.date === rowDate));
+	const beside = $derived(neighbourSpans({ entries: rest, date: rowDate }));
+	// An entry marked as after midnight stays so while it stays on its day, as it does when saved.
+	const block = $derived(
+		timed
+			? {
+					start: rowStart,
+					end: rowEnd,
+					...(entry?.afterMidnight && entry.date === rowDate
+						? { afterMidnight: true as const }
+						: {})
+				}
+			: undefined
+	);
 	const canSave = $derived(
 		!!rowDate && !!rowClient && timesValid && (hours > 0 || items.length > 0 || !!parsed)
 	);
@@ -250,7 +270,6 @@
 		/>
 		<TimeInput
 			label="End"
-			aside={timed && hours > 0 ? `${formatHours(hours)} h` : undefined}
 			bind:value={
 				() => rowEnd,
 				(value) => {
@@ -274,6 +293,20 @@
 				/>
 			</div>
 		{/if}
+
+		<div class="col-span-2 @2xl:col-span-4">
+			<DayRuler
+				{logged}
+				{beside}
+				{block}
+				onchange={(times) => {
+					rowStart = times.start;
+					rowEnd = times.end;
+					startChanged = true;
+					endChanged = true;
+				}}
+			/>
+		</div>
 
 		<div class="col-span-2 space-y-1.5 @2xl:col-span-4">
 			<Label for="{id}-item">What you worked on</Label>

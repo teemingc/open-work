@@ -584,6 +584,112 @@ export function startsPastMidnight({
 	return !!entry.start && !!first && entry.start < first;
 }
 
+/** The small hours end here: work started earlier can be the late night of the day before. */
+const SMALL_HOURS_END = '06:00';
+
+/** What a day's ruler covers, in minutes: the calendar day and the small hours after it. */
+export const DAY_RULER_MINUTES = 30 * 60;
+
+/** A block of time on a day, in minutes from that day's midnight. Past 1440 is the next morning. */
+export type DaySpan<T> = { entry: T; from: number; to: number };
+
+/**
+ * Where each timed entry of one day sits on that day. Work in the small hours that the day's order
+ * puts past midnight sits after 24:00, as the list shows it. Unmarked work starting later keeps its
+ * place on the clock even where the list would call it the next morning's: on purpose, as otherwise
+ * one mistyped end throws the afternoon's work off the ruler, which is there to show the mistake.
+ */
+export function daySpans<T extends Pick<WorkLogEntry, 'start' | 'end' | 'hours' | 'afterMidnight'>>(
+	entries: T[]
+): DaySpan<T>[] {
+	const day = inDayOrder(entries);
+	return day
+		.filter((entry) => entry.start)
+		.map((entry) => {
+			const late =
+				entry.afterMidnight ||
+				(entry.start! < SMALL_HOURS_END && startsPastMidnight({ day, entry }));
+			const from = minutes(entry.start!) + (late ? 24 * 60 : 0);
+			return { entry, from, to: from + entryHours(entry) * 60 };
+		});
+}
+
+/** The spans that share time with one of them. A block of no length overlaps nothing. */
+export function overlapping<T>({ span, spans }: { span: DaySpan<T>; spans: DaySpan<T>[] }) {
+	return spans.filter(
+		(other) =>
+			other !== span &&
+			span.to > span.from &&
+			other.to > other.from &&
+			span.from < other.to &&
+			other.from < span.to
+	);
+}
+
+/**
+ * The work logged on the days either side of a date that falls on its ruler: what ran past midnight
+ * from the day before, on this morning, and the small hours logged on the day after, at the ruler's
+ * end. Placed as on the date's own ruler, so the first starts before 0.
+ */
+export function neighbourSpans<
+	T extends Pick<WorkLogEntry, 'date' | 'start' | 'end' | 'hours' | 'afterMidnight'>
+>({ entries, date }: { entries: T[]; date: string }): DaySpan<T>[] {
+	const day = 24 * 60;
+	const on = (other: string) => daySpans(entries.filter((entry) => entry.date === other));
+	return [
+		...on(addDays(date, -1))
+			.filter((span) => span.to > day)
+			.map((span) => ({ ...span, from: span.from - day, to: span.to - day })),
+		...on(addDays(date, 1))
+			.filter((span) => span.from < DAY_RULER_MINUTES - day)
+			.map((span) => ({ ...span, from: span.from + day, to: span.to + day }))
+	];
+}
+
+/** Dragging on the ruler moves a block in steps of this many minutes. */
+const DRAG_STEP = 15;
+
+/**
+ * A block after one end of it is dragged to a place on the ruler, or all of it is moved by some
+ * minutes. Its start stays on its side of midnight, so a drag never turns the day's work into the
+ * next morning's, and it stays shorter than a day, as its times can say nothing longer.
+ */
+export function dragSpan({
+	span,
+	part,
+	minutes
+}: {
+	span: { from: number; to: number };
+	part: 'start' | 'end' | 'move';
+	/** Where the dragged end goes, or how far the whole block moves. */
+	minutes: number;
+}): { from: number; to: number } {
+	const day = 24 * 60;
+	const snap = (value: number) => Math.round(value / DRAG_STEP) * DRAG_STEP;
+	const clamp = (value: number, low: number, high: number) =>
+		Math.min(Math.max(value, low), Math.max(low, high));
+	const side = span.from >= day ? day : 0;
+	const latestStart = Math.min(side + day, DAY_RULER_MINUTES) - DRAG_STEP;
+	if (part === 'end') {
+		const to = clamp(
+			snap(minutes),
+			span.from + DRAG_STEP,
+			Math.min(span.from + day - DRAG_STEP, DAY_RULER_MINUTES)
+		);
+		return { from: span.from, to };
+	}
+	if (part === 'start') {
+		const from = clamp(
+			snap(minutes),
+			Math.max(side, span.to - day + DRAG_STEP),
+			Math.min(span.to - DRAG_STEP, latestStart)
+		);
+		return { from, to: span.to };
+	}
+	const from = clamp(snap(span.from + minutes), side, latestStart);
+	return { from, to: from + (span.to - span.from) };
+}
+
 /** The calendar day an entry was worked on, which is the day after its date when past midnight. */
 export function workedOn(entry: Pick<WorkLogEntry, 'date' | 'afterMidnight'>): string {
 	return entry.afterMidnight ? addDays(entry.date, 1) : entry.date;
@@ -595,7 +701,7 @@ export function workedOn(entry: Pick<WorkLogEntry, 'date' | 'afterMidnight'>): s
  */
 export function dropDays(entry: Pick<WorkLogEntry, 'date' | 'start' | 'afterMidnight'>): string[] {
 	const day = workedOn(entry);
-	return entry.afterMidnight || (entry.start && entry.start < '06:00')
+	return entry.afterMidnight || (entry.start && entry.start < SMALL_HOURS_END)
 		? [addDays(day, -1), day]
 		: [];
 }
