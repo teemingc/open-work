@@ -607,11 +607,29 @@
 							>
 								{shareLabel(backer.amount)}
 							</span>
+							<!--
+								Their avatar or logo, as in "Expenses by recipient", or a blank disc without one, in a
+								column of its own: as tall as a line of the name, it stays on the first line of a name
+								that wraps, and the name, amount, bar and dates beside it share one left edge.
+							-->
+							{#if !backer.slug}
+								<span
+									class="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
+								>
+									<Users class="size-3" aria-hidden="true" />
+								</span>
+							{:else if backer.imageUrl}
+								<img
+									src={backer.imageUrl}
+									alt=""
+									class="size-5 shrink-0 rounded-full border bg-card object-cover"
+									loading="lazy"
+								/>
+							{:else}
+								<span class="size-5 shrink-0 rounded-full border bg-muted"></span>
+							{/if}
 							<div class="flex min-w-0 flex-1 flex-col gap-1.5">
-								<!--
-									On phones the amount goes under the name, so the name is not cut short, and is indented
-									past the avatar to read on from the name's last line.
-								-->
+								<!-- On phones the amount goes under the name, so the name is not cut short. -->
 								<div
 									class="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3"
 								>
@@ -627,21 +645,7 @@
 											rel="noreferrer"
 											class="flex max-w-full min-w-0 items-start gap-2 font-medium hover:underline"
 										>
-											<!--
-												Their avatar or logo, as in "Expenses by recipient", or a blank disc without one.
-												As tall as a line of the name, so it and the link icon stay on the first line of
-												a name that wraps rather than centring on all of them.
-											-->
-											{#if backer.imageUrl}
-												<img
-													src={backer.imageUrl}
-													alt=""
-													class="size-5 shrink-0 rounded-full border bg-card object-cover"
-													loading="lazy"
-												/>
-											{:else}
-												<span class="size-5 shrink-0 rounded-full border bg-muted"></span>
-											{/if}
+											<!-- The icon is nudged to the middle of the name's first line, rather than of all its lines. -->
 											<span class="min-w-0 wrap-break-word">{backer.name}</span>
 											<ExternalLink size={12} class="mt-1 shrink-0 text-muted-foreground" />
 											<span class="sr-only">(opens in a new tab)</span>
@@ -660,18 +664,13 @@
 											rel="noreferrer"
 											class="flex max-w-full min-w-0 items-start gap-2 font-medium text-muted-foreground hover:text-foreground hover:underline"
 										>
-											<span
-												class="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
-											>
-												<Users class="size-3" aria-hidden="true" />
-											</span>
 											<span class="min-w-0">{backer.name}</span>
 											<ExternalLink size={12} class="mt-1 shrink-0" />
 											<span class="sr-only">(opens in a new tab)</span>
 										</a>
 										<!-- eslint-enable svelte/no-navigation-without-resolve -->
 									{/if}
-									<span class="shrink-0 pl-7 font-medium tabular-nums sm:pl-0">
+									<span class="shrink-0 font-medium tabular-nums">
 										{money.format(backer.amount)}
 									</span>
 								</div>
