@@ -545,10 +545,8 @@ export function totalHours(entries: Pick<WorkLogEntry, 'start' | 'end' | 'hours'
 export function inDayOrder<
 	T extends Pick<WorkLogEntry, 'start' | 'end' | 'hours' | 'afterMidnight'>
 >(entries: T[]): T[] {
-	// Marked as after midnight, they end the day whatever the times say.
-	const late = entries
-		.filter((entry) => entry.start && entry.afterMidnight)
-		.sort((a, b) => a.start!.localeCompare(b.start!));
+	// Marked as after midnight, they come after the clock wraps round whatever the times say.
+	const late = entries.filter((entry) => entry.start && entry.afterMidnight);
 	const timed = entries
 		.filter((entry) => entry.start && !entry.afterMidnight)
 		.sort((a, b) => a.start!.localeCompare(b.start!));
@@ -564,7 +562,10 @@ export function inDayOrder<
 			wake = next;
 		}
 	});
-	return [...timed.slice(wake), ...timed.slice(0, wake), ...late, ...untimed];
+	const pastMidnight = [...timed.slice(0, wake), ...late].sort((a, b) =>
+		a.start!.localeCompare(b.start!)
+	);
+	return [...timed.slice(wake), ...pastMidnight, ...untimed];
 }
 
 /**

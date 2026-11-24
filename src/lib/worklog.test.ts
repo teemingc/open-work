@@ -260,6 +260,14 @@ describe('notes', () => {
 			{ start: '21:00', end: '23:00' }
 		]);
 		expect(evening.map((entry) => entry.start)).toEqual(['21:00', '00:30']);
+		// Marked or not, work past midnight runs by the clock: 07:00 was after the marked 00:00.
+		const night = inDayOrder([
+			{ start: '00:00', end: '04:30', afterMidnight: true },
+			{ start: '07:00', end: '08:00' },
+			{ start: '23:30', end: '00:00' },
+			{ start: '22:00', end: '23:00' }
+		]);
+		expect(night.map((entry) => entry.start)).toEqual(['22:00', '23:30', '00:00', '07:00']);
 	});
 
 	it('tells which entries of a day started after midnight', () => {
