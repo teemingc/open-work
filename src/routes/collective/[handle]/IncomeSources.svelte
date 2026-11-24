@@ -599,35 +599,35 @@
 					{#each backers as backer, index (backer.slug || backer.name)}
 						<li class="flex items-start gap-2 sm:gap-3">
 							<!--
-							The share leads each row, so the column of figures reads as the breakdown. Nudged
-							down so the tops of its figures line up with the tops of the name's letters.
-						-->
-							<span
-								class="mt-0.5 min-w-10 shrink-0 text-right font-display text-base leading-none font-medium text-(--heading) tabular-nums sm:min-w-13 sm:text-xl"
-							>
-								{shareLabel(backer.amount)}
-							</span>
-							<!--
-								Their avatar or logo, as in "Expenses by recipient", or a blank disc without one, in a
-								column of its own: as tall as a line of the name, it stays on the first line of a name
-								that wraps, and the name, amount, bar and dates beside it share one left edge.
+								The share leads each row, so the column of figures reads as the breakdown. Nudged
+								down so the tops of its figures line up with the tops of the name's letters. Their
+								avatar or logo, as in "Expenses by recipient", or a blank disc without one, goes under
+								it: beside the name it took room the dates need on a phone, and sat off the first line
+								of a name that wraps.
 							-->
-							{#if !backer.slug}
+							<div class="mt-0.5 flex min-w-10 shrink-0 flex-col items-end gap-1.5 sm:min-w-13">
 								<span
-									class="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
+									class="font-display text-base leading-none font-medium text-(--heading) tabular-nums sm:text-xl"
 								>
-									<Users class="size-3" aria-hidden="true" />
+									{shareLabel(backer.amount)}
 								</span>
-							{:else if backer.imageUrl}
-								<img
-									src={backer.imageUrl}
-									alt=""
-									class="size-5 shrink-0 rounded-full border bg-card object-cover"
-									loading="lazy"
-								/>
-							{:else}
-								<span class="size-5 shrink-0 rounded-full border bg-muted"></span>
-							{/if}
+								{#if !backer.slug}
+									<span
+										class="flex size-5 items-center justify-center rounded-full bg-muted text-muted-foreground"
+									>
+										<Users class="size-3" aria-hidden="true" />
+									</span>
+								{:else if backer.imageUrl}
+									<img
+										src={backer.imageUrl}
+										alt=""
+										class="size-5 rounded-full border bg-card object-cover"
+										loading="lazy"
+									/>
+								{:else}
+									<span class="size-5 rounded-full border bg-muted"></span>
+								{/if}
+							</div>
 							<div class="flex min-w-0 flex-1 flex-col gap-1.5">
 								<!-- On phones the amount goes under the name, so the name is not cut short. -->
 								<div
