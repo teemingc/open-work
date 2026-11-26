@@ -93,8 +93,8 @@
 
 	/**
 	 * The Work row's links, on the row's tint, with the page you are on raised on the pill below.
-	 * On phones they share its width; where four labels do not fit, the others keep only their icons
-	 * and the page you are on keeps its label. Wider, they line up on the right, under Work.
+	 * On phones they share its width; where four labels do not fit, all four keep only their icons,
+	 * as the page's own title names the one you are on. Wider, they line up on the right, under Work.
 	 */
 	const SUB_LINK = `${ITEM} relative px-3 hover:bg-card/60 max-sm:flex-auto sm:first-of-type:ml-auto`;
 
@@ -154,10 +154,12 @@
 		return undefined;
 	}
 
-	/** A Work tab's label, hidden where the four do not fit unless it is the page you are on. */
-	function label(path: WorkPath) {
-		return current(path) ? undefined : '@max-[26rem]/work:sr-only';
-	}
+	/**
+	 * A Work tab's label, hidden where the four do not fit. The page you are on loses its label too:
+	 * every Work page has its name as its title just below, and with the label the Settings tab ran
+	 * past the row's edge on a 276px screen.
+	 */
+	const LABEL = '@max-[26rem]/work:sr-only';
 </script>
 
 <!--
@@ -264,15 +266,15 @@
 				></span>
 				<a href={resolve('/work')} aria-current={current('/work')} class={SUB_LINK}>
 					<LayoutDashboard size={14} />
-					<span class={label('/work')}>Overview</span>
+					<span class={LABEL}>Overview</span>
 				</a>
 				<a href={resolve('/worklog')} aria-current={current('/worklog')} class={SUB_LINK}>
 					<Clock size={14} />
-					<span class={label('/worklog')}>Work log</span>
+					<span class={LABEL}>Work log</span>
 				</a>
 				<a href={resolve('/invoices')} aria-current={current('/invoices')} class={SUB_LINK}>
 					<FileText size={14} />
-					<span class={label('/invoices')}>Invoices</span>
+					<span class={LABEL}>Invoices</span>
 				</a>
 				<a href={resolve('/settings/clients')} aria-current={current('/settings')} class={SUB_LINK}>
 					<!-- A dot on the icon's corner, like an app badge, so it takes no room of its own and does
@@ -288,7 +290,7 @@
 							></span>
 						{/if}
 					</span>
-					<span class={label('/settings')}>Settings</span>
+					<span class={LABEL}>Settings</span>
 					{#if needsSetup && !current('/settings')}<span class="sr-only">
 							(setup unfinished)
 						</span>{/if}

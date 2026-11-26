@@ -143,6 +143,13 @@
 
 	const formatDay = (date: string) => dayFormat.format(parseIsoDate(date));
 
+	/** A day without its month, like "Wed 18", for a list too narrow for the date beside the total. */
+	function shortDay(date: string) {
+		const parts = dayFormat.formatToParts(parseIsoDate(date));
+		const part = (type: string) => parts.find((p) => p.type === type)?.value;
+		return `${part('weekday')} ${part('day')}`;
+	}
+
 	type DragEvent<K extends keyof DragDropEventHandlers> = Parameters<
 		Required<DragDropEventHandlers>[K]
 	>[0];
@@ -199,6 +206,18 @@
 	}
 </script>
 
+<!--
+	A day's date on one line. In a list under 15rem, where "Wed, Nov 18" does not fit beside the day's
+	total, it drops the month, which the month control above the list names. Screen readers still read
+	the whole date.
+-->
+{#snippet dayName(date: string)}
+	<span class="font-medium whitespace-nowrap tabular-nums">
+		<span class="@max-[15rem]/entries:sr-only">{formatDay(date)}</span>
+		<span class="@min-[15rem]/entries:hidden" aria-hidden="true">{shortDay(date)}</span>
+	</span>
+{/snippet}
+
 {#snippet gap(above: string, empty: DaySummary[])}
 	{const band = $derived(`gap:${above}`)}
 	{const open = $derived(over === band || empty.some((day) => day.date === over))}
@@ -223,12 +242,12 @@
 									<li
 										{@attach dayZone.attach}
 										class={[
-											'flex items-baseline justify-between gap-3 border-b bg-muted/50 py-2.5 pr-14 pl-16 text-sm transition-colors',
+											'flex items-baseline justify-between gap-3 border-b bg-muted/50 py-2.5 pr-14 pl-16 text-sm transition-colors @max-[20rem]/entries:pr-4',
 											(dayZone.isDropTarget || dropDate(over ?? '') === day.date) &&
 												'bg-primary/10 outline-2 -outline-offset-2 outline-primary outline-dashed'
 										]}
 									>
-										<h3 class="font-medium tabular-nums">{formatDay(day.date)}</h3>
+										<h3>{@render dayName(day.date)}</h3>
 										<span class="whitespace-nowrap tabular-nums">
 											<span class="font-semibold">0</span>{#if day.expected}<span
 													class="text-muted-foreground"
@@ -250,16 +269,17 @@
 
 <Card.Root class="@container/entries gap-0 overflow-hidden py-0">
 	<!--
-		The title, then where the log is saved and the actions at the end of its row. A long status wraps
-		within itself rather than taking a line of its own. The selection's actions take the place of the
+		The title, then where the log is saved and the actions at the end of its row. The title takes
+		the spare room, so a status that does not fit beside it starts a row of its own under the
+		title's left edge rather than hanging at the right. The selection's actions take the place of the
 		others, at the same height, so the list never moves.
 	-->
 	<Card.Header
 		class="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1.5 border-b px-4 py-3 [.border-b]:pb-3"
 	>
-		<Card.Title class="whitespace-nowrap">Days logged</Card.Title>
+		<Card.Title class="grow-9999 whitespace-nowrap">Days logged</Card.Title>
 		{#if status}
-			<div class="ml-auto min-w-0">
+			<div class="min-w-0 grow">
 				{@render status()}
 			</div>
 		{/if}
@@ -317,10 +337,13 @@
 										'bg-primary/5 outline-2 -outline-offset-2 outline-primary'
 								]}
 							>
-								<!-- The day's total lines up with each entry's hours, as their sum. -->
+								<!--
+									The day's total lines up with each entry's hours, as their sum: in a list under
+									20rem, that is the column under the entries' menus.
+								-->
 								<div
 									class={[
-										'relative flex items-baseline justify-between gap-3 border-b bg-muted/50 py-1.5 pr-14 pl-4 text-sm',
+										'relative flex items-baseline justify-between gap-3 border-b bg-muted/50 py-1.5 pr-14 pl-4 text-sm @max-[20rem]/entries:pr-4',
 										day.entries.length > 0 && 'pl-16'
 									]}
 								>
@@ -337,9 +360,7 @@
 									{/if}
 									<div class="flex min-w-0 items-baseline gap-2">
 										<h3 class="min-w-0">
-											<span class="font-medium tabular-nums">
-												{dayFormat.format(parseIsoDate(day.date))}
-											</span>
+											{@render dayName(day.date)}
 											{#if day.kind === 'holiday'}
 												<span class="ml-1.5 text-muted-foreground">
 													Holiday{day.name ? `: ${day.name}` : ''}

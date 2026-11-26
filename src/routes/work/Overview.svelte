@@ -175,12 +175,13 @@
 
 <div class="flex flex-col gap-4 md:gap-6">
 	<!--
-		The month control sits at the right edge of the title's row, as on the work log, and is the only
-		place the month is named. The year's own controls go with the year's section below.
+		The month control sits at the right edge of the title's row and fills a row of its own where
+		the two do not fit, as on the work log, and is the only place the month is named. The year's
+		own controls go with the year's section below.
 	-->
-	<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-		<h1>Overview</h1>
-		<div class="ml-auto">
+	<div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+		<h1 class="grow-9999">Overview</h1>
+		<div class="flex grow">
 			<MonthPicker path="/work" {month} current={thisMonth} label={monthLabel} />
 		</div>
 	</div>

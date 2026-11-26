@@ -53,13 +53,14 @@
 <!--
 	One control for the month: the arrows step a month either way, and the month between them opens a
 	grid to jump further. Back to this month sits before it, only while another month is on screen and
-	only where it fits on the title's row; on phones it is in the grid.
+	only where it fits on the title's row; on phones it is in the grid. Given more than its own width,
+	as on a row to itself under the title, the month stretches and the arrows stay at the ends.
 -->
-<div class="flex shrink-0 items-center gap-2">
+<div class="flex shrink-0 grow items-center gap-2">
 	{#if month !== current}
 		<Button variant="outline" class="max-sm:hidden" href={resolve(path)}>Today</Button>
 	{/if}
-	<nav aria-labelledby="{id}-month" class="flex items-center rounded-md border bg-card">
+	<nav aria-labelledby="{id}-month" class="flex grow items-center rounded-md border bg-card">
 		<h2 id="{id}-month" class="sr-only">Month</h2>
 		<Button
 			variant="ghost"
@@ -77,7 +78,7 @@
 		>
 			<Popover.Trigger>
 				{#snippet child({ props })}
-					<Button {...props} variant="ghost" class="rounded-none border-x px-3 tabular-nums">
+					<Button {...props} variant="ghost" class="grow rounded-none border-x px-3 tabular-nums">
 						<span class="sm:hidden">{short}</span>
 						<span class="max-sm:hidden">{label}</span>
 						<ChevronDown class="text-muted-foreground" aria-hidden="true" />

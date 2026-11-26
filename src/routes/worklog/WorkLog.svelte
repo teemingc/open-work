@@ -139,12 +139,13 @@
 
 <div class="flex flex-col gap-4 md:gap-6">
 	<!--
-		The month control sits at the right edge of the title's row, and wraps under it only when the text
-		is too large for both.
+		The month control sits at the right edge of the title's row. Where the row is too narrow or the
+		text too large for both, it wraps under the title and fills the row: the title takes all the
+		spare room while they share a row, and the control takes it once it has a row to itself.
 	-->
-	<header class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-		<h1>Work log</h1>
-		<div class="ml-auto">
+	<header class="flex flex-wrap items-center gap-x-3 gap-y-2">
+		<h1 class="grow-9999">Work log</h1>
+		<div class="flex grow">
 			<MonthPicker path="/worklog" {month} current={monthOf(today)} label={monthName} />
 		</div>
 	</header>
