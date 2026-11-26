@@ -75,28 +75,28 @@
 	// The length's own width, to keep all of it on the ruler however many figures it has.
 	let lengthWidth = $state(0);
 	const coarse = new MediaQuery('(pointer: coarse)');
+	/** How far a block's handles stand outside its time: a 2px mark, and 3px of the block about it. */
+	const HANDLE = 5;
 	/**
-	 * What is taken hold of: the block to move it, and a stretch at each end to resize it. A block
-	 * too short to hold is given a middle wide enough, with its ends outside it.
+	 * What is taken hold of: a handle at each end of the block to resize it, and the stretch between
+	 * them to move it. A block too short to hold by its middle is given one wide enough, with its
+	 * ends outside it.
 	 */
 	const grips = $derived.by(() => {
 		if (!shown || !onchange || width === 0) return undefined;
 		const px = (minutes: number) =>
 			(Math.min(minutes, DAY_RULER_MINUTES) / DAY_RULER_MINUTES) * width;
 		const [left, right] = [px(shown.from), px(shown.to)];
-		const end = coarse.current ? 24 : 16;
-		// The least a middle can be and still be taken hold of, wider for a finger.
-		const middle = coarse.current ? 24 : 12;
-		const inside = Math.min(Math.max((right - left - middle) / 2, 0), end / 2);
+		// How wide a handle is to hold, and the least the middle can be, both more for a finger.
+		const [end, middle] = coarse.current ? [44, 28] : [16, 12];
 		const centre = (left + right) / 2;
-		const from = Math.min(left + inside, centre - middle / 2);
-		const to = Math.max(right - inside, centre + middle / 2);
+		// A handle is held about its end, or outside the middle where that would leave too little.
+		const from = Math.min(left + end / 2, centre - middle / 2);
+		const to = Math.max(right - end / 2, centre + middle / 2);
 		return {
 			start: { left: from - end, width: end },
 			move: { left: from, width: to - from },
-			end: { left: to, width: end },
-			// The ends are marked on a block long enough to show them.
-			marked: right - left >= 20
+			end: { left: to, width: end }
 		};
 	});
 
@@ -149,11 +149,11 @@
 		onchange?.({ start: clock(next.from), end: clock(next.to) });
 	}
 
-	/** A stretch of the ruler as CSS, cut off where the ruler ends. */
-	function place({ from, to }: { from: number; to: number }): string {
+	/** A stretch of the ruler as CSS, cut off where the ruler ends, and reaching `past` it in pixels. */
+	function place({ from, to }: { from: number; to: number }, past = 0): string {
 		const left = Math.min(from, DAY_RULER_MINUTES);
 		const right = Math.min(to, DAY_RULER_MINUTES);
-		return `left:${(left / DAY_RULER_MINUTES) * 100}%;width:${((right - left) / DAY_RULER_MINUTES) * 100}%`;
+		return `left:calc(${(left / DAY_RULER_MINUTES) * 100}% - ${past}px);width:calc(${((right - left) / DAY_RULER_MINUTES) * 100}% + ${past * 2}px)`;
 	}
 
 	/**
@@ -175,18 +175,20 @@
 -->
 <div class="space-y-1">
 	<!--
-		The block's length rides above its start, so it is read where the eye and the finger already
-		are, and stays where it is as the end is typed or dragged: centred, it drifted at half the pace
-		of whichever end moved. It stops at the ruler's end rather than hang over it. Neither it nor the
-		block slides to a new place: the times are mostly typed, and a block trailing behind the keys
-		says less than one that is simply there.
+		The block's length rides above its middle, as the block reaches past its time at each end and
+		a length set against either one lined up with neither the time nor the bar. It stops at the
+		ruler's end rather than hang over it. Neither it nor the block slides to a new place: the times
+		are mostly typed, and a block trailing behind the keys says less than one that is simply there.
 	-->
 	<p class="relative h-5 text-sm leading-5">
 		{#if shown && hours > 0}
 			<span
 				class="absolute font-display font-semibold whitespace-nowrap tabular-nums"
 				bind:offsetWidth={lengthWidth}
-				style:left="clamp(0px, {(shown.from / DAY_RULER_MINUTES) * 100}%, 100% - {lengthWidth}px)"
+				style:left="clamp(0px, {((shown.from + Math.min(shown.to, DAY_RULER_MINUTES)) /
+					2 /
+					DAY_RULER_MINUTES) *
+					100}% - {lengthWidth / 2}px, 100% - {lengthWidth}px)"
 			>
 				{+hours.toFixed(2)} h
 			</span>
@@ -229,17 +231,29 @@
 						style={place(span)}
 					></div>
 				{/each}
+			</div>
+			<!--
+The block and its frame, over the strip and not cut off by it: a short block at either end of
+the day keeps its frame about it, a little past the strip.
+-->
+			<div class="pointer-events-none absolute inset-px">
 				{#if shown}
+					<!--
+					One form at every length: the time is the navy between two light marks, and each mark
+					with the navy outside it is a handle, so a quarter of an hour has its handles as a
+					whole day has.
+					-->
 					<div
-						class={[
-							'absolute inset-y-1 flex min-w-0.5 justify-between rounded-[2px] bg-primary px-[3px] py-1.5',
-							held
-						]}
-						style={place(shown)}
+						class={['absolute inset-y-1 rounded-[3px] bg-primary', held]}
+						style={place(shown, onchange ? HANDLE : 0)}
 					>
-						{#if grips?.marked}
-							<div class="w-0.5 rounded-full bg-primary-foreground/60"></div>
-							<div class="w-0.5 rounded-full bg-primary-foreground/60"></div>
+						{#if onchange}
+							<div
+								class="absolute inset-y-1.5 left-[3px] w-0.5 rounded-full bg-primary-foreground/60"
+							></div>
+							<div
+								class="absolute inset-y-1.5 right-[3px] w-0.5 rounded-full bg-primary-foreground/60"
+							></div>
 						{/if}
 					</div>
 					{#each clashes as clash (clash.entry)}
@@ -257,10 +271,13 @@
 				{/if}
 			</div>
 			<!--
-			Over the strip and a little taller, so each part is 40px to the finger. Dragging sideways is
-			theirs; up and down still scrolls the page.
+			Over the strip and a little taller, so each part is 40px tall, and 44px to a finger.
+			Dragging sideways is theirs; up and down still scrolls the page.
 		-->
-			<div class="absolute inset-x-px -inset-y-1 touch-pan-y select-none" bind:clientWidth={width}>
+			<div
+				class="absolute inset-x-px -inset-y-1 touch-pan-y select-none pointer-coarse:-inset-y-1.5"
+				bind:clientWidth={width}
+			>
 				{#if grips}
 					{#each ['move', 'start', 'end'] as const as part (part)}
 						<div

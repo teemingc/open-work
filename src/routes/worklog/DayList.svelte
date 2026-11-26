@@ -442,7 +442,7 @@
 																	variant="ghost"
 																	size="icon"
 																	{@attach drag.attachHandle}
-																	class="relative size-7 cursor-grab touch-none text-muted-foreground after:absolute after:inset-x-0 after:-inset-y-1.5 hover:bg-transparent hover:text-foreground active:cursor-grabbing"
+																	class="relative size-7 cursor-grab touch-none text-muted-foreground after:absolute after:-inset-y-1.5 after:-right-1 after:-left-2 hover:bg-transparent hover:text-foreground active:cursor-grabbing"
 																>
 																	<GripVertical aria-hidden="true" />
 																	<span class="sr-only">Drag to another day</span>
