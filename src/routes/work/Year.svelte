@@ -116,9 +116,10 @@
 		}
 		if (summary.earnings && projected) {
 			stats.push({
-				label: year === thisYear ? 'Take-home, projected' : 'Take-home',
+				label: 'Take-home',
 				value: wholeMoney(projected.net, summary.earnings.currency),
-				note: `Of ${formatMoney(summary.earnings.projected, summary.earnings.currency)} gross`
+				// This year's is a projection, said in the note so the label stays on one line on a phone.
+				note: `${year === thisYear ? 'Projected, of' : 'Of'} ${formatMoney(summary.earnings.projected, summary.earnings.currency)} gross`
 			});
 		}
 		return stats;
