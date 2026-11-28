@@ -61,44 +61,53 @@
 	const pace = $derived(
 		summary.pace < 0 ? Math.min(0, summary.pace + (daysOff?.coveredHours ?? 0)) : summary.pace
 	);
-	/** The days off taken that stand in for a pace the allowance covers in full. */
-	const daysTaken = $derived(
-		pace === 0 && summary.pace < 0 && store.data.hoursPerDay > 0
-			? Math.round((-summary.pace / store.data.hoursPerDay) * 10) / 10
-			: 0
-	);
+	/** Whole units, as a headline figure shares a phone's width with another. */
+	function wholeMoney(amount: number, currency: string): string {
+		return new Intl.NumberFormat('en', {
+			style: 'currency',
+			currency,
+			maximumFractionDigits: 0
+		}).format(amount);
+	}
 
+	/**
+	 * Pace and days off lead, side by side: the days off taken are why a year short of its hours
+	 * can still be on pace.
+	 */
 	const stats = $derived.by(() => {
+		const hours = `${formatHours(Math.abs(pace))} h`;
 		const stats: Stat[] = [
 			{
 				label: year === thisYear ? 'Pace' : 'Balance',
 				value:
-					daysTaken > 0
-						? `${formatHours(daysTaken)} ${daysTaken === 1 ? 'day' : 'days'} off`
-						: `${pace > 0 ? '+' : ''}${formatHours(pace)} h`,
-				tone: daysTaken > 0 ? undefined : pace >= 0 ? 'text-status-paid' : 'text-destructive',
-				note: `${formatHours(summary.logged)} h logged of ${formatHours(summary.expectedSoFar)} h expected`,
-				badge: {
-					text:
-						year === thisYear
-							? pace > 0
-								? 'Ahead'
-								: pace < 0
-									? 'Behind'
-									: 'On pace'
-							: pace > 0
-								? 'Over'
-								: pace < 0
-									? 'Under'
-									: 'On target',
-					icon: pace > 0 ? 'up' : pace < 0 ? 'down' : undefined
-				}
+					pace > 0
+						? `${hours} ${year === thisYear ? 'ahead' : 'over'}`
+						: pace < 0
+							? `${hours} ${year === thisYear ? 'behind' : 'under'}`
+							: year === thisYear
+								? 'On pace'
+								: 'On target',
+				tone: pace >= 0 ? 'text-status-paid' : 'text-destructive',
+				note: `${formatHours(summary.logged)} of ${formatHours(summary.expectedSoFar)} h expected`
 			}
 		];
+		if (daysOff) {
+			const taken = Math.max(0, daysOff.short);
+			stats.push({
+				label: 'Days off',
+				value: `${formatHours(daysOff.left)} left`,
+				tone: daysOff.left < 0 ? 'text-destructive' : undefined,
+				note:
+					`${formatHours(taken)} taken of ${formatHours(daysOff.total)}` +
+					(daysOff.holidays > 0
+						? `, ${daysOff.holidaysLeft} of ${daysOff.holidays} public ${daysOff.holidays === 1 ? 'holiday' : 'holidays'} left`
+						: '')
+			});
+		}
 		if (year === thisYear) {
 			stats.push({
 				label: 'Needed a day',
-				value: summary.remaining > 0 ? `${formatHours(summary.neededPerDay)} h` : '—',
+				value: summary.remaining > 0 ? `${formatHours(summary.neededPerDay)} h` : 'Done',
 				note:
 					summary.remaining === 0
 						? 'Year target reached'
@@ -108,20 +117,8 @@
 		if (summary.earnings && projected) {
 			stats.push({
 				label: year === thisYear ? 'Take-home, projected' : 'Take-home',
-				value: formatMoney(projected.net, summary.earnings.currency),
+				value: wholeMoney(projected.net, summary.earnings.currency),
 				note: `Of ${formatMoney(summary.earnings.projected, summary.earnings.currency)} gross`
-			});
-		}
-		if (daysOff) {
-			stats.push({
-				label: 'Days off left',
-				value: formatHours(daysOff.left),
-				tone: daysOff.left < 0 ? 'text-destructive' : undefined,
-				note:
-					`Of ${formatHours(daysOff.total)} for the year` +
-					(daysOff.holidays > 0
-						? `, ${daysOff.holidaysLeft} of ${daysOff.holidays} public ${daysOff.holidays === 1 ? 'holiday' : 'holidays'} left`
-						: '')
 			});
 		}
 		return stats;
@@ -172,7 +169,7 @@
 	</div>
 
 	{#if summary.logged > 0}
-		<StatStrip {stats} />
+		<StatStrip {stats} compact />
 		<!--
 			Hours and take-home share a row, and each month's figures take the full width below. Two
 			columns only when there are earnings, as take-home shows nothing without them.

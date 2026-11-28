@@ -1135,9 +1135,10 @@ describe('month pace', () => {
 			const summary = summarizeMonth({ data: log, month: '2026-10', today: '2026-10-12' });
 			return monthPace({ data: log, summary, today: '2026-10-12' });
 		};
-		// 52 hours short by the 12th is 6.5 days.
-		expect(pace(10)).toEqual({ pace: 0, daysOff: 6.5 });
-		expect(pace(2)).toEqual({ pace: -36, daysOff: 2 });
+		// 52 hours short by the 12th is 6.5 days. The 44 short before today are not made up, so the
+		// 120 hours left take 8 a day over the 15 working days from the 12th.
+		expect(pace(10)).toEqual({ pace: 0, daysOff: 6.5, neededPerDay: 8 });
+		expect(pace(2)).toEqual({ pace: -36, daysOff: 2, neededPerDay: 9.87 });
 	});
 });
 

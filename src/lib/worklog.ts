@@ -1581,7 +1581,8 @@ function coveredShortfall({
 
 /**
  * A month's pace with the hours short that the days off allowance covers taken as days off: the
- * pace is behind only by what the allowance does not cover.
+ * pace is behind only by what the allowance does not cover, and the hours a day that finish the
+ * month leave out the days off already taken.
  */
 export function monthPace({
 	data,
@@ -1591,12 +1592,17 @@ export function monthPace({
 	data: WorkLogData;
 	summary: MonthSummary;
 	today: string;
-}): { pace: number; daysOff: number } {
-	if (summary.pace >= 0 || data.hoursPerDay <= 0) return { pace: summary.pace, daysOff: 0 };
+}): { pace: number; daysOff: number; neededPerDay: number } {
+	const remaining = Math.max(0, summary.remaining - coveredShortfall({ data, summary, today }));
+	const neededPerDay =
+		summary.workingDaysLeft > 0 ? round2(remaining / summary.workingDaysLeft) : round2(remaining);
+	if (summary.pace >= 0 || data.hoursPerDay <= 0)
+		return { pace: summary.pace, daysOff: 0, neededPerDay };
 	const covered = Math.min(-summary.pace, allowanceLeft({ data, month: summary.month, today }));
 	return {
 		pace: round2(summary.pace + covered),
-		daysOff: Math.round((covered / data.hoursPerDay) * 10) / 10
+		daysOff: Math.round((covered / data.hoursPerDay) * 10) / 10,
+		neededPerDay
 	};
 }
 

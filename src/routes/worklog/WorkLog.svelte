@@ -25,7 +25,7 @@
 	import { today as currentDay } from './today.js';
 	import DayList from './DayList.svelte';
 	import MonthCharts from './MonthCharts.svelte';
-	import MonthStats from './MonthStats.svelte';
+	import MonthPace from './MonthPace.svelte';
 	import TakeHome from './TakeHome.svelte';
 	import EntryForm from '#lib/components/EntryForm.svelte';
 	import MonthPicker from '#lib/components/MonthPicker.svelte';
@@ -167,11 +167,15 @@
 		</p>
 	{/if}
 
+	{#if clients.length > 0}
+		<MonthPace {summary} data={store.data} {today} {current} />
+	{/if}
+
 	<!--
 		Logging comes first, so the form is in reach as the page opens, with what you log showing up just
 		below it. Where there is room the form takes a column of its own beside the days and stays in
-		view while they scroll. The month's figures come after the form on a phone, so its pace is one
-		scroll away, and lead the page where there is room for them above both columns.
+		view while they scroll. The month's pace sits above both, short enough to stay in view with the
+		form on a folded phone.
 	-->
 	<div
 		class="grid grid-cols-1 items-start gap-4 md:gap-6 @4xl/main:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] @5xl/main:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]"
@@ -204,11 +208,6 @@
 					/>
 				</Card.Content>
 			</Card.Root>
-		{/if}
-		{#if summary.logged > 0 || !current}
-			<div class="@4xl/main:order-first @4xl/main:col-span-2">
-				<MonthStats {summary} data={store.data} {today} {current} />
-			</div>
 		{/if}
 		<DayList
 			{store}

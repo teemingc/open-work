@@ -30,7 +30,14 @@
 	import { Hourglass, TrendingDown, TrendingUp } from '@lucide/svelte';
 	import ProgressRing from '#lib/components/ProgressRing.svelte';
 
-	let { stats }: { stats: Stat[] } = $props();
+	let {
+		stats,
+		compact = false
+	}: {
+		stats: Stat[];
+		/** Smaller figures, two to a row even on a phone, for a page with more to show under them. */
+		compact?: boolean;
+	} = $props();
 
 	const ICONS = { up: TrendingUp, down: TrendingDown, hourglass: Hourglass };
 
@@ -41,15 +48,21 @@
 	 * fits. Narrower, the first takes a row of its own.
 	 */
 	const columns = $derived(
-		stats.length >= 5
-			? '@xl/main:grid-cols-2 @3xl/main:grid-cols-6'
-			: stats.length === 4
-				? '@xl/main:grid-cols-2 @5xl/main:grid-cols-4'
-				: stats.length === 3
-					? '@xl/main:grid-cols-3'
-					: stats.length === 2
-						? '@xl/main:grid-cols-2'
-						: ''
+		compact
+			? stats.length > 1
+				? stats.length === 3
+					? 'grid-cols-2 @xl/main:grid-cols-3'
+					: 'grid-cols-2 @3xl/main:grid-cols-4'
+				: ''
+			: stats.length >= 5
+				? '@xl/main:grid-cols-2 @3xl/main:grid-cols-6'
+				: stats.length === 4
+					? '@xl/main:grid-cols-2 @5xl/main:grid-cols-4'
+					: stats.length === 3
+						? '@xl/main:grid-cols-3'
+						: stats.length === 2
+							? '@xl/main:grid-cols-2'
+							: ''
 	);
 	/** A lone figure leads, larger and with its note beside it, rather than sitting in an empty strip. */
 	const lone = $derived(stats.length === 1);
@@ -65,7 +78,7 @@
 
 <!-- One compact strip of figures. Gaps over a border-coloured background draw even dividers. -->
 <Card.Root class="gap-0 overflow-hidden py-0">
-	<dl class={['grid grid-cols-1 gap-px bg-border', columns]}>
+	<dl class={['grid gap-px bg-border', !compact && 'grid-cols-1', columns]}>
 		{#each stats as stat, index (stat.label)}
 			<!--
 				With an odd number in two columns, the first takes a row of its own. With five on six columns,
@@ -147,7 +160,11 @@
 				<dd
 					class={[
 						'font-display font-medium tabular-nums',
-						lone ? 'text-4xl leading-tight' : 'text-2xl @[250px]/card:text-3xl',
+						lone
+							? 'text-4xl leading-tight'
+							: compact
+								? 'text-xl @[250px]/card:text-2xl'
+								: 'text-2xl @[250px]/card:text-3xl',
 						leads(index) && '@xl/main:text-3xl',
 						stat.tone
 					]}
