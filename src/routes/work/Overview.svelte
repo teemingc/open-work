@@ -13,7 +13,9 @@
 		summarizeYear,
 		yearTakeHome
 	} from '#lib/worklog.js';
+	import { keepReloadScroll } from '#lib/reload-scroll.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
+	import { onMount } from 'svelte';
 	import MonthPicker from '#lib/components/MonthPicker.svelte';
 	import { ChevronLeft, ChevronRight } from '@lucide/svelte';
 	import MonthCharts from './MonthCharts.svelte';
@@ -26,6 +28,13 @@
 
 	let { store }: { store: WorkLogStore } = $props();
 	const navId = $props.id();
+
+	// The skeleton shown while the log is read is shorter than the page.
+	onMount(() => {
+		const scroll = keepReloadScroll();
+		scroll.restore();
+		return scroll.stop;
+	});
 
 	const today = toIsoDate(new Date());
 	const thisYear = Number(today.slice(0, 4));

@@ -18,6 +18,7 @@
 	} from '#lib/worklog.js';
 	import { CircleAlert, CircleCheck, GitPullRequest, TriangleAlert } from '@lucide/svelte';
 	import type { Settings } from '#lib/settings.js';
+	import { keepReloadScroll } from '#lib/reload-scroll.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import { onMount, tick, untrack } from 'svelte';
 	import { today as currentDay } from './today.js';
@@ -102,37 +103,17 @@
 	 */
 	let drawnDays = $state(3);
 
-	// SvelteKit puts the scroll back on a reload before the log arrives from IndexedDB, while the
-	// shorter skeleton is showing, so the page can't reach it. Keep it as the page unloads and put it
-	// back once the whole month is drawn. Read once, so later visits in the same tab start at the top.
-	const SCROLL_KEY = 'worklog:scroll';
-
 	onMount(() => {
-		const saved = sessionStorage.getItem(SCROLL_KEY);
-		sessionStorage.removeItem(SCROLL_KEY);
-		const [navigation] = performance.getEntriesByType(
-			'navigation'
-		) as PerformanceNavigationTiming[];
-
+		const scroll = keepReloadScroll();
+		// The scroll kept over a reload goes back once the whole month is drawn.
 		const frame = requestAnimationFrame(async () => {
 			drawnDays = Infinity;
 			await tick();
-			if (saved && navigation?.type !== 'navigate') {
-				const { href, x, y } = JSON.parse(saved);
-				if (href === location.href) scrollTo(x, y);
-			}
+			scroll.restore();
 		});
-
-		function save() {
-			sessionStorage.setItem(
-				SCROLL_KEY,
-				JSON.stringify({ href: location.href, x: scrollX, y: scrollY })
-			);
-		}
-		addEventListener('pagehide', save);
 		return () => {
 			cancelAnimationFrame(frame);
-			removeEventListener('pagehide', save);
+			scroll.stop();
 		};
 	});
 </script>
