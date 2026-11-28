@@ -82,7 +82,7 @@
 	const monthSummary = $derived(summarizeMonth({ data: store.data, month, today }));
 	/** Whether the month has a take-home card to sit beside its pace. */
 	const hasTakeHome = $derived(
-		monthProjection({ data: store.data, summary: monthSummary }) !== undefined
+		monthProjection({ data: store.data, summary: monthSummary, today }) !== undefined
 	);
 
 	const summary = $derived(summarizeYear({ data: store.data, year, today }));
@@ -227,7 +227,7 @@
 				class={['grid grid-cols-1 gap-4 md:gap-6', hasTakeHome && '@4xl/main:grid-cols-[3fr_2fr]']}
 			>
 				<MonthCharts chart="pace" summary={monthSummary} clients={store.data.clients} {today} />
-				<TakeHome data={store.data} summary={monthSummary} />
+				<TakeHome data={store.data} summary={monthSummary} {today} />
 			</div>
 			<MonthCharts chart="daily" summary={monthSummary} clients={store.data.clients} {today} />
 		</section>

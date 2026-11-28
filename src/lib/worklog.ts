@@ -1527,18 +1527,68 @@ export function takeHome({ gross, deductions }: { gross: number; deductions: Ded
 	return { lines, net: left };
 }
 
+/** A year's months from the first one logged, like "2026-10". */
+function countedMonths({ data, year }: { data: WorkLogData; year: number }): string[] {
+	const firstLogged = data.entries.reduce(
+		(first, entry) => (monthOf(entry.date) < first ? monthOf(entry.date) : first),
+		'9999-12'
+	);
+	return Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`).filter(
+		(month) => month >= firstLogged
+	);
+}
+
 /**
- * The month's earnings so far, and where they could end if the hours still expected are worked:
- * at each client's share of the hours (average), all at the lowest rate, or all at the highest.
- * In your home currency, or `undefined` when the clients' currencies cannot be added up.
+ * The hours a month fell short before today that the days off allowance covers, so they are days
+ * off taken rather than hours to make up. Hours short in the year's earlier months use the
+ * allowance up first.
  */
-export function monthProjection({
+function coveredShortfall({
 	data,
-	summary
+	summary,
+	today
 }: {
 	data: WorkLogData;
 	summary: MonthSummary;
-}): { earned: number; low: number; average: number; high: number; currency: string } | undefined {
+	today: string;
+}): number {
+	if (!data.allowance) return 0;
+	const short = summary.days
+		.filter((day) => day.date < today)
+		.reduce((sum, day) => sum + day.expected - day.logged, 0);
+	if (short <= 0) return 0;
+	const earlier = countedMonths({ data, year: Number(summary.month.slice(0, 4)) })
+		.filter((month) => month < summary.month)
+		.map((month) => summarizeMonth({ data, month, today }))
+		.reduce((sum, other) => sum + other.expectedSoFar - other.logged, 0);
+	const allowance = data.allowance.days * data.hoursPerDay;
+	return round2(Math.max(0, Math.min(short, allowance - Math.max(0, earlier))));
+}
+
+/**
+ * The month's earnings so far, and where they could end if the hours still expected are worked:
+ * at each client's share of the hours (average), all at the lowest rate, or all at the highest.
+ * Hours short that days off cover are not expected to be made up, and `remaining` is the hours
+ * that are. In your home currency, or `undefined` when the clients' currencies cannot be added up.
+ */
+export function monthProjection({
+	data,
+	summary,
+	today
+}: {
+	data: WorkLogData;
+	summary: MonthSummary;
+	today: string;
+}):
+	| {
+			earned: number;
+			low: number;
+			average: number;
+			high: number;
+			remaining: number;
+			currency: string;
+	  }
+	| undefined {
 	const earned = homeAmount({ data, amounts: summary.amounts });
 	if (!earned) return undefined;
 	const lastDay = monthDates(summary.month).at(-1)!;
@@ -1552,8 +1602,13 @@ export function monthProjection({
 			earned: earned.amount,
 			low: earned.amount,
 			average: earned.amount,
-			high: earned.amount
+			high: earned.amount,
+			remaining: 0
 		};
+	const remaining = Math.max(
+		0,
+		round2(summary.remaining - coveredShortfall({ data, summary, today }))
+	);
 	const rates = clients.map(({ rate }) => rate);
 	const mean = rates.reduce((sum, rate) => sum + rate, 0) / rates.length;
 	// Hours each client still has toward its share, then the rest at the clients' average rate.
@@ -1562,17 +1617,18 @@ export function monthProjection({
 	for (const { client, rate } of clients) {
 		const total = summary.clients.find((other) => other.client.id === client.id);
 		if (total?.target === undefined) continue;
-		const left = Math.min(Math.max(0, total.target - total.hours), summary.remaining - assigned);
+		const left = Math.min(Math.max(0, total.target - total.hours), remaining - assigned);
 		assigned += left;
 		byShare += left * rate;
 	}
-	const rest = Math.max(0, summary.remaining - assigned);
+	const rest = Math.max(0, remaining - assigned);
 	return {
 		currency: earned.currency,
 		earned: earned.amount,
-		low: round2(earned.amount + summary.remaining * Math.min(...rates)),
+		low: round2(earned.amount + remaining * Math.min(...rates)),
 		average: round2(earned.amount + byShare + rest * mean),
-		high: round2(earned.amount + summary.remaining * Math.max(...rates))
+		high: round2(earned.amount + remaining * Math.max(...rates)),
+		remaining
 	};
 }
 
@@ -1661,14 +1717,10 @@ export function summarizeYear({
 	year: number;
 	today: string;
 }): YearSummary {
-	const firstLogged = data.entries.reduce(
-		(first, entry) => (monthOf(entry.date) < first ? monthOf(entry.date) : first),
-		'9999-12'
-	);
 	const thisMonth = monthOf(today);
-	const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`)
-		.filter((month) => month >= firstLogged)
-		.map((month) => summarizeMonth({ data, month, today }));
+	const months = countedMonths({ data, year }).map((month) =>
+		summarizeMonth({ data, month, today })
+	);
 
 	let expected = 0;
 	let logged = 0;
@@ -1693,15 +1745,30 @@ export function summarizeYear({
 	}
 	const earned = homeAmount({ data, amounts });
 	if (earned) {
+		// A month gone by is what you earned in it; this month and later add the hours still expected,
+		// less the days off still to take, which no month can be given.
 		let projected = 0;
+		let ahead = 0;
+		let hours = 0;
+		let short = 0;
 		for (const summary of months) {
-			// A month gone by is what you earned in it; this month and later add the hours still expected.
-			const month =
-				summary.month < thisMonth
-					? homeAmount({ data, amounts: summary.amounts })?.amount
-					: monthProjection({ data, summary })?.average;
-			projected += month ?? 0;
+			if (summary.month < thisMonth) {
+				projected += homeAmount({ data, amounts: summary.amounts })?.amount ?? 0;
+				short += summary.expected - summary.logged;
+				continue;
+			}
+			const month = monthProjection({ data, summary, today });
+			if (!month) continue;
+			projected += month.earned;
+			ahead += month.average - month.earned;
+			hours += month.remaining;
+			short += summary.remaining - month.remaining;
 		}
+		const daysOff = Math.max(
+			0,
+			(data.allowance?.days ?? 0) * data.hoursPerDay - Math.max(0, short)
+		);
+		if (hours > 0) projected += (ahead * Math.max(0, hours - daysOff)) / hours;
 		earnings = {
 			currency: earned.currency,
 			earned: earned.amount,

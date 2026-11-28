@@ -11,9 +11,10 @@
 		type WorkLogData
 	} from '#lib/worklog.js';
 
-	let { data, summary }: { data: WorkLogData; summary: MonthSummary } = $props();
+	let { data, summary, today }: { data: WorkLogData; summary: MonthSummary; today: string } =
+		$props();
 
-	const projection = $derived(monthProjection({ data, summary }));
+	const projection = $derived(monthProjection({ data, summary, today }));
 	const deductions = $derived(completeDeductions(data.deductions));
 	const soFar = $derived(projection && takeHome({ gross: projection.earned, deductions }));
 	const projected = $derived(projection && takeHome({ gross: projection.average, deductions }));

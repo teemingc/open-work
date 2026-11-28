@@ -1000,7 +1000,8 @@ describe('projections', () => {
 	const month = (log: WorkLogData) =>
 		monthProjection({
 			data: log,
-			summary: summarizeMonth({ data: log, month: '2026-10', today: '2026-10-12' })
+			summary: summarizeMonth({ data: log, month: '2026-10', today: '2026-10-12' }),
+			today: '2026-10-12'
 		});
 
 	it('ranges the hours still expected from the lowest rate to the highest', () => {
@@ -1010,8 +1011,19 @@ describe('projections', () => {
 			earned: 1936,
 			low: 28176,
 			average: 28832,
-			high: 29488
+			high: 29488,
+			remaining: 164
 		});
+	});
+
+	it('leaves out the hours short that days off cover, and the days off still to take', () => {
+		const allowed = { ...data, allowance: { days: 10, holidays: false } };
+		// The 7 working days before the 12th expected 56 hours and logged 9: 47 short, all days off.
+		expect(month(allowed)).toMatchObject({ remaining: 117, low: 20656 });
+		// The 33 hours of days off left come off the 117, 168 and 184 hours ahead, at 164 MYR an hour.
+		expect(
+			summarizeYear({ data: allowed, year: 2026, today: '2026-10-12' }).earnings?.projected
+		).toBe(73440);
 	});
 
 	it('averages at each client’s share of the hours', () => {
