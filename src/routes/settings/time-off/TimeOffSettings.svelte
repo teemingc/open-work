@@ -60,7 +60,7 @@
 
 <SettingsSection
 	title="Days off a year"
-	description="A month you work less than expected uses some of them up."
+	description="A month you work less than expected uses some of them up, and the year's pace is only behind once they run out."
 >
 	<div class="flex flex-wrap items-end gap-4">
 		<div class="w-32 space-y-1.5">
@@ -92,7 +92,9 @@
 				onCheckedChange={(holidays) =>
 					store.data.allowance && store.setAllowance({ ...store.data.allowance, holidays })}
 			/>
-			<Label for="allowance-holidays" class="leading-5 font-normal">Count public holidays</Label>
+			<Label for="allowance-holidays" class="leading-5 font-normal">
+				Count public holidays as days off too
+			</Label>
 		</div>
 	</div>
 </SettingsSection>

@@ -316,7 +316,7 @@ export type Deduction = v.InferOutput<typeof DeductionSchema>;
 const AllowanceSchema = v.object({
 	/** Days off a year. */
 	days: v.pipe(v.number(), v.minValue(0)),
-	/** Whether public holidays come out of the allowance too. */
+	/** Whether public holidays count as days off too, on top of these. */
 	holidays: v.optional(v.boolean(), false)
 });
 
@@ -1726,9 +1726,10 @@ export function summarizeYear({
 }
 
 /**
- * Your days off this year against your allowance: hours short of what you expected, as days at
- * your hours a day, from the month you first logged, and public holidays if you count them. Hours
- * over give days back. This month counts only up to today.
+ * Your days off this year: the allowance, less the hours short of what you expected as days at
+ * your hours a day, from the month you first logged. Hours over give days back. This month counts
+ * only up to today. Public holidays, if you count them, come on top: all of the year's in the
+ * total, and those from today on in what is left.
  */
 export function daysOffBudget({
 	data,
@@ -1740,19 +1741,23 @@ export function daysOffBudget({
 	today: string;
 }):
 	| {
-			allowance: number;
+			/** The allowance and the public holidays counted. */
+			total: number;
 			holidays: number;
+			holidaysLeft: number;
 			short: number;
-			used: number;
 			left: number;
+			/** Hours short that the allowance covers, so the pace need not count them as behind. */
+			coveredHours: number;
 	  }
 	| undefined {
 	const allowance = data.allowance;
 	if (!allowance) return undefined;
 	const prefix = String(year);
 	const holidays = allowance.holidays
-		? [...observedHolidays(data).dates.keys()].filter((date) => date.startsWith(prefix)).length
-		: 0;
+		? [...observedHolidays(data).dates.keys()].filter((date) => date.startsWith(prefix))
+		: [];
+	const holidaysLeft = holidays.filter((date) => date >= today).length;
 	const lastMonth = today.startsWith(prefix) ? Number(today.slice(5, 7)) : 12;
 	const firstMonth = data.entries.reduce(
 		(first, entry) => (monthOf(entry.date) < first ? monthOf(entry.date) : first),
@@ -1766,12 +1771,12 @@ export function daysOffBudget({
 		shortHours += summary.expectedSoFar - summary.logged;
 	}
 	const short = data.hoursPerDay > 0 ? Math.round((shortHours / data.hoursPerDay) * 10) / 10 : 0;
-	const used = Math.round((holidays + short) * 10) / 10;
 	return {
-		allowance: allowance.days,
-		holidays,
+		total: allowance.days + holidays.length,
+		holidays: holidays.length,
+		holidaysLeft,
 		short,
-		used,
-		left: Math.round((allowance.days - used) * 10) / 10
+		left: Math.round((allowance.days - short + holidaysLeft) * 10) / 10,
+		coveredHours: round2(Math.min(Math.max(shortHours, 0), allowance.days * data.hoursPerDay))
 	};
 }

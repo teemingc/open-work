@@ -96,23 +96,40 @@
 			})
 	);
 
+	/**
+	 * The year's pace with the hours short that the days off allowance covers forgiven, so time off
+	 * within the allowance does not read as behind.
+	 */
+	const pace = $derived(
+		summary.pace < 0 ? Math.min(0, summary.pace + (daysOff?.coveredHours ?? 0)) : summary.pace
+	);
+
 	const stats = $derived.by(() => {
+		const daysTaken = (pace - summary.pace) / store.data.hoursPerDay;
 		const stats: Stat[] = [
 			{
 				label: year === thisYear ? 'Pace' : 'Balance',
-				value: `${summary.pace > 0 ? '+' : ''}${formatHours(summary.pace)} h`,
-				tone: summary.pace >= 0 ? 'text-status-paid' : 'text-destructive',
-				note: `${formatHours(summary.logged)} h logged of ${formatHours(summary.expectedSoFar)} h expected`,
+				value: `${pace > 0 ? '+' : ''}${formatHours(pace)} h`,
+				tone: pace >= 0 ? 'text-status-paid' : 'text-destructive',
+				note:
+					`${formatHours(summary.logged)} h logged of ${formatHours(summary.expectedSoFar)} h expected` +
+					(daysTaken > 0
+						? `, less ${formatHours(daysTaken)} ${daysTaken === 1 ? 'day' : 'days'} off`
+						: ''),
 				badge: {
 					text:
 						year === thisYear
-							? summary.pace >= 0
+							? pace > 0
 								? 'Ahead'
-								: 'Behind'
-							: summary.pace >= 0
+								: pace < 0
+									? 'Behind'
+									: 'On pace'
+							: pace > 0
 								? 'Over'
-								: 'Under',
-					icon: summary.pace >= 0 ? 'up' : 'down'
+								: pace < 0
+									? 'Under'
+									: 'On target',
+					icon: pace > 0 ? 'up' : pace < 0 ? 'down' : undefined
 				}
 			}
 		];
@@ -138,7 +155,11 @@
 				label: 'Days off left',
 				value: formatHours(daysOff.left),
 				tone: daysOff.left < 0 ? 'text-destructive' : undefined,
-				note: `Of ${formatHours(daysOff.allowance)} for the year`
+				note:
+					`Of ${formatHours(daysOff.total)} for the year` +
+					(daysOff.holidays > 0
+						? `, with ${daysOff.holidays} public ${daysOff.holidays === 1 ? 'holiday' : 'holidays'}`
+						: '')
 			});
 		}
 		return stats;

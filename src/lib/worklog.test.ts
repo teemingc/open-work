@@ -1077,26 +1077,32 @@ describe('year', () => {
 });
 
 describe('days-off budget', () => {
-	it('takes counted holidays and hours short off the allowance', () => {
+	it('takes hours short off the allowance and adds counted holidays on top', () => {
 		const data: WorkLogData = {
 			...emptyWorkLog(),
 			clients: [svelte],
 			allowance: { days: 14, holidays: true },
-			holidays: [{ date: '2026-12-25', name: 'Christmas' }],
+			holidays: [
+				{ date: '2026-08-31', name: 'Merdeka' },
+				{ date: '2026-12-25', name: 'Christmas' }
+			],
 			entries: [entry({ date: '2026-10-01', hours: 12 })]
 		};
-		// By the 12th, October expected 64 hours: 52 short is 6.5 days.
+		// By the 12th, October expected 64 hours: 52 short is 6.5 days, and Christmas is still to come.
 		expect(daysOffBudget({ data, year: 2026, today: '2026-10-12' })).toEqual({
-			allowance: 14,
-			holidays: 1,
+			total: 16,
+			holidays: 2,
+			holidaysLeft: 1,
 			short: 6.5,
-			used: 7.5,
-			left: 6.5
+			left: 8.5,
+			coveredHours: 52
 		});
-		// November logged nothing, so all 21 of its days count, but nothing before October does.
+		// November logged nothing, so all 21 of its days count, but nothing before October does. The
+		// allowance covers 14 days of the 41.5 short.
 		expect(daysOffBudget({ data, year: 2026, today: '2026-11-30' })).toMatchObject({
 			short: 41.5,
-			used: 42.5
+			left: -26.5,
+			coveredHours: 112
 		});
 		expect(
 			daysOffBudget({ data: { ...data, allowance: undefined }, year: 2026, today: '2026-10-12' })
