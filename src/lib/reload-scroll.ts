@@ -1,7 +1,7 @@
 const KEY = 'reload:scroll';
 /** How long after the installed app was left that opening it again counts as coming back to it. */
 const RESUME_MS = 30 * 60 * 1000;
-/** How long the page is given to reach its full height. */
+/** How long the page is given to reach its full height, or to settle on the way back. */
 const SETTLE_MS = 3000;
 
 interface Saved {
@@ -31,7 +31,8 @@ function read(storage: Storage): Saved | undefined {
  * drops a home-screen app left in the background without unloading it, and loads it again on the
  * way back: as a reload, or from the start, which only localStorage outlives. Call from `onMount`,
  * then `restore` once the page is drawn. Only the page that was loaded gets its scroll back, and
- * only once, so later visits in the same tab start at the top.
+ * only once, so later visits in the same tab start at the top. A page hidden and shown again
+ * without a load in between is also put back where it was.
  */
 export function keepReloadScroll(): { restore(): void; stop(): void } {
 	const installed = matchMedia('(display-mode: standalone)').matches;
@@ -59,37 +60,61 @@ export function keepReloadScroll(): { restore(): void; stop(): void } {
 			// Storage blocked or full: the page opens at the top.
 		}
 	}
-	function saveWhenHidden() {
-		if (document.visibilityState === 'hidden') save();
+	let settled = () => {};
+
+	/**
+	 * Puts the scroll back, and again each time the page grows or something other than you moves
+	 * it, until you take over. Charts and the rest of a long list are drawn after the page, and
+	 * Safari does not hold the scroll in place as the page grows.
+	 */
+	function hold({ x, y }: { x: number; y: number }) {
+		settled();
+		const put = () => {
+			if (scrollX !== x || scrollY !== y) scrollTo(x, y);
+		};
+		put();
+		const observer = new ResizeObserver(put);
+		observer.observe(document.body);
+		const taken = ['touchstart', 'wheel', 'keydown', 'pointerdown'] as const;
+		const timer = setTimeout(() => settled(), SETTLE_MS);
+		settled = () => {
+			observer.disconnect();
+			clearTimeout(timer);
+			removeEventListener('scroll', put);
+			for (const type of taken) removeEventListener(type, settled);
+			settled = () => {};
+		};
+		addEventListener('scroll', put, { passive: true });
+		for (const type of taken) addEventListener(type, settled, { passive: true });
+	}
+
+	/** Where the page was when it was hidden, while it stays loaded. */
+	let hidden: { x: number; y: number } | undefined;
+
+	// An iPhone brings the installed app back from another app without loading it again, but with
+	// the page some 100 to 200px higher, so it is put back where it was left.
+	function onVisibility() {
+		if (document.visibilityState === 'hidden') {
+			settled();
+			hidden = { x: scrollX, y: scrollY };
+			save();
+		} else if (hidden) {
+			hold(hidden);
+		}
 	}
 	addEventListener('pagehide', save);
-	document.addEventListener('visibilitychange', saveWhenHidden);
-
-	let settled = () => {};
+	document.addEventListener('visibilitychange', onVisibility);
 
 	return {
 		restore() {
 			if (!saved) return;
-			const { x, y } = saved;
+			hold(saved);
 			saved = undefined;
-			scrollTo(x, y);
-			// Charts and the rest of a long list are still to be drawn, and Safari does not hold the
-			// scroll in place as the page grows, so put it back each time until you take over.
-			const observer = new ResizeObserver(() => scrollTo(x, y));
-			observer.observe(document.body);
-			const taken = ['touchstart', 'wheel', 'keydown', 'pointerdown'] as const;
-			const timer = setTimeout(() => settled(), SETTLE_MS);
-			settled = () => {
-				observer.disconnect();
-				clearTimeout(timer);
-				for (const type of taken) removeEventListener(type, settled);
-			};
-			for (const type of taken) addEventListener(type, settled, { passive: true });
 		},
 		stop() {
 			settled();
 			removeEventListener('pagehide', save);
-			document.removeEventListener('visibilitychange', saveWhenHidden);
+			document.removeEventListener('visibilitychange', onVisibility);
 		}
 	};
 }
