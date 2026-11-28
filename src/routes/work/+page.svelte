@@ -1,7 +1,36 @@
+<script lang="ts" module>
+	/** Whether this page has opened since the app loaded: only the first time can be the app starting. */
+	let opened = false;
+</script>
+
 <script lang="ts">
 	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
 	import { openWorkLogWithSettings } from '#lib/open-work-log.js';
 	import Year from './Year.svelte';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { onMount } from 'svelte';
+
+	// The installed app opens on the work log. iOS keeps the address an app was added to the home
+	// screen with, so one added while this page was the first to open still starts here, and is
+	// sent on: only as the app starts, which comes from no other page, not on a reload or a link.
+	onMount(() => {
+		const [navigation] = performance.getEntriesByType(
+			'navigation'
+		) as PerformanceNavigationTiming[];
+		const first = !opened;
+		opened = true;
+		if (
+			first &&
+			matchMedia('(display-mode: standalone)').matches &&
+			navigation?.type === 'navigate' &&
+			navigation.name === location.href &&
+			!document.referrer &&
+			!location.search
+		) {
+			void goto(resolve('/worklog'), { replaceState: true });
+		}
+	});
 </script>
 
 <svelte:head>
