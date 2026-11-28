@@ -105,17 +105,12 @@
 	);
 
 	const stats = $derived.by(() => {
-		const daysTaken = (pace - summary.pace) / store.data.hoursPerDay;
 		const stats: Stat[] = [
 			{
 				label: year === thisYear ? 'Pace' : 'Balance',
 				value: `${pace > 0 ? '+' : ''}${formatHours(pace)} h`,
 				tone: pace >= 0 ? 'text-status-paid' : 'text-destructive',
-				note:
-					`${formatHours(summary.logged)} h logged of ${formatHours(summary.expectedSoFar)} h expected` +
-					(daysTaken > 0
-						? `, less ${formatHours(daysTaken)} ${daysTaken === 1 ? 'day' : 'days'} off`
-						: ''),
+				note: `${formatHours(summary.logged)} h logged of ${formatHours(summary.expectedSoFar)} h expected`,
 				badge: {
 					text:
 						year === thisYear
@@ -158,7 +153,7 @@
 				note:
 					`Of ${formatHours(daysOff.total)} for the year` +
 					(daysOff.holidays > 0
-						? `, with ${daysOff.holidays} public ${daysOff.holidays === 1 ? 'holiday' : 'holidays'}`
+						? `, ${daysOff.holidaysLeft} of ${daysOff.holidays} public ${daysOff.holidays === 1 ? 'holiday' : 'holidays'} left`
 						: '')
 			});
 		}
