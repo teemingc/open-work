@@ -1539,9 +1539,29 @@ function countedMonths({ data, year }: { data: WorkLogData; year: number }): str
 }
 
 /**
+ * The hours of the days off allowance still free for a month: what the hours short in the year's
+ * earlier months have not used up.
+ */
+function allowanceLeft({
+	data,
+	month,
+	today
+}: {
+	data: WorkLogData;
+	month: string;
+	today: string;
+}): number {
+	if (!data.allowance) return 0;
+	const earlier = countedMonths({ data, year: Number(month.slice(0, 4)) })
+		.filter((other) => other < month)
+		.map((other) => summarizeMonth({ data, month: other, today }))
+		.reduce((sum, other) => sum + other.expectedSoFar - other.logged, 0);
+	return Math.max(0, data.allowance.days * data.hoursPerDay - Math.max(0, earlier));
+}
+
+/**
  * The hours a month fell short before today that the days off allowance covers, so they are days
- * off taken rather than hours to make up. Hours short in the year's earlier months use the
- * allowance up first.
+ * off taken rather than hours to make up.
  */
 function coveredShortfall({
 	data,
@@ -1552,17 +1572,32 @@ function coveredShortfall({
 	summary: MonthSummary;
 	today: string;
 }): number {
-	if (!data.allowance) return 0;
 	const short = summary.days
 		.filter((day) => day.date < today)
 		.reduce((sum, day) => sum + day.expected - day.logged, 0);
 	if (short <= 0) return 0;
-	const earlier = countedMonths({ data, year: Number(summary.month.slice(0, 4)) })
-		.filter((month) => month < summary.month)
-		.map((month) => summarizeMonth({ data, month, today }))
-		.reduce((sum, other) => sum + other.expectedSoFar - other.logged, 0);
-	const allowance = data.allowance.days * data.hoursPerDay;
-	return round2(Math.max(0, Math.min(short, allowance - Math.max(0, earlier))));
+	return round2(Math.min(short, allowanceLeft({ data, month: summary.month, today })));
+}
+
+/**
+ * A month's pace with the hours short that the days off allowance covers taken as days off: the
+ * pace is behind only by what the allowance does not cover.
+ */
+export function monthPace({
+	data,
+	summary,
+	today
+}: {
+	data: WorkLogData;
+	summary: MonthSummary;
+	today: string;
+}): { pace: number; daysOff: number } {
+	if (summary.pace >= 0 || data.hoursPerDay <= 0) return { pace: summary.pace, daysOff: 0 };
+	const covered = Math.min(-summary.pace, allowanceLeft({ data, month: summary.month, today }));
+	return {
+		pace: round2(summary.pace + covered),
+		daysOff: Math.round((covered / data.hoursPerDay) * 10) / 10
+	};
 }
 
 /**

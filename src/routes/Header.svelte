@@ -7,10 +7,10 @@
 	import logo from '#lib/assets/favicon.svg';
 	import {
 		Briefcase,
+		CalendarRange,
 		ChartLine,
 		Clock,
 		FileText,
-		LayoutDashboard,
 		Settings,
 		Trophy
 	} from '@lucide/svelte';
@@ -211,7 +211,7 @@
 						<span class="@max-[32rem]/header:sr-only">Leaderboard</span>
 					</a>
 					<a
-						href={resolve('/work')}
+						href={resolve('/worklog')}
 						aria-current={inWork ? 'true' : undefined}
 						class={showWorkRow ? WORK_TAB : LINK}
 					>
@@ -264,13 +264,13 @@
 					data-pill
 					aria-hidden="true"
 				></span>
-				<a href={resolve('/work')} aria-current={current('/work')} class={SUB_LINK}>
-					<LayoutDashboard size={14} />
-					<span class={LABEL}>Overview</span>
-				</a>
 				<a href={resolve('/worklog')} aria-current={current('/worklog')} class={SUB_LINK}>
 					<Clock size={14} />
 					<span class={LABEL}>Work log</span>
+				</a>
+				<a href={resolve('/work')} aria-current={current('/work')} class={SUB_LINK}>
+					<CalendarRange size={14} />
+					<span class={LABEL}>Year</span>
 				</a>
 				<a href={resolve('/invoices')} aria-current={current('/invoices')} class={SUB_LINK}>
 					<FileText size={14} />

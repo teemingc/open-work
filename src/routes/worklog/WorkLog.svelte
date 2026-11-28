@@ -12,6 +12,7 @@
 		activeClients,
 		monthDates,
 		monthOf,
+		monthProjection,
 		summarizeMonth,
 		taskNames,
 		unloggedItems
@@ -23,6 +24,9 @@
 	import { onMount, tick, untrack } from 'svelte';
 	import { today as currentDay } from './today.js';
 	import DayList from './DayList.svelte';
+	import MonthCharts from './MonthCharts.svelte';
+	import MonthStats from './MonthStats.svelte';
+	import TakeHome from './TakeHome.svelte';
 	import EntryForm from '#lib/components/EntryForm.svelte';
 	import MonthPicker from '#lib/components/MonthPicker.svelte';
 
@@ -40,6 +44,8 @@
 	});
 	const summary = $derived(summarizeMonth({ data: store.data, month, today }));
 	const current = $derived(month === monthOf(today));
+	/** Whether the month has a take-home card to sit beside its pace. */
+	const hasTakeHome = $derived(monthProjection({ data: store.data, summary, today }) !== undefined);
 	const monthName = $derived(
 		new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(
 			new Date(`${month}-01T00:00:00`)
@@ -164,7 +170,8 @@
 	<!--
 		Logging comes first, so the form is in reach as the page opens, with what you log showing up just
 		below it. Where there is room the form takes a column of its own beside the days and stays in
-		view while they scroll. The month's figures and charts are on the overview.
+		view while they scroll. The month's figures come after the form on a phone, so its pace is one
+		scroll away, and lead the page where there is room for them above both columns.
 	-->
 	<div
 		class="grid grid-cols-1 items-start gap-4 md:gap-6 @4xl/main:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] @5xl/main:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]"
@@ -198,6 +205,11 @@
 				</Card.Content>
 			</Card.Root>
 		{/if}
+		{#if summary.logged > 0 || !current}
+			<div class="@4xl/main:order-first @4xl/main:col-span-2">
+				<MonthStats {summary} data={store.data} {today} {current} />
+			</div>
+		{/if}
 		<DayList
 			{store}
 			{summary}
@@ -229,4 +241,18 @@
 			{/snippet}
 		</DayList>
 	</div>
+
+	<!--
+		Pace and take-home share a row, so their cards end level. The hours each day take the full
+		width, which their thirty bars need, with each client's share under the chart.
+	-->
+	{#if summary.logged > 0}
+		<div
+			class={['grid grid-cols-1 gap-4 md:gap-6', hasTakeHome && '@4xl/main:grid-cols-[3fr_2fr]']}
+		>
+			<MonthCharts chart="pace" {summary} clients={store.data.clients} {today} />
+			<TakeHome data={store.data} {summary} {today} />
+		</div>
+		<MonthCharts chart="daily" {summary} clients={store.data.clients} {today} />
+	{/if}
 </div>

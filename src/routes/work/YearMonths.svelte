@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { clientColor } from '#lib/client-colors.js';
 	import ClientName from '#lib/components/ClientName.svelte';
 	import * as Card from '#lib/components/ui/card/index.js';
-	import ClientBars from './ClientBars.svelte';
+	import ClientBars from '#lib/components/ClientBars.svelte';
 	import { formatHours, formatMoney, parseIsoDate } from '#lib/format.js';
 	import {
 		homeAmount,
@@ -56,6 +57,8 @@
 				?.clients.find((total) => total.client.id === clientId)?.hours ?? 0
 		);
 	}
+
+	const clientIndex = $derived(new Map(data.clients.map((client, index) => [client.id, index])));
 
 	/** Whole units, as twelve figures side by side have no room for cents. */
 	function wholeMoney({ amount, currency }: { amount: number; currency: string }): string {
@@ -166,10 +169,56 @@
 			</table>
 		</div>
 	</Card.Content>
-	<Card.Content class="@4xl/card:hidden">
-		<!-- Stacks where the card is too narrow for its columns, wherever the card sits. -->
+	<!--
+		A phone gets each month as two short lines rather than a row of columns: its hours and what it
+		earned, then each client's hours beside its colour and the month's balance. Stacked as label
+		and figure, the two sat at opposite edges of the card with nothing between them.
+	-->
+	<Card.Content class="@md/card:hidden">
+		<ul class="ledger-rows -mx-3 text-sm tabular-nums">
+			{#each rows as row (row.month)}
+				<li class="grid grid-cols-[2.75rem_1fr_auto] items-baseline gap-x-3 gap-y-1 px-3 py-2.5">
+					<a
+						href="{resolve('/worklog')}?month={row.month}"
+						class="relative font-medium after:absolute after:-inset-2 hover:underline"
+					>
+						{shortMonth.format(parseIsoDate(`${row.month}-01`))}
+					</a>
+					<span>{formatHours(row.logged)} h</span>
+					<span class="text-right">
+						{row.earned ? formatMoney(row.earned.amount, row.earned.currency) : ''}
+					</span>
+					<span class="col-start-2 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
+						{#if totals.length > 1}
+							{#each totals as { client } (client.id)}
+								{const hours = $derived(hoursFor(row.month, client.id))}
+								{#if hours}
+									<span class="inline-flex items-center gap-1.5">
+										<span
+											class="size-2 shrink-0 rounded-xs bg-(--client)"
+											style="--client: {clientColor(client, clientIndex.get(client.id) ?? 0)}"
+											aria-hidden="true"
+										></span>
+										<span class="sr-only">{client.name}</span>
+										{formatHours(hours)}
+									</span>
+								{/if}
+							{/each}
+						{/if}
+					</span>
+					<span
+						class={['text-right', row.difference >= 0 ? 'text-status-paid' : 'text-destructive']}
+					>
+						<span class="sr-only">Balance</span>
+						{row.difference > 0 ? '+' : ''}{formatHours(row.difference)} h
+					</span>
+				</li>
+			{/each}
+		</ul>
+	</Card.Content>
+	<Card.Content class="@max-md/card:hidden @4xl/card:hidden">
 		<div class="-mx-3 overflow-x-auto">
-			<table class="ledger text-sm @max-md/card:ledger-stacked">
+			<table class="ledger text-sm">
 				<caption class="sr-only">Hours and earnings by month</caption>
 				<thead class="text-xs">
 					<tr>
@@ -197,7 +246,6 @@
 							{#if totals.length > 1}
 								{#each totals as { client } (client.id)}
 									{const hours = $derived(hoursFor(row.month, client.id))}
-									<!-- Hidden on a mid-width card, and shown under its name once the table stacks. -->
 									<td
 										data-label={client.name}
 										class="px-3 py-2 text-right text-muted-foreground @max-xl/card:hidden"

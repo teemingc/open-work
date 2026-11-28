@@ -30,7 +30,7 @@
 
 	/** Where you came from, named as the header names it. */
 	const PAGES = [
-		{ path: '/work', label: 'Overview' },
+		{ path: '/work', label: 'Year' },
 		{ path: '/worklog', label: 'Work log' },
 		{ path: '/invoices', label: 'Invoices' },
 		{ path: '/contributors', label: 'Leaderboard' },

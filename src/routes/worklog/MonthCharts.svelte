@@ -7,7 +7,7 @@
 	import type { Client, MonthSummary } from '#lib/worklog.js';
 	import { scaleBand, scaleTime } from 'd3-scale';
 	import { clientColor } from '#lib/client-colors.js';
-	import ClientBars from './ClientBars.svelte';
+	import ClientBars from '#lib/components/ClientBars.svelte';
 
 	let {
 		chart,

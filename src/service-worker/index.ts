@@ -10,7 +10,7 @@ const ASSETS = new Set([...immutable, ...assets].map((asset) => resolve(asset.pa
  * The work log lives in IndexedDB, so these pages work offline. The server sends them as skeletons,
  * so they are fetched without cookies: the copy kept holds nothing of your account.
  */
-const OFFLINE_PAGES = ['/work', '/worklog'];
+const OFFLINE_PAGES = ['/worklog', '/work'];
 
 sw.addEventListener('install', (event) => {
 	event.waitUntil(
@@ -35,7 +35,7 @@ sw.addEventListener('activate', (event) => {
 	);
 });
 
-/** A kept page, or the overview for any other page, since only the work log works offline. */
+/** A kept page, or the work log for any other page, since only the work log works offline. */
 async function offlinePage(pathname: string): Promise<Response> {
 	const cache = await caches.open(CACHE);
 	if (OFFLINE_PAGES.includes(pathname)) {

@@ -4,23 +4,11 @@
 	import StatStrip, { type Stat } from '#lib/components/StatStrip.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { formatHours, formatMoney, toIsoDate } from '#lib/format.js';
-	import {
-		completeDeductions,
-		daysOffBudget,
-		monthOf,
-		monthProjection,
-		summarizeMonth,
-		summarizeYear,
-		yearTakeHome
-	} from '#lib/worklog.js';
+	import { completeDeductions, daysOffBudget, summarizeYear, yearTakeHome } from '#lib/worklog.js';
 	import { keepReloadScroll } from '#lib/reload-scroll.js';
 	import type { WorkLogStore } from '#lib/worklog-store.svelte.js';
 	import { onMount } from 'svelte';
-	import MonthPicker from '#lib/components/MonthPicker.svelte';
 	import { ChevronLeft, ChevronRight } from '@lucide/svelte';
-	import MonthCharts from './MonthCharts.svelte';
-	import MonthStats from './MonthStats.svelte';
-	import TakeHome from './TakeHome.svelte';
 	import YearEmpty from './YearEmpty.svelte';
 	import YearHours from './YearHours.svelte';
 	import YearMonths from './YearMonths.svelte';
@@ -38,13 +26,7 @@
 
 	const today = toIsoDate(new Date());
 	const thisYear = Number(today.slice(0, 4));
-	/** A month asked for in the address, which also sets the year. */
-	const requestedMonth = $derived.by(() => {
-		const requested = page.url.searchParams.get('month');
-		return requested && /^\d{4}-(0[1-9]|1[0-2])$/.test(requested) ? requested : undefined;
-	});
 	const year = $derived.by(() => {
-		if (requestedMonth) return Number(requestedMonth.slice(0, 4));
 		const requested = page.url.searchParams.get('year');
 		return requested && /^\d{4}$/.test(requested) ? Number(requested) : thisYear;
 	});
@@ -61,30 +43,6 @@
 	const previousYear = $derived(years.findLast((other) => other < year));
 	const nextYear = $derived(years.find((other) => other > year));
 
-	const thisMonth = monthOf(today);
-	/**
-	 * The month on screen: the one asked for, else this one in this year. A past year opens on its
-	 * last month with time logged, as that is where the year ended.
-	 */
-	const month = $derived.by(() => {
-		if (requestedMonth) return requestedMonth;
-		if (year === thisYear) return thisMonth;
-		const logged = store.data.entries
-			.map((entry) => monthOf(entry.date))
-			.filter((other) => other.startsWith(`${year}-`));
-		return logged.length > 0 ? logged.reduce((a, b) => (a > b ? a : b)) : `${year}-12`;
-	});
-	const monthDate = $derived(new Date(`${month}-01T00:00:00`));
-	const monthName = $derived(new Intl.DateTimeFormat('en', { month: 'long' }).format(monthDate));
-	const monthLabel = $derived(
-		new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(monthDate)
-	);
-	const monthSummary = $derived(summarizeMonth({ data: store.data, month, today }));
-	/** Whether the month has a take-home card to sit beside its pace. */
-	const hasTakeHome = $derived(
-		monthProjection({ data: store.data, summary: monthSummary, today }) !== undefined
-	);
-
 	const summary = $derived(summarizeYear({ data: store.data, year, today }));
 	const daysOff = $derived(daysOffBudget({ data: store.data, year, today }));
 	const projected = $derived(
@@ -97,19 +55,28 @@
 	);
 
 	/**
-	 * The year's pace with the hours short that the days off allowance covers forgiven, so time off
-	 * within the allowance does not read as behind.
+	 * The year's pace with the hours short that the days off allowance covers taken as days off, so
+	 * it is behind only once the allowance runs out.
 	 */
 	const pace = $derived(
 		summary.pace < 0 ? Math.min(0, summary.pace + (daysOff?.coveredHours ?? 0)) : summary.pace
+	);
+	/** The days off taken that stand in for a pace the allowance covers in full. */
+	const daysTaken = $derived(
+		pace === 0 && summary.pace < 0 && store.data.hoursPerDay > 0
+			? Math.round((-summary.pace / store.data.hoursPerDay) * 10) / 10
+			: 0
 	);
 
 	const stats = $derived.by(() => {
 		const stats: Stat[] = [
 			{
 				label: year === thisYear ? 'Pace' : 'Balance',
-				value: `${pace > 0 ? '+' : ''}${formatHours(pace)} h`,
-				tone: pace >= 0 ? 'text-status-paid' : 'text-destructive',
+				value:
+					daysTaken > 0
+						? `${formatHours(daysTaken)} ${daysTaken === 1 ? 'day' : 'days'} off`
+						: `${pace > 0 ? '+' : ''}${formatHours(pace)} h`,
+				tone: daysTaken > 0 ? undefined : pace >= 0 ? 'text-status-paid' : 'text-destructive',
 				note: `${formatHours(summary.logged)} h logged of ${formatHours(summary.expectedSoFar)} h expected`,
 				badge: {
 					text:
@@ -199,77 +166,28 @@
 {/snippet}
 
 <div class="flex flex-col gap-4 md:gap-6">
-	<!--
-		The month control sits at the right edge of the title's row and fills a row of its own where
-		the two do not fit, as on the work log, and is the only place the month is named. The year's
-		own controls go with the year's section below.
-	-->
-	<div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-		<h1 class="grow-9999">Overview</h1>
-		<div class="flex grow">
-			<MonthPicker path="/work" {month} current={thisMonth} label={monthLabel} />
-		</div>
+	<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+		<h1>{year === thisYear ? `${year} so far` : year}</h1>
+		{@render yearNav()}
 	</div>
 
-	<!--
-		The month leads, as it is the one still to act on, and the year follows as the longer view. A
-		month asked for keeps its section even in a year with nothing logged.
-	-->
-	{#if summary.logged > 0 || requestedMonth}
-		<section aria-labelledby="{navId}-month" class="flex flex-col gap-4 pb-2 md:gap-6 md:pb-4">
-			<h2 id="{navId}-month" class="sr-only">{monthName}</h2>
-			<MonthStats summary={monthSummary} data={store.data} current={month === thisMonth} />
-			<!--
-				Pace and take-home share a row, so their cards end level. The hours each day take the full
-				width, which their thirty bars need, with each client's share under the chart.
-			-->
-			<div
-				class={['grid grid-cols-1 gap-4 md:gap-6', hasTakeHome && '@4xl/main:grid-cols-[3fr_2fr]']}
-			>
-				<MonthCharts chart="pace" summary={monthSummary} clients={store.data.clients} {today} />
-				<TakeHome data={store.data} summary={monthSummary} {today} />
-			</div>
-			<MonthCharts chart="daily" summary={monthSummary} clients={store.data.clients} {today} />
-		</section>
-	{/if}
-
 	{#if summary.logged > 0}
+		<StatStrip {stats} />
 		<!--
-			A ledger's double rule closes the month before the year opens, with room either side, so the
-			two sets of figures do not read as one.
+			Hours and take-home share a row, and each month's figures take the full width below. Two
+			columns only when there are earnings, as take-home shows nothing without them.
 		-->
-		<section
-			aria-labelledby="{navId}-year"
-			class="flex flex-col gap-4 border-t-[3px] border-double border-(--rule) pt-6 md:gap-6 md:pt-10"
+		<div
+			class={[
+				'grid grid-cols-1 gap-4 md:gap-6',
+				summary.earnings && '@4xl/main:grid-cols-[3fr_2fr]'
+			]}
 		>
-			<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-				<h2 id="{navId}-year" class="font-display text-2xl font-medium text-(--heading)">
-					{year === thisYear ? `${year} so far` : year}
-				</h2>
-				{@render yearNav()}
-			</div>
-			<StatStrip {stats} />
-			<!--
-				Like the month: hours and take-home share a row, and each month's figures take the full width
-				below. Two columns only when there are earnings, as take-home shows nothing without them.
-			-->
-			<div
-				class={[
-					'grid grid-cols-1 gap-4 md:gap-6',
-					summary.earnings && '@4xl/main:grid-cols-[3fr_2fr]'
-				]}
-			>
-				<YearHours {summary} {today} />
-				<YearTakeHome data={store.data} {summary} />
-			</div>
-			<YearMonths data={store.data} {summary} {today} />
-		</section>
-	{:else}
-		<div class="flex flex-col gap-4 md:gap-6">
-			{#if previousYear !== undefined || nextYear !== undefined}
-				<div class="flex">{@render yearNav()}</div>
-			{/if}
-			<YearEmpty data={store.data} {year} {today} />
+			<YearHours {summary} clients={store.data.clients} />
+			<YearTakeHome data={store.data} {summary} />
 		</div>
+		<YearMonths data={store.data} {summary} {today} />
+	{:else}
+		<YearEmpty data={store.data} {year} {today} />
 	{/if}
 </div>

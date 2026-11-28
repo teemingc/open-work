@@ -4,6 +4,7 @@ import {
 	activeClients,
 	bandsTax,
 	daysOffBudget,
+	monthPace,
 	monthProjection,
 	takeHome,
 	yearTakeHome,
@@ -1119,6 +1120,24 @@ describe('days-off budget', () => {
 		expect(
 			daysOffBudget({ data: { ...data, allowance: undefined }, year: 2026, today: '2026-10-12' })
 		).toBe(undefined);
+	});
+});
+
+describe('month pace', () => {
+	it('takes hours short as days off until the allowance runs out', () => {
+		const data: WorkLogData = {
+			...emptyWorkLog(),
+			clients: [svelte],
+			entries: [entry({ date: '2026-10-01', hours: 12 })]
+		};
+		const pace = (days: number) => {
+			const log = { ...data, allowance: { days, holidays: false } };
+			const summary = summarizeMonth({ data: log, month: '2026-10', today: '2026-10-12' });
+			return monthPace({ data: log, summary, today: '2026-10-12' });
+		};
+		// 52 hours short by the 12th is 6.5 days.
+		expect(pace(10)).toEqual({ pace: 0, daysOff: 6.5 });
+		expect(pace(2)).toEqual({ pace: -36, daysOff: 2 });
 	});
 });
 

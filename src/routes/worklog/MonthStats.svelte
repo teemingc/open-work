@@ -1,15 +1,17 @@
 <script lang="ts">
 	import StatStrip, { type Stat } from '#lib/components/StatStrip.svelte';
 	import { formatHours, formatMoney } from '#lib/format.js';
-	import { converted, type MonthSummary, type WorkLogData } from '#lib/worklog.js';
+	import { converted, monthPace, type MonthSummary, type WorkLogData } from '#lib/worklog.js';
 
 	let {
 		summary,
 		data,
+		today,
 		current
 	}: {
 		summary: MonthSummary;
 		data: WorkLogData;
+		today: string;
 		/** Whether the month is under way, so pace and "per day" mean something. */
 		current: boolean;
 	} = $props();
@@ -26,6 +28,11 @@
 		summary.expected > 0 ? Math.round((summary.logged / summary.expected) * 100) : 0
 	);
 
+	/** Hours short that days off cover are days off taken, so the pace is behind only past them. */
+	const { pace, daysOff } = $derived(monthPace({ data, summary, today }));
+	/** Days off stand in for a pace they cover in full. */
+	const off = $derived(pace === 0 && daysOff > 0);
+
 	const stats = $derived<Stat[]>([
 		{
 			label: 'Logged',
@@ -39,18 +46,24 @@
 		started
 			? {
 					label: current ? 'Pace' : 'Balance',
-					value: `${summary.pace > 0 ? '+' : ''}${formatHours(summary.pace)} h`,
-					tone: summary.pace >= 0 ? 'text-status-paid' : 'text-destructive',
+					value: off
+						? `${formatHours(daysOff)} ${daysOff === 1 ? 'day' : 'days'} off`
+						: `${pace > 0 ? '+' : ''}${formatHours(pace)} h`,
+					tone: off ? undefined : pace >= 0 ? 'text-status-paid' : 'text-destructive',
 					note: `${formatHours(summary.expectedSoFar)} h expected ${current ? 'by today' : 'this month'}`,
 					badge: {
 						text: current
-							? summary.pace >= 0
+							? pace > 0
 								? 'Ahead'
-								: 'Behind'
-							: summary.pace >= 0
+								: pace < 0
+									? 'Behind'
+									: 'On pace'
+							: pace > 0
 								? 'Over'
-								: 'Under',
-						icon: summary.pace >= 0 ? 'up' : 'down'
+								: pace < 0
+									? 'Under'
+									: 'On target',
+						icon: pace > 0 ? 'up' : pace < 0 ? 'down' : undefined
 					}
 				}
 			: {
